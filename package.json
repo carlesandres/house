@@ -45,7 +45,8 @@
 		"format:check": "oxfmt --check src/",
 		"test": "bun test",
 		"build:themes": "bun run dev/build-themes.ts",
-		"repro:pty-codeblocks": "bun run dev/repro-pty-codeblocks.ts"
+		"repro:pty-codeblocks": "bun run dev/repro-pty-codeblocks.ts",
+		"prepare": "git config core.hooksPath .githooks 2>/dev/null || true"
 	},
 	"dependencies": {
 		"@effect/atom-react": "4.0.0-beta.59",
