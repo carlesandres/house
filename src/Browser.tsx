@@ -313,7 +313,16 @@ export const Browser = ({
 				closeFilter(true)
 				return
 			}
-			if (key.name === "backspace") {
+			if (key.name === "backspace" || key.name === "delete") {
+				// Pressing backspace/delete with no query left removes the
+				// leading `/` — i.e. closes the modal. Equivalent to Esc:
+				// reverts to the pre-session query (so an applied filter
+				// survives a "I changed my mind" tap) and restores prior
+				// sidebar visibility if the user never typed anything.
+				if (filterQueryRef.current.length === 0) {
+					closeFilter(false)
+					return
+				}
 				userTypedDuringFilterRef.current = true
 				filterQueryRef.current = filterQueryRef.current.slice(0, -1)
 				setFilterQuery(filterQueryRef.current)

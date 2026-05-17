@@ -1883,7 +1883,7 @@ describe("Browser — filter modal", () => {
 		expect(frame).not.toContain("/▏")
 	})
 
-	test("backspace at empty query is a no-op (does not underflow)", async () => {
+	test("backspace at empty query closes the modal (removes the slash)", async () => {
 		const files = makeFiles(["README.md", "notes.md"])
 		await act(async () => {
 			setup = await renderBrowser(
@@ -1899,16 +1899,67 @@ describe("Browser — filter modal", () => {
 
 		await act(async () => {
 			setup!.mockInput.pressKey("/")
+		})
+		await stepFrame(setup!.renderOnce)
+		// Sanity: modal is up.
+		expect(setup!.captureCharFrame()).toContain("/▏")
+
+		await act(async () => {
+			setup!.mockInput.pressBackspace()
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		// Editing cursor gone; idle placeholder back.
+		expect(frame).not.toContain("/▏")
+		expect(frame).toContain("/ filter…")
+		// Both files still visible (no committed filter).
+		expect(frame).toContain("README.md")
+		expect(frame).toContain("notes.md")
+	})
+
+	test("backspace past empty from applied state reverts to the prior filter", async () => {
+		const files = makeFiles(["README.md", "docs/intro.md", "notes.md"])
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={files}
+					readFile={makeReader({
+						"README.md": "x",
+						"docs/intro.md": "y",
+						"notes.md": "z",
+					})}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		// Commit an applied filter "/int".
+		await act(async () => {
+			setup!.mockInput.pressKey("/")
+			setup!.mockInput.pressKey("i")
+			setup!.mockInput.pressKey("n")
+			setup!.mockInput.pressKey("t")
+			setup!.mockInput.pressEnter()
+		})
+		await stepFrame(setup!.renderOnce)
+
+		// Re-open, delete all three chars, then one more backspace closes.
+		// Esc-equivalent: revert to applied "/int", not idle.
+		await act(async () => {
+			setup!.mockInput.pressKey("/")
+			setup!.mockInput.pressBackspace()
 			setup!.mockInput.pressBackspace()
 			setup!.mockInput.pressBackspace()
 			setup!.mockInput.pressBackspace()
 		})
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
-		// Filter still open, still empty, both files still visible.
-		expect(frame).toContain("/▏")
-		expect(frame).toContain("README.md")
-		expect(frame).toContain("notes.md")
+		expect(frame).not.toContain("/▏")
+		expect(frame).toContain("/int ")
+		// Applied filter still narrows the list.
+		expect(frame).not.toContain("README.md")
+		expect(frame).not.toContain("notes.md")
 	})
 
 	test("return with zero matches closes the filter, keeps focus in sidebar", async () => {

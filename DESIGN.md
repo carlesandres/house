@@ -174,6 +174,8 @@ the filtered set). `Esc` reverts the query to its value at the start of
 the edit session, so re-opening the filter from applied state and
 cancelling restores the prior filter instead of dropping it. `Return`
 on a zero-match list is treated as `Esc` to avoid stranding the user.
+`Backspace`/`Delete` while the query is empty closes the modal — the
+slash *is* the prompt, so deleting it dismisses the prompt.
 Pattern adapted from ghui's PR list (a filter row that lives inside the
 list it filters), not from hunk's StatusBar.
 
