@@ -11,6 +11,10 @@
  * were discovered. Intentional — `q:quit` and `?:help` are exactly what an
  * empty-vault user needs as an exit and discoverability anchor.
  *
+ * The filter input does not live here — it renders as a row inside the
+ * sidebar (see Browser.tsx). The pattern mirrors ghui's PR list, where the
+ * filter is part of the list it filters.
+ *
  * Width math assumes hint labels are ASCII plus a small set of single-cell
  * BMP glyphs (see `displayKey`). `fitHints` and notice clipping use string
  * length as a proxy for cell count; introducing a CJK or emoji label would
@@ -29,10 +33,6 @@ export interface FooterProps<C> {
 	readonly ctx: C
 	readonly width: number
 	readonly notice?: string | null
-	/** When set, the footer row turns into the filter input — `/<query>▏` —
-	 *  and suppresses both the hint row and the notice. Mirrors hunk's
-	 *  StatusBar: one row of chrome, content swaps by state. */
-	readonly filter?: { readonly query: string } | null
 }
 
 const HINT_SEPARATOR = "  "
@@ -88,13 +88,7 @@ const fitHints = (hints: readonly string[], width: number): string => {
 	return firstKey.slice(0, width)
 }
 
-/** Hints shown alongside the filter input. Mirrors the modal-mode key
- *  handler in `Browser.tsx`; if those bindings change, update both. */
-const FILTER_HINTS = "↵:open  esc:cancel"
-/** Minimum gap between the filter input and its hints on the same row. */
-const FILTER_HINT_GAP = 2
-
-export const Footer = <C,>({ bindings, ctx, width, notice, filter }: FooterProps<C>) => {
+export const Footer = <C,>({ bindings, ctx, width, notice }: FooterProps<C>) => {
 	const usableWidth = Math.max(0, width - 2) // 1-cell horizontal padding each side
 
 	const rowStyle = {
@@ -106,25 +100,6 @@ export const Footer = <C,>({ bindings, ctx, width, notice, filter }: FooterProps
 		paddingRight: 1,
 		backgroundColor: colors.background,
 	} as const
-
-	// Filter mode is two-column: input left, hints right, separated by a
-	// flex-grow spacer. Hints drop entirely on narrow viewports rather than
-	// pushing the input off-screen — the input is the primary surface.
-	if (filter) {
-		const input = `/${filter.query}▏`
-		const showHints = input.length + FILTER_HINT_GAP + FILTER_HINTS.length <= usableWidth
-		return (
-			<box style={rowStyle}>
-				<text content={input} wrapMode="none" style={{ fg: colors.textStrong }} />
-				{showHints && (
-					<>
-						<box style={{ flexGrow: 1 }} />
-						<text content={FILTER_HINTS} wrapMode="none" style={{ fg: colors.textMuted }} />
-					</>
-				)}
-			</box>
-		)
-	}
 
 	const hints: string[] = []
 	for (const b of bindings) {

@@ -1098,7 +1098,8 @@ describe("Browser — theme cycling", () => {
 describe("Browser — sidebar virtualization", () => {
 	// Viewport chosen to force a visible window strictly smaller than the
 	// file list: height 10 → sidebarBodyHeight = 10 - 2 (borders) - 1 (footer)
-	// = 7 rows. With 20 files, scrolling is mandatory to see the tail.
+	// - 1 (filter row) = 6 rows. With 20 files, scrolling is mandatory to
+	// see the tail.
 	const TIGHT_VIEWPORT = { width: 60, height: 10 }
 	const TWENTY_FILES = makeFiles(Array.from({ length: 20 }, (_, i) => `f${String(i).padStart(2, "0")}.md`))
 	const TWENTY_READER = makeReader(
@@ -1115,9 +1116,9 @@ describe("Browser — sidebar virtualization", () => {
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
 		expect(frame).toContain("f00.md")
-		expect(frame).toContain("f06.md")
-		// Beyond the 7-row body, files are scrolled out.
-		expect(frame).not.toContain("f07.md")
+		expect(frame).toContain("f05.md")
+		// Beyond the 6-row body, files are scrolled out.
+		expect(frame).not.toContain("f06.md")
 		expect(frame).not.toContain("f19.md")
 	})
 
@@ -1135,10 +1136,10 @@ describe("Browser — sidebar virtualization", () => {
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
 		expect(frame).toContain("f19.md")
-		expect(frame).toContain("f13.md")
+		expect(frame).toContain("f14.md")
 		// First files have scrolled off.
 		expect(frame).not.toContain("f00.md")
-		expect(frame).not.toContain("f12.md")
+		expect(frame).not.toContain("f13.md")
 	})
 
 	test("shift+G then g returns to the top window", async () => {
@@ -1159,7 +1160,8 @@ describe("Browser — sidebar virtualization", () => {
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
 		expect(frame).toContain("f00.md")
-		expect(frame).toContain("f06.md")
+		expect(frame).toContain("f05.md")
+		expect(frame).not.toContain("f06.md")
 		expect(frame).not.toContain("f19.md")
 	})
 
@@ -1171,14 +1173,14 @@ describe("Browser — sidebar virtualization", () => {
 			)
 		})
 		await stepFrame(setup!.renderOnce)
-		// Press j 7 times: selectedIndex goes 0→7. Window was [0..6]; now must
-		// shift down to keep index 7 in view → window becomes [1..7].
+		// Press j 6 times: selectedIndex goes 0→6. Window was [0..5]; now must
+		// shift down to keep index 6 in view → window becomes [1..6].
 		await act(async () => {
-			for (let i = 0; i < 7; i++) setup!.mockInput.pressKey("j")
+			for (let i = 0; i < 6; i++) setup!.mockInput.pressKey("j")
 		})
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
-		expect(frame).toContain("f07.md")
+		expect(frame).toContain("f06.md")
 		expect(frame).toContain("f01.md")
 		// The original top row has scrolled off.
 		expect(frame).not.toContain("f00.md")
@@ -1220,6 +1222,185 @@ describe("Browser — sidebar virtualization", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		expect(readerTitleContains(setup!.captureCharFrame(), "f03.md")).toBe(true)
+	})
+})
+
+describe("Browser — sidebar filter row", () => {
+	test("idle state shows '/ filter…' placeholder when no query is set", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={makeFiles(["a.md", "b.md"])}
+					readFile={makeReader({ "a.md": "x", "b.md": "y" })}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		// Placeholder visible, modal is not open (no cursor).
+		expect(frame).toContain("/ filter…")
+		expect(frame).not.toContain("/▏")
+	})
+
+	test("filter row is suppressed on an empty vault (no '/ filter…')", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser files={[]} readFile={makeReader({})} onQuit={() => {}} />,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("no markdown files")
+		expect(frame).not.toContain("/ filter…")
+	})
+
+	test("editing state shows the live query with a cursor", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={makeFiles(["README.md", "notes.md"])}
+					readFile={makeReader({ "README.md": "x", "notes.md": "y" })}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		await act(async () => {
+			setup!.mockInput.pressKey("/")
+			setup!.mockInput.pressKey("r")
+			setup!.mockInput.pressKey("e")
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("/re▏")
+		// Placeholder gone while editing.
+		expect(frame).not.toContain("/ filter…")
+	})
+
+	test("applied state persists query after Return; no cursor visible", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={makeFiles(["README.md", "docs/intro.md", "notes.md"])}
+					readFile={makeReader({
+						"README.md": "x",
+						"docs/intro.md": "y",
+						"notes.md": "z",
+					})}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		await act(async () => {
+			setup!.mockInput.pressKey("/")
+			setup!.mockInput.pressKey("i")
+			setup!.mockInput.pressKey("n")
+			setup!.mockInput.pressKey("t")
+		})
+		await stepFrame(setup!.renderOnce)
+		await act(async () => {
+			setup!.mockInput.pressEnter()
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		// Applied: prefix + query, no cursor.
+		expect(frame).toContain("/int")
+		expect(frame).not.toContain("/int▏")
+		// Filtered list stays narrowed — non-matching files remain hidden.
+		expect(frame).not.toContain("README.md")
+		expect(frame).not.toContain("notes.md")
+		// Reader has focus on the picked file.
+		expect(readerTitleContains(frame, "docs/intro.md")).toBe(true)
+	})
+
+	test("re-opening / from applied state re-enters editing with the prior query intact", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={makeFiles(["README.md", "docs/intro.md", "notes.md"])}
+					readFile={makeReader({
+						"README.md": "x",
+						"docs/intro.md": "y",
+						"notes.md": "z",
+					})}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		await act(async () => {
+			setup!.mockInput.pressKey("/")
+			setup!.mockInput.pressKey("i")
+			setup!.mockInput.pressKey("n")
+			setup!.mockInput.pressKey("t")
+			setup!.mockInput.pressEnter()
+		})
+		await stepFrame(setup!.renderOnce)
+		// Re-open from applied. Focus is on the reader after commit; `/`
+		// auto-opens the filter regardless.
+		await act(async () => {
+			setup!.mockInput.pressKey("/")
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		// Query carried into editing state with cursor.
+		expect(frame).toContain("/int▏")
+	})
+
+	test("Esc reverts to the prior query (applied state survives a cancelled edit)", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={makeFiles(["README.md", "docs/intro.md", "notes.md"])}
+					readFile={makeReader({
+						"README.md": "x",
+						"docs/intro.md": "y",
+						"notes.md": "z",
+					})}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		// Commit "int" so we have an applied filter to revert to.
+		await act(async () => {
+			setup!.mockInput.pressKey("/")
+			setup!.mockInput.pressKey("i")
+			setup!.mockInput.pressKey("n")
+			setup!.mockInput.pressKey("t")
+			setup!.mockInput.pressEnter()
+		})
+		await stepFrame(setup!.renderOnce)
+		// Re-open, type more, then Esc.
+		await act(async () => {
+			setup!.mockInput.pressKey("/")
+			setup!.mockInput.pressKey("r")
+			setup!.mockInput.pressKey("o")
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).toContain("/intro▏")
+
+		await act(async () => {
+			setup!.mockInput.pressEscape()
+			await new Promise<void>((resolve) => setTimeout(resolve, 60))
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		// Reverted to applied "/int", not cleared. Match with trailing space to
+		// avoid colliding with the "docs/intro.md" file row underneath.
+		expect(frame).toContain("/int ")
+		expect(frame).not.toContain("/intro ")
+		expect(frame).not.toContain("/▏")
+		// Filtered list still narrowed.
+		expect(frame).not.toContain("README.md")
 	})
 })
 
