@@ -83,6 +83,15 @@ export const Browser = ({
 	// otherwise still observe filterOpen=false through closure).
 	const filterOpenRef = useRef(false)
 	const filterQueryRef = useRef("")
+	// State captured when the filter opens, used to undo the session on Esc
+	// (restore prior query) and to restore the prior layout if the user
+	// cancelled without typing anything. `userTyped` flips true on the
+	// first character or backspace inside the modal; once true, closing
+	// the filter leaves the sidebar visible (committing to filter implies
+	// wanting to see what you filtered).
+	const priorSidebarVisibleRef = useRef(true)
+	const priorFilterQueryRef = useRef("")
+	const userTypedDuringFilterRef = useRef(false)
 	const [footerNotice, setFooterNotice] = useState<string | null>(null)
 	const serverRef = useRef<ServerHandle | null>(null)
 
@@ -189,6 +198,17 @@ export const Browser = ({
 		setSidebarVisible,
 		setHelpVisible,
 		openFilter: () => {
+			// Auto-open the sidebar and focus it so the filter input has a
+			// natural home regardless of where the user pressed `/`. The
+			// prior visibility is restored on Esc-with-no-typing; see the
+			// closeFilter branch in the keyboard handler.
+			// TODO(#22): replace direct setSidebarVisible with a
+			// resolveLayout.ensureSidebarVisible() intent once #22 lands.
+			priorSidebarVisibleRef.current = sidebarVisible
+			priorFilterQueryRef.current = filterQueryRef.current
+			userTypedDuringFilterRef.current = false
+			if (!sidebarVisible) setSidebarVisible(true)
+			if (focus !== "sidebar") setFocus("sidebar")
 			filterOpenRef.current = true
 			setFilterOpen(true)
 		},
@@ -249,17 +269,41 @@ export const Browser = ({
 			//
 			// Centralized so the dual filterOpenRef / filterOpen invariant
 			// only has to be maintained in one place (plus `openFilter`).
-			const closeFilter = (focusReader: boolean) => {
+			const closeFilter = (commit: boolean) => {
 				const picked = displayedFiles[selectedIndex] ?? null
+				// Return on a zero-match list has nothing to commit. Treat it
+				// as Esc so the user isn't stranded in an "applied filter with
+				// no visible files" state they'd have to back out of manually.
+				const effectiveCommit = commit && picked !== null
+				const cancelledWithoutTyping = !effectiveCommit && !userTypedDuringFilterRef.current
 				filterOpenRef.current = false
-				filterQueryRef.current = ""
 				setFilterOpen(false)
-				setFilterQuery("")
-				if (picked) {
-					const fullIdx = files.findIndex((f) => f.path === picked.path)
-					if (fullIdx >= 0) setSelectedIndex(() => fullIdx)
+				if (effectiveCommit) {
+					// Return keeps the query. selectedIndex is already a valid
+					// position in the (still-filtered) displayedFiles list, so
+					// no translation is needed.
+					if (picked) setFocus("reader")
+				} else {
+					// Esc reverts the query to its pre-session value. After the
+					// revert, displayedFiles may change shape — translate the
+					// cursor by path so it stays on whatever the user was
+					// looking at, instead of snapping to a numerically-equivalent
+					// row in the restored list.
+					const before = priorFilterQueryRef.current
+					filterQueryRef.current = before
+					setFilterQuery(before)
+					if (picked) {
+						const restored = before === "" ? files : filterFiles(files, before)
+						const idx = restored.findIndex((f) => f.path === picked.path)
+						if (idx >= 0) setSelectedIndex(() => idx)
+					}
 				}
-				if (focusReader && picked) setFocus("reader")
+				// Esc with no user input restores the prior sidebar visibility —
+				// the modal was a no-op, so the layout should be too.
+				if (cancelledWithoutTyping && !priorSidebarVisibleRef.current) {
+					setSidebarVisible(false)
+					setFocus("reader")
+				}
 			}
 			if (key.name === "escape") {
 				closeFilter(false)
@@ -269,7 +313,17 @@ export const Browser = ({
 				closeFilter(true)
 				return
 			}
-			if (key.name === "backspace") {
+			if (key.name === "backspace" || key.name === "delete") {
+				// Pressing backspace/delete with no query left removes the
+				// leading `/` — i.e. closes the modal. Equivalent to Esc:
+				// reverts to the pre-session query (so an applied filter
+				// survives a "I changed my mind" tap) and restores prior
+				// sidebar visibility if the user never typed anything.
+				if (filterQueryRef.current.length === 0) {
+					closeFilter(false)
+					return
+				}
+				userTypedDuringFilterRef.current = true
 				filterQueryRef.current = filterQueryRef.current.slice(0, -1)
 				setFilterQuery(filterQueryRef.current)
 				setSelectedIndex(() => 0)
@@ -290,6 +344,7 @@ export const Browser = ({
 				char = key.shift ? key.name.toUpperCase() : key.name
 			}
 			if (char !== null) {
+				userTypedDuringFilterRef.current = true
 				filterQueryRef.current = filterQueryRef.current + char
 				setFilterQuery(filterQueryRef.current)
 				setSelectedIndex(() => 0)
@@ -335,8 +390,10 @@ export const Browser = ({
 	// every keystroke re-renders all N file rows even though only the bg of
 	// two of them changed (old + new selected). On a 195-file vault that
 	// dominates the per-keystroke cost.
-	// Sidebar box adds top/bottom borders (2); footer eats FOOTER_HEIGHT.
-	const sidebarBodyHeight = Math.max(1, height - 2 - FOOTER_HEIGHT)
+	// Sidebar box adds top/bottom borders (2); footer eats FOOTER_HEIGHT;
+	// the filter row eats one more cell when files are present.
+	const filterRowVisible = files.length > 0
+	const sidebarBodyHeight = Math.max(1, height - 2 - FOOTER_HEIGHT - (filterRowVisible ? 1 : 0))
 	const maxScroll = Math.max(0, displayedFiles.length - sidebarBodyHeight)
 	const desiredScroll = (() => {
 		let s = sidebarScroll
@@ -357,6 +414,30 @@ export const Browser = ({
 			s.length <= sidebarTextWidth ? s : "…" + s.slice(s.length - sidebarTextWidth + 1),
 		[sidebarTextWidth],
 	)
+
+	// Filter row content + color. Three reachable states:
+	//   editing  — filterOpen=true              → /<query>▏  in textStrong
+	//   applied  — !filterOpen && query !== ""  → /<query>   in text
+	//   idle     — !filterOpen && query === ""  → "/ filter…" in textMuted
+	const filterRowFg = filterOpen
+		? colors.textStrong
+		: filterQuery.length > 0
+			? colors.text
+			: colors.textMuted
+	const filterRowRaw = filterOpen
+		? `/${filterQuery}▏`
+		: filterQuery.length > 0
+			? `/${filterQuery}`
+			: "/ filter…"
+	// Editing keeps the cursor visible — anchor the right edge with a leading
+	// ellipsis when the query overflows. Applied/idle anchor the left edge
+	// (lose the tail) so the leading `/` always reads as a filter marker.
+	const filterRowContent =
+		filterRowRaw.length <= sidebarTextWidth
+			? filterRowRaw
+			: filterOpen
+				? "…" + filterRowRaw.slice(filterRowRaw.length - sidebarTextWidth + 1)
+				: filterRowRaw.slice(0, sidebarTextWidth - 1) + "…"
 
 	// While help is open, the `?` key closes the overlay — relabel its hint
 	// so the footer accurately describes what pressing the key will do.
@@ -395,6 +476,9 @@ export const Browser = ({
 							backgroundColor: colors.surface,
 						}}
 					>
+						{filterRowVisible && (
+							<text content={filterRowContent} wrapMode="none" style={{ fg: filterRowFg }} />
+						)}
 						{displayedFiles.length === 0 ? (
 							<text
 								content={files.length === 0 ? "(no markdown files)" : "(no matches)"}
@@ -466,13 +550,7 @@ export const Browser = ({
 					)}
 				</box>
 			</box>
-			<Footer
-				bindings={footerBindings}
-				ctx={ctx}
-				width={width}
-				notice={footerNotice}
-				filter={filterOpen ? { query: filterQuery } : null}
-			/>
+			<Footer bindings={footerBindings} ctx={ctx} width={width} notice={footerNotice} />
 			{helpVisible && (
 				<HelpOverlay bindings={browserBindings} viewportWidth={width} viewportHeight={height} />
 			)}

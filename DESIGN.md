@@ -165,6 +165,20 @@ arrow-key siblings) rather than glow.
 | `?` | Help overlay |
 | `q`, `ctrl+c` | Quit |
 
+The filter is a modal-edit input rendered as a row inside the sidebar
+(above the file list, suppressed on an empty vault). Three reachable
+states: **idle** (`/ filter…` placeholder), **editing** (`/<query>▏`
+while the modal is open), and **applied** (`/<query>` after `Return`
+commits; the list stays narrowed and Reader navigation keys operate on
+the filtered set). `Esc` reverts the query to its value at the start of
+the edit session, so re-opening the filter from applied state and
+cancelling restores the prior filter instead of dropping it. `Return`
+on a zero-match list is treated as `Esc` to avoid stranding the user.
+`Backspace`/`Delete` while the query is empty closes the modal — the
+slash *is* the prompt, so deleting it dismisses the prompt.
+Pattern adapted from ghui's PR list (a filter row that lives inside the
+list it filters), not from hunk's StatusBar.
+
 ### 7.3 Reserved keys (future)
 
 Do not bind these in v1:
