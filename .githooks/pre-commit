@@ -1,0 +1,22 @@
+#!/bin/sh
+# Versioned pre-commit hook. Activated by `bun install` (see the `prepare`
+# script in package.json), which runs `git config core.hooksPath .githooks`.
+#
+# Checks here mirror the cheap half of CI (.github/workflows/ci.yml):
+# - format (oxfmt --check)  — fast (~500ms), catches the failure mode that
+#                             motivated this hook.
+# - lint   (oxlint)          — fast (~100ms), same gate as CI.
+#
+# Deliberately omitted: typecheck and tests. They run in CI and pre-push
+# would be a better home if we ever add them — pre-commit needs to stay
+# fast enough that you don't reach for `--no-verify` out of frustration.
+set -e
+
+branch="$(git rev-parse --abbrev-ref HEAD)"
+if [ "$branch" = "main" ]; then
+  echo "Direct commits to main are not allowed."
+  exit 1
+fi
+
+bun run format:check
+bun run lint
