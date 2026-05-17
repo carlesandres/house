@@ -37,7 +37,7 @@ const stepBy = (c: BrowserCtx, delta: number) =>
 	c.setSelectedIndex((i) => clamp(i + delta, 0, lastIndex(c)))
 
 const inSidebar = (c: BrowserCtx) => c.focus === "sidebar"
-const inSidebarFilterClosed = (c: BrowserCtx) => inSidebar(c) && !c.filterOpen
+const filterClosed = (c: BrowserCtx) => !c.filterOpen
 const inReader = (c: BrowserCtx) => c.focus === "reader"
 const inSidebarWithFiles = (c: BrowserCtx) => inSidebar(c) && haveFiles(c)
 const inReaderWithFiles = (c: BrowserCtx) => inReader(c) && haveFiles(c)
@@ -88,7 +88,10 @@ export const browserBindings: readonly KeyBinding<BrowserCtx>[] = [
 		description: "Filter files (fuzzy match on path)",
 		hint: "filter",
 		keys: ["/"],
-		when: inSidebarFilterClosed,
+		// Fires from anywhere except inside an already-open filter. `openFilter`
+		// itself force-opens the sidebar and moves focus there, so the binding
+		// no longer needs to gate on focus or sidebar visibility.
+		when: filterClosed,
 		run: (c) => c.openFilter(),
 	},
 	{

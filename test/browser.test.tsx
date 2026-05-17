@@ -1540,7 +1540,7 @@ describe("Browser — filter modal", () => {
 		expect(readerTitleContains(setup!.captureCharFrame(), "docs/a.md")).toBe(true)
 	})
 
-	test("/ does nothing while the reader is focused", async () => {
+	test("/ from reader focus auto-opens the filter and moves focus to the sidebar", async () => {
 		const files = makeFiles(["README.md", "notes.md"])
 		await act(async () => {
 			setup = await renderBrowser(
@@ -1554,7 +1554,6 @@ describe("Browser — filter modal", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 
-		// Move focus to reader, then try /.
 		await act(async () => {
 			setup!.mockInput.pressTab()
 		})
@@ -1564,14 +1563,80 @@ describe("Browser — filter modal", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
-		// No filter input.
-		expect(frame).not.toContain("/▏")
-		// Reader still focused.
-		expect(readerTitleContains(frame, "README.md")).toBe(true)
-		expect(frame).not.toContain("▸ files")
+		// Filter input is up.
+		expect(frame).toContain("/▏")
+		// Sidebar is focused (the modal needs a home).
+		expect(frame).toContain("▸ files")
 	})
 
-	test("/ does nothing while the sidebar is hidden", async () => {
+	test("/ from hidden sidebar auto-opens the sidebar and focuses the filter", async () => {
+		const files = makeFiles(["README.md", "notes.md"])
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={files}
+					readFile={makeReader({ "README.md": "x", "notes.md": "y" })}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		// Hide sidebar.
+		await act(async () => {
+			setup!.mockInput.pressKey("s")
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).not.toContain("files")
+
+		// `/` should bring the sidebar back with the filter open.
+		await act(async () => {
+			setup!.mockInput.pressKey("/")
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("/▏")
+		expect(frame).toContain("▸ files")
+	})
+
+	test("Esc with no typing restores prior sidebar visibility", async () => {
+		const files = makeFiles(["README.md", "notes.md"])
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={files}
+					readFile={makeReader({ "README.md": "x", "notes.md": "y" })}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		// Hide → open filter (auto-reveals) → Esc with no input → sidebar hidden again.
+		await act(async () => {
+			setup!.mockInput.pressKey("s")
+		})
+		await stepFrame(setup!.renderOnce)
+		await act(async () => {
+			setup!.mockInput.pressKey("/")
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).toContain("/▏")
+
+		await act(async () => {
+			setup!.mockInput.pressEscape()
+			await new Promise<void>((resolve) => setTimeout(resolve, 60))
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(frame).not.toContain("/▏")
+		// Restored to hidden.
+		expect(frame).not.toContain("files")
+	})
+
+	test("Esc after typing leaves the sidebar open even if it was hidden before", async () => {
 		const files = makeFiles(["README.md", "notes.md"])
 		await act(async () => {
 			setup = await renderBrowser(
@@ -1591,11 +1656,19 @@ describe("Browser — filter modal", () => {
 		await stepFrame(setup!.renderOnce)
 		await act(async () => {
 			setup!.mockInput.pressKey("/")
+			setup!.mockInput.pressKey("r")
+		})
+		await stepFrame(setup!.renderOnce)
+
+		await act(async () => {
+			setup!.mockInput.pressEscape()
+			await new Promise<void>((resolve) => setTimeout(resolve, 60))
 		})
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
-		expect(frame).not.toContain("/▏")
-		expect(frame).not.toContain("files")
+		// Filter closed but sidebar stays — user committed to filtering.
+		expect(frame).not.toContain("/r▏")
+		expect(frame).toContain("files")
 	})
 
 	test("/ does nothing while the help overlay is open", async () => {

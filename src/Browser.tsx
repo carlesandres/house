@@ -83,6 +83,13 @@ export const Browser = ({
 	// otherwise still observe filterOpen=false through closure).
 	const filterOpenRef = useRef(false)
 	const filterQueryRef = useRef("")
+	// State captured when the filter opens, used to restore the prior layout
+	// if the user cancels (Esc) without typing anything. `userTyped` flips
+	// true on the first character or backspace inside the modal; once true,
+	// closing the filter leaves the sidebar visible (committing to filter
+	// implies wanting to see what you filtered).
+	const priorSidebarVisibleRef = useRef(true)
+	const userTypedDuringFilterRef = useRef(false)
 	const [footerNotice, setFooterNotice] = useState<string | null>(null)
 	const serverRef = useRef<ServerHandle | null>(null)
 
@@ -189,6 +196,16 @@ export const Browser = ({
 		setSidebarVisible,
 		setHelpVisible,
 		openFilter: () => {
+			// Auto-open the sidebar and focus it so the filter input has a
+			// natural home regardless of where the user pressed `/`. The
+			// prior visibility is restored on Esc-with-no-typing; see the
+			// closeFilter branch in the keyboard handler.
+			// TODO(#22): replace direct setSidebarVisible with a
+			// resolveLayout.ensureSidebarVisible() intent once #22 lands.
+			priorSidebarVisibleRef.current = sidebarVisible
+			userTypedDuringFilterRef.current = false
+			if (!sidebarVisible) setSidebarVisible(true)
+			if (focus !== "sidebar") setFocus("sidebar")
 			filterOpenRef.current = true
 			setFilterOpen(true)
 		},
@@ -251,6 +268,7 @@ export const Browser = ({
 			// only has to be maintained in one place (plus `openFilter`).
 			const closeFilter = (focusReader: boolean) => {
 				const picked = displayedFiles[selectedIndex] ?? null
+				const cancelledWithoutTyping = !focusReader && !userTypedDuringFilterRef.current
 				filterOpenRef.current = false
 				filterQueryRef.current = ""
 				setFilterOpen(false)
@@ -258,6 +276,14 @@ export const Browser = ({
 				if (picked) {
 					const fullIdx = files.findIndex((f) => f.path === picked.path)
 					if (fullIdx >= 0) setSelectedIndex(() => fullIdx)
+				}
+				// Esc with no user input restores the prior sidebar visibility —
+				// the modal was a no-op, so the layout should be too. Return or
+				// any-typing Esc leaves the sidebar open (user committed to a
+				// filter session; they likely want to see the results).
+				if (cancelledWithoutTyping && !priorSidebarVisibleRef.current) {
+					setSidebarVisible(false)
+					setFocus("reader")
 				}
 				if (focusReader && picked) setFocus("reader")
 			}
@@ -270,6 +296,7 @@ export const Browser = ({
 				return
 			}
 			if (key.name === "backspace") {
+				userTypedDuringFilterRef.current = true
 				filterQueryRef.current = filterQueryRef.current.slice(0, -1)
 				setFilterQuery(filterQueryRef.current)
 				setSelectedIndex(() => 0)
@@ -290,6 +317,7 @@ export const Browser = ({
 				char = key.shift ? key.name.toUpperCase() : key.name
 			}
 			if (char !== null) {
+				userTypedDuringFilterRef.current = true
 				filterQueryRef.current = filterQueryRef.current + char
 				setFilterQuery(filterQueryRef.current)
 				setSelectedIndex(() => 0)
