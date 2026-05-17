@@ -133,11 +133,7 @@ export interface LoadOptions {
 }
 
 export const defaultConfigPath = (): string =>
-	join(
-		process.env["XDG_CONFIG_HOME"] ?? join(homedir(), ".config"),
-		"house",
-		"config.toml",
-	)
+	join(process.env["XDG_CONFIG_HOME"] ?? join(homedir(), ".config"), "house", "config.toml")
 
 /**
  * Renders a `ConfigError` (or any error) as a short single-line message
@@ -148,13 +144,18 @@ export const formatConfigError = (err: unknown): string => {
 	if (err instanceof Config.ConfigError) {
 		const cause = err.cause
 		const raw = "message" in cause ? cause.message : String(cause)
-		return raw.replace(/\s+at \[[^\]]+\]\s*$/, "").replace(/\s+/g, " ").trim()
+		return raw
+			.replace(/\s+at \[[^\]]+\]\s*$/, "")
+			.replace(/\s+/g, " ")
+			.trim()
 	}
 	if (err instanceof Error) return err.message
 	return String(err)
 }
 
-export const loadConfig = (options: LoadOptions = {}): Effect.Effect<HouseConfig, Config.ConfigError> => {
+export const loadConfig = (
+	options: LoadOptions = {},
+): Effect.Effect<HouseConfig, Config.ConfigError> => {
 	const cli = options.cli ?? { theme: null, tone: null }
 	const provider = cliProvider(cli).pipe(
 		ConfigProvider.orElse(envProvider(options.env ?? process.env)),
