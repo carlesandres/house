@@ -27,7 +27,10 @@ Glossary terms (e.g. `beta`) live in `CONTEXT.md`.
 
 | Item | Issue |
 |---|---|
+| **Discovery blocks UI on large trees — walk should stream** (top priority) | [#77](https://github.com/carlesandres/house/issues/77) |
 | Theme cycling while help overlay is open | [#15](https://github.com/carlesandres/house/issues/15) (fixed in `bbd3e29`, verify and close) |
+| Relative assets (images, etc.) don't load in browser preview | [#75](https://github.com/carlesandres/house/issues/75) |
+| Pane focus and selected sidebar row are hard to distinguish in many themes | [#71](https://github.com/carlesandres/house/issues/71) |
 
 ## File-level interactions
 
@@ -43,10 +46,12 @@ Glossary terms (e.g. `beta`) live in `CONTEXT.md`.
 
 | Item | Issue |
 |---|---|
+| Command palette (search + run commands; prereq for palette-based theme save) | [#70](https://github.com/carlesandres/house/issues/70) |
 | Search — filename, full-text, fuzzy | [#25](https://github.com/carlesandres/house/issues/25) |
 | Navigation history stack (back/forward) ★ | [#29](https://github.com/carlesandres/house/issues/29) |
 | Heading jump / in-document TOC panel ★ | [#30](https://github.com/carlesandres/house/issues/30) |
 | Per-file bookmarks ★ (depends on #13) | [#33](https://github.com/carlesandres/house/issues/33) |
+| Sidebar: runtime toggle + config option for hidden/gitignored files | [#69](https://github.com/carlesandres/house/issues/69) |
 
 ## Networking
 
@@ -59,6 +64,7 @@ Glossary terms (e.g. `beta`) live in `CONTEXT.md`.
 | Item | Issue |
 |---|---|
 | Line numbers toggle | [#28](https://github.com/carlesandres/house/issues/28) |
+| Codeblock syntax highlighting (design complete; implementation deferred) | [#72](https://github.com/carlesandres/house/issues/72) |
 | Inline images (iTerm2 / Kitty / Sixel) ★ | [#31](https://github.com/carlesandres/house/issues/31) |
 | OSC 8 hyperlinks for markdown links ★ | [#32](https://github.com/carlesandres/house/issues/32) |
 
@@ -74,12 +80,21 @@ Glossary terms (e.g. `beta`) live in `CONTEXT.md`.
 | Item | Issue |
 |---|---|
 | Theming v2 — user stylesheets, named theme sets | [#34](https://github.com/carlesandres/house/issues/34) |
+| Persist active theme to project or global config (depends on #70 for palette commands) | [#73](https://github.com/carlesandres/house/issues/73) |
 | Extract reusable keymap package (`@ghui/keymap` style) | [#35](https://github.com/carlesandres/house/issues/35) |
+
+## Config
+
+| Item | Issue |
+|---|---|
+| Expand file-settable options (`width`, `sort`, `all`, `port`, `sidebarWidth`) | [#63](https://github.com/carlesandres/house/issues/63) |
+| Discovery traversal cap (`--max-files`, max depth) — follow-up to #77 | [#80](https://github.com/carlesandres/house/issues/80) |
+| Investigate third-party walker for discovery — follow-up to #77 | [#81](https://github.com/carlesandres/house/issues/81) |
 
 ## Unscoped — needs design pass before filing
 
 - **Custom per-file actions** — `DESIGN.md §5.3`. Mechanism (config-driven? plugin?) unclear.
-- **Mouse polish** — `DESIGN.md §5.3`. No concrete deficiency list yet; revisit once layout v2 (#22) lands.
+- **Mouse polish** — `DESIGN.md §5.3`. Partially concrete: mouse on sidebar filter row tracked in [#67](https://github.com/carlesandres/house/issues/67); revisit broader scope once layout v2 (#22) lands.
 
 ## Featured plan: responsive auto-layout v2 (#22)
 
