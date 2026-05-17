@@ -12,6 +12,7 @@ const empty: ParsedArgs = {
 	port: null,
 	help: false,
 	version: false,
+	configPath: false,
 }
 const args = (overrides: Partial<ParsedArgs>): ParsedArgs => ({ ...empty, ...overrides })
 
@@ -65,6 +66,9 @@ describe("parseArgv — boolean flags", () => {
 	test("--version and -v are parsed as version", () => {
 		expect(parseArgv(["--version"])).toEqual(args({ version: true }))
 		expect(parseArgv(["-v"])).toEqual(args({ version: true }))
+	})
+	test("--config-path is parsed as boolean", () => {
+		expect(parseArgv(["--config-path"])).toEqual(args({ configPath: true }))
 	})
 })
 

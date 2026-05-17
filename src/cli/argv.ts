@@ -21,6 +21,8 @@ export interface ParsedArgs {
 	readonly help: boolean
 	/** True when `--version` was passed. */
 	readonly version: boolean
+	/** True when `--config-path` was passed: print resolved config path and exit. */
+	readonly configPath: boolean
 }
 
 /**
@@ -41,6 +43,7 @@ export const parseArgv = (argv: readonly string[]): ParsedArgs => {
 	let port: string | null = null
 	let help = false
 	let version = false
+	let configPath = false
 
 	for (let i = 0; i < argv.length; i++) {
 		const arg = argv[i]!
@@ -79,13 +82,16 @@ export const parseArgv = (argv: readonly string[]): ParsedArgs => {
 			case "-v":
 				version = true
 				continue
+			case "--config-path":
+				configPath = true
+				continue
 		}
 		if (path === null && !arg.startsWith("-")) {
 			path = arg
 		}
 	}
 
-	return { path, theme, tone, width, all, sort, serve, port, help, version }
+	return { path, theme, tone, width, all, sort, serve, port, help, version, configPath }
 }
 
 const themeList = themeDefinitions.map((t) => t.id).join(", ")
@@ -103,4 +109,11 @@ options:
   --serve        serve the given file as HTML in the browser (skips TUI)
   --port <N>     port for --serve (default: OS-assigned)
   -h, --help     show this help and exit
-  -v, --version  print version and exit`
+  -v, --version  print version and exit
+  --config-path  print path to the config file and exit
+
+configuration:
+  file: $XDG_CONFIG_HOME/house/config.toml  (default ~/.config/house/config.toml)
+  keys: theme, tone
+  env:  HOUSE_THEME, HOUSE_TONE
+  precedence (high → low): flags → env → file → defaults`
