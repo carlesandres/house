@@ -1090,6 +1090,139 @@ describe("Browser — theme cycling", () => {
 	})
 })
 
+// These tests pin down the current behaviour of the sidebar's virtualization
+// math (scroll-clamp, visible window, selection-follows-scroll). They exist as
+// a safety net for upcoming changes that perturb sidebarBodyHeight — most
+// notably moving the filter input into the sidebar, which reserves one row
+// above the file list and shrinks the body by one cell.
+describe("Browser — sidebar virtualization", () => {
+	// Viewport chosen to force a visible window strictly smaller than the
+	// file list: height 10 → sidebarBodyHeight = 10 - 2 (borders) - 1 (footer)
+	// = 7 rows. With 20 files, scrolling is mandatory to see the tail.
+	const TIGHT_VIEWPORT = { width: 60, height: 10 }
+	const TWENTY_FILES = makeFiles(Array.from({ length: 20 }, (_, i) => `f${String(i).padStart(2, "0")}.md`))
+	const TWENTY_READER = makeReader(
+		Object.fromEntries(TWENTY_FILES.map((f) => [f.relativePath, f.relativePath])),
+	)
+
+	test("initial frame shows only the first window of files", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser files={TWENTY_FILES} readFile={TWENTY_READER} onQuit={() => {}} />,
+				TIGHT_VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("f00.md")
+		expect(frame).toContain("f06.md")
+		// Beyond the 7-row body, files are scrolled out.
+		expect(frame).not.toContain("f07.md")
+		expect(frame).not.toContain("f19.md")
+	})
+
+	test("shift+G scrolls to the bottom; last file visible, first not", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser files={TWENTY_FILES} readFile={TWENTY_READER} onQuit={() => {}} />,
+				TIGHT_VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		await act(async () => {
+			setup!.mockInput.pressKey("g", { shift: true })
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("f19.md")
+		expect(frame).toContain("f13.md")
+		// First files have scrolled off.
+		expect(frame).not.toContain("f00.md")
+		expect(frame).not.toContain("f12.md")
+	})
+
+	test("shift+G then g returns to the top window", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser files={TWENTY_FILES} readFile={TWENTY_READER} onQuit={() => {}} />,
+				TIGHT_VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		await act(async () => {
+			setup!.mockInput.pressKey("g", { shift: true })
+		})
+		await stepFrame(setup!.renderOnce)
+		await act(async () => {
+			setup!.mockInput.pressKey("g")
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("f00.md")
+		expect(frame).toContain("f06.md")
+		expect(frame).not.toContain("f19.md")
+	})
+
+	test("j past the bottom of the visible window scrolls one row at a time", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser files={TWENTY_FILES} readFile={TWENTY_READER} onQuit={() => {}} />,
+				TIGHT_VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		// Press j 7 times: selectedIndex goes 0→7. Window was [0..6]; now must
+		// shift down to keep index 7 in view → window becomes [1..7].
+		await act(async () => {
+			for (let i = 0; i < 7; i++) setup!.mockInput.pressKey("j")
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("f07.md")
+		expect(frame).toContain("f01.md")
+		// The original top row has scrolled off.
+		expect(frame).not.toContain("f00.md")
+	})
+
+	test("filter that shrinks the list past selectedIndex clamps without crashing", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser files={TWENTY_FILES} readFile={TWENTY_READER} onQuit={() => {}} />,
+				TIGHT_VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		// Scroll to the bottom so selectedIndex is far past the post-filter length.
+		await act(async () => {
+			setup!.mockInput.pressKey("g", { shift: true })
+		})
+		await stepFrame(setup!.renderOnce)
+
+		// Open filter and type a query that matches a single file early in the
+		// list. selectedIndex was 19; displayedFiles.length collapses to 1.
+		// The clamp effect must keep selection valid.
+		await act(async () => {
+			setup!.mockInput.pressKey("/")
+			setup!.mockInput.pressKey("f")
+			setup!.mockInput.pressKey("0")
+			setup!.mockInput.pressKey("3")
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		// Filtered list shows only f03.md.
+		expect(frame).toContain("f03.md")
+		expect(frame).not.toContain("f19.md")
+		// On Esc the cursor should return to f03 (the highlighted match), not
+		// f19, because closeFilter translates by path, not by numeric index.
+		await act(async () => {
+			setup!.mockInput.pressEscape()
+			await new Promise<void>((resolve) => setTimeout(resolve, 60))
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(readerTitleContains(setup!.captureCharFrame(), "f03.md")).toBe(true)
+	})
+})
+
 describe("Browser — filter modal", () => {
 	test("/ opens the filter; typed chars narrow the visible list", async () => {
 		const files = makeFiles(["README.md", "docs/intro.md", "notes.md"])
