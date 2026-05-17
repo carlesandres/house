@@ -1,7 +1,6 @@
-import { afterEach, beforeAll, describe, expect, test } from "bun:test"
+import { afterEach, beforeAll } from "bun:test"
 import { act } from "react"
 import { testRender } from "@opentui/react/test-utils"
-import { Footer } from "../src/Footer.tsx"
 
 beforeAll(() => {
 	// @ts-expect-error — globalThis.IS_REACT_ACT_ENVIRONMENT is a React internal
