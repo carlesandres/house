@@ -17,13 +17,14 @@ import { useMemo } from "react"
 import pkg from "../package.json" with { type: "json" }
 import { Browser } from "./Browser.tsx"
 import { parseArgv, usage } from "./cli/argv.ts"
+import { defaultConfigPath, formatConfigError, loadConfig } from "./config/load.ts"
 import { walk, type SortOrder } from "./discovery/walk.ts"
 import { readFileText } from "./io/readFile.ts"
 import { openInBrowser } from "./serve/openBrowser.ts"
 import { startServer } from "./serve/server.ts"
 import { colors, setActiveTheme } from "./theme/colors.ts"
 import { themeAtom, type ThemeState } from "./theme/atom.ts"
-import { getThemeDefinition, isThemeId, themeDefinitions } from "./theme/registry.ts"
+import { getThemeDefinition, themeDefinitions } from "./theme/registry.ts"
 
 export interface AppProps {
 	/** Markdown source to render. */
@@ -121,20 +122,21 @@ if (import.meta.main) {
 		console.log(pkg.version)
 		process.exit(0)
 	}
+	if (args.configPath) {
+		console.log(defaultConfigPath())
+		process.exit(0)
+	}
 
-	const themeId = args.theme ?? "opencode"
-	if (!isThemeId(themeId)) {
-		const known = themeDefinitions.map((t) => t.id).join(", ")
-		console.error(`house: unknown theme "${themeId}". Known: ${known}`)
+	const config = await Effect.runPromise(
+		loadConfig({ cli: { theme: args.theme, tone: args.tone } }),
+	).catch((err: unknown) => {
+		console.error(`house: ${formatConfigError(err)}`)
 		process.exit(2)
-	}
-	const tone = args.tone ?? "dark"
-	if (tone !== "dark" && tone !== "light") {
-		console.error(`house: --tone must be "dark" or "light", got "${tone}"`)
-		process.exit(2)
-	}
+	})
+	const { theme: themeId, tone } = config
 	const themeDef = getThemeDefinition(themeId)
 	if (themeDef === undefined) {
+		// Unreachable: Config.schema validated themeId against themeDefinitions.
 		console.error(`house: unknown theme "${themeId}"`)
 		process.exit(2)
 	}

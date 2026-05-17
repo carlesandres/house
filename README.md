@@ -37,6 +37,34 @@ house [options] <path>
 |------|---------|-------------|
 | `--theme <name>` | `opencode` | Starting theme (see list below) |
 | `--tone dark\|light` | `dark` | Starting tone |
+| `--config-path` | — | Print the resolved config-file path and exit |
+
+## Configuration
+
+house reads optional defaults from a TOML file:
+
+```
+$XDG_CONFIG_HOME/house/config.toml   (defaults to ~/.config/house/config.toml)
+```
+
+Run `house --config-path` to print the exact location.
+
+```toml
+# ~/.config/house/config.toml
+theme = "tokyonight"
+tone  = "dark"
+```
+
+Precedence, highest to lowest:
+
+1. CLI flags (`--theme`, `--tone`)
+2. Env vars (`HOUSE_THEME`, `HOUSE_TONE`)
+3. Config file
+4. Built-in defaults (`opencode` / `dark`)
+
+The file is optional — a missing file is fine. Invalid keys, unknown themes,
+or malformed TOML fail loudly with a one-line error. Per-project config
+(`.house/config.toml`) and additional keys are deferred.
 
 ## Keys
 
