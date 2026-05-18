@@ -124,6 +124,15 @@ etc.) live in §7.3 — consult that section before binding new keys.
 Discovery is a **non-trivial product decision** — users notice when their mental
 model of "what shows up" doesn't match. Changing these rules is a versioned change.
 
+**Streaming.** `walk()` returns a `Stream` (Effect), not an eagerly-collected
+array. Entries arrive in per-directory DFS order as the walk progresses, so
+the sidebar mounts immediately on `files=[]` and grows live; the footer shows
+`indexing… N` until the stream completes. Cancellation is best-effort and
+checks `signal.aborted` between syscalls — Node's `readdir` is not itself
+abortable, so a single in-flight `readdir` on a slow filesystem still runs to
+completion. A `walkToArray()` helper exists for callers (and most tests)
+that don't need streaming. Per-walk traversal caps are tracked in #80/#81.
+
 ## 7. UX Architecture
 
 ### 7.1 Layout — hybrid two-pane

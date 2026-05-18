@@ -1,6 +1,6 @@
 import { readdir, readFile } from "node:fs/promises"
 import { extname, join, relative, resolve } from "node:path"
-import { Data, Effect } from "effect"
+import { Data, Effect, Stream } from "effect"
 import ignore, { type Ignore } from "ignore"
 
 export interface FileEntry {
@@ -71,21 +71,38 @@ const sortEntries = <T extends { name: string; isDirectory: () => boolean }>(
 		return a.name.localeCompare(b.name)
 	})
 
-const walkDir = async (
+/**
+ * DFS generator. Yields each markdown FileEntry as it is discovered, before
+ * descending further. Per-directory sort still happens before yielding so
+ * arrival order within a directory matches the configured sort.
+ *
+ * Cancellation: `signal.aborted` is checked between syscalls. Node's
+ * `readdir` doesn't accept an AbortSignal, so a single in-flight `readdir`
+ * on a slow filesystem still runs to completion before we notice — the
+ * generator only exits at the next checkpoint.
+ */
+async function* walkDirGen(
 	dirPath: string,
 	rootPath: string,
 	parentLevels: readonly IgnoreLevel[],
-	results: FileEntry[],
 	opts: { all: boolean; sort: SortOrder },
-): Promise<void> => {
+	signal: AbortSignal,
+): AsyncGenerator<FileEntry, void, void> {
+	if (signal.aborted) return
+
 	let levels = parentLevels
 	if (!opts.all) {
 		const ig = await tryLoadGitignore(dirPath)
+		if (signal.aborted) return
 		if (ig) levels = [...parentLevels, { dir: dirPath, ig }]
 	}
 
 	const raw = await readdir(dirPath, { withFileTypes: true })
+	if (signal.aborted) return
+
 	for (const entry of sortEntries(raw, opts.sort)) {
+		if (signal.aborted) return
+
 		// Never follow symlinks — cycle hazard, and a markdown reader doesn't
 		// need them. May be relaxed (files only) in a later iteration.
 		if (entry.isSymbolicLink()) continue
@@ -96,7 +113,7 @@ const walkDir = async (
 			if (HARD_SKIP_DIRS.has(entry.name)) continue
 			if (!opts.all && entry.name.startsWith(".")) continue
 			if (!opts.all && isIgnored(entryPath, true, levels)) continue
-			await walkDir(entryPath, rootPath, levels, results, opts)
+			yield* walkDirGen(entryPath, rootPath, levels, opts, signal)
 			continue
 		}
 
@@ -105,16 +122,19 @@ const walkDir = async (
 		if (!MARKDOWN_EXTENSIONS.has(extname(entry.name).toLowerCase())) continue
 		if (!opts.all && isIgnored(entryPath, false, levels)) continue
 
-		results.push({
+		yield {
 			path: entryPath,
 			relativePath: relative(rootPath, entryPath),
 			name: entry.name,
-		})
+		}
 	}
 }
 
 /**
- * Walk a directory tree and return markdown files in a stable order.
+ * Stream markdown files under `root`. Entries arrive in DFS order respecting
+ * the per-directory sort. The stream is interruptible at syscall boundaries:
+ * the consumer's teardown trips an AbortController, and the generator exits
+ * at its next `signal.aborted` check.
  *
  * Rules (see DESIGN.md §6):
  * - Extensions: `.md`, `.markdown`, `.mdx`.
@@ -128,16 +148,35 @@ const walkDir = async (
 export const walk = (
 	root: string,
 	options: WalkOptions = {},
-): Effect.Effect<readonly FileEntry[], DiscoveryError> =>
-	Effect.tryPromise({
-		try: async () => {
-			const absRoot = resolve(root)
-			const results: FileEntry[] = []
-			await walkDir(absRoot, absRoot, [], results, {
-				all: options.all ?? false,
-				sort: options.sort ?? "dirs-first",
-			})
-			return results
+): Stream.Stream<FileEntry, DiscoveryError> => {
+	const absRoot = resolve(root)
+	const opts = {
+		all: options.all ?? false,
+		sort: options.sort ?? ("dirs-first" as SortOrder),
+	}
+	const controller = new AbortController()
+	const iterable: AsyncIterable<FileEntry> = {
+		[Symbol.asyncIterator]() {
+			const gen = walkDirGen(absRoot, absRoot, [], opts, controller.signal)
+			return {
+				next: () => gen.next(),
+				return: async (value?: void) => {
+					controller.abort()
+					return gen.return(value as void)
+				},
+			}
 		},
-		catch: (cause) => new DiscoveryError({ root, cause }),
-	})
+	}
+	return Stream.fromAsyncIterable(iterable, (cause) => new DiscoveryError({ root, cause }))
+}
+
+/**
+ * Test/convenience helper: collect the full walk into an array. Mirrors the
+ * pre-streaming `walk()` signature so call sites that don't need streaming
+ * (notably tests) stay terse.
+ */
+export const walkToArray = (
+	root: string,
+	options: WalkOptions = {},
+): Effect.Effect<readonly FileEntry[], DiscoveryError> =>
+	Stream.runCollect(walk(root, options)).pipe(Effect.map((chunk) => Array.from(chunk)))

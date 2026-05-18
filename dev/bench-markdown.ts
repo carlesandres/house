@@ -14,7 +14,7 @@ import { readFile, stat } from "node:fs/promises"
 import { MarkdownRenderable, parseColor, SyntaxStyle } from "@opentui/core"
 import { createTestRenderer } from "@opentui/core/testing"
 import { Effect } from "effect"
-import { walk } from "../src/discovery/walk.ts"
+import { walkToArray } from "../src/discovery/walk.ts"
 
 const args = Bun.argv.slice(2)
 if (args.length === 0) {
@@ -27,7 +27,7 @@ const collectFiles = async (paths: readonly string[]): Promise<string[]> => {
 	for (const p of paths) {
 		const s = await stat(p)
 		if (s.isDirectory()) {
-			const found = await Effect.runPromise(walk(p))
+			const found = await Effect.runPromise(walkToArray(p))
 			out.push(...found.map((f) => f.path))
 		} else {
 			out.push(p)

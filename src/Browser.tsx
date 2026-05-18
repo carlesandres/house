@@ -34,6 +34,9 @@ export interface BrowserProps {
 	readonly initialIndex?: number
 	/** Cap the rendered markdown's width at N columns. Null = fill the pane. */
 	readonly maxWidth?: number | null
+	/** Persistent footer indicator (e.g. "indexing… 42"). Pass null/undefined
+	 *  when discovery has finished; the indicator clears. */
+	readonly discoveryStatus?: string | null
 	readonly onQuit?: () => void
 	/** Test seam: replaces the file reader. */
 	readonly readFile?: (path: string) => Promise<string>
@@ -57,6 +60,7 @@ export const Browser = ({
 	title = "house",
 	initialIndex = 0,
 	maxWidth = null,
+	discoveryStatus = null,
 	onQuit,
 	readFile = defaultReadFile,
 }: BrowserProps) => {
@@ -391,8 +395,11 @@ export const Browser = ({
 	// two of them changed (old + new selected). On a 195-file vault that
 	// dominates the per-keystroke cost.
 	// Sidebar box adds top/bottom borders (2); footer eats FOOTER_HEIGHT;
-	// the filter row eats one more cell when files are present.
-	const filterRowVisible = files.length > 0
+	// the filter row eats one more cell when files are present *or* while
+	// discovery is in flight (allocates the row up front so it doesn't pop
+	// in when the first file arrives).
+	const discoveryActive = discoveryStatus !== null && discoveryStatus.length > 0
+	const filterRowVisible = files.length > 0 || discoveryActive
 	const sidebarBodyHeight = Math.max(1, height - 2 - FOOTER_HEIGHT - (filterRowVisible ? 1 : 0))
 	const maxScroll = Math.max(0, displayedFiles.length - sidebarBodyHeight)
 	const desiredScroll = (() => {
@@ -481,7 +488,13 @@ export const Browser = ({
 						)}
 						{displayedFiles.length === 0 ? (
 							<text
-								content={files.length === 0 ? "(no markdown files)" : "(no matches)"}
+								content={
+									files.length === 0
+										? discoveryActive
+											? "(scanning…)"
+											: "(no markdown files)"
+										: "(no matches)"
+								}
 								style={{ fg: colors.textMuted }}
 							/>
 						) : (
@@ -550,7 +563,13 @@ export const Browser = ({
 					)}
 				</box>
 			</box>
-			<Footer bindings={footerBindings} ctx={ctx} width={width} notice={footerNotice} />
+			<Footer
+				bindings={footerBindings}
+				ctx={ctx}
+				width={width}
+				notice={footerNotice}
+				discoveryStatus={discoveryStatus}
+			/>
 			{helpVisible && (
 				<HelpOverlay bindings={browserBindings} viewportWidth={width} viewportHeight={height} />
 			)}
