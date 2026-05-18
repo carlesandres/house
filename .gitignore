@@ -21,5 +21,6 @@ coverage/
 .DS_Store
 .claude/
 .opencode/
+opencode.json
 .idea/
 .vscode/
