@@ -27,8 +27,6 @@ Glossary terms (e.g. `beta`) live in `CONTEXT.md`.
 
 | Item | Issue |
 |---|---|
-| **Discovery blocks UI on large trees — walk should stream** (top priority) | [#77](https://github.com/carlesandres/house/issues/77) |
-| Theme cycling while help overlay is open | [#15](https://github.com/carlesandres/house/issues/15) (fixed in `bbd3e29`, verify and close) |
 | Relative assets (images, etc.) don't load in browser preview | [#75](https://github.com/carlesandres/house/issues/75) |
 | Pane focus and selected sidebar row are hard to distinguish in many themes | [#71](https://github.com/carlesandres/house/issues/71) |
 
