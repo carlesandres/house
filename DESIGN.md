@@ -137,17 +137,60 @@ that don't need streaming. Per-walk traversal caps are tracked in #80/#81.
 
 ### 7.1 Layout — hybrid two-pane
 
-Default: sidebar (~30 cols) on the left, reader on the right.
-A key collapses the sidebar to give the reader full width. On terminals narrower
-than ~80 cols, the sidebar collapses by default.
+Two pieces of state drive the layout: `shown` (the user's sticky sidebar
+preference) and `focus` (which pane has the keyboard). Visibility is derived:
 
 ```
-default                         sidebar collapsed
-┌────┬─────────────────┐        ┌──────────────────────┐
-│ ▸R │ # Title         │        │ # Title              │
-│  d │                 │        │                      │
-│  x │ Body...         │        │ Body...              │
-└────┴─────────────────┘        └──────────────────────┘
+visible = shown || focus === "sidebar"
+```
+
+That single rule means a hidden sidebar becomes reachable just by focusing
+it (via `/` or `tab`), without a separate "open sidebar" operation. When it
+is visible only because focus is in it, it renders as a **drawer** —
+absolute-positioned over the reader. When focus leaves the sidebar, the
+drawer disappears. There is no explicit close.
+
+Width is a pure function of viewport, decoupled from visibility:
+
+```
+resolveSidebarWidth(viewport, preferred) =
+  clamp(preferred, SIDEBAR_MIN, viewport - DIVIDER - READER_MIN)
+```
+
+Same formula for inline and drawer rendering. Until persistent config
+(#13) lands, `preferred` is derived from viewport
+(`floor(width * 0.25)` clamped to `[28, 60]`).
+
+**Launch** — `--sidebar=auto|on|off` initialises `shown`:
+
+- `auto` (default) — consult the viewport bucket once: `< 80` cols starts
+  hidden, otherwise shown. Buckets are launch-only.
+- `on` — `shown=true`. Honored on every viewport: where the inline layout
+  fits, the sidebar sits beside the reader; where it doesn't, the sidebar
+  is rendered as a drawer over the reader instead of squeezing it. See
+  *Drawer-on-narrow-viewport* below.
+- `off` — `shown=false`. Sidebar still reachable on demand (drawer).
+
+**Drawer-on-narrow-viewport** — when `shown=true` but
+`SIDEBAR_MIN + DIVIDER + READER_MIN` doesn't fit in the viewport, the
+sidebar silently renders as drawer instead of inline. `shown` stays
+`true`; only the rendering swaps. The reader keeps its full width; the
+user's preference is preserved. The drawer is offset one row from the
+top so the reader pane's title (current file name) stays visible above
+it.
+
+**Filter discoverability** — when a filter is applied (query non-empty)
+and the input is closed, the footer shows a `[filter: <query>]` chip in
+the hint row. Surfaces the otherwise-invisible invariant that `[`/`]`
+walks the filtered set even when the sidebar is hidden.
+
+```
+shown=true, inline                shown=false, drawer (focus=sidebar)
+┌────┬─────────────────┐          ┌────┐─────────────────┐
+│ ▸R │ # Title         │          │ ▸R │# Title          │
+│  d │                 │          │  d │                 │
+│  x │ Body...         │          │  x │Body...          │
+└────┴─────────────────┘          └────┘─────────────────┘
 ```
 
 This is more work than glow's sequential full-screen views, but it is what

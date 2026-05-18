@@ -11,12 +11,14 @@ export type BrowserFocus = "sidebar" | "reader"
 export interface BrowserCtx {
 	readonly files: readonly FileEntry[]
 	readonly focus: BrowserFocus
-	readonly sidebarVisible: boolean
+	/** User's sticky sidebar preference. Visibility is `shown || focus==="sidebar"`. */
+	readonly sidebarShown: boolean
 	readonly helpVisible: boolean
 	readonly filterOpen: boolean
 	readonly setFocus: (next: BrowserFocus | ((prev: BrowserFocus) => BrowserFocus)) => void
 	readonly setSelectedIndex: (updater: (prev: number) => number) => void
-	readonly setSidebarVisible: (updater: (prev: boolean) => boolean) => void
+	/** Toggle `shown` and adjust focus per DESIGN.md §7.1 (see s-behavior table). */
+	readonly toggleShown: () => void
 	readonly setHelpVisible: (updater: (prev: boolean) => boolean) => void
 	readonly openFilter: () => void
 	readonly cycleTheme: (delta: 1 | -1) => void
@@ -66,13 +68,7 @@ export const browserBindings: readonly KeyBinding<BrowserCtx>[] = [
 		description: "Toggle sidebar visibility",
 		hint: "sidebar",
 		keys: ["s"],
-		run: (c) => {
-			const willHide = c.sidebarVisible
-			c.setSidebarVisible((v) => !v)
-			// When hiding the sidebar, move focus to the reader so input has a
-			// target. When revealing it, move focus back to the sidebar.
-			c.setFocus(willHide ? "reader" : "sidebar")
-		},
+		run: (c) => c.toggleShown(),
 	},
 	{
 		id: "help.toggle",

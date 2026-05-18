@@ -454,6 +454,139 @@ describe("Browser — sidebar toggle", () => {
 	})
 })
 
+describe("Browser — #22 layout v2", () => {
+	test("--sidebar=on shows the sidebar even on a tight viewport", async () => {
+		// 70 cols can't fit SIDEBAR_MIN+DIVIDER+READER_MIN=69+ inline given
+		// 28-col sidebar+1-col divider+40-col reader. Border math means the
+		// drawer takes over — but the sidebar still appears, since shown=true.
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={makeFiles(["a.md", "b.md"])}
+					readFile={makeReader({ "a.md": "x", "b.md": "y" })}
+					onQuit={() => {}}
+					sidebarMode="on"
+				/>,
+				{ width: 60, height: 20 },
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("files")
+		expect(frame).toContain("a.md")
+	})
+
+	test("--sidebar=off hides the sidebar at launch", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={makeFiles(["a.md", "b.md"])}
+					readFile={makeReader({ "a.md": "x", "b.md": "y" })}
+					onQuit={() => {}}
+					sidebarMode="off"
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(frame).not.toContain("files")
+		// Reader is the focused pane.
+		expect(frame).toContain("▸ a.md")
+	})
+
+	test("--sidebar=auto consults the viewport bucket once", async () => {
+		// 60 cols < 80 → starts hidden.
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={makeFiles(["a.md"])}
+					readFile={makeReader({ "a.md": "x" })}
+					onQuit={() => {}}
+					sidebarMode="auto"
+				/>,
+				{ width: 60, height: 20 },
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).not.toContain("files")
+	})
+
+	test("focusing a hidden sidebar opens it as a drawer; defocusing dismisses it", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={makeFiles(["a.md", "b.md"])}
+					readFile={makeReader({ "a.md": "x", "b.md": "y" })}
+					onQuit={() => {}}
+					sidebarMode="off"
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).not.toContain("files")
+		// Tab focuses the sidebar → drawer appears.
+		await act(async () => {
+			setup!.mockInput.pressTab()
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).toContain("▸ files")
+		// Tab again moves focus to the reader → drawer dismisses.
+		await act(async () => {
+			setup!.mockInput.pressTab()
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).not.toContain("files")
+	})
+
+	test("filter chip surfaces in the footer when a filter is applied and the input is closed", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={makeFiles(["alpha.md", "beta.md"])}
+					readFile={makeReader({ "alpha.md": "a", "beta.md": "b" })}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		// Commit an applied filter.
+		await act(async () => {
+			setup!.mockInput.pressKey("/")
+			setup!.mockInput.pressKey("a")
+			setup!.mockInput.pressKey("l")
+			setup!.mockInput.pressEnter()
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		// The chip appears in the footer row, alongside the regular hints.
+		expect(frame).toContain("[filter: al]")
+	})
+
+	test("filter chip does NOT appear while the filter input is open", async () => {
+		// The sidebar already shows the live query; a chip would duplicate.
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={makeFiles(["alpha.md"])}
+					readFile={makeReader({ "alpha.md": "a" })}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		await act(async () => {
+			setup!.mockInput.pressKey("/")
+			setup!.mockInput.pressKey("a")
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).not.toContain("[filter:")
+	})
+})
+
 describe("Browser — jump and page keys", () => {
 	const tenFiles = makeFiles(Array.from({ length: 10 }, (_, i) => `f${i}.md`))
 	const reader = makeReader(
@@ -1100,7 +1233,11 @@ describe("Browser — sidebar virtualization", () => {
 	// file list: height 10 → sidebarBodyHeight = 10 - 2 (borders) - 1 (footer)
 	// - 1 (filter row) = 6 rows. With 20 files, scrolling is mandatory to
 	// see the tail.
-	const TIGHT_VIEWPORT = { width: 60, height: 10 }
+	//
+	// Width is wide enough (≥ SIDEBAR_MIN + DIVIDER + READER_MIN = 69) that
+	// the inline two-pane layout is used; the drawer fallback at narrower
+	// widths is exercised elsewhere.
+	const TIGHT_VIEWPORT = { width: 90, height: 10 }
 	const TWENTY_FILES = makeFiles(Array.from({ length: 20 }, (_, i) => `f${String(i).padStart(2, "0")}.md`))
 	const TWENTY_READER = makeReader(
 		Object.fromEntries(TWENTY_FILES.map((f) => [f.relativePath, f.relativePath])),
@@ -1109,7 +1246,12 @@ describe("Browser — sidebar virtualization", () => {
 	test("initial frame shows only the first window of files", async () => {
 		await act(async () => {
 			setup = await renderBrowser(
-				<Browser files={TWENTY_FILES} readFile={TWENTY_READER} onQuit={() => {}} />,
+				<Browser
+					files={TWENTY_FILES}
+					readFile={TWENTY_READER}
+					onQuit={() => {}}
+					sidebarMode="on"
+				/>,
 				TIGHT_VIEWPORT,
 			)
 		})
@@ -1125,7 +1267,12 @@ describe("Browser — sidebar virtualization", () => {
 	test("shift+G scrolls to the bottom; last file visible, first not", async () => {
 		await act(async () => {
 			setup = await renderBrowser(
-				<Browser files={TWENTY_FILES} readFile={TWENTY_READER} onQuit={() => {}} />,
+				<Browser
+					files={TWENTY_FILES}
+					readFile={TWENTY_READER}
+					onQuit={() => {}}
+					sidebarMode="on"
+				/>,
 				TIGHT_VIEWPORT,
 			)
 		})
@@ -1145,7 +1292,12 @@ describe("Browser — sidebar virtualization", () => {
 	test("shift+G then g returns to the top window", async () => {
 		await act(async () => {
 			setup = await renderBrowser(
-				<Browser files={TWENTY_FILES} readFile={TWENTY_READER} onQuit={() => {}} />,
+				<Browser
+					files={TWENTY_FILES}
+					readFile={TWENTY_READER}
+					onQuit={() => {}}
+					sidebarMode="on"
+				/>,
 				TIGHT_VIEWPORT,
 			)
 		})
@@ -1168,7 +1320,12 @@ describe("Browser — sidebar virtualization", () => {
 	test("j past the bottom of the visible window scrolls one row at a time", async () => {
 		await act(async () => {
 			setup = await renderBrowser(
-				<Browser files={TWENTY_FILES} readFile={TWENTY_READER} onQuit={() => {}} />,
+				<Browser
+					files={TWENTY_FILES}
+					readFile={TWENTY_READER}
+					onQuit={() => {}}
+					sidebarMode="on"
+				/>,
 				TIGHT_VIEWPORT,
 			)
 		})
@@ -1189,7 +1346,12 @@ describe("Browser — sidebar virtualization", () => {
 	test("filter that shrinks the list past selectedIndex clamps without crashing", async () => {
 		await act(async () => {
 			setup = await renderBrowser(
-				<Browser files={TWENTY_FILES} readFile={TWENTY_READER} onQuit={() => {}} />,
+				<Browser
+					files={TWENTY_FILES}
+					readFile={TWENTY_READER}
+					onQuit={() => {}}
+					sidebarMode="on"
+				/>,
 				TIGHT_VIEWPORT,
 			)
 		})
@@ -1645,7 +1807,10 @@ describe("Browser — filter modal", () => {
 		// when Esc fired — NOT alpha.md.
 		expect(readerTitleContains(frame, "docs/readme.md")).toBe(true)
 		expect(readerTitleContains(frame, "alpha.md")).toBe(false)
-		// Focus stayed in sidebar (Esc cancels, doesn't open the file).
+		// Cancel keeps focus in the sidebar when the layout is inline so
+		// j/k keeps walking the restored list. Drawer dismissal only
+		// applies when the sidebar was up purely because of focus. See
+		// DESIGN.md §7.1.
 		expect(frame).toContain("▸ files")
 	})
 
@@ -1817,7 +1982,11 @@ describe("Browser — filter modal", () => {
 		expect(frame).not.toContain("files")
 	})
 
-	test("Esc after typing leaves the sidebar open even if it was hidden before", async () => {
+	test("Esc after typing reverts the query and dismisses the drawer", async () => {
+		// Under DESIGN.md §7.1, Esc always returns focus to the reader,
+		// which dismisses any drawer-by-focus. The pre-#22 behavior of
+		// "leave the sidebar open if the user typed" is gone — the
+		// userTyped distinction does not exist anymore.
 		const files = makeFiles(["README.md", "notes.md"])
 		await act(async () => {
 			setup = await renderBrowser(
@@ -1831,10 +2000,12 @@ describe("Browser — filter modal", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 
+		// Hide sidebar (shown=false, focus=reader).
 		await act(async () => {
 			setup!.mockInput.pressKey("s")
 		})
 		await stepFrame(setup!.renderOnce)
+		// `/` opens the filter as a drawer; type "r".
 		await act(async () => {
 			setup!.mockInput.pressKey("/")
 			setup!.mockInput.pressKey("r")
@@ -1847,9 +2018,10 @@ describe("Browser — filter modal", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
-		// Filter closed but sidebar stays — user committed to filtering.
+		// Filter input gone; query reverted; drawer dismissed (shown=false,
+		// focus=reader).
 		expect(frame).not.toContain("/r▏")
-		expect(frame).toContain("files")
+		expect(frame).not.toContain("files")
 	})
 
 	test("/ does nothing while the help overlay is open", async () => {
@@ -1962,7 +2134,10 @@ describe("Browser — filter modal", () => {
 		expect(frame).not.toContain("notes.md")
 	})
 
-	test("return with zero matches closes the filter, keeps focus in sidebar", async () => {
+	test("return with zero matches closes the filter and keeps focus in the inline sidebar", async () => {
+		// On a zero-match list there's nothing to commit, so Return is treated
+		// as Esc: query reverts. With the sidebar inline (shown && fits) focus
+		// stays in the sidebar so j/k continues to walk the restored list.
 		const files = makeFiles(["README.md", "notes.md"])
 		await act(async () => {
 			setup = await renderBrowser(

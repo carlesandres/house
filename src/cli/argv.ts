@@ -23,6 +23,8 @@ export interface ParsedArgs {
 	readonly version: boolean
 	/** True when `--config-path` was passed: print resolved config path and exit. */
 	readonly configPath: boolean
+	/** Value of `--sidebar <mode>` (`auto`, `on`, `off`), or null. Validated by the boot layer. */
+	readonly sidebar: string | null
 }
 
 /**
@@ -44,6 +46,7 @@ export const parseArgv = (argv: readonly string[]): ParsedArgs => {
 	let help = false
 	let version = false
 	let configPath = false
+	let sidebar: string | null = null
 
 	for (let i = 0; i < argv.length; i++) {
 		const arg = argv[i]!
@@ -85,13 +88,24 @@ export const parseArgv = (argv: readonly string[]): ParsedArgs => {
 			case "--config-path":
 				configPath = true
 				continue
+			case "--sidebar": {
+				// Don't swallow the following flag as the sidebar value.
+				// `--sidebar --width 80` should leave sidebar=null (the boot
+				// layer reports a missing value) without losing --width.
+				const next = argv[i + 1]
+				if (next !== undefined && !next.startsWith("-")) {
+					sidebar = next
+					i++
+				}
+				continue
+			}
 		}
 		if (path === null && !arg.startsWith("-")) {
 			path = arg
 		}
 	}
 
-	return { path, theme, tone, width, all, sort, serve, port, help, version, configPath }
+	return { path, theme, tone, width, all, sort, serve, port, help, version, configPath, sidebar }
 }
 
 const themeList = themeDefinitions.map((t) => t.id).join(", ")
@@ -106,6 +120,7 @@ options:
   --width <N>    cap rendered markdown width at N columns
   --all          include hidden and gitignored files in discovery
   --sort <mode>  sidebar order: dirs-first (default) or files-first
+  --sidebar <m>  initial sidebar visibility: auto (default), on, or off
   --serve        serve the given file as HTML in the browser (skips TUI)
   --port <N>     port for --serve (default: OS-assigned)
   -h, --help     show this help and exit
