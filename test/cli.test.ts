@@ -13,6 +13,7 @@ const empty: ParsedArgs = {
 	help: false,
 	version: false,
 	configPath: false,
+	sidebar: null,
 }
 const args = (overrides: Partial<ParsedArgs>): ParsedArgs => ({ ...empty, ...overrides })
 
@@ -81,6 +82,22 @@ describe("parseArgv — --sort", () => {
 	})
 	test("--sort with no value yields null", () => {
 		expect(parseArgv(["--sort"])).toEqual(args({ sort: null }))
+	})
+})
+
+describe("parseArgv — --sidebar", () => {
+	test("captures the value after --sidebar", () => {
+		expect(parseArgv(["--sidebar", "off"])).toEqual(args({ sidebar: "off" }))
+	})
+	test("captures unknown sidebar values verbatim (boot validates)", () => {
+		expect(parseArgv(["--sidebar", "maybe"])).toEqual(args({ sidebar: "maybe" }))
+	})
+	test("--sidebar with no value yields null", () => {
+		expect(parseArgv(["--sidebar"])).toEqual(args({ sidebar: null }))
+	})
+	test("--sidebar does not swallow the following flag", () => {
+		// Regression guard: `--sidebar --width 80` must still parse --width.
+		expect(parseArgv(["--sidebar", "--width", "80"])).toEqual(args({ sidebar: null, width: "80" }))
 	})
 })
 

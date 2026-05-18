@@ -37,6 +37,11 @@ export interface FooterProps<C> {
 	 *  no TTL, cleared by the caller when the underlying activity finishes.
 	 *  Loses to `notice` when both are set so transient toasts still surface. */
 	readonly discoveryStatus?: string | null
+	/** When a filter is applied but the input is closed, surface a chip in the
+	 *  hint row so the user remembers `[`/`]` walks the filtered set. Pass null
+	 *  while the filter input is open (the sidebar already shows the query) or
+	 *  when no filter is applied. */
+	readonly filterQuery?: string | null
 }
 
 const HINT_SEPARATOR = "  "
@@ -94,7 +99,14 @@ const fitHints = (hints: readonly string[], width: number): string => {
 
 const STATUS_SEPARATOR = " · "
 
-export const Footer = <C,>({ bindings, ctx, width, notice, discoveryStatus }: FooterProps<C>) => {
+export const Footer = <C,>({
+	bindings,
+	ctx,
+	width,
+	notice,
+	discoveryStatus,
+	filterQuery,
+}: FooterProps<C>) => {
 	const usableWidth = Math.max(0, width - 2) // 1-cell horizontal padding each side
 
 	const rowStyle = {
@@ -108,6 +120,13 @@ export const Footer = <C,>({ bindings, ctx, width, notice, discoveryStatus }: Fo
 	} as const
 
 	const hints: string[] = []
+	// The filter chip prepends to the hint row when a filter is applied and the
+	// input is closed. Bracketed to avoid looking like a `key:hint` binding —
+	// "filter" is not a key. Surfaces the otherwise-invisible invariant that
+	// `[`/`]` walks the filtered set. See DESIGN.md §7.1 Q1.
+	if (filterQuery && filterQuery.length > 0) {
+		hints.push(`[filter: ${filterQuery}]`)
+	}
 	for (const b of bindings) {
 		if (b.when && !b.when(ctx)) continue
 		const h = formatHint(b)

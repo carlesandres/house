@@ -72,6 +72,15 @@ Glossary terms (e.g. `beta`) live in `CONTEXT.md`.
 |---|---|
 | Footer responsive behavior on tight viewports | [#37](https://github.com/carlesandres/house/issues/37) |
 | Evaluate adding a header chrome (breadcrumb / heading / mode chips) | [#38](https://github.com/carlesandres/house/issues/38) |
+| Filter chip can crowd out key hints when query is long | [#86](https://github.com/carlesandres/house/issues/86) |
+
+## Layout follow-ons (post-#22)
+
+| Item | Issue |
+|---|---|
+| Reconcile `TIGHT_VIEWPORT_THRESHOLD` (80) with `canFitInline` (69) | [#85](https://github.com/carlesandres/house/issues/85) |
+| Reader keys act on content occluded by the persistent drawer | [#87](https://github.com/carlesandres/house/issues/87) |
+| DESIGN.md §7.1 drawer-dismiss rule overstates its scope | [#88](https://github.com/carlesandres/house/issues/88) |
 
 ## Theming & keymap
 

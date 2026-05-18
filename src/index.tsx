@@ -50,14 +50,17 @@ export interface AppProps {
  * `Quit` in Browser tears down the renderer and exits, which propagates
  * naturally — the cleanup effect still fires before process.exit completes.
  */
+export type SidebarMode = "auto" | "on" | "off"
+
 interface DiscoverShellProps {
 	readonly target: string
 	readonly all: boolean
 	readonly sort: SortOrder
 	readonly maxWidth: number | null
+	readonly sidebarMode: SidebarMode
 }
 
-const DiscoverShell = ({ target, all, sort, maxWidth }: DiscoverShellProps) => {
+const DiscoverShell = ({ target, all, sort, maxWidth, sidebarMode }: DiscoverShellProps) => {
 	const [files, setFiles] = useState<readonly FileEntry[]>([])
 	const [scanning, setScanning] = useState<boolean>(true)
 	const [scanError, setScanError] = useState<string | null>(null)
@@ -96,7 +99,13 @@ const DiscoverShell = ({ target, all, sort, maxWidth }: DiscoverShellProps) => {
 	const discoveryStatus = scanError ?? (scanning ? `indexing… ${countRef.current}` : null)
 
 	return (
-		<Browser files={files} title={target} maxWidth={maxWidth} discoveryStatus={discoveryStatus} />
+		<Browser
+			files={files}
+			title={target}
+			maxWidth={maxWidth}
+			discoveryStatus={discoveryStatus}
+			sidebarMode={sidebarMode}
+		/>
 	)
 }
 
@@ -258,7 +267,15 @@ if (import.meta.main) {
 			}
 			sort = args.sort
 		}
-		await runTui({ target, themeId, tone, maxWidth, all: args.all, sort })
+		let sidebarMode: SidebarMode = "auto"
+		if (args.sidebar !== null) {
+			if (args.sidebar !== "auto" && args.sidebar !== "on" && args.sidebar !== "off") {
+				console.error(`house: --sidebar must be "auto", "on", or "off", got "${args.sidebar}"`)
+				process.exit(2)
+			}
+			sidebarMode = args.sidebar
+		}
+		await runTui({ target, themeId, tone, maxWidth, all: args.all, sort, sidebarMode })
 	}
 }
 
@@ -269,6 +286,7 @@ interface TuiBootOptions {
 	readonly maxWidth: number | null
 	readonly all: boolean
 	readonly sort: SortOrder
+	readonly sidebarMode: SidebarMode
 }
 
 async function runTui({
@@ -278,6 +296,7 @@ async function runTui({
 	maxWidth,
 	all,
 	sort,
+	sidebarMode,
 }: TuiBootOptions): Promise<void> {
 	let stats: Awaited<ReturnType<typeof stat>>
 	try {
@@ -293,7 +312,13 @@ async function runTui({
 	if (stats.isDirectory()) {
 		createRoot(renderer).render(
 			<RegistryProvider initialValues={[[themeAtom, initialTheme]]}>
-				<DiscoverShell target={target} all={all} sort={sort} maxWidth={maxWidth} />
+				<DiscoverShell
+					target={target}
+					all={all}
+					sort={sort}
+					maxWidth={maxWidth}
+					sidebarMode={sidebarMode}
+				/>
 			</RegistryProvider>,
 		)
 	} else {

@@ -22,11 +22,19 @@ import { HelpOverlay } from "./HelpOverlay.tsx"
 import { readFileText } from "./io/readFile.ts"
 import { browserBindings, type BrowserCtx } from "./keymap/browser.ts"
 import { dispatch } from "./keymap/keymap.ts"
+import {
+	canFitInline,
+	defaultPreferredWidth,
+	initialShownForAuto,
+	resolveSidebarWidth,
+} from "./layout/resolve.ts"
 import { openInBrowser } from "./serve/openBrowser.ts"
 import { startServer, type ServerHandle } from "./serve/server.ts"
 import { colors, setActiveTheme } from "./theme/colors.ts"
 import { themeAtom } from "./theme/atom.ts"
 import { themeDefinitions, getThemeDefinition } from "./theme/registry.ts"
+
+export type SidebarMode = "auto" | "on" | "off"
 
 export interface BrowserProps {
 	readonly files: readonly FileEntry[]
@@ -37,6 +45,9 @@ export interface BrowserProps {
 	/** Persistent footer indicator (e.g. "indexing… 42"). Pass null/undefined
 	 *  when discovery has finished; the indicator clears. */
 	readonly discoveryStatus?: string | null
+	/** Initial sidebar visibility (`--sidebar` flag). `auto` consults the
+	 *  launch viewport bucket once; subsequent visibility goes through `s`. */
+	readonly sidebarMode?: SidebarMode
 	readonly onQuit?: () => void
 	/** Test seam: replaces the file reader. */
 	readonly readFile?: (path: string) => Promise<string>
@@ -61,6 +72,7 @@ export const Browser = ({
 	initialIndex = 0,
 	maxWidth = null,
 	discoveryStatus = null,
+	sidebarMode = "auto",
 	onQuit,
 	readFile = defaultReadFile,
 }: BrowserProps) => {
@@ -75,8 +87,23 @@ export const Browser = ({
 	)
 	const [loaded, setLoaded] = useState<{ path: string; content: string } | null>(null)
 	const [error, setError] = useState<string | null>(null)
-	const [focus, setFocus] = useState<"sidebar" | "reader">("sidebar")
-	const [sidebarVisible, setSidebarVisible] = useState<boolean>(true)
+	// `shown` is the user's sticky preference. Visibility is derived:
+	// `visible = shown || focus === "sidebar"`. See DESIGN.md §7.1.
+	//
+	// Launch consults the viewport bucket once for `--sidebar=auto`. The
+	// useState initializer pins this to the first render — buckets are
+	// launch-only by design, so resize must NOT re-evaluate.
+	const [shown, setShown] = useState<boolean>(() => {
+		switch (sidebarMode) {
+			case "on":
+				return true
+			case "off":
+				return false
+			case "auto":
+				return initialShownForAuto(width)
+		}
+	})
+	const [focus, setFocus] = useState<"sidebar" | "reader">(() => (shown ? "sidebar" : "reader"))
 	const [sidebarScroll, setSidebarScroll] = useState<number>(0)
 	const [helpVisible, setHelpVisible] = useState<boolean>(false)
 	const [filterOpen, setFilterOpen] = useState<boolean>(false)
@@ -87,15 +114,10 @@ export const Browser = ({
 	// otherwise still observe filterOpen=false through closure).
 	const filterOpenRef = useRef(false)
 	const filterQueryRef = useRef("")
-	// State captured when the filter opens, used to undo the session on Esc
-	// (restore prior query) and to restore the prior layout if the user
-	// cancelled without typing anything. `userTyped` flips true on the
-	// first character or backspace inside the modal; once true, closing
-	// the filter leaves the sidebar visible (committing to filter implies
-	// wanting to see what you filtered).
-	const priorSidebarVisibleRef = useRef(true)
+	// Snapshot the query at filter-open so Esc reverts edits but commit (Return)
+	// keeps them. Layout snapshots are no longer needed — focus drives drawer
+	// dismissal under the §7.1 visibility rule.
 	const priorFilterQueryRef = useRef("")
-	const userTypedDuringFilterRef = useRef(false)
 	const [footerNotice, setFooterNotice] = useState<string | null>(null)
 	const serverRef = useRef<ServerHandle | null>(null)
 
@@ -194,24 +216,34 @@ export const Browser = ({
 	const ctx: BrowserCtx = {
 		files: displayedFiles,
 		focus,
-		sidebarVisible,
+		sidebarShown: shown,
 		helpVisible,
 		filterOpen,
 		setFocus,
 		setSelectedIndex,
-		setSidebarVisible,
+		toggleShown: () => {
+			// Per DESIGN.md §7.1 s-behavior table:
+			//   shown=true,  focus=sidebar → shown=false, focus=reader
+			//                                (otherwise the drawer would
+			//                                 immediately re-appear)
+			//   shown=true,  focus=reader  → shown=false, focus=reader
+			//   shown=false, focus=reader  → shown=true,  focus=sidebar
+			//   shown=false, focus=sidebar → shown=true,  focus=sidebar
+			if (shown) {
+				setShown(false)
+				if (focus === "sidebar") setFocus("reader")
+			} else {
+				setShown(true)
+				if (focus === "reader") setFocus("sidebar")
+			}
+		},
 		setHelpVisible,
 		openFilter: () => {
-			// Auto-open the sidebar and focus it so the filter input has a
-			// natural home regardless of where the user pressed `/`. The
-			// prior visibility is restored on Esc-with-no-typing; see the
-			// closeFilter branch in the keyboard handler.
-			// TODO(#22): replace direct setSidebarVisible with a
-			// resolveLayout.ensureSidebarVisible() intent once #22 lands.
-			priorSidebarVisibleRef.current = sidebarVisible
+			// Focus the sidebar so the filter input has a home. Under §7.1's
+			// `visible = shown || focus==="sidebar"` rule, focus alone makes
+			// the sidebar visible (as a drawer when `shown=false`), so we no
+			// longer need to mutate `shown` here.
 			priorFilterQueryRef.current = filterQueryRef.current
-			userTypedDuringFilterRef.current = false
-			if (!sidebarVisible) setSidebarVisible(true)
 			if (focus !== "sidebar") setFocus("sidebar")
 			filterOpenRef.current = true
 			setFilterOpen(true)
@@ -279,14 +311,12 @@ export const Browser = ({
 				// as Esc so the user isn't stranded in an "applied filter with
 				// no visible files" state they'd have to back out of manually.
 				const effectiveCommit = commit && picked !== null
-				const cancelledWithoutTyping = !effectiveCommit && !userTypedDuringFilterRef.current
 				filterOpenRef.current = false
 				setFilterOpen(false)
 				if (effectiveCommit) {
 					// Return keeps the query. selectedIndex is already a valid
 					// position in the (still-filtered) displayedFiles list, so
 					// no translation is needed.
-					if (picked) setFocus("reader")
 				} else {
 					// Esc reverts the query to its pre-session value. After the
 					// revert, displayedFiles may change shape — translate the
@@ -302,11 +332,18 @@ export const Browser = ({
 						if (idx >= 0) setSelectedIndex(() => idx)
 					}
 				}
-				// Esc with no user input restores the prior sidebar visibility —
-				// the modal was a no-op, so the layout should be too.
-				if (cancelledWithoutTyping && !priorSidebarVisibleRef.current) {
-					setSidebarVisible(false)
+				// Where focus lands depends on layout intent (DESIGN.md §7.1):
+				//   commit (Return on a real pick) → reader, always. The user
+				//     asked to open the match; show them what they picked.
+				//   cancel (Esc, or Return with no pick) → if the sidebar is
+				//     inline (shown && fits), keep focus there so j/k keeps
+				//     walking the list; if the sidebar was only up as a drawer
+				//     (shown=false), dismiss focus to the reader so the drawer
+				//     disappears under the §7.1 visibility rule.
+				if (effectiveCommit) {
 					setFocus("reader")
+				} else {
+					setFocus(shown && canFitInline(width) ? "sidebar" : "reader")
 				}
 			}
 			if (key.name === "escape") {
@@ -321,13 +358,11 @@ export const Browser = ({
 				// Pressing backspace/delete with no query left removes the
 				// leading `/` — i.e. closes the modal. Equivalent to Esc:
 				// reverts to the pre-session query (so an applied filter
-				// survives a "I changed my mind" tap) and restores prior
-				// sidebar visibility if the user never typed anything.
+				// survives a "I changed my mind" tap).
 				if (filterQueryRef.current.length === 0) {
 					closeFilter(false)
 					return
 				}
-				userTypedDuringFilterRef.current = true
 				filterQueryRef.current = filterQueryRef.current.slice(0, -1)
 				setFilterQuery(filterQueryRef.current)
 				setSelectedIndex(() => 0)
@@ -348,7 +383,6 @@ export const Browser = ({
 				char = key.shift ? key.name.toUpperCase() : key.name
 			}
 			if (char !== null) {
-				userTypedDuringFilterRef.current = true
 				filterQueryRef.current = filterQueryRef.current + char
 				setFilterQuery(filterQueryRef.current)
 				setSelectedIndex(() => 0)
@@ -379,12 +413,26 @@ export const Browser = ({
 		dispatch(browserBindings, ctx, key)
 	})
 
-	// Min/max-clamped percentage of viewport: narrow terminals stay readable,
-	// wide terminals get more room without wasting space at extremes.
-	// User-configurable width is deferred — see DESIGN.md §12.
-	const sidebarWidth = Math.max(28, Math.min(60, Math.floor(width * 0.25)))
+	// Sidebar width is a pure function of viewport (DESIGN.md §7.1). Until
+	// persistent config (#13) lands, `preferred` is derived from viewport,
+	// matching the pre-#22 inline math.
+	const sidebarWidth = resolveSidebarWidth(width, defaultPreferredWidth(width))
 	const sidebarActive = focus === "sidebar"
 	const readerActive = focus === "reader"
+	// Visibility = shown OR sidebar-focused. When visible-because-focused
+	// only, render as a drawer (absolute) on top of the reader. We also
+	// fall back to drawer rendering when the viewport is too narrow for
+	// the inline two-pane layout even with `shown=true` (Q2 in DESIGN.md
+	// §7.1) — preserves the user's preference without squeezing the reader
+	// below READER_MIN_WIDTH.
+	const sidebarVisible = shown || sidebarActive
+	const sidebarAsDrawer = sidebarVisible && (!shown || !canFitInline(width))
+	const sidebarInline = sidebarVisible && !sidebarAsDrawer
+	// Drawer is offset 1 row from the top so the reader's title stays visible.
+	// That row comes off the drawer's own height, so the body has one fewer
+	// usable row than the inline sidebar. Tracked here so the virtualization
+	// slice matches the wrapper that actually paints it.
+	const drawerTopOffset = 1
 	const sidebarTitle = sidebarActive ? " ▸ files " : "   files "
 	const readerLabel = selected?.relativePath ?? title
 	const readerTitle = readerActive ? ` ▸ ${readerLabel} ` : `   ${readerLabel} `
@@ -400,7 +448,14 @@ export const Browser = ({
 	// in when the first file arrives).
 	const discoveryActive = discoveryStatus !== null && discoveryStatus.length > 0
 	const filterRowVisible = files.length > 0 || discoveryActive
-	const sidebarBodyHeight = Math.max(1, height - 2 - FOOTER_HEIGHT - (filterRowVisible ? 1 : 0))
+	const sidebarBodyHeight = Math.max(
+		1,
+		height -
+			2 -
+			FOOTER_HEIGHT -
+			(filterRowVisible ? 1 : 0) -
+			(sidebarAsDrawer ? drawerTopOffset : 0),
+	)
 	const maxScroll = Math.max(0, displayedFiles.length - sidebarBodyHeight)
 	const desiredScroll = (() => {
 		let s = sidebarScroll
@@ -460,6 +515,49 @@ export const Browser = ({
 		[helpVisible],
 	)
 
+	// One sidebar element is reused for inline and drawer rendering; only
+	// the wrapper differs (flex sibling vs absolute-positioned). The body is
+	// identical so file rows / filter row don't drift between modes.
+	const sidebarBody = (
+		<>
+			{filterRowVisible && (
+				<text content={filterRowContent} wrapMode="none" style={{ fg: filterRowFg }} />
+			)}
+			{displayedFiles.length === 0 ? (
+				<text
+					content={
+						files.length === 0
+							? discoveryActive
+								? "(scanning…)"
+								: "(no markdown files)"
+							: "(no matches)"
+					}
+					style={{ fg: colors.textMuted }}
+				/>
+			) : (
+				visibleFiles.map((file, idx) => {
+					const realIdx = desiredScroll + idx
+					const isSelected = realIdx === selectedIndex
+					const display = truncatePath(file.relativePath)
+					if (!isSelected) {
+						return (
+							<text key={file.path} content={display} wrapMode="none" style={{ fg: colors.text }} />
+						)
+					}
+					const bg = sidebarActive ? colors.selectedBg : colors.selectedBgInactive
+					return (
+						<text
+							key={file.path}
+							content={display}
+							wrapMode="none"
+							style={{ fg: colors.textStrong, bg }}
+						/>
+					)
+				})
+			)}
+		</>
+	)
+
 	return (
 		<box style={{ width, height, flexDirection: "column", backgroundColor: colors.background }}>
 			<box
@@ -470,7 +568,7 @@ export const Browser = ({
 					backgroundColor: colors.background,
 				}}
 			>
-				{sidebarVisible && (
+				{sidebarInline && (
 					<box
 						title={sidebarTitle}
 						titleAlignment="left"
@@ -483,46 +581,7 @@ export const Browser = ({
 							backgroundColor: colors.surface,
 						}}
 					>
-						{filterRowVisible && (
-							<text content={filterRowContent} wrapMode="none" style={{ fg: filterRowFg }} />
-						)}
-						{displayedFiles.length === 0 ? (
-							<text
-								content={
-									files.length === 0
-										? discoveryActive
-											? "(scanning…)"
-											: "(no markdown files)"
-										: "(no matches)"
-								}
-								style={{ fg: colors.textMuted }}
-							/>
-						) : (
-							visibleFiles.map((file, idx) => {
-								const realIdx = desiredScroll + idx
-								const isSelected = realIdx === selectedIndex
-								const display = truncatePath(file.relativePath)
-								if (!isSelected) {
-									return (
-										<text
-											key={file.path}
-											content={display}
-											wrapMode="none"
-											style={{ fg: colors.text }}
-										/>
-									)
-								}
-								const bg = sidebarActive ? colors.selectedBg : colors.selectedBgInactive
-								return (
-									<text
-										key={file.path}
-										content={display}
-										wrapMode="none"
-										style={{ fg: colors.textStrong, bg }}
-									/>
-								)
-							})
-						)}
+						{sidebarBody}
 					</box>
 				)}
 				<box
@@ -563,12 +622,37 @@ export const Browser = ({
 					)}
 				</box>
 			</box>
+			{sidebarAsDrawer && (
+				// Offset by 1 row so the reader pane's top border (which carries
+				// the current file name) stays visible above the drawer. Without
+				// this, the user loses the only on-screen indicator of which
+				// file they're reading whenever the drawer is up.
+				<box
+					position="absolute"
+					left={0}
+					top={drawerTopOffset}
+					width={sidebarWidth}
+					height={Math.max(1, height - FOOTER_HEIGHT - drawerTopOffset)}
+					zIndex={5}
+					title={sidebarTitle}
+					titleAlignment="left"
+					style={{
+						border: true,
+						borderColor: sidebarActive ? colors.borderActive : colors.border,
+						flexDirection: "column",
+						backgroundColor: colors.surface,
+					}}
+				>
+					{sidebarBody}
+				</box>
+			)}
 			<Footer
 				bindings={footerBindings}
 				ctx={ctx}
 				width={width}
 				notice={footerNotice}
 				discoveryStatus={discoveryStatus}
+				filterQuery={!filterOpen && filterQuery.length > 0 ? filterQuery : null}
 			/>
 			{helpVisible && (
 				<HelpOverlay bindings={browserBindings} viewportWidth={width} viewportHeight={height} />
