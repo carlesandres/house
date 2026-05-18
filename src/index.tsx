@@ -12,13 +12,13 @@ import { stat } from "node:fs/promises"
 import { createCliRenderer, SyntaxStyle } from "@opentui/core"
 import { createRoot, useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react"
 import { RegistryProvider, useAtomSet, useAtomValue } from "@effect/atom-react"
-import { Effect } from "effect"
-import { useMemo } from "react"
+import { Cause, Duration, Effect, Fiber, Stream } from "effect"
+import { useEffect, useMemo, useRef, useState } from "react"
 import pkg from "../package.json" with { type: "json" }
 import { Browser } from "./Browser.tsx"
 import { parseArgv, usage } from "./cli/argv.ts"
 import { defaultConfigPath, formatConfigError, loadConfig } from "./config/load.ts"
-import { walk, type SortOrder } from "./discovery/walk.ts"
+import { walk, type FileEntry, type SortOrder } from "./discovery/walk.ts"
 import { readFileText } from "./io/readFile.ts"
 import { openInBrowser } from "./serve/openBrowser.ts"
 import { startServer } from "./serve/server.ts"
@@ -35,6 +35,69 @@ export interface AppProps {
 	readonly maxWidth?: number | null
 	/** Override quit behavior. Tests pass a spy; the binary uses the default. */
 	readonly onQuit?: () => void
+}
+
+/**
+ * DiscoverShell — owns the streaming walk for directory mode. Mounts Browser
+ * immediately with `files=[]` and pushes entries as the stream emits.
+ *
+ * Batching: `Stream.groupedWithin(64, 60ms)` coalesces bursts so we don't
+ * trigger one React render per file. Tuned by feel — small enough that
+ * results still feel live on tiny trees, large enough to keep render
+ * frequency sane on big ones. Revisit if profiling says otherwise.
+ *
+ * Cancellation: the walk runs on a forked fiber; unmount interrupts it.
+ * `Quit` in Browser tears down the renderer and exits, which propagates
+ * naturally — the cleanup effect still fires before process.exit completes.
+ */
+interface DiscoverShellProps {
+	readonly target: string
+	readonly all: boolean
+	readonly sort: SortOrder
+	readonly maxWidth: number | null
+}
+
+const DiscoverShell = ({ target, all, sort, maxWidth }: DiscoverShellProps) => {
+	const [files, setFiles] = useState<readonly FileEntry[]>([])
+	const [scanning, setScanning] = useState<boolean>(true)
+	const [scanError, setScanError] = useState<string | null>(null)
+	// Files arrive in a ref-tracked count so the status string can show
+	// "indexing… N" even when React hasn't yet flushed the latest setFiles.
+	const countRef = useRef(0)
+
+	useEffect(() => {
+		const program = walk(target, { all, sort }).pipe(
+			Stream.groupedWithin(64, Duration.millis(60)),
+			Stream.runForEach((chunk) =>
+				Effect.sync(() => {
+					const arr = Array.from(chunk)
+					if (arr.length === 0) return
+					countRef.current += arr.length
+					setFiles((prev) => [...prev, ...arr])
+				}),
+			),
+			Effect.matchCauseEffect({
+				onSuccess: () => Effect.sync(() => setScanning(false)),
+				onFailure: (cause) =>
+					Effect.sync(() => {
+						// Interruption is the normal teardown path — don't surface it.
+						if (Cause.hasInterrupts(cause)) return
+						setScanError(`scan failed: ${Cause.pretty(cause)}`)
+						setScanning(false)
+					}),
+			}),
+		)
+		const fiber = Effect.runFork(program)
+		return () => {
+			Effect.runFork(Fiber.interrupt(fiber))
+		}
+	}, [target, all, sort])
+
+	const discoveryStatus = scanError ?? (scanning ? `indexing… ${countRef.current}` : null)
+
+	return (
+		<Browser files={files} title={target} maxWidth={maxWidth} discoveryStatus={discoveryStatus} />
+	)
 }
 
 export const App = ({ content, title = "house", maxWidth = null, onQuit }: AppProps) => {
@@ -228,21 +291,9 @@ async function runTui({
 	const initialTheme: ThemeState = { id: themeId, tone }
 
 	if (stats.isDirectory()) {
-		const files = await Effect.runPromise(
-			walk(target, { all, sort }).pipe(
-				Effect.tapError((err) =>
-					Effect.sync(() => {
-						console.error(`house: cannot walk ${target}: ${String(err.cause)}`)
-					}),
-				),
-			),
-		).catch(() => {
-			process.exit(1)
-		})
-		if (!Array.isArray(files)) process.exit(1)
 		createRoot(renderer).render(
 			<RegistryProvider initialValues={[[themeAtom, initialTheme]]}>
-				<Browser files={files} title={target} maxWidth={maxWidth} />
+				<DiscoverShell target={target} all={all} sort={sort} maxWidth={maxWidth} />
 			</RegistryProvider>,
 		)
 	} else {

@@ -33,6 +33,10 @@ export interface FooterProps<C> {
 	readonly ctx: C
 	readonly width: number
 	readonly notice?: string | null
+	/** Persistent status line (e.g. "indexing… 42"). Distinct from `notice`:
+	 *  no TTL, cleared by the caller when the underlying activity finishes.
+	 *  Loses to `notice` when both are set so transient toasts still surface. */
+	readonly discoveryStatus?: string | null
 }
 
 const HINT_SEPARATOR = "  "
@@ -88,7 +92,9 @@ const fitHints = (hints: readonly string[], width: number): string => {
 	return firstKey.slice(0, width)
 }
 
-export const Footer = <C,>({ bindings, ctx, width, notice }: FooterProps<C>) => {
+const STATUS_SEPARATOR = " · "
+
+export const Footer = <C,>({ bindings, ctx, width, notice, discoveryStatus }: FooterProps<C>) => {
 	const usableWidth = Math.max(0, width - 2) // 1-cell horizontal padding each side
 
 	const rowStyle = {
@@ -107,20 +113,47 @@ export const Footer = <C,>({ bindings, ctx, width, notice }: FooterProps<C>) => 
 		const h = formatHint(b)
 		if (h !== null) hints.push(h)
 	}
-	const hintContent = fitHints(hints, usableWidth)
+
+	// Discovery status sits left of the hints, separated by " · ". On tight
+	// viewports it claims its budget first; hints fit into the remainder so
+	// the indicator stays visible while less-essential hints drop off.
+	const status = discoveryStatus && discoveryStatus.length > 0 ? discoveryStatus : null
+	const statusBudget = status ? Math.min(status.length + STATUS_SEPARATOR.length, usableWidth) : 0
+	const hintsWidth = Math.max(0, usableWidth - statusBudget)
+	const hintContent = fitHints(hints, hintsWidth)
+	const statusContent = status
+		? status.slice(0, Math.max(0, statusBudget - STATUS_SEPARATOR.length))
+		: ""
+
 	const noticeContent = notice
 		? notice.length > usableWidth
 			? notice.slice(0, usableWidth)
 			: notice
 		: null
 
-	// Notice > hints. Notice fg is strong; hints are muted.
-	const content = noticeContent ?? hintContent
-	const fg = noticeContent ? colors.textStrong : colors.textMuted
+	// Priority: notice > (status + hints). Notice fg is strong; status sits
+	// at the muted level so it reads as ambient state, not an event.
+	if (noticeContent !== null) {
+		return (
+			<box style={rowStyle}>
+				<text content={noticeContent} wrapMode="none" style={{ fg: colors.textStrong }} />
+			</box>
+		)
+	}
+
+	if (status !== null) {
+		return (
+			<box style={rowStyle}>
+				<text content={statusContent} wrapMode="none" style={{ fg: colors.textMuted }} />
+				<text content={STATUS_SEPARATOR} wrapMode="none" style={{ fg: colors.textMuted }} />
+				<text content={hintContent} wrapMode="none" style={{ fg: colors.textMuted }} />
+			</box>
+		)
+	}
 
 	return (
 		<box style={rowStyle}>
-			<text content={content} wrapMode="none" style={{ fg }} />
+			<text content={hintContent} wrapMode="none" style={{ fg: colors.textMuted }} />
 		</box>
 	)
 }
