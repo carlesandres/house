@@ -65,3 +65,4 @@ describe("initialShownForAuto", () => {
 		expect(initialShownForAuto(TIGHT_VIEWPORT_THRESHOLD + 50)).toBe(true)
 	})
 })
+

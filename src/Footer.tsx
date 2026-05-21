@@ -116,7 +116,7 @@ export const Footer = <C,>({
 		flexDirection: "row",
 		paddingLeft: 1,
 		paddingRight: 1,
-		backgroundColor: colors.background,
+		backgroundColor: colors.surface,
 	} as const
 
 	const hints: string[] = []

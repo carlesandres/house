@@ -4,6 +4,8 @@ import { act } from "react"
 import React from "react"
 import { testRender } from "@opentui/react/test-utils"
 import { RegistryProvider } from "@effect/atom-react"
+import { RGBA } from "@opentui/core"
+import type { CapturedFrame } from "@opentui/core"
 import { Browser } from "../src/Browser.tsx"
 import type { FileEntry } from "../src/discovery/walk.ts"
 import { colors, setActiveTheme } from "../src/theme/colors.ts"
@@ -99,16 +101,54 @@ describe("Browser — sidebar", () => {
 	})
 })
 
-// We assert on the reader pane's border title (which file is being read)
-// rather than the markdown body. The body goes through opentui's <markdown>
-// + <scrollbox> stack, which doesn't render reliably on the first frame in
-// the headless renderer (matches the spike's FIXME). The border title is
-// the user-visible signal of "which file is selected" and is plain <text>,
-// rendered immediately. Real-terminal rendering of the body is verified by
-// eyeballing.
-const readerTitleContains = (frame: string, name: string): boolean =>
-	// Active reader title: " ▸ <name> ". Inactive: "   <name> " (3 leading spaces).
-	frame.includes(`▸ ${name} `) || frame.includes(`   ${name} `)
+// "Which file is the reader showing?" — assert on the Header chrome row
+// (first line) rather than the markdown body. The body goes through
+// opentui's <markdown> + <scrollbox> stack, which doesn't render reliably
+// on the first frame in the headless renderer (matches the spike's
+// FIXME). The Header is plain <text>, rendered immediately.
+//
+// Header format: "⌂ house · <currentFile>           vX.Y.Z". The middle
+// dot before the filename is the unique anchor — sidebar list rows render
+// the path without that prefix.
+const readerTitleContains = (frame: string, name: string): boolean => {
+	const first = frame.split("\n")[0] ?? ""
+	return first.includes(`· ${name}`)
+}
+
+/** Bg color at (row, col) in a captured frame. Used for focus assertions:
+ *  the sidebar tints to colors.surface when focused, colors.background
+ *  otherwise. */
+const bgAt = (frame: CapturedFrame, row: number, col: number): RGBA | null => {
+	const line = frame.lines[row]
+	if (!line) return null
+	let c = 0
+	for (const span of line.spans) {
+		if (col < c + span.width) return span.bg
+		c += span.width
+	}
+	return null
+}
+
+/** True when the sidebar pane is rendered AND focused. Active panes
+ *  stay on colors.background; inactive ones dim to colors.surface. We
+ *  sample 3 rows from the bottom (past footer + bottom rule, into the
+ *  pane area) at col 0 — that cell sits in the sidebar's paddingLeft
+ *  and is reliably empty, so its bg reflects the pane bg rather than a
+ *  selected-file or filter-row override. When the sidebar is hidden
+ *  entirely, that cell belongs to the reader, so we gate on
+ *  `sidebarIsVisible` first. */
+const sidebarIsFocused = (frame: CapturedFrame, charFrame: string): boolean => {
+	if (!sidebarIsVisible(charFrame)) return false
+	const bg = bgAt(frame, frame.rows - 3, 0)
+	if (!bg) return false
+	return RGBA.fromHex(colors.background).equals(bg)
+}
+
+/** True when the sidebar is rendered (inline or drawer). Detected via the
+ *  right-edge divider rule character (`│`). Tests that open the help
+ *  overlay or command palette — both of which also render `│` — should
+ *  not use this helper while a modal is up. */
+const sidebarIsVisible = (frame: string): boolean => frame.includes("│")
 
 const settleBrowser = async () => {
 	await act(async () => {
@@ -276,7 +316,7 @@ describe("Browser — selection", () => {
 })
 
 describe("Browser — focus", () => {
-	test("starts with the sidebar focused (▸ on sidebar title)", async () => {
+	test("starts with the sidebar focused", async () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
@@ -288,10 +328,7 @@ describe("Browser — focus", () => {
 			)
 		})
 		await stepFrame(setup!.renderOnce)
-		const frame = setup!.captureCharFrame()
-		expect(frame).toContain("▸ files")
-		// The reader title should NOT have the active marker on initial render.
-		expect(frame).not.toContain("▸ a.md")
+		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(true)
 	})
 
 	test("tab toggles focus between sidebar and reader", async () => {
@@ -311,17 +348,14 @@ describe("Browser — focus", () => {
 			setup!.mockInput.pressTab()
 		})
 		await stepFrame(setup!.renderOnce)
-		let frame = setup!.captureCharFrame()
-		expect(frame).toContain("▸ a.md")
-		expect(frame).not.toContain("▸ files")
+		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(false)
+		expect(readerTitleContains(setup!.captureCharFrame(), "a.md")).toBe(true)
 
 		await act(async () => {
 			setup!.mockInput.pressTab()
 		})
 		await stepFrame(setup!.renderOnce)
-		frame = setup!.captureCharFrame()
-		expect(frame).toContain("▸ files")
-		expect(frame).not.toContain("▸ a.md")
+		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(true)
 	})
 
 	test("return / l / right focus the reader; escape / h / left focus the sidebar", async () => {
@@ -342,7 +376,8 @@ describe("Browser — focus", () => {
 			setup!.mockInput.pressEnter()
 		})
 		await stepFrame(setup!.renderOnce)
-		expect(setup!.captureCharFrame()).toContain("▸ a.md")
+		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(false)
+		expect(readerTitleContains(setup!.captureCharFrame(), "a.md")).toBe(true)
 
 		// escape → sidebar (escape needs extra time: \x1b is the lead of
 		// escape sequences, so the parser waits to disambiguate before emitting).
@@ -351,35 +386,37 @@ describe("Browser — focus", () => {
 			await new Promise<void>((resolve) => setTimeout(resolve, 60))
 		})
 		await stepFrame(setup!.renderOnce)
-		expect(setup!.captureCharFrame()).toContain("▸ files")
+		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(true)
 
 		// l → reader
 		await act(async () => {
 			setup!.mockInput.pressKey("l")
 		})
 		await stepFrame(setup!.renderOnce)
-		expect(setup!.captureCharFrame()).toContain("▸ a.md")
+		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(false)
+		expect(readerTitleContains(setup!.captureCharFrame(), "a.md")).toBe(true)
 
 		// h → sidebar
 		await act(async () => {
 			setup!.mockInput.pressKey("h")
 		})
 		await stepFrame(setup!.renderOnce)
-		expect(setup!.captureCharFrame()).toContain("▸ files")
+		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(true)
 
 		// right → reader
 		await act(async () => {
 			setup!.mockInput.pressArrow("right")
 		})
 		await stepFrame(setup!.renderOnce)
-		expect(setup!.captureCharFrame()).toContain("▸ a.md")
+		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(false)
+		expect(readerTitleContains(setup!.captureCharFrame(), "a.md")).toBe(true)
 
 		// left → sidebar
 		await act(async () => {
 			setup!.mockInput.pressArrow("left")
 		})
 		await stepFrame(setup!.renderOnce)
-		expect(setup!.captureCharFrame()).toContain("▸ files")
+		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(true)
 	})
 
 	test("j/k do not move sidebar selection while reader is focused", async () => {
@@ -423,17 +460,17 @@ describe("Browser — sidebar toggle", () => {
 			)
 		})
 		await stepFrame(setup!.renderOnce)
-		expect(setup!.captureCharFrame()).toContain("files")
+		expect(sidebarIsVisible(setup!.captureCharFrame())).toBe(true)
 
 		await act(async () => {
 			setup!.mockInput.pressKey("s")
 		})
 		await stepFrame(setup!.renderOnce)
 
-		const frame = setup!.captureCharFrame()
-		expect(frame).not.toContain("files")
+		expect(sidebarIsVisible(setup!.captureCharFrame())).toBe(false)
 		// Reader becomes the active pane.
-		expect(frame).toContain("▸ a.md")
+		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(false)
+		expect(readerTitleContains(setup!.captureCharFrame(), "a.md")).toBe(true)
 	})
 
 	test("pressing s again restores the sidebar and focuses it", async () => {
@@ -458,8 +495,7 @@ describe("Browser — sidebar toggle", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 
-		const frame = setup!.captureCharFrame()
-		expect(frame).toContain("▸ files")
+		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(true)
 	})
 })
 
@@ -481,7 +517,7 @@ describe("Browser — #22 layout v2", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
-		expect(frame).toContain("files")
+		expect(sidebarIsVisible(setup!.captureCharFrame())).toBe(true)
 		expect(frame).toContain("a.md")
 	})
 
@@ -498,10 +534,10 @@ describe("Browser — #22 layout v2", () => {
 			)
 		})
 		await stepFrame(setup!.renderOnce)
-		const frame = setup!.captureCharFrame()
-		expect(frame).not.toContain("files")
+		expect(sidebarIsVisible(setup!.captureCharFrame())).toBe(false)
 		// Reader is the focused pane.
-		expect(frame).toContain("▸ a.md")
+		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(false)
+		expect(readerTitleContains(setup!.captureCharFrame(), "a.md")).toBe(true)
 	})
 
 	test("--sidebar=auto consults the viewport bucket once", async () => {
@@ -518,7 +554,7 @@ describe("Browser — #22 layout v2", () => {
 			)
 		})
 		await stepFrame(setup!.renderOnce)
-		expect(setup!.captureCharFrame()).not.toContain("files")
+		expect(sidebarIsVisible(setup!.captureCharFrame())).toBe(false)
 	})
 
 	test("focusing a hidden sidebar opens it as a drawer; defocusing dismisses it", async () => {
@@ -534,19 +570,19 @@ describe("Browser — #22 layout v2", () => {
 			)
 		})
 		await stepFrame(setup!.renderOnce)
-		expect(setup!.captureCharFrame()).not.toContain("files")
+		expect(sidebarIsVisible(setup!.captureCharFrame())).toBe(false)
 		// Tab focuses the sidebar → drawer appears.
 		await act(async () => {
 			setup!.mockInput.pressTab()
 		})
 		await stepFrame(setup!.renderOnce)
-		expect(setup!.captureCharFrame()).toContain("▸ files")
+		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(true)
 		// Tab again moves focus to the reader → drawer dismisses.
 		await act(async () => {
 			setup!.mockInput.pressTab()
 		})
 		await stepFrame(setup!.renderOnce)
-		expect(setup!.captureCharFrame()).not.toContain("files")
+		expect(sidebarIsVisible(setup!.captureCharFrame())).toBe(false)
 	})
 
 	test("filter chip surfaces in the footer when a filter is applied and the input is closed", async () => {
@@ -1239,14 +1275,18 @@ describe("Browser — theme cycling", () => {
 // above the file list and shrinks the body by one cell.
 describe("Browser — sidebar virtualization", () => {
 	// Viewport chosen to force a visible window strictly smaller than the
-	// file list: height 10 → sidebarBodyHeight = 10 - 2 (borders) - 1 (footer)
-	// - 1 (filter row) = 6 rows. With 20 files, scrolling is mandatory to
-	// see the tail.
+	// file list: height 11 → sidebarBodyHeight = 11 - 1 (footer) - 1 (header)
+	// - 2 (pane borders) - 1 (filter row) = 6 rows. With 20 files, scrolling
+	// is mandatory to see the tail.
 	//
 	// Width is wide enough (≥ SIDEBAR_MIN + DIVIDER + READER_MIN = 69) that
 	// the inline two-pane layout is used; the drawer fallback at narrower
 	// widths is exercised elsewhere.
-	const TIGHT_VIEWPORT = { width: 90, height: 10 }
+	const TIGHT_VIEWPORT = { width: 90, height: 11 }
+	// Filter-clamp test needs the Header to verify which file the reader
+	// loaded after Esc. Body = 20 - 1 - 1 - 2 - 1 = 15 rows, still smaller
+	// than 20 files so scrolling stays relevant.
+	const TALL_VIEWPORT = { width: 90, height: 20 }
 	const TWENTY_FILES = makeFiles(
 		Array.from({ length: 20 }, (_, i) => `f${String(i).padStart(2, "0")}.md`),
 	)
@@ -1363,7 +1403,7 @@ describe("Browser — sidebar virtualization", () => {
 					onQuit={() => {}}
 					sidebarMode="on"
 				/>,
-				TIGHT_VIEWPORT,
+				TALL_VIEWPORT,
 			)
 		})
 		await stepFrame(setup!.renderOnce)
@@ -1822,7 +1862,7 @@ describe("Browser — filter modal", () => {
 		// j/k keeps walking the restored list. Drawer dismissal only
 		// applies when the sidebar was up purely because of focus. See
 		// DESIGN.md §7.1.
-		expect(frame).toContain("▸ files")
+		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(true)
 	})
 
 	test("up/down arrows navigate the filtered list", async () => {
@@ -1923,7 +1963,7 @@ describe("Browser — filter modal", () => {
 		// Filter input is up.
 		expect(frame).toContain("/▏")
 		// Sidebar is focused (the modal needs a home).
-		expect(frame).toContain("▸ files")
+		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(true)
 	})
 
 	test("/ from hidden sidebar auto-opens the sidebar and focuses the filter", async () => {
@@ -1945,7 +1985,7 @@ describe("Browser — filter modal", () => {
 			setup!.mockInput.pressKey("s")
 		})
 		await stepFrame(setup!.renderOnce)
-		expect(setup!.captureCharFrame()).not.toContain("files")
+		expect(sidebarIsVisible(setup!.captureCharFrame())).toBe(false)
 
 		// `/` should bring the sidebar back with the filter open.
 		await act(async () => {
@@ -1954,7 +1994,7 @@ describe("Browser — filter modal", () => {
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
 		expect(frame).toContain("/▏")
-		expect(frame).toContain("▸ files")
+		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(true)
 	})
 
 	test("Esc with no typing restores prior sidebar visibility", async () => {
@@ -1990,7 +2030,7 @@ describe("Browser — filter modal", () => {
 		const frame = setup!.captureCharFrame()
 		expect(frame).not.toContain("/▏")
 		// Restored to hidden.
-		expect(frame).not.toContain("files")
+		expect(sidebarIsVisible(setup!.captureCharFrame())).toBe(false)
 	})
 
 	test("Esc after typing reverts the query and dismisses the drawer", async () => {
@@ -2032,7 +2072,7 @@ describe("Browser — filter modal", () => {
 		// Filter input gone; query reverted; drawer dismissed (shown=false,
 		// focus=reader).
 		expect(frame).not.toContain("/r▏")
-		expect(frame).not.toContain("files")
+		expect(sidebarIsVisible(setup!.captureCharFrame())).toBe(false)
 	})
 
 	test("/ does nothing while the help overlay is open", async () => {
@@ -2181,7 +2221,7 @@ describe("Browser — filter modal", () => {
 		expect(frame).not.toContain("/zzz▏")
 		expect(frame).toContain("README.md")
 		expect(frame).toContain("notes.md")
-		expect(frame).toContain("▸ files")
+		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(true)
 	})
 
 	test("printable characters do not fire their normal bindings while filter is open", async () => {
@@ -2351,7 +2391,8 @@ describe("Browser — command palette", () => {
 		await stepFrame(setup!.renderOnce)
 
 		expect(quitCalls).toBe(0)
-		expect(setup!.captureCharFrame()).toContain("▸ README.md")
+		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(false)
+		expect(readerTitleContains(setup!.captureCharFrame(), "README.md")).toBe(true)
 	})
 
 	test("ctrl+p a second time closes the palette (toggle)", async () => {
@@ -2487,5 +2528,106 @@ describe("Browser — command palette", () => {
 		expect(frame).not.toContain(" Help ")
 		// Reader did not scroll — first line is still at the top.
 		expect(frame).toContain("MARKER00")
+	})
+})
+
+describe("Browser — updateNotice", () => {
+	const TEXT = "update available: 0.5.0 (current 0.4.0)"
+
+	test("renders the update notice in the footer when the prop is set", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={makeFiles(["a.md"])}
+					readFile={makeReader({ "a.md": "x" })}
+					onQuit={() => {}}
+					updateNotice={TEXT}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).toContain(TEXT)
+	})
+
+	test("a transient toast (theme cycle) preempts an active update notice", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={makeFiles(["a.md"])}
+					readFile={makeReader({ "a.md": "x" })}
+					onQuit={() => {}}
+					updateNotice={TEXT}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).toContain(TEXT)
+
+		await act(async () => {
+			setup!.mockInput.pressKey("t")
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("theme:")
+		// The longer update text is gone; the slot now carries the theme toast.
+		expect(frame).not.toContain(TEXT)
+	})
+
+	test("after the update notice TTL expires the hint row returns", async () => {
+		// Use a tiny TTL via the prop so this test runs in ~50ms instead of
+		// sleeping the production 10s window.
+		const ttlMs = 30
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={makeFiles(["a.md"])}
+					readFile={makeReader({ "a.md": "x" })}
+					onQuit={() => {}}
+					updateNotice={TEXT}
+					updateNoticeTtlMs={ttlMs}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).toContain(TEXT)
+
+		await act(async () => {
+			await new Promise<void>((resolve) => setTimeout(resolve, ttlMs + 20))
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(frame).not.toContain(TEXT)
+		expect(frame).toContain("q:quit")
+	})
+})
+
+describe("Browser — header", () => {
+	test("renders brand mark and version on a tall viewport", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser files={makeFiles(["a.md"])} readFile={makeReader({ "a.md": "x" })} onQuit={() => {}} />,
+				{ width: 120, height: 30 },
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		// Brand: ⌂ + " " + "house". Version: "v" + something with digits.
+		expect(frame).toContain("⌂ house")
+		expect(frame).toMatch(/v\d+\.\d+\.\d+/)
+	})
+
+	test("renders the header even on short viewports", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser files={makeFiles(["a.md"])} readFile={makeReader({ "a.md": "x" })} onQuit={() => {}} />,
+				{ width: 120, height: 8 },
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("⌂ house")
 	})
 })

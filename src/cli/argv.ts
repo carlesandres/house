@@ -25,6 +25,10 @@ export interface ParsedArgs {
 	readonly configPath: boolean
 	/** Value of `--sidebar <mode>` (`auto`, `on`, `off`), or null. Validated by the boot layer. */
 	readonly sidebar: string | null
+	/** True when `--no-update-check` was passed: suppress the npm-registry
+	 *  probe and the "update available" notice. Mirrors the
+	 *  `NO_UPDATE_NOTIFIER` env var so opt-out is reachable without env state. */
+	readonly noUpdateCheck: boolean
 }
 
 /**
@@ -47,6 +51,7 @@ export const parseArgv = (argv: readonly string[]): ParsedArgs => {
 	let version = false
 	let configPath = false
 	let sidebar: string | null = null
+	let noUpdateCheck = false
 
 	for (let i = 0; i < argv.length; i++) {
 		const arg = argv[i]!
@@ -99,13 +104,30 @@ export const parseArgv = (argv: readonly string[]): ParsedArgs => {
 				}
 				continue
 			}
+			case "--no-update-check":
+				noUpdateCheck = true
+				continue
 		}
 		if (path === null && !arg.startsWith("-")) {
 			path = arg
 		}
 	}
 
-	return { path, theme, tone, width, all, sort, serve, port, help, version, configPath, sidebar }
+	return {
+		path,
+		theme,
+		tone,
+		width,
+		all,
+		sort,
+		serve,
+		port,
+		help,
+		version,
+		configPath,
+		sidebar,
+		noUpdateCheck,
+	}
 }
 
 const themeList = themeDefinitions.map((t) => t.id).join(", ")
@@ -126,6 +148,7 @@ options:
   -h, --help     show this help and exit
   -v, --version  print version and exit
   --config-path  print path to the config file and exit
+  --no-update-check  suppress the "newer version available" check (also via NO_UPDATE_NOTIFIER=1)
 
 configuration:
   file: $XDG_CONFIG_HOME/house/config.toml  (default ~/.config/house/config.toml)

@@ -10,6 +10,7 @@
 
 import { stat } from "node:fs/promises"
 import { createCliRenderer, SyntaxStyle } from "@opentui/core"
+import type { BorderSides } from "@opentui/core"
 import { createRoot, useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react"
 import { RegistryProvider, useAtomSet, useAtomValue } from "@effect/atom-react"
 import { Cause, Duration, Effect, Fiber, Stream } from "effect"
@@ -19,17 +20,21 @@ import { Browser } from "./Browser.tsx"
 import { parseArgv, usage } from "./cli/argv.ts"
 import { defaultConfigPath, formatConfigError, loadConfig } from "./config/load.ts"
 import { walk, type FileEntry, type SortOrder } from "./discovery/walk.ts"
+import { Header } from "./Header.tsx"
 import { readFileText } from "./io/readFile.ts"
 import { openInBrowser } from "./serve/openBrowser.ts"
 import { startServer } from "./serve/server.ts"
 import { colors, setActiveTheme } from "./theme/colors.ts"
 import { themeAtom, type ThemeState } from "./theme/atom.ts"
 import { getThemeDefinition, themeDefinitions } from "./theme/registry.ts"
+import { formatQuitNotice } from "./update/notice.ts"
+import { currentUpdateInfo, startUpdateProbe } from "./update/runtime.ts"
+import { useUpdateNotice } from "./update/useUpdateNotice.ts"
 
 export interface AppProps {
 	/** Markdown source to render. */
 	readonly content: string
-	/** Optional title shown in the frame border. Defaults to a generic label. */
+	/** Optional title shown in the header's current-file slot. Defaults to a generic label. */
 	readonly title?: string
 	/** Cap the rendered markdown's width at N columns (left-aligned). Null = fill the pane. */
 	readonly maxWidth?: number | null
@@ -61,6 +66,7 @@ interface DiscoverShellProps {
 }
 
 const DiscoverShell = ({ target, all, sort, maxWidth, sidebarMode }: DiscoverShellProps) => {
+	const updateNotice = useUpdateNotice()
 	const [files, setFiles] = useState<readonly FileEntry[]>([])
 	const [scanning, setScanning] = useState<boolean>(true)
 	const [scanError, setScanError] = useState<string | null>(null)
@@ -101,10 +107,10 @@ const DiscoverShell = ({ target, all, sort, maxWidth, sidebarMode }: DiscoverShe
 	return (
 		<Browser
 			files={files}
-			title={target}
 			maxWidth={maxWidth}
 			discoveryStatus={discoveryStatus}
 			sidebarMode={sidebarMode}
+			updateNotice={updateNotice}
 		/>
 	)
 }
@@ -145,13 +151,14 @@ export const App = ({ content, title = "house", maxWidth = null, onQuit }: AppPr
 		if (key.name === "l" && key.shift) toggleTone()
 	})
 
+	const paneBorderSides: BorderSides[] = ["top", "bottom"]
+
 	return (
 		<box style={{ width, height, flexDirection: "column", backgroundColor: colors.background }}>
+			<Header width={width} currentFile={title} />
 			<box
-				title={` ${title} `}
-				titleAlignment="left"
 				style={{
-					border: true,
+					border: paneBorderSides,
 					borderColor: colors.border,
 					padding: 1,
 					flexGrow: 1,
@@ -182,6 +189,8 @@ export const App = ({ content, title = "house", maxWidth = null, onQuit }: AppPr
 		</box>
 	)
 }
+
+let updateExitHookRegistered = false
 
 if (import.meta.main) {
 	const args = parseArgv(Bun.argv.slice(2))
@@ -275,7 +284,16 @@ if (import.meta.main) {
 			}
 			sidebarMode = args.sidebar
 		}
-		await runTui({ target, themeId, tone, maxWidth, all: args.all, sort, sidebarMode })
+		await runTui({
+			target,
+			themeId,
+			tone,
+			maxWidth,
+			all: args.all,
+			sort,
+			sidebarMode,
+			updateCheck: !args.noUpdateCheck,
+		})
 	}
 }
 
@@ -287,6 +305,9 @@ interface TuiBootOptions {
 	readonly all: boolean
 	readonly sort: SortOrder
 	readonly sidebarMode: SidebarMode
+	/** Run the npm-registry probe and surface the "update available" notice.
+	 *  False suppresses both the toast and the quit-time print. */
+	readonly updateCheck: boolean
 }
 
 async function runTui({
@@ -297,6 +318,7 @@ async function runTui({
 	all,
 	sort,
 	sidebarMode,
+	updateCheck,
 }: TuiBootOptions): Promise<void> {
 	let stats: Awaited<ReturnType<typeof stat>>
 	try {
@@ -304,6 +326,24 @@ async function runTui({
 	} catch (err) {
 		console.error(`house: cannot access ${target}: ${String(err)}`)
 		process.exit(1)
+	}
+
+	if (updateCheck) {
+		// Fire the npm-registry probe in the background. Result lands in a
+		// module singleton; the React tree picks it up via `useUpdateNotice`
+		// for the footer toast, and the 'exit' hook below reads it
+		// synchronously for the scrollback print. Failures are silent — this
+		// whole feature is opportunistic.
+		startUpdateProbe(pkg.name, pkg.version)
+		// Register once per process. Multiple 'exit' listeners would print
+		// the notice multiple times if runTui were ever re-entered.
+		if (!updateExitHookRegistered) {
+			updateExitHookRegistered = true
+			process.on("exit", () => {
+				const info = currentUpdateInfo()
+				if (info) process.stderr.write(formatQuitNotice(info))
+			})
+		}
 	}
 
 	const renderer = await createCliRenderer({ exitOnCtrlC: false })

@@ -9,8 +9,9 @@ import type { ColorPalette, ResolvedTheme, ThemeDefinition, Tone } from "./types
  * - UI tokens map name-for-name where they overlap.
  * - `surface` ← `backgroundPanel`, `selectedBg` ← `backgroundElement`,
  *   `selectedBgInactive` ← `borderSubtle`.
- * - `textStrong` borrows `markdownStrong` (the brightest/most-emphasized
- *   text token in opencode's palette).
+ * - `textStrong` ← `primary` (opencode's convention for emphasized brand
+ *   text in UI chrome). Markdown rendering still reads `markdownStrong`
+ *   directly via the syntax map.
  * - `syntax` is a fully populated opentui tree-sitter scope map built from
  *   `markdown*` and `syntax*` tokens.
  */
@@ -18,13 +19,20 @@ const buildPalette = (r: ResolvedTheme): ColorPalette => ({
 	background: r.background,
 	surface: r.backgroundPanel,
 	text: r.text,
-	textStrong: r.markdownStrong,
+	textStrong: r.primary,
 	textMuted: r.textMuted,
 	border: r.border,
 	borderActive: r.borderActive,
 	selectedBg: r.backgroundElement,
 	selectedBgInactive: r.borderSubtle,
+	selectedListItemText: r.selectedListItemText,
+	primary: r.primary,
+	secondary: r.secondary,
+	accent: r.accent,
 	error: r.error,
+	warning: r.warning,
+	success: r.success,
+	info: r.info,
 	syntax: buildSyntaxMap(r),
 })
 

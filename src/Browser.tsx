@@ -11,6 +11,7 @@
  */
 
 import { SyntaxStyle } from "@opentui/core"
+import type { BorderSides } from "@opentui/core"
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react"
 import { useAtomValue, useAtomSet } from "@effect/atom-react"
 import { Effect } from "effect"
@@ -21,6 +22,7 @@ import { CommandPalette } from "./CommandPalette.tsx"
 import { filterFiles } from "./discovery/filter.ts"
 import { type FileEntry } from "./discovery/walk.ts"
 import { Footer, FOOTER_HEIGHT } from "./Footer.tsx"
+import { Header, HEADER_HEIGHT } from "./Header.tsx"
 import { HelpOverlay } from "./HelpOverlay.tsx"
 import { readFileText } from "./io/readFile.ts"
 import { browserBindings, type BrowserCtx } from "./keymap/browser.ts"
@@ -41,7 +43,6 @@ export type SidebarMode = "auto" | "on" | "off"
 
 export interface BrowserProps {
 	readonly files: readonly FileEntry[]
-	readonly title?: string
 	readonly initialIndex?: number
 	/** Cap the rendered markdown's width at N columns. Null = fill the pane. */
 	readonly maxWidth?: number | null
@@ -54,6 +55,14 @@ export interface BrowserProps {
 	readonly onQuit?: () => void
 	/** Test seam: replaces the file reader. */
 	readonly readFile?: (path: string) => Promise<string>
+	/** Optional one-shot footer toast surfaced on first appearance (e.g. the
+	 *  "update available" nudge). Shown with an extended TTL so the user has
+	 *  time to read it; subsequent transient toasts (theme cycle, etc.)
+	 *  preempt it via the same single-slot channel. Null disables. */
+	readonly updateNotice?: string | null
+	/** TTL (ms) for the update-notice toast. Exposed so tests can use a small
+	 *  value instead of sleeping for the production 10s window. */
+	readonly updateNoticeTtlMs?: number
 }
 
 const defaultReadFile = (path: string): Promise<string> => Effect.runPromise(readFileText(path))
@@ -74,13 +83,14 @@ const HELP_ALLOWED_IDS: ReadonlySet<string> = new Set([
 
 export const Browser = ({
 	files,
-	title = "house",
 	initialIndex = 0,
 	maxWidth = null,
 	discoveryStatus = null,
 	sidebarMode = "auto",
 	onQuit,
 	readFile = defaultReadFile,
+	updateNotice = null,
+	updateNoticeTtlMs = 10000,
 }: BrowserProps) => {
 	const renderer = useRenderer()
 	const { width, height } = useTerminalDimensions()
@@ -134,7 +144,12 @@ export const Browser = ({
 	// keeps them. Layout snapshots are no longer needed — focus drives drawer
 	// dismissal under the §7.1 visibility rule.
 	const priorFilterQueryRef = useRef("")
-	const [footerNotice, setFooterNotice] = useState<string | null>(null)
+	const [footerNotice, setFooterNoticeState] = useState<{
+		readonly text: string
+		readonly ttlMs: number
+	} | null>(null)
+	const pushFooterNotice = (text: string, ttlMs = 2000): void =>
+		setFooterNoticeState({ text, ttlMs })
 	const serverRef = useRef<ServerHandle | null>(null)
 
 	// Stop the preview server on unmount so re-mounts (tests) and clean
@@ -146,13 +161,28 @@ export const Browser = ({
 		}
 	}, [])
 
-	// Single-slot notice with a 2s TTL. A new notice cancels the pending
-	// timer so the latest message gets its own full window.
+	// Single-slot notice with a per-message TTL. A new notice cancels the
+	// pending timer so the latest message gets its own full window. The TTL
+	// travels with the message so a long-lived nudge (update available) and a
+	// transient toast (theme cycle) can share one slot without one stealing
+	// the other's display window.
 	useEffect(() => {
 		if (footerNotice === null) return
-		const timer = setTimeout(() => setFooterNotice(null), 2000)
+		const timer = setTimeout(() => setFooterNoticeState(null), footerNotice.ttlMs)
 		return () => clearTimeout(timer)
 	}, [footerNotice])
+
+	// Push the update-available nudge once, when it arrives from the parent
+	// (the registry probe resolves asynchronously after boot). 10s gives the
+	// user time to read it before it auto-clears; the quit-time stderr print
+	// is the durable record they can copy from scrollback.
+	const updateNoticeSeenRef = useRef<string | null>(null)
+	useEffect(() => {
+		if (!updateNotice) return
+		if (updateNoticeSeenRef.current === updateNotice) return
+		updateNoticeSeenRef.current = updateNotice
+		pushFooterNotice(updateNotice, updateNoticeTtlMs)
+	}, [updateNotice, updateNoticeTtlMs])
 
 	const cycleTheme = (delta: 1 | -1) => {
 		const idx = themeDefinitions.findIndex((d) => d.id === theme.id)
@@ -160,7 +190,7 @@ export const Browser = ({
 		if (!next) return
 		setActiveTheme(next, theme.tone)
 		setTheme({ id: next.id, tone: theme.tone })
-		setFooterNotice(`theme: ${next.name}`)
+		pushFooterNotice(`theme: ${next.name}`)
 	}
 
 	const toggleTone = () => {
@@ -168,7 +198,7 @@ export const Browser = ({
 		const def = getThemeDefinition(theme.id)
 		if (def) setActiveTheme(def, nextTone)
 		setTheme({ id: theme.id, tone: nextTone })
-		setFooterNotice(`tone: ${nextTone}`)
+		pushFooterNotice(`tone: ${nextTone}`)
 	}
 
 	const displayedFiles = useMemo(() => filterFiles(files, filterQuery), [files, filterQuery])
@@ -288,9 +318,9 @@ export const Browser = ({
 					handle = startServer({ path: file.path })
 					serverRef.current = handle
 					openInBrowser(handle.url)
-					setFooterNotice(`serving at ${handle.url}`)
+					pushFooterNotice(`serving at ${handle.url}`)
 				} catch (err) {
-					setFooterNotice(`serve failed: ${String(err)}`)
+					pushFooterNotice(`serve failed: ${String(err)}`)
 				}
 				return
 			}
@@ -302,7 +332,7 @@ export const Browser = ({
 			// an existing tab on the same URL when one is open, so this is
 			// idempotent for the common case.
 			openInBrowser(handle.url)
-			setFooterNotice(`serving ${file.relativePath} at ${handle.url}`)
+			pushFooterNotice(`serving ${file.relativePath} at ${handle.url}`)
 		},
 		quit: () => {
 			if (onQuit) {
@@ -525,33 +555,24 @@ export const Browser = ({
 	const sidebarVisible = shown || sidebarActive
 	const sidebarAsDrawer = sidebarVisible && (!shown || !canFitInline(width))
 	const sidebarInline = sidebarVisible && !sidebarAsDrawer
-	// Drawer is offset 1 row from the top so the reader's title stays visible.
-	// That row comes off the drawer's own height, so the body has one fewer
-	// usable row than the inline sidebar. Tracked here so the virtualization
-	// slice matches the wrapper that actually paints it.
-	const drawerTopOffset = 1
-	const sidebarTitle = sidebarActive ? " ▸ files " : "   files "
-	const readerLabel = selected?.relativePath ?? title
-	const readerTitle = readerActive ? ` ▸ ${readerLabel} ` : `   ${readerLabel} `
+	// Currently-selected file shown in the Header (which replaced the
+	// per-pane border title that used to carry this information).
+	const currentFile = selected?.relativePath ?? null
 	const content = loaded?.path === renderedPath ? loaded.content : ""
 
 	// Sidebar virtualization: render only the visible window. Without this,
 	// every keystroke re-renders all N file rows even though only the bg of
 	// two of them changed (old + new selected). On a 195-file vault that
 	// dominates the per-keystroke cost.
-	// Sidebar box adds top/bottom borders (2); footer eats FOOTER_HEIGHT;
-	// the filter row eats one more cell when files are present *or* while
+	// Chrome budget: header + pane top border + pane bottom border + footer.
+	// The filter row eats one more cell when files are present *or* while
 	// discovery is in flight (allocates the row up front so it doesn't pop
 	// in when the first file arrives).
 	const discoveryActive = discoveryStatus !== null && discoveryStatus.length > 0
 	const filterRowVisible = files.length > 0 || discoveryActive
 	const sidebarBodyHeight = Math.max(
 		1,
-		height -
-			2 -
-			FOOTER_HEIGHT -
-			(filterRowVisible ? 1 : 0) -
-			(sidebarAsDrawer ? drawerTopOffset : 0),
+		height - FOOTER_HEIGHT - HEADER_HEIGHT - 2 - (filterRowVisible ? 1 : 0),
 	)
 	const maxScroll = Math.max(0, displayedFiles.length - sidebarBodyHeight)
 	const desiredScroll = (() => {
@@ -564,7 +585,8 @@ export const Browser = ({
 		if (desiredScroll !== sidebarScroll) setSidebarScroll(desiredScroll)
 	}, [desiredScroll, sidebarScroll])
 	const visibleFiles = displayedFiles.slice(desiredScroll, desiredScroll + sidebarBodyHeight)
-	// Available width for sidebar text rows: box width minus 1-cell border on each side.
+	// Available width for sidebar text rows: pane width minus 1-cell left
+	// padding and 1-cell right border (the divider rule).
 	const sidebarTextWidth = Math.max(4, sidebarWidth - 2)
 	// Right-anchored truncation: keep the filename visible, lose the prefix
 	// with a leading ellipsis when the path is too long.
@@ -655,8 +677,31 @@ export const Browser = ({
 		</>
 	)
 
+	// Pane borders draw a connected frame: each pane's top/bottom edges
+	// (the horizontal rules) and the sidebar's right edge (the vertical
+	// divider) are rendered by opentui in one pass, so the junctions
+	// never get painted over by sibling elements. customBorderChars on
+	// the sidebar turns its right-side corners from `┐ ┘` into `┬ ┴` so
+	// they connect cleanly with the reader's top/bottom rules.
+	const sidebarBorderSides: BorderSides[] = ["top", "bottom", "right"]
+	const readerBorderSides: BorderSides[] = ["top", "bottom"]
+	const SIDEBAR_BORDER_CHARS = {
+		topLeft: "┌",
+		topRight: "┬",
+		bottomLeft: "└",
+		bottomRight: "┴",
+		horizontal: "─",
+		vertical: "│",
+		topT: "┬",
+		bottomT: "┴",
+		leftT: "├",
+		rightT: "┤",
+		cross: "┼",
+	} as const
+
 	return (
 		<box style={{ width, height, flexDirection: "column", backgroundColor: colors.background }}>
+			<Header width={width} currentFile={currentFile} />
 			<box
 				style={{
 					flexDirection: "row",
@@ -667,30 +712,31 @@ export const Browser = ({
 			>
 				{sidebarInline && (
 					<box
-						title={sidebarTitle}
-						titleAlignment="left"
 						style={{
-							border: true,
-							borderColor: sidebarActive ? colors.borderActive : colors.border,
+							border: sidebarBorderSides,
+							borderColor: colors.border,
 							width: sidebarWidth,
 							flexShrink: 0,
 							flexDirection: "column",
-							backgroundColor: colors.surface,
+							paddingLeft: 1,
+							// Inactive pane dims to surface; active pane stays on
+							// background. Same rule applies to the reader below.
+							backgroundColor: sidebarActive ? colors.background : colors.surface,
 						}}
+						customBorderChars={SIDEBAR_BORDER_CHARS}
 					>
 						{sidebarBody}
 					</box>
 				)}
 				<box
-					title={readerTitle}
-					titleAlignment="left"
 					style={{
-						border: true,
-						borderColor: readerActive ? colors.borderActive : colors.border,
+						border: readerBorderSides,
+						borderColor: colors.border,
 						padding: 1,
 						flexGrow: 1,
 						flexShrink: 1,
-						backgroundColor: colors.background,
+						// Inactive pane dims to surface; active pane stays on background.
+						backgroundColor: readerActive ? colors.background : colors.surface,
 					}}
 				>
 					{error ? (
@@ -702,7 +748,7 @@ export const Browser = ({
 								scrollX: false,
 								flexGrow: 1,
 								flexShrink: 1,
-								backgroundColor: colors.background,
+								backgroundColor: readerActive ? colors.background : colors.surface,
 							}}
 							// opentui's scrollbox consumes arrow keys at the focused-element
 							// level *before* useKeyboard fires, so a modal that handles
@@ -719,7 +765,7 @@ export const Browser = ({
 								content={content}
 								syntaxStyle={syntaxStyle}
 								fg={colors.text}
-								bg={colors.background}
+								bg={readerActive ? colors.background : colors.surface}
 								conceal
 								style={{ width: maxWidth ?? "100%" }}
 							/>
@@ -728,25 +774,26 @@ export const Browser = ({
 				</box>
 			</box>
 			{sidebarAsDrawer && (
-				// Offset by 1 row so the reader pane's top border (which carries
-				// the current file name) stays visible above the drawer. Without
-				// this, the user loses the only on-screen indicator of which
-				// file they're reading whenever the drawer is up.
+				// Drawer overlays the reader, sitting between the Header and
+				// the Footer. Carries its own top/bottom/right borders so the
+				// junction characters render where it abuts the reader's
+				// borders below.
 				<box
 					position="absolute"
 					left={0}
-					top={drawerTopOffset}
+					top={HEADER_HEIGHT}
 					width={sidebarWidth}
-					height={Math.max(1, height - FOOTER_HEIGHT - drawerTopOffset)}
+					height={Math.max(1, height - FOOTER_HEIGHT - HEADER_HEIGHT)}
 					zIndex={5}
-					title={sidebarTitle}
-					titleAlignment="left"
 					style={{
-						border: true,
-						borderColor: sidebarActive ? colors.borderActive : colors.border,
+						border: sidebarBorderSides,
+						borderColor: colors.border,
 						flexDirection: "column",
-						backgroundColor: colors.surface,
+						paddingLeft: 1,
+						// Inactive pane dims to surface; active pane stays on background.
+						backgroundColor: sidebarActive ? colors.background : colors.surface,
 					}}
+					customBorderChars={SIDEBAR_BORDER_CHARS}
 				>
 					{sidebarBody}
 				</box>
@@ -755,7 +802,7 @@ export const Browser = ({
 				bindings={footerBindings}
 				ctx={ctx}
 				width={width}
-				notice={footerNotice}
+				notice={footerNotice?.text ?? null}
 				discoveryStatus={discoveryStatus}
 				filterQuery={!filterOpen && filterQuery.length > 0 ? filterQuery : null}
 			/>
