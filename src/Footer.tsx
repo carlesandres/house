@@ -71,30 +71,40 @@ const displayKey = (raw: string): string => {
 	}
 }
 
-const formatHint = <C,>(b: KeyBinding<C>): string | null => {
+/** Hint row entries. `key === null` is a standalone chip (e.g. the filter
+ *  chip) and renders as muted text without the key/label split. */
+interface Hint {
+	readonly key: string | null
+	readonly label: string
+}
+
+const hintWidth = (h: Hint): number =>
+	h.key === null ? h.label.length : h.key.length + 1 + h.label.length // key + " " + label
+
+const formatHint = <C,>(b: KeyBinding<C>): Hint | null => {
 	if (!b.hint) return null
 	const first = b.keys[0]
 	if (!first) return null
-	return `${displayKey(first)}:${b.hint}`
+	return { key: displayKey(first), label: b.hint }
 }
 
-/** Drop hints from the end until the joined string fits within `width`.
- *  If not even the first hint fits, fall back to the bare key portion so
- *  the user still sees a discoverability anchor (e.g. `?` instead of an
- *  empty row on an 8-column terminal). */
-const fitHints = (hints: readonly string[], width: number): string => {
-	if (width <= 0 || hints.length === 0) return ""
-	let acc = ""
+/** Drop hints from the end until they fit within `width`. If not even the
+ *  first hint fits, fall back to the bare key (or label chip) truncated to
+ *  width, so the row is never silently blank on tight viewports. */
+const fitHints = (hints: readonly Hint[], width: number): Hint[] => {
+	if (width <= 0 || hints.length === 0) return []
+	const acc: Hint[] = []
+	let used = 0
 	for (const h of hints) {
-		const next = acc.length === 0 ? h : `${acc}${HINT_SEPARATOR}${h}`
-		if (next.length > width) break
-		acc = next
+		const add = acc.length === 0 ? hintWidth(h) : HINT_SEPARATOR.length + hintWidth(h)
+		if (used + add > width) break
+		acc.push(h)
+		used += add
 	}
 	if (acc.length > 0) return acc
-	// Nothing fit. Render just the first hint's key (everything before `:`)
-	// truncated to width, so the row is never silently blank.
-	const firstKey = hints[0]!.split(":")[0] ?? ""
-	return firstKey.slice(0, width)
+	const first = hints[0]!
+	if (first.key === null) return [{ key: null, label: first.label.slice(0, width) }]
+	return [{ key: first.key.slice(0, width), label: "" }]
 }
 
 const STATUS_SEPARATOR = " · "
@@ -119,13 +129,13 @@ export const Footer = <C,>({
 		backgroundColor: colors.surface,
 	} as const
 
-	const hints: string[] = []
+	const hints: Hint[] = []
 	// The filter chip prepends to the hint row when a filter is applied and the
 	// input is closed. Bracketed to avoid looking like a `key:hint` binding —
 	// "filter" is not a key. Surfaces the otherwise-invisible invariant that
 	// `[`/`]` walks the filtered set. See DESIGN.md §7.1 Q1.
 	if (filterQuery && filterQuery.length > 0) {
-		hints.push(`[filter: ${filterQuery}]`)
+		hints.push({ key: null, label: `[filter: ${filterQuery}]` })
 	}
 	for (const b of bindings) {
 		if (b.when && !b.when(ctx)) continue
@@ -139,7 +149,7 @@ export const Footer = <C,>({
 	const status = discoveryStatus && discoveryStatus.length > 0 ? discoveryStatus : null
 	const statusBudget = status ? Math.min(status.length + STATUS_SEPARATOR.length, usableWidth) : 0
 	const hintsWidth = Math.max(0, usableWidth - statusBudget)
-	const hintContent = fitHints(hints, hintsWidth)
+	const visibleHints = fitHints(hints, hintsWidth)
 	const statusContent = status
 		? status.slice(0, Math.max(0, statusBudget - STATUS_SEPARATOR.length))
 		: ""
@@ -149,6 +159,40 @@ export const Footer = <C,>({
 			? notice.slice(0, usableWidth)
 			: notice
 		: null
+
+	// Two-tone hint row: keys render in `text` (foreground-strength), the
+	// `:label` portion in `textMuted`. Matches ghui's footer treatment so
+	// the key — the actionable token — visually leads each hint.
+	const renderHints = () =>
+		visibleHints.flatMap((h, i) => {
+			const sep =
+				i > 0
+					? [
+							<text
+								key={`s${i}`}
+								content={HINT_SEPARATOR}
+								wrapMode="none"
+								style={{ fg: colors.textMuted }}
+							/>,
+						]
+					: []
+			if (h.key === null) {
+				return [
+					...sep,
+					<text key={`l${i}`} content={h.label} wrapMode="none" style={{ fg: colors.textMuted }} />,
+				]
+			}
+			return [
+				...sep,
+				<text key={`k${i}`} content={h.key} wrapMode="none" style={{ fg: colors.text }} />,
+				<text
+					key={`l${i}`}
+					content={` ${h.label}`}
+					wrapMode="none"
+					style={{ fg: colors.textMuted }}
+				/>,
+			]
+		})
 
 	// Priority: notice > (status + hints). Notice fg is strong; status sits
 	// at the muted level so it reads as ambient state, not an event.
@@ -165,14 +209,10 @@ export const Footer = <C,>({
 			<box style={rowStyle}>
 				<text content={statusContent} wrapMode="none" style={{ fg: colors.textMuted }} />
 				<text content={STATUS_SEPARATOR} wrapMode="none" style={{ fg: colors.textMuted }} />
-				<text content={hintContent} wrapMode="none" style={{ fg: colors.textMuted }} />
+				{renderHints()}
 			</box>
 		)
 	}
 
-	return (
-		<box style={rowStyle}>
-			<text content={hintContent} wrapMode="none" style={{ fg: colors.textMuted }} />
-		</box>
-	)
+	return <box style={rowStyle}>{renderHints()}</box>
 }

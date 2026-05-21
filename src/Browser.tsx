@@ -700,77 +700,97 @@ export const Browser = ({
 	} as const
 
 	return (
-		<box style={{ width, height, flexDirection: "column", backgroundColor: colors.background }}>
+		<box style={{ width, height, flexDirection: "column", backgroundColor: colors.surface }}>
 			<Header width={width} currentFile={currentFile} />
 			<box
 				style={{
 					flexDirection: "row",
 					flexGrow: 1,
 					flexShrink: 1,
-					backgroundColor: colors.background,
+					backgroundColor: colors.surface,
 				}}
 			>
 				{sidebarInline && (
 					<box
 						style={{
 							border: sidebarBorderSides,
-							borderColor: colors.border,
+							borderColor: colors.textMuted,
 							width: sidebarWidth,
 							flexShrink: 0,
 							flexDirection: "column",
-							paddingLeft: 1,
-							// Inactive pane dims to surface; active pane stays on
-							// background. Same rule applies to the reader below.
-							backgroundColor: sidebarActive ? colors.background : colors.surface,
+							// Dim by default. Borders/separators ride on this so they read
+							// as a single connected frame regardless of focus; only the
+							// active pane's inner body overrides to the raised tint below.
+							backgroundColor: colors.surface,
 						}}
 						customBorderChars={SIDEBAR_BORDER_CHARS}
 					>
-						{sidebarBody}
+						<box
+							style={{
+								flexGrow: 1,
+								flexShrink: 1,
+								flexDirection: "column",
+								paddingLeft: 1,
+								backgroundColor: sidebarActive ? colors.background : colors.surface,
+							}}
+						>
+							{sidebarBody}
+						</box>
 					</box>
 				)}
 				<box
 					style={{
 						border: readerBorderSides,
-						borderColor: colors.border,
-						padding: 1,
+						borderColor: colors.textMuted,
 						flexGrow: 1,
 						flexShrink: 1,
-						// Inactive pane dims to surface; active pane stays on background.
-						backgroundColor: readerActive ? colors.background : colors.surface,
+						flexDirection: "column",
+						// Dim by default (see sidebar note); inner body overrides when active.
+						backgroundColor: colors.surface,
 					}}
 				>
-					{error ? (
-						<text content={error} style={{ fg: colors.error }} />
-					) : (
-						<scrollbox
-							style={{
-								scrollY: true,
-								scrollX: false,
-								flexGrow: 1,
-								flexShrink: 1,
-								backgroundColor: readerActive ? colors.background : colors.surface,
-							}}
-							// opentui's scrollbox consumes arrow keys at the focused-element
-							// level *before* useKeyboard fires, so a modal that handles
-							// arrow keys itself (palette nav, help dismissal) would still
-							// see the reader scroll alongside its own action. Unfocus the
-							// scrollbox while any blocking modal is up — useKeyboard's
-							// modal branches own the keys in that state. Filter is not
-							// listed because it force-focuses the sidebar (readerActive
-							// is already false).
-							focused={readerActive && !paletteOpen && !helpVisible}
-						>
-							<markdown
-								key={renderedPath ?? "empty"}
-								content={content}
-								syntaxStyle={syntaxStyle}
-								fg={colors.text}
-								bg={readerActive ? colors.background : colors.surface}
-								conceal
-								style={{ width: maxWidth ?? "100%" }}
-							/>
-						</scrollbox>
-					)}
+					<box
+						style={{
+							flexGrow: 1,
+							flexShrink: 1,
+							flexDirection: "column",
+							padding: 1,
+							backgroundColor: readerActive ? colors.background : colors.surface,
+						}}
+					>
+						{error ? (
+							<text content={error} style={{ fg: colors.error }} />
+						) : (
+							<scrollbox
+								style={{
+									scrollY: true,
+									scrollX: false,
+									flexGrow: 1,
+									flexShrink: 1,
+									backgroundColor: readerActive ? colors.background : colors.surface,
+								}}
+								// opentui's scrollbox consumes arrow keys at the focused-element
+								// level *before* useKeyboard fires, so a modal that handles
+								// arrow keys itself (palette nav, help dismissal) would still
+								// see the reader scroll alongside its own action. Unfocus the
+								// scrollbox while any blocking modal is up — useKeyboard's
+								// modal branches own the keys in that state. Filter is not
+								// listed because it force-focuses the sidebar (readerActive
+								// is already false).
+								focused={readerActive && !paletteOpen && !helpVisible}
+							>
+								<markdown
+									key={renderedPath ?? "empty"}
+									content={content}
+									syntaxStyle={syntaxStyle}
+									fg={colors.text}
+									bg={readerActive ? colors.background : colors.surface}
+									conceal
+									style={{ width: maxWidth ?? "100%" }}
+								/>
+							</scrollbox>
+						)}
+					</box>
 				</box>
 			</box>
 			{sidebarAsDrawer && (
@@ -787,15 +807,24 @@ export const Browser = ({
 					zIndex={5}
 					style={{
 						border: sidebarBorderSides,
-						borderColor: colors.border,
+						borderColor: colors.textMuted,
 						flexDirection: "column",
-						paddingLeft: 1,
-						// Inactive pane dims to surface; active pane stays on background.
-						backgroundColor: sidebarActive ? colors.background : colors.surface,
+						// Dim by default (see inline sidebar); inner body overrides when active.
+						backgroundColor: colors.surface,
 					}}
 					customBorderChars={SIDEBAR_BORDER_CHARS}
 				>
-					{sidebarBody}
+					<box
+						style={{
+							flexGrow: 1,
+							flexShrink: 1,
+							flexDirection: "column",
+							paddingLeft: 1,
+							backgroundColor: sidebarActive ? colors.background : colors.surface,
+						}}
+					>
+						{sidebarBody}
+					</box>
 				</box>
 			)}
 			<Footer

@@ -61,8 +61,8 @@ export const Header = ({ width, currentFile, version = pkg.version }: HeaderProp
 				backgroundColor: colors.surface,
 			}}
 		>
-			<text content={left} wrapMode="none" style={{ fg: colors.textMuted }} />
-			{showRight && <text content={right} wrapMode="none" style={{ fg: colors.textMuted }} />}
+			<text content={left} wrapMode="none" style={{ fg: colors.text }} />
+			{showRight && <text content={right} wrapMode="none" style={{ fg: colors.text }} />}
 		</box>
 	)
 }
