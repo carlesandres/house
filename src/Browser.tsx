@@ -701,10 +701,9 @@ export const Browser = ({
 							flexShrink: 0,
 							flexDirection: "column",
 							paddingLeft: 1,
-							// Sidebar-only focus tint: surface when active, background
-							// when not. Reader stays on background either way so code
-							// blocks (which use the surface token) keep their contrast.
-							backgroundColor: sidebarActive ? colors.surface : colors.background,
+							// Inactive pane dims to surface; active pane stays on
+							// background. Same rule applies to the reader below.
+							backgroundColor: sidebarActive ? colors.background : colors.surface,
 						}}
 					>
 						{sidebarBody}
@@ -715,7 +714,8 @@ export const Browser = ({
 						padding: 1,
 						flexGrow: 1,
 						flexShrink: 1,
-						backgroundColor: colors.background,
+						// Inactive pane dims to surface; active pane stays on background.
+						backgroundColor: readerActive ? colors.background : colors.surface,
 					}}
 				>
 					{error ? (
@@ -727,7 +727,7 @@ export const Browser = ({
 								scrollX: false,
 								flexGrow: 1,
 								flexShrink: 1,
-								backgroundColor: colors.background,
+								backgroundColor: readerActive ? colors.background : colors.surface,
 							}}
 							// opentui's scrollbox consumes arrow keys at the focused-element
 							// level *before* useKeyboard fires, so a modal that handles
@@ -744,7 +744,7 @@ export const Browser = ({
 								content={content}
 								syntaxStyle={syntaxStyle}
 								fg={colors.text}
-								bg={colors.background}
+								bg={readerActive ? colors.background : colors.surface}
 								conceal
 								style={{ width: maxWidth ?? "100%" }}
 							/>
@@ -769,9 +769,8 @@ export const Browser = ({
 						borderColor: colors.border,
 						flexDirection: "column",
 						paddingLeft: 1,
-						// Drawer is the sidebar; tint it surface so the focused state
-						// reads the same as the inline sidebar.
-						backgroundColor: sidebarActive ? colors.surface : colors.background,
+						// Inactive pane dims to surface; active pane stays on background.
+						backgroundColor: sidebarActive ? colors.background : colors.surface,
 					}}
 				>
 					{sidebarBody}

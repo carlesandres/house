@@ -129,14 +129,18 @@ const bgAt = (frame: CapturedFrame, row: number, col: number): RGBA | null => {
 	return null
 }
 
-/** True when the sidebar's body bg is colors.surface (the focus tint).
- *  We sample row 3, col 1 — well below the Header and filter row, inside
- *  the sidebar's paddingLeft. Tests that hide the Header (short viewport)
- *  should not use this helper. */
-const sidebarIsFocused = (frame: CapturedFrame): boolean => {
+/** True when the sidebar pane is rendered AND focused. Active panes
+ *  stay on colors.background; inactive ones dim to colors.surface. We
+ *  sample row 3, col 1 — well below the Header and filter row, inside
+ *  the sidebar's paddingLeft. When the sidebar is hidden entirely, that
+ *  cell belongs to the reader, so we gate on `sidebarIsVisible` first.
+ *  Tests that hide the Header (short viewport) should not use this
+ *  helper. */
+const sidebarIsFocused = (frame: CapturedFrame, charFrame: string): boolean => {
+	if (!sidebarIsVisible(charFrame)) return false
 	const bg = bgAt(frame, 3, 1)
 	if (!bg) return false
-	return RGBA.fromHex(colors.surface).equals(bg)
+	return RGBA.fromHex(colors.background).equals(bg)
 }
 
 /** True when the sidebar is rendered (inline or drawer). Detected via the
@@ -323,7 +327,7 @@ describe("Browser — focus", () => {
 			)
 		})
 		await stepFrame(setup!.renderOnce)
-		expect(sidebarIsFocused(setup!.captureSpans())).toBe(true)
+		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(true)
 	})
 
 	test("tab toggles focus between sidebar and reader", async () => {
@@ -343,14 +347,14 @@ describe("Browser — focus", () => {
 			setup!.mockInput.pressTab()
 		})
 		await stepFrame(setup!.renderOnce)
-		expect(sidebarIsFocused(setup!.captureSpans())).toBe(false)
+		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(false)
 		expect(readerTitleContains(setup!.captureCharFrame(), "a.md")).toBe(true)
 
 		await act(async () => {
 			setup!.mockInput.pressTab()
 		})
 		await stepFrame(setup!.renderOnce)
-		expect(sidebarIsFocused(setup!.captureSpans())).toBe(true)
+		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(true)
 	})
 
 	test("return / l / right focus the reader; escape / h / left focus the sidebar", async () => {
@@ -371,7 +375,7 @@ describe("Browser — focus", () => {
 			setup!.mockInput.pressEnter()
 		})
 		await stepFrame(setup!.renderOnce)
-		expect(sidebarIsFocused(setup!.captureSpans())).toBe(false)
+		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(false)
 		expect(readerTitleContains(setup!.captureCharFrame(), "a.md")).toBe(true)
 
 		// escape → sidebar (escape needs extra time: \x1b is the lead of
@@ -381,14 +385,14 @@ describe("Browser — focus", () => {
 			await new Promise<void>((resolve) => setTimeout(resolve, 60))
 		})
 		await stepFrame(setup!.renderOnce)
-		expect(sidebarIsFocused(setup!.captureSpans())).toBe(true)
+		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(true)
 
 		// l → reader
 		await act(async () => {
 			setup!.mockInput.pressKey("l")
 		})
 		await stepFrame(setup!.renderOnce)
-		expect(sidebarIsFocused(setup!.captureSpans())).toBe(false)
+		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(false)
 		expect(readerTitleContains(setup!.captureCharFrame(), "a.md")).toBe(true)
 
 		// h → sidebar
@@ -396,14 +400,14 @@ describe("Browser — focus", () => {
 			setup!.mockInput.pressKey("h")
 		})
 		await stepFrame(setup!.renderOnce)
-		expect(sidebarIsFocused(setup!.captureSpans())).toBe(true)
+		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(true)
 
 		// right → reader
 		await act(async () => {
 			setup!.mockInput.pressArrow("right")
 		})
 		await stepFrame(setup!.renderOnce)
-		expect(sidebarIsFocused(setup!.captureSpans())).toBe(false)
+		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(false)
 		expect(readerTitleContains(setup!.captureCharFrame(), "a.md")).toBe(true)
 
 		// left → sidebar
@@ -411,7 +415,7 @@ describe("Browser — focus", () => {
 			setup!.mockInput.pressArrow("left")
 		})
 		await stepFrame(setup!.renderOnce)
-		expect(sidebarIsFocused(setup!.captureSpans())).toBe(true)
+		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(true)
 	})
 
 	test("j/k do not move sidebar selection while reader is focused", async () => {
@@ -464,7 +468,7 @@ describe("Browser — sidebar toggle", () => {
 
 		expect(sidebarIsVisible(setup!.captureCharFrame())).toBe(false)
 		// Reader becomes the active pane.
-		expect(sidebarIsFocused(setup!.captureSpans())).toBe(false)
+		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(false)
 		expect(readerTitleContains(setup!.captureCharFrame(), "a.md")).toBe(true)
 	})
 
@@ -490,7 +494,7 @@ describe("Browser — sidebar toggle", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 
-		expect(sidebarIsFocused(setup!.captureSpans())).toBe(true)
+		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(true)
 	})
 })
 
@@ -531,7 +535,7 @@ describe("Browser — #22 layout v2", () => {
 		await stepFrame(setup!.renderOnce)
 		expect(sidebarIsVisible(setup!.captureCharFrame())).toBe(false)
 		// Reader is the focused pane.
-		expect(sidebarIsFocused(setup!.captureSpans())).toBe(false)
+		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(false)
 		expect(readerTitleContains(setup!.captureCharFrame(), "a.md")).toBe(true)
 	})
 
@@ -571,7 +575,7 @@ describe("Browser — #22 layout v2", () => {
 			setup!.mockInput.pressTab()
 		})
 		await stepFrame(setup!.renderOnce)
-		expect(sidebarIsFocused(setup!.captureSpans())).toBe(true)
+		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(true)
 		// Tab again moves focus to the reader → drawer dismisses.
 		await act(async () => {
 			setup!.mockInput.pressTab()
@@ -1858,7 +1862,7 @@ describe("Browser — filter modal", () => {
 		// j/k keeps walking the restored list. Drawer dismissal only
 		// applies when the sidebar was up purely because of focus. See
 		// DESIGN.md §7.1.
-		expect(sidebarIsFocused(setup!.captureSpans())).toBe(true)
+		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(true)
 	})
 
 	test("up/down arrows navigate the filtered list", async () => {
@@ -1959,7 +1963,7 @@ describe("Browser — filter modal", () => {
 		// Filter input is up.
 		expect(frame).toContain("/▏")
 		// Sidebar is focused (the modal needs a home).
-		expect(sidebarIsFocused(setup!.captureSpans())).toBe(true)
+		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(true)
 	})
 
 	test("/ from hidden sidebar auto-opens the sidebar and focuses the filter", async () => {
@@ -1990,7 +1994,7 @@ describe("Browser — filter modal", () => {
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
 		expect(frame).toContain("/▏")
-		expect(sidebarIsFocused(setup!.captureSpans())).toBe(true)
+		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(true)
 	})
 
 	test("Esc with no typing restores prior sidebar visibility", async () => {
@@ -2217,7 +2221,7 @@ describe("Browser — filter modal", () => {
 		expect(frame).not.toContain("/zzz▏")
 		expect(frame).toContain("README.md")
 		expect(frame).toContain("notes.md")
-		expect(sidebarIsFocused(setup!.captureSpans())).toBe(true)
+		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(true)
 	})
 
 	test("printable characters do not fire their normal bindings while filter is open", async () => {
@@ -2387,7 +2391,7 @@ describe("Browser — command palette", () => {
 		await stepFrame(setup!.renderOnce)
 
 		expect(quitCalls).toBe(0)
-		expect(sidebarIsFocused(setup!.captureSpans())).toBe(false)
+		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(false)
 		expect(readerTitleContains(setup!.captureCharFrame(), "README.md")).toBe(true)
 	})
 
