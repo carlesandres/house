@@ -118,6 +118,15 @@ const settleBrowser = async () => {
 	await stepFrame(setup!.renderOnce)
 }
 
+const waitForFrameContaining = async (text: string): Promise<string> => {
+	for (let i = 0; i < 10; i++) {
+		await settleBrowser()
+		const frame = setup!.captureCharFrame()
+		if (frame.includes(text)) return frame
+	}
+	return setup!.captureCharFrame()
+}
+
 describe("Browser — selection", () => {
 	test("opens the initially selected file in the reader pane", async () => {
 		const files = makeFiles(["a.md", "b.md"])
@@ -2391,7 +2400,7 @@ describe("Browser — command palette", () => {
 				VIEWPORT,
 			)
 		})
-		await settleBrowser()
+		await waitForFrameContaining("MARKER00")
 
 		// Move focus to the reader so the scrollbox is "focused" (the
 		// preconditioned state that exhibits the bug). Right-arrow from the
@@ -2451,7 +2460,7 @@ describe("Browser — command palette", () => {
 			setup!.mockInput.pressArrow("right")
 		})
 		await stepFrame(setup!.renderOnce)
-		expect(setup!.captureCharFrame()).toContain("MARKER00")
+		expect(await waitForFrameContaining("MARKER00")).toContain("MARKER00")
 
 		await act(async () => {
 			setup!.mockInput.pressKey("?")
@@ -2474,7 +2483,7 @@ describe("Browser — command palette", () => {
 			await new Promise<void>((resolve) => setTimeout(resolve, 60))
 		})
 		await stepFrame(setup!.renderOnce)
-		const frame = setup!.captureCharFrame()
+		const frame = await waitForFrameContaining("MARKER00")
 		expect(frame).not.toContain(" Help ")
 		// Reader did not scroll — first line is still at the top.
 		expect(frame).toContain("MARKER00")
