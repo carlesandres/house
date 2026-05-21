@@ -103,7 +103,7 @@ export const HelpOverlay = <C,>({
 				titleAlignment="left"
 				style={{
 					border: true,
-					borderColor: colors.borderActive,
+					borderColor: colors.textMuted,
 					padding: 1,
 					flexDirection: "column",
 					backgroundColor: colors.surface,

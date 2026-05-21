@@ -99,7 +99,7 @@ export const CommandPalette = ({
 				paddingRight={1}
 				style={{
 					border: true,
-					borderColor: colors.borderActive,
+					borderColor: colors.textMuted,
 					flexDirection: "column",
 					backgroundColor: colors.surface,
 				}}
