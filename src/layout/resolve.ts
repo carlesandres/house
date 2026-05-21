@@ -59,10 +59,22 @@ export const canFitInline = (viewport: number): boolean =>
 export const initialShownForAuto = (viewport: number): boolean =>
 	viewport >= TIGHT_VIEWPORT_THRESHOLD
 
-/** Minimum terminal height to render the header row. Below this, the row
- *  is dropped so vertical real estate goes to the reader. The header is
- *  identity/branding chrome — losing it on tight terminals is fine. */
+/** Minimum terminal height to render the header row.
+ *
+ *  Derived budget: the header is worth a row when the reader still has a
+ *  comfortable reading area after subtracting all chrome. Chrome on a Browser
+ *  frame: header (1) + reader top border (1) + reader bottom border (1) +
+ *  footer (1) = 4 rows. We want the reader to retain ≥16 content rows — about
+ *  a screenful of prose at typical paragraph density — so the threshold lands
+ *  at 4 + 16 = 20. On the standard 24-row terminal the header shows with
+ *  ~20 reader rows; below 20 it drops so short panes (tmux splits, etc.) keep
+ *  the reader breathable.
+ *
+ *  Width is *not* part of the gate: Header.tsx degrades horizontally by
+ *  dropping the version string, leaving the brand mark as a single-cell
+ *  irreducible identity element. Vertical chrome is the constrained budget. */
 export const HEADER_HEIGHT_THRESHOLD = 20
 
-/** True when the viewport has room to spend a row on the header. */
+/** True when the viewport is tall enough to spend a row on the header.
+ *  See HEADER_HEIGHT_THRESHOLD for the derivation. */
 export const shouldShowHeader = (height: number): boolean => height >= HEADER_HEIGHT_THRESHOLD

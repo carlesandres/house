@@ -19,6 +19,7 @@ import { buildCommands } from "./commands/buildCommands.ts"
 import { clampSelectedIndex, filterCommands } from "./commands/score.ts"
 import { CommandPalette } from "./CommandPalette.tsx"
 import { filterFiles } from "./discovery/filter.ts"
+import { BRAND_NAME } from "./brand.ts"
 import { type FileEntry } from "./discovery/walk.ts"
 import { Footer, FOOTER_HEIGHT } from "./Footer.tsx"
 import { Header, HEADER_HEIGHT } from "./Header.tsx"
@@ -81,7 +82,7 @@ const HELP_ALLOWED_IDS: ReadonlySet<string> = new Set([
 
 export const Browser = ({
 	files,
-	title = "house",
+	title = BRAND_NAME,
 	initialIndex = 0,
 	maxWidth = null,
 	discoveryStatus = null,

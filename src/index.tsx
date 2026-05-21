@@ -19,7 +19,9 @@ import { Browser } from "./Browser.tsx"
 import { parseArgv, usage } from "./cli/argv.ts"
 import { defaultConfigPath, formatConfigError, loadConfig } from "./config/load.ts"
 import { walk, type FileEntry, type SortOrder } from "./discovery/walk.ts"
+import { Header } from "./Header.tsx"
 import { readFileText } from "./io/readFile.ts"
+import { shouldShowHeader } from "./layout/resolve.ts"
 import { openInBrowser } from "./serve/openBrowser.ts"
 import { startServer } from "./serve/server.ts"
 import { colors, setActiveTheme } from "./theme/colors.ts"
@@ -150,8 +152,11 @@ export const App = ({ content, title = "house", maxWidth = null, onQuit }: AppPr
 		if (key.name === "l" && key.shift) toggleTone()
 	})
 
+	const headerVisible = shouldShowHeader(height)
+
 	return (
 		<box style={{ width, height, flexDirection: "column", backgroundColor: colors.background }}>
+			{headerVisible && <Header width={width} />}
 			<box
 				title={` ${title} `}
 				titleAlignment="left"

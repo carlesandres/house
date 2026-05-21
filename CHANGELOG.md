@@ -6,6 +6,10 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 
 ## [Unreleased]
 
+### Added
+
+- Header chrome: borderless one-row identity strip above the panes carries the ⌂ brand mark and running version. Renders in both directory mode (Browser) and single-file mode (App). Hidden on terminals shorter than 20 rows so tight panes keep the reader breathable.
+
 ## [0.4.0] — 2026-05-21
 
 ### Added

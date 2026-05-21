@@ -2559,3 +2559,31 @@ describe("Browser — updateNotice", () => {
 		expect(frame).toContain("q:quit")
 	}, 15_000)
 })
+
+describe("Browser — header", () => {
+	test("renders brand mark and version on a tall viewport", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser files={makeFiles(["a.md"])} readFile={makeReader({ "a.md": "x" })} onQuit={() => {}} />,
+				{ width: 120, height: 30 },
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		// Brand: ⌂ + " " + "house". Version: "v" + something with digits.
+		expect(frame).toContain("⌂ house")
+		expect(frame).toMatch(/v\d+\.\d+\.\d+/)
+	})
+
+	test("drops the header on a short viewport (below HEADER_HEIGHT_THRESHOLD)", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser files={makeFiles(["a.md"])} readFile={makeReader({ "a.md": "x" })} onQuit={() => {}} />,
+				{ width: 120, height: 15 },
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(frame).not.toContain("⌂ house")
+	})
+})

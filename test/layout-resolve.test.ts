@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import {
 	DIVIDER_WIDTH,
+	HEADER_HEIGHT_THRESHOLD,
 	READER_MIN_WIDTH,
 	SIDEBAR_MAX_WIDTH,
 	SIDEBAR_MIN_WIDTH,
@@ -9,6 +10,7 @@ import {
 	defaultPreferredWidth,
 	initialShownForAuto,
 	resolveSidebarWidth,
+	shouldShowHeader,
 } from "../src/layout/resolve.ts"
 
 describe("resolveSidebarWidth", () => {
@@ -63,5 +65,18 @@ describe("initialShownForAuto", () => {
 		expect(initialShownForAuto(TIGHT_VIEWPORT_THRESHOLD - 1)).toBe(false)
 		expect(initialShownForAuto(TIGHT_VIEWPORT_THRESHOLD)).toBe(true)
 		expect(initialShownForAuto(TIGHT_VIEWPORT_THRESHOLD + 50)).toBe(true)
+	})
+})
+
+describe("shouldShowHeader", () => {
+	test("dropped one row below the threshold, shown at and above it", () => {
+		expect(shouldShowHeader(HEADER_HEIGHT_THRESHOLD - 1)).toBe(false)
+		expect(shouldShowHeader(HEADER_HEIGHT_THRESHOLD)).toBe(true)
+		expect(shouldShowHeader(HEADER_HEIGHT_THRESHOLD + 10)).toBe(true)
+	})
+
+	test("dropped on very short panes (tmux split sized)", () => {
+		expect(shouldShowHeader(12)).toBe(false)
+		expect(shouldShowHeader(0)).toBe(false)
 	})
 })
