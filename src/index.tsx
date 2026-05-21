@@ -22,7 +22,6 @@ import { defaultConfigPath, formatConfigError, loadConfig } from "./config/load.
 import { walk, type FileEntry, type SortOrder } from "./discovery/walk.ts"
 import { Header } from "./Header.tsx"
 import { readFileText } from "./io/readFile.ts"
-import { shouldShowHeader } from "./layout/resolve.ts"
 import { openInBrowser } from "./serve/openBrowser.ts"
 import { startServer } from "./serve/server.ts"
 import { colors, setActiveTheme } from "./theme/colors.ts"
@@ -152,12 +151,11 @@ export const App = ({ content, title = "house", maxWidth = null, onQuit }: AppPr
 		if (key.name === "l" && key.shift) toggleTone()
 	})
 
-	const headerVisible = shouldShowHeader(height)
-	const paneBorderSides: BorderSides[] = headerVisible ? ["top", "bottom"] : []
+	const paneBorderSides: BorderSides[] = ["top", "bottom"]
 
 	return (
 		<box style={{ width, height, flexDirection: "column", backgroundColor: colors.background }}>
-			{headerVisible && <Header width={width} currentFile={title} />}
+			<Header width={width} currentFile={title} />
 			<box
 				style={{
 					border: paneBorderSides,

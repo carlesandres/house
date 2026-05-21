@@ -1275,18 +1275,17 @@ describe("Browser — theme cycling", () => {
 // above the file list and shrinks the body by one cell.
 describe("Browser — sidebar virtualization", () => {
 	// Viewport chosen to force a visible window strictly smaller than the
-	// file list: height 8 → sidebarBodyHeight = 8 - 1 (footer) - 0 (header
-	// hidden at h<HEADER_HEIGHT_THRESHOLD) - 1 (filter row) = 6 rows. With
-	// 20 files, scrolling is mandatory to see the tail.
+	// file list: height 11 → sidebarBodyHeight = 11 - 1 (footer) - 1 (header)
+	// - 2 (pane borders) - 1 (filter row) = 6 rows. With 20 files, scrolling
+	// is mandatory to see the tail.
 	//
 	// Width is wide enough (≥ SIDEBAR_MIN + DIVIDER + READER_MIN = 69) that
 	// the inline two-pane layout is used; the drawer fallback at narrower
 	// widths is exercised elsewhere.
-	const TIGHT_VIEWPORT = { width: 90, height: 8 }
+	const TIGHT_VIEWPORT = { width: 90, height: 11 }
 	// Filter-clamp test needs the Header to verify which file the reader
-	// loaded after Esc. Use a taller viewport so the Header row renders
-	// (h ≥ HEADER_HEIGHT_THRESHOLD=18). Body = 20 - 1 - 1 - 1 = 17 rows,
-	// still smaller than 20 files so scrolling stays relevant.
+	// loaded after Esc. Body = 20 - 1 - 1 - 2 - 1 = 15 rows, still smaller
+	// than 20 files so scrolling stays relevant.
 	const TALL_VIEWPORT = { width: 90, height: 20 }
 	const TWENTY_FILES = makeFiles(
 		Array.from({ length: 20 }, (_, i) => `f${String(i).padStart(2, "0")}.md`),
@@ -2620,15 +2619,15 @@ describe("Browser — header", () => {
 		expect(frame).toMatch(/v\d+\.\d+\.\d+/)
 	})
 
-	test("drops the header on a short viewport (below HEADER_HEIGHT_THRESHOLD)", async () => {
+	test("renders the header even on short viewports", async () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser files={makeFiles(["a.md"])} readFile={makeReader({ "a.md": "x" })} onQuit={() => {}} />,
-				{ width: 120, height: 15 },
+				{ width: 120, height: 8 },
 			)
 		})
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
-		expect(frame).not.toContain("⌂ house")
+		expect(frame).toContain("⌂ house")
 	})
 })

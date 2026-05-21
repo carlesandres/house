@@ -7,8 +7,9 @@
  *
  * Width degrades gracefully: the version drops first when the row gets
  * tight, then the filename, leaving the brand mark as the irreducible
- * identity element. Hidden on tight (short) viewports via
- * `shouldShowHeader` so short terminals don't pay a vertical row for chrome.
+ * identity element. Always rendered — the row is worth one cell on any
+ * viewport so the user never loses the filename indicator (notably, when
+ * the sidebar drawer overlays the reader on narrow viewports).
  */
 
 import pkg from "../package.json" with { type: "json" }

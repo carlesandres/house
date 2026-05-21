@@ -32,7 +32,6 @@ import {
 	defaultPreferredWidth,
 	initialShownForAuto,
 	resolveSidebarWidth,
-	shouldShowHeader,
 } from "./layout/resolve.ts"
 import { openInBrowser } from "./serve/openBrowser.ts"
 import { startServer, type ServerHandle } from "./serve/server.ts"
@@ -565,23 +564,15 @@ export const Browser = ({
 	// every keystroke re-renders all N file rows even though only the bg of
 	// two of them changed (old + new selected). On a 195-file vault that
 	// dominates the per-keystroke cost.
-	// Chrome budget: header (when shown) + pane top border + pane bottom
-	// border + footer. The pane borders ride with the header — they only
-	// show on viewports tall enough to spend rows on chrome. The filter
-	// row eats one more cell when files are present *or* while discovery
-	// is in flight (allocates the row up front so it doesn't pop in when
-	// the first file arrives).
+	// Chrome budget: header + pane top border + pane bottom border + footer.
+	// The filter row eats one more cell when files are present *or* while
+	// discovery is in flight (allocates the row up front so it doesn't pop
+	// in when the first file arrives).
 	const discoveryActive = discoveryStatus !== null && discoveryStatus.length > 0
 	const filterRowVisible = files.length > 0 || discoveryActive
-	const headerVisible = shouldShowHeader(height)
-	const paneBordersVisible = headerVisible
 	const sidebarBodyHeight = Math.max(
 		1,
-		height -
-			FOOTER_HEIGHT -
-			(headerVisible ? HEADER_HEIGHT : 0) -
-			(paneBordersVisible ? 2 : 0) -
-			(filterRowVisible ? 1 : 0),
+		height - FOOTER_HEIGHT - HEADER_HEIGHT - 2 - (filterRowVisible ? 1 : 0),
 	)
 	const maxScroll = Math.max(0, displayedFiles.length - sidebarBodyHeight)
 	const desiredScroll = (() => {
@@ -692,10 +683,8 @@ export const Browser = ({
 	// never get painted over by sibling elements. customBorderChars on
 	// the sidebar turns its right-side corners from `┐ ┘` into `┬ ┴` so
 	// they connect cleanly with the reader's top/bottom rules.
-	const sidebarBorderSides: BorderSides[] = paneBordersVisible
-		? ["top", "bottom", "right"]
-		: ["right"]
-	const readerBorderSides: BorderSides[] = paneBordersVisible ? ["top", "bottom"] : []
+	const sidebarBorderSides: BorderSides[] = ["top", "bottom", "right"]
+	const readerBorderSides: BorderSides[] = ["top", "bottom"]
 	const SIDEBAR_BORDER_CHARS = {
 		topLeft: "┌",
 		topRight: "┬",
@@ -712,7 +701,7 @@ export const Browser = ({
 
 	return (
 		<box style={{ width, height, flexDirection: "column", backgroundColor: colors.background }}>
-			{headerVisible && <Header width={width} currentFile={currentFile} />}
+			<Header width={width} currentFile={currentFile} />
 			<box
 				style={{
 					flexDirection: "row",
@@ -785,16 +774,16 @@ export const Browser = ({
 				</box>
 			</box>
 			{sidebarAsDrawer && (
-				// Drawer overlays the reader, sitting between the Header (if
-				// shown) and the Footer. Carries its own top/bottom/right
-				// borders so the junction characters render where it abuts
-				// the reader's borders below.
+				// Drawer overlays the reader, sitting between the Header and
+				// the Footer. Carries its own top/bottom/right borders so the
+				// junction characters render where it abuts the reader's
+				// borders below.
 				<box
 					position="absolute"
 					left={0}
-					top={headerVisible ? HEADER_HEIGHT : 0}
+					top={HEADER_HEIGHT}
 					width={sidebarWidth}
-					height={Math.max(1, height - FOOTER_HEIGHT - (headerVisible ? HEADER_HEIGHT : 0))}
+					height={Math.max(1, height - FOOTER_HEIGHT - HEADER_HEIGHT)}
 					zIndex={5}
 					style={{
 						border: sidebarBorderSides,
