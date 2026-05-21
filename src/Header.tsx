@@ -57,7 +57,7 @@ export const Header = ({ width, currentFile, version = pkg.version }: HeaderProp
 				justifyContent: "space-between",
 				paddingLeft: 1,
 				paddingRight: 1,
-				backgroundColor: colors.background,
+				backgroundColor: colors.surface,
 			}}
 		>
 			<text content={left} wrapMode="none" style={{ fg: colors.textMuted }} />
