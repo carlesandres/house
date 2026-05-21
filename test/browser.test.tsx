@@ -1238,7 +1238,9 @@ describe("Browser — sidebar virtualization", () => {
 	// the inline two-pane layout is used; the drawer fallback at narrower
 	// widths is exercised elsewhere.
 	const TIGHT_VIEWPORT = { width: 90, height: 10 }
-	const TWENTY_FILES = makeFiles(Array.from({ length: 20 }, (_, i) => `f${String(i).padStart(2, "0")}.md`))
+	const TWENTY_FILES = makeFiles(
+		Array.from({ length: 20 }, (_, i) => `f${String(i).padStart(2, "0")}.md`),
+	)
 	const TWENTY_READER = makeReader(
 		Object.fromEntries(TWENTY_FILES.map((f) => [f.relativePath, f.relativePath])),
 	)
@@ -2312,6 +2314,37 @@ describe("Browser — command palette", () => {
 		expect(quitCalls).toBe(1)
 	})
 
+	test("rapid Down then Return runs the highlighted command, not the previous command", async () => {
+		let quitCalls = 0
+		const files = makeFiles(["README.md"])
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={files}
+					readFile={makeReader({ "README.md": "x" })}
+					onQuit={() => {
+						quitCalls++
+					}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		// These keys can arrive in one React batch in a real terminal. Palette
+		// navigation must update the command index synchronously before Return
+		// reads it, otherwise Return runs the previous row (`Quit`).
+		await act(async () => {
+			setup!.mockInput.pressKey("p", { ctrl: true })
+			setup!.mockInput.pressArrow("down")
+			setup!.mockInput.pressEnter()
+		})
+		await stepFrame(setup!.renderOnce)
+
+		expect(quitCalls).toBe(0)
+		expect(setup!.captureCharFrame()).toContain("▸ README.md")
+	})
+
 	test("ctrl+p a second time closes the palette (toggle)", async () => {
 		const files = makeFiles(["README.md"])
 		await act(async () => {
@@ -2343,23 +2376,22 @@ describe("Browser — command palette", () => {
 		// `focused={readerActive && !paletteOpen && !helpVisible}`.
 		// Avoid `_` in the marker — markdown italicizes underscore-delimited
 		// runs and our scrubber drops them from the rendered cells.
-		const longContent = Array.from({ length: 80 }, (_, i) => `MARKER${String(i).padStart(2, "0")}`).join(
-			"\n",
-		)
+		const longContent = Array.from(
+			{ length: 80 },
+			(_, i) => `MARKER${String(i).padStart(2, "0")}`,
+		).join("\n")
 		const files = makeFiles(["doc.md"])
 		await act(async () => {
 			setup = await renderBrowser(
-				<Browser files={files} readFile={makeReader({ "doc.md": longContent })} onQuit={() => {}} />,
+				<Browser
+					files={files}
+					readFile={makeReader({ "doc.md": longContent })}
+					onQuit={() => {}}
+				/>,
 				VIEWPORT,
 			)
 		})
-		// Two stepFrames: first commits initial render, second flushes the
-		// 80ms debounced reader load so the markdown content is on screen.
-		await stepFrame(setup!.renderOnce)
-		await act(async () => {
-			await new Promise<void>((resolve) => setTimeout(resolve, 120))
-		})
-		await stepFrame(setup!.renderOnce)
+		await settleBrowser()
 
 		// Move focus to the reader so the scrollbox is "focused" (the
 		// preconditioned state that exhibits the bug). Right-arrow from the
@@ -2398,21 +2430,22 @@ describe("Browser — command palette", () => {
 		// arrow keys when the reader was focused, even with the help overlay
 		// up. Help itself doesn't react to arrows, so the user could observe
 		// silent scrolling while reading the help text.
-		const longContent = Array.from({ length: 80 }, (_, i) => `MARKER${String(i).padStart(2, "0")}`).join(
-			"\n",
-		)
+		const longContent = Array.from(
+			{ length: 80 },
+			(_, i) => `MARKER${String(i).padStart(2, "0")}`,
+		).join("\n")
 		const files = makeFiles(["doc.md"])
 		await act(async () => {
 			setup = await renderBrowser(
-				<Browser files={files} readFile={makeReader({ "doc.md": longContent })} onQuit={() => {}} />,
+				<Browser
+					files={files}
+					readFile={makeReader({ "doc.md": longContent })}
+					onQuit={() => {}}
+				/>,
 				VIEWPORT,
 			)
 		})
-		await stepFrame(setup!.renderOnce)
-		await act(async () => {
-			await new Promise<void>((resolve) => setTimeout(resolve, 120))
-		})
-		await stepFrame(setup!.renderOnce)
+		await settleBrowser()
 
 		await act(async () => {
 			setup!.mockInput.pressArrow("right")

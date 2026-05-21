@@ -117,11 +117,13 @@ export const Browser = ({
 	const [paletteOpen, setPaletteOpen] = useState<boolean>(false)
 	const [paletteQuery, setPaletteQuery] = useState<string>("")
 	const [paletteIndex, setPaletteIndex] = useState<number>(0)
-	// Synchronous mirror for the keyboard handler — same reason filterOpenRef
-	// exists. Without this, the first key after ctrl+p still sees
-	// paletteOpen=false through closure.
+	// Synchronous mirrors for the keyboard handler — same reason filterOpenRef
+	// exists. Modal input can arrive in one React batch (e.g. ctrl+p, Down,
+	// Return), so every palette field read by later keys must update its ref
+	// before React state commits.
 	const paletteOpenRef = useRef(false)
 	const paletteQueryRef = useRef("")
+	const paletteIndexRef = useRef(0)
 	// Mirror filter state into refs so the keyboard handler sees synchronous
 	// updates even when multiple keys arrive in a single React batch (the
 	// first key opens the filter; subsequent keys in the same tick would
@@ -270,6 +272,7 @@ export const Browser = ({
 			if (helpVisible) setHelpVisible(() => false)
 			paletteQueryRef.current = ""
 			setPaletteQuery("")
+			paletteIndexRef.current = 0
 			setPaletteIndex(0)
 			paletteOpenRef.current = true
 			setPaletteOpen(true)
@@ -429,9 +432,14 @@ export const Browser = ({
 			const closePalette = () => {
 				paletteOpenRef.current = false
 				paletteQueryRef.current = ""
+				paletteIndexRef.current = 0
 				setPaletteOpen(false)
 				setPaletteQuery("")
 				setPaletteIndex(0)
+			}
+			const setPaletteIndexSync = (next: number) => {
+				paletteIndexRef.current = next
+				setPaletteIndex(next)
 			}
 			const allCommands = buildCommands(ctx)
 			const filtered = filterCommands(allCommands, paletteQueryRef.current)
@@ -440,24 +448,24 @@ export const Browser = ({
 				return
 			}
 			if (key.name === "return") {
-				const picked = filtered[clampSelectedIndex(paletteIndex, filtered)]
+				const picked = filtered[clampSelectedIndex(paletteIndexRef.current, filtered)]
 				closePalette()
 				picked?.run()
 				return
 			}
 			if (key.name === "up") {
-				setPaletteIndex((i) => Math.max(0, i - 1))
+				setPaletteIndexSync(Math.max(0, paletteIndexRef.current - 1))
 				return
 			}
 			if (key.name === "down") {
-				setPaletteIndex((i) => Math.min(Math.max(0, filtered.length - 1), i + 1))
+				setPaletteIndexSync(Math.min(Math.max(0, filtered.length - 1), paletteIndexRef.current + 1))
 				return
 			}
 			if (key.name === "backspace" || key.name === "delete") {
 				if (paletteQueryRef.current.length === 0) return
 				paletteQueryRef.current = paletteQueryRef.current.slice(0, -1)
 				setPaletteQuery(paletteQueryRef.current)
-				setPaletteIndex(0)
+				setPaletteIndexSync(0)
 				return
 			}
 			// ctrl+p again closes — matches help-toggle behavior.
@@ -474,7 +482,7 @@ export const Browser = ({
 			if (char !== null) {
 				paletteQueryRef.current = paletteQueryRef.current + char
 				setPaletteQuery(paletteQueryRef.current)
-				setPaletteIndex(0)
+				setPaletteIndexSync(0)
 			}
 			return
 		}
