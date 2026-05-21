@@ -19,7 +19,6 @@ import { buildCommands } from "./commands/buildCommands.ts"
 import { clampSelectedIndex, filterCommands } from "./commands/score.ts"
 import { CommandPalette } from "./CommandPalette.tsx"
 import { filterFiles } from "./discovery/filter.ts"
-import { BRAND_NAME } from "./brand.ts"
 import { type FileEntry } from "./discovery/walk.ts"
 import { Footer, FOOTER_HEIGHT } from "./Footer.tsx"
 import { Header, HEADER_HEIGHT } from "./Header.tsx"
@@ -44,7 +43,6 @@ export type SidebarMode = "auto" | "on" | "off"
 
 export interface BrowserProps {
 	readonly files: readonly FileEntry[]
-	readonly title?: string
 	readonly initialIndex?: number
 	/** Cap the rendered markdown's width at N columns. Null = fill the pane. */
 	readonly maxWidth?: number | null
@@ -85,7 +83,6 @@ const HELP_ALLOWED_IDS: ReadonlySet<string> = new Set([
 
 export const Browser = ({
 	files,
-	title = BRAND_NAME,
 	initialIndex = 0,
 	maxWidth = null,
 	discoveryStatus = null,
@@ -558,35 +555,25 @@ export const Browser = ({
 	const sidebarVisible = shown || sidebarActive
 	const sidebarAsDrawer = sidebarVisible && (!shown || !canFitInline(width))
 	const sidebarInline = sidebarVisible && !sidebarAsDrawer
-	// Drawer is offset 1 row from the top so the reader's title stays visible.
-	// That row comes off the drawer's own height, so the body has one fewer
-	// usable row than the inline sidebar. Tracked here so the virtualization
-	// slice matches the wrapper that actually paints it.
-	const drawerTopOffset = 1
-	const sidebarTitle = sidebarActive ? " ▸ files " : "   files "
-	const readerLabel = selected?.relativePath ?? title
-	const readerTitle = readerActive ? ` ▸ ${readerLabel} ` : `   ${readerLabel} `
+	// Currently-selected file shown in the Header (which replaced the
+	// per-pane border title that used to carry this information).
+	const currentFile = selected?.relativePath ?? null
 	const content = loaded?.path === renderedPath ? loaded.content : ""
 
 	// Sidebar virtualization: render only the visible window. Without this,
 	// every keystroke re-renders all N file rows even though only the bg of
 	// two of them changed (old + new selected). On a 195-file vault that
 	// dominates the per-keystroke cost.
-	// Sidebar box adds top/bottom borders (2); footer eats FOOTER_HEIGHT;
-	// the filter row eats one more cell when files are present *or* while
-	// discovery is in flight (allocates the row up front so it doesn't pop
-	// in when the first file arrives).
+	// Borderless sidebar: header eats HEADER_HEIGHT (when shown), footer
+	// eats FOOTER_HEIGHT, the filter row eats one more cell when files
+	// are present *or* while discovery is in flight (allocates the row
+	// up front so it doesn't pop in when the first file arrives).
 	const discoveryActive = discoveryStatus !== null && discoveryStatus.length > 0
 	const filterRowVisible = files.length > 0 || discoveryActive
 	const headerVisible = shouldShowHeader(height)
 	const sidebarBodyHeight = Math.max(
 		1,
-		height -
-			2 -
-			FOOTER_HEIGHT -
-			(headerVisible ? HEADER_HEIGHT : 0) -
-			(filterRowVisible ? 1 : 0) -
-			(sidebarAsDrawer ? drawerTopOffset : 0),
+		height - FOOTER_HEIGHT - (headerVisible ? HEADER_HEIGHT : 0) - (filterRowVisible ? 1 : 0),
 	)
 	const maxScroll = Math.max(0, displayedFiles.length - sidebarBodyHeight)
 	const desiredScroll = (() => {
@@ -599,7 +586,8 @@ export const Browser = ({
 		if (desiredScroll !== sidebarScroll) setSidebarScroll(desiredScroll)
 	}, [desiredScroll, sidebarScroll])
 	const visibleFiles = displayedFiles.slice(desiredScroll, desiredScroll + sidebarBodyHeight)
-	// Available width for sidebar text rows: box width minus 1-cell border on each side.
+	// Available width for sidebar text rows: pane width minus 1-cell left
+	// padding and 1-cell right border (the divider rule).
 	const sidebarTextWidth = Math.max(4, sidebarWidth - 2)
 	// Right-anchored truncation: keep the filename visible, lose the prefix
 	// with a leading ellipsis when the path is too long.
@@ -692,7 +680,7 @@ export const Browser = ({
 
 	return (
 		<box style={{ width, height, flexDirection: "column", backgroundColor: colors.background }}>
-			{headerVisible && <Header width={width} />}
+			{headerVisible && <Header width={width} currentFile={currentFile} />}
 			<box
 				style={{
 					flexDirection: "row",
@@ -703,26 +691,27 @@ export const Browser = ({
 			>
 				{sidebarInline && (
 					<box
-						title={sidebarTitle}
-						titleAlignment="left"
 						style={{
-							border: true,
-							borderColor: sidebarActive ? colors.borderActive : colors.border,
+							// Right edge is the divider rule between sidebar and reader.
+							// Drawn in a neutral color regardless of focus — the active
+							// pane is signaled by the sidebar's bg tint instead.
+							border: ["right"],
+							borderColor: colors.border,
 							width: sidebarWidth,
 							flexShrink: 0,
 							flexDirection: "column",
-							backgroundColor: colors.surface,
+							paddingLeft: 1,
+							// Sidebar-only focus tint: surface when active, background
+							// when not. Reader stays on background either way so code
+							// blocks (which use the surface token) keep their contrast.
+							backgroundColor: sidebarActive ? colors.surface : colors.background,
 						}}
 					>
 						{sidebarBody}
 					</box>
 				)}
 				<box
-					title={readerTitle}
-					titleAlignment="left"
 					style={{
-						border: true,
-						borderColor: readerActive ? colors.borderActive : colors.border,
 						padding: 1,
 						flexGrow: 1,
 						flexShrink: 1,
@@ -764,29 +753,25 @@ export const Browser = ({
 				</box>
 			</box>
 			{sidebarAsDrawer && (
-				// Offset by 1 row so the reader pane's top border (which carries
-				// the current file name) stays visible above the drawer. Without
-				// this, the user loses the only on-screen indicator of which
-				// file they're reading whenever the drawer is up. When the header
-				// row is showing, push the drawer down by HEADER_HEIGHT so it
-				// doesn't paint over the brand/version line.
+				// Drawer overlays the reader; sits below the Header (which carries
+				// the current filename) when the Header is shown. No top border —
+				// the Header above and Footer below box it in vertically. Right
+				// edge carries the divider rule.
 				<box
 					position="absolute"
 					left={0}
-					top={drawerTopOffset + (headerVisible ? HEADER_HEIGHT : 0)}
+					top={headerVisible ? HEADER_HEIGHT : 0}
 					width={sidebarWidth}
-					height={Math.max(
-						1,
-						height - FOOTER_HEIGHT - drawerTopOffset - (headerVisible ? HEADER_HEIGHT : 0),
-					)}
+					height={Math.max(1, height - FOOTER_HEIGHT - (headerVisible ? HEADER_HEIGHT : 0))}
 					zIndex={5}
-					title={sidebarTitle}
-					titleAlignment="left"
 					style={{
-						border: true,
-						borderColor: sidebarActive ? colors.borderActive : colors.border,
+						border: ["right"],
+						borderColor: colors.border,
 						flexDirection: "column",
-						backgroundColor: colors.surface,
+						paddingLeft: 1,
+						// Drawer is the sidebar; tint it surface so the focused state
+						// reads the same as the inline sidebar.
+						backgroundColor: sidebarActive ? colors.surface : colors.background,
 					}}
 				>
 					{sidebarBody}

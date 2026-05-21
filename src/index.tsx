@@ -34,7 +34,7 @@ import { useUpdateNotice } from "./update/useUpdateNotice.ts"
 export interface AppProps {
 	/** Markdown source to render. */
 	readonly content: string
-	/** Optional title shown in the frame border. Defaults to a generic label. */
+	/** Optional title shown in the header's current-file slot. Defaults to a generic label. */
 	readonly title?: string
 	/** Cap the rendered markdown's width at N columns (left-aligned). Null = fill the pane. */
 	readonly maxWidth?: number | null
@@ -107,7 +107,6 @@ const DiscoverShell = ({ target, all, sort, maxWidth, sidebarMode }: DiscoverShe
 	return (
 		<Browser
 			files={files}
-			title={target}
 			maxWidth={maxWidth}
 			discoveryStatus={discoveryStatus}
 			sidebarMode={sidebarMode}
@@ -156,13 +155,9 @@ export const App = ({ content, title = "house", maxWidth = null, onQuit }: AppPr
 
 	return (
 		<box style={{ width, height, flexDirection: "column", backgroundColor: colors.background }}>
-			{headerVisible && <Header width={width} />}
+			{headerVisible && <Header width={width} currentFile={title} />}
 			<box
-				title={` ${title} `}
-				titleAlignment="left"
 				style={{
-					border: true,
-					borderColor: colors.border,
 					padding: 1,
 					flexGrow: 1,
 					flexShrink: 1,

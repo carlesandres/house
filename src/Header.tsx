@@ -1,14 +1,14 @@
 /**
  * Header — single-row chrome above the two-pane area.
  *
- * Borderless single line modeled on ghui's PlainLine header: identity on
- * the left (⌂ + app name), version on the right. The row is informational,
- * not interactive — see issue #38 for the design discussion.
+ * Borderless single line modeled on ghui's PlainLine header: brand and
+ * current filename on the left, version on the right. The row is
+ * informational, not interactive — see issue #38 for the design discussion.
  *
- * Hidden on tight (short) viewports via `shouldShowHeader` so short
- * terminals don't pay a vertical row for branding. Width is handled here
- * with a graceful degradation: the version drops first, leaving the brand
- * mark as the irreducible identity element.
+ * Width degrades gracefully: the version drops first when the row gets
+ * tight, then the filename, leaving the brand mark as the irreducible
+ * identity element. Hidden on tight (short) viewports via
+ * `shouldShowHeader` so short terminals don't pay a vertical row for chrome.
  */
 
 import pkg from "../package.json" with { type: "json" }
@@ -17,20 +17,34 @@ import { colors } from "./theme/colors.ts"
 
 export const HEADER_HEIGHT = 1
 
+const FILE_SEPARATOR = " · "
+
 export interface HeaderProps {
 	readonly width: number
+	/** Currently selected file's relative path. When set, the Header shows
+	 *  it next to the brand mark — replaces the per-pane border title that
+	 *  used to carry this information. */
+	readonly currentFile?: string | null
 	/** Optional override for the version string (testing). Defaults to
 	 *  the running package's version. */
 	readonly version?: string
 }
 
-export const Header = ({ width, version = pkg.version }: HeaderProps) => {
-	const left = `${BRAND} ${BRAND_NAME}`
+export const Header = ({ width, currentFile, version = pkg.version }: HeaderProps) => {
+	const brand = `${BRAND} ${BRAND_NAME}`
 	const right = `v${version}`
+	const file = currentFile && currentFile.length > 0 ? currentFile : null
 	const usableWidth = Math.max(0, width - 2) // 1-cell horizontal padding each side
-	// Right-side version drops first when the row narrows. Brand stays — it's
-	// the identity anchor and earns priority. `1` is the minimum gap between
-	// the two strings so they never visually collide.
+
+	// Priority: brand > filename > version. Brand is the irreducible identity
+	// anchor. Filename is per-selection useful info — keep it before the
+	// largely-static version string. `1` is the minimum gap between left and
+	// right groups so they never visually collide.
+	const leftWithFile = file !== null ? `${brand}${FILE_SEPARATOR}${file}` : brand
+	const showFileWithVersion = leftWithFile.length + 1 + right.length <= usableWidth
+	const showFileWithoutVersion = leftWithFile.length <= usableWidth
+	const showFile = file !== null && (showFileWithVersion || showFileWithoutVersion)
+	const left = showFile ? leftWithFile : brand
 	const showRight = left.length + 1 + right.length <= usableWidth
 
 	return (
