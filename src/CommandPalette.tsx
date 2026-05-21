@@ -9,8 +9,15 @@
  * no mouse, no recency. See #91/#93/#94/#95/#96 for the follow-ups.
  */
 
+import { RGBA } from "@opentui/core"
 import { colors } from "./theme/colors.ts"
 import type { AppCommand } from "./commands/types.ts"
+
+// Semi-transparent black scrim painted across the viewport behind the modal.
+// Opentui composites it over the chrome underneath, so the rest of the UI
+// reads as darkened while the modal stays fully opaque. Mirrors opencode's
+// dialog backdrop (cli/cmd/tui/ui/dialog.tsx).
+const SCRIM = RGBA.fromInts(0, 0, 0, 150)
 
 export interface CommandPaletteProps {
 	readonly commands: readonly AppCommand[]
@@ -73,54 +80,71 @@ export const CommandPalette = ({
 	return (
 		<box
 			position="absolute"
-			left={left}
-			top={top}
-			width={overlayWidth}
-			height={overlayHeight}
+			left={0}
+			top={0}
+			width={viewportWidth}
+			height={viewportHeight}
 			zIndex={20}
-			title=" Commands "
-			titleAlignment="left"
-			paddingLeft={1}
-			paddingRight={1}
-			style={{
-				border: true,
-				borderColor: colors.borderActive,
-				flexDirection: "column",
-				backgroundColor: colors.surface,
-			}}
+			style={{ backgroundColor: SCRIM }}
 		>
-			<text
-				wrapMode="none"
-				content={fit(`> ${query}▏`, rowWidth)}
-				style={{ fg: colors.textStrong }}
-			/>
-			<text content=" " />
-			{commands.length === 0 ? (
-				<text wrapMode="none" content="  (no matches)" style={{ fg: colors.textMuted }} />
-			) : (
-				visible.map((cmd, i) => {
-					const realIdx = scrollTop + i
-					const isSelected = realIdx === selectedIndex
-					const selector = isSelected ? "▸ " : "  "
-					const titleText = fit(cmd.title, titleWidth)
-					const shortcutText = cmd.shortcut
-						? fitRight(cmd.shortcut, SHORTCUT_WIDTH)
-						: " ".repeat(SHORTCUT_WIDTH)
-					// Title and shortcut render as separate spans so the shortcut
-					// can use `textMuted` while the title uses `text`/`textStrong`.
-					// Same trick opencode pulls with `--text-weak` — the theme
-					// guarantees the contrast, we just pick the right role.
-					const titleFg = isSelected ? colors.textStrong : colors.text
-					return (
-						<text key={cmd.id} wrapMode="none" style={isSelected ? { bg: colors.selectedBg } : {}}>
-							<span style={{ fg: titleFg }}>{`${selector}${titleText} `}</span>
-							<span style={{ fg: colors.textMuted }}>{shortcutText}</span>
-						</text>
-					)
-				})
-			)}
-			<text content=" " />
-			<text wrapMode="none" content={fit(FOOTER_HINT, rowWidth)} style={{ fg: colors.textMuted }} />
+			<box
+				position="absolute"
+				left={left}
+				top={top}
+				width={overlayWidth}
+				height={overlayHeight}
+				title=" Commands "
+				titleAlignment="left"
+				paddingLeft={1}
+				paddingRight={1}
+				style={{
+					border: true,
+					borderColor: colors.borderActive,
+					flexDirection: "column",
+					backgroundColor: colors.surface,
+				}}
+			>
+				<text
+					wrapMode="none"
+					content={fit(`> ${query}▏`, rowWidth)}
+					style={{ fg: colors.textStrong }}
+				/>
+				<text content=" " />
+				{commands.length === 0 ? (
+					<text wrapMode="none" content="  (no matches)" style={{ fg: colors.textMuted }} />
+				) : (
+					visible.map((cmd, i) => {
+						const realIdx = scrollTop + i
+						const isSelected = realIdx === selectedIndex
+						const selector = isSelected ? "▸ " : "  "
+						const titleText = fit(cmd.title, titleWidth)
+						const shortcutText = cmd.shortcut
+							? fitRight(cmd.shortcut, SHORTCUT_WIDTH)
+							: " ".repeat(SHORTCUT_WIDTH)
+						// Title and shortcut render as separate spans so the shortcut
+						// can use `textMuted` while the title uses `text`/`textStrong`.
+						// Same trick opencode pulls with `--text-weak` — the theme
+						// guarantees the contrast, we just pick the right role.
+						const titleFg = isSelected ? colors.textStrong : colors.text
+						return (
+							<text
+								key={cmd.id}
+								wrapMode="none"
+								style={isSelected ? { bg: colors.selectedBg } : {}}
+							>
+								<span style={{ fg: titleFg }}>{`${selector}${titleText} `}</span>
+								<span style={{ fg: colors.textMuted }}>{shortcutText}</span>
+							</text>
+						)
+					})
+				)}
+				<text content=" " />
+				<text
+					wrapMode="none"
+					content={fit(FOOTER_HINT, rowWidth)}
+					style={{ fg: colors.textMuted }}
+				/>
+			</box>
 		</box>
 	)
 }

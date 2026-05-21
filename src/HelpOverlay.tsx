@@ -6,8 +6,12 @@
  * keys — the dispatcher and the help text are the same source of truth.
  */
 
+import { RGBA } from "@opentui/core"
 import type { KeyBinding } from "./keymap/keymap.ts"
 import { colors } from "./theme/colors.ts"
+
+// See CommandPalette.tsx for the scrim rationale.
+const SCRIM = RGBA.fromInts(0, 0, 0, 150)
 
 export interface HelpOverlayProps<C> {
 	readonly bindings: readonly KeyBinding<C>[]
@@ -82,49 +86,63 @@ export const HelpOverlay = <C,>({
 	return (
 		<box
 			position="absolute"
-			left={left}
-			top={top}
-			width={overlayWidth}
-			height={overlayHeight}
+			left={0}
+			top={0}
+			width={viewportWidth}
+			height={viewportHeight}
 			zIndex={10}
-			title=" Help "
-			titleAlignment="left"
-			style={{
-				border: true,
-				borderColor: colors.borderActive,
-				padding: 1,
-				flexDirection: "column",
-				backgroundColor: colors.surface,
-			}}
+			style={{ backgroundColor: SCRIM }}
 		>
-			{rows.map((row) => {
-				switch (row.kind) {
-					case "header":
-						return (
-							<text
-								key={row.key}
-								wrapMode="none"
-								content={row.text}
-								style={{ fg: colors.borderActive, attributes: 1 /* bold */ }}
-							/>
-						)
-					case "footer":
-						return (
-							<text
-								key={row.key}
-								wrapMode="none"
-								content={row.text}
-								style={{ fg: colors.textMuted }}
-							/>
-						)
-					case "spacer":
-						return <text key={row.key} content=" " />
-					case "binding":
-						return (
-							<text key={row.key} wrapMode="none" content={row.text} style={{ fg: colors.text }} />
-						)
-				}
-			})}
+			<box
+				position="absolute"
+				left={left}
+				top={top}
+				width={overlayWidth}
+				height={overlayHeight}
+				title=" Help "
+				titleAlignment="left"
+				style={{
+					border: true,
+					borderColor: colors.borderActive,
+					padding: 1,
+					flexDirection: "column",
+					backgroundColor: colors.surface,
+				}}
+			>
+				{rows.map((row) => {
+					switch (row.kind) {
+						case "header":
+							return (
+								<text
+									key={row.key}
+									wrapMode="none"
+									content={row.text}
+									style={{ fg: colors.borderActive, attributes: 1 /* bold */ }}
+								/>
+							)
+						case "footer":
+							return (
+								<text
+									key={row.key}
+									wrapMode="none"
+									content={row.text}
+									style={{ fg: colors.textMuted }}
+								/>
+							)
+						case "spacer":
+							return <text key={row.key} content=" " />
+						case "binding":
+							return (
+								<text
+									key={row.key}
+									wrapMode="none"
+									content={row.text}
+									style={{ fg: colors.text }}
+								/>
+							)
+					}
+				})}
+			</box>
 		</box>
 	)
 }
