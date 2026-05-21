@@ -11,6 +11,7 @@
  */
 
 import { SyntaxStyle } from "@opentui/core"
+import type { BorderSides } from "@opentui/core"
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react"
 import { useAtomValue, useAtomSet } from "@effect/atom-react"
 import { Effect } from "effect"
@@ -564,22 +565,22 @@ export const Browser = ({
 	// every keystroke re-renders all N file rows even though only the bg of
 	// two of them changed (old + new selected). On a 195-file vault that
 	// dominates the per-keystroke cost.
-	// Chrome budget: header (when shown) + top rule + bottom rule + footer.
-	// The two horizontal rules ride with the header — they only show on
-	// viewports tall enough to spend rows on chrome. The filter row eats
-	// one more cell when files are present *or* while discovery is in
-	// flight (allocates the row up front so it doesn't pop in when the
-	// first file arrives).
+	// Chrome budget: header (when shown) + pane top border + pane bottom
+	// border + footer. The pane borders ride with the header — they only
+	// show on viewports tall enough to spend rows on chrome. The filter
+	// row eats one more cell when files are present *or* while discovery
+	// is in flight (allocates the row up front so it doesn't pop in when
+	// the first file arrives).
 	const discoveryActive = discoveryStatus !== null && discoveryStatus.length > 0
 	const filterRowVisible = files.length > 0 || discoveryActive
 	const headerVisible = shouldShowHeader(height)
-	const rulesVisible = headerVisible
+	const paneBordersVisible = headerVisible
 	const sidebarBodyHeight = Math.max(
 		1,
 		height -
 			FOOTER_HEIGHT -
 			(headerVisible ? HEADER_HEIGHT : 0) -
-			(rulesVisible ? 2 : 0) -
+			(paneBordersVisible ? 2 : 0) -
 			(filterRowVisible ? 1 : 0),
 	)
 	const maxScroll = Math.max(0, displayedFiles.length - sidebarBodyHeight)
@@ -685,23 +686,33 @@ export const Browser = ({
 		</>
 	)
 
-	// Horizontal rules above and below the pane row. Junction lands at the
-	// sidebar's right-border column (== sidebarWidth - 1) whenever the
-	// sidebar is visible (inline or drawer); otherwise the rule is a plain
-	// `─` run across the viewport. fg = border, bg = surface so the rule
-	// reads as part of the dim chrome frame around the panes.
-	const sidebarVisibleForRule = sidebarInline || sidebarAsDrawer
-	const junctionAt = sidebarVisibleForRule ? sidebarWidth - 1 : -1
-	const buildRule = (junction: "┬" | "┴"): string => {
-		if (junctionAt < 0 || junctionAt >= width) return "─".repeat(width)
-		return "─".repeat(junctionAt) + junction + "─".repeat(Math.max(0, width - junctionAt - 1))
-	}
-	const ruleStyle = { fg: colors.border, bg: colors.surface } as const
+	// Pane borders draw a connected frame: each pane's top/bottom edges
+	// (the horizontal rules) and the sidebar's right edge (the vertical
+	// divider) are rendered by opentui in one pass, so the junctions
+	// never get painted over by sibling elements. customBorderChars on
+	// the sidebar turns its right-side corners from `┐ ┘` into `┬ ┴` so
+	// they connect cleanly with the reader's top/bottom rules.
+	const sidebarBorderSides: BorderSides[] = paneBordersVisible
+		? ["top", "bottom", "right"]
+		: ["right"]
+	const readerBorderSides: BorderSides[] = paneBordersVisible ? ["top", "bottom"] : []
+	const SIDEBAR_BORDER_CHARS = {
+		topLeft: "┌",
+		topRight: "┬",
+		bottomLeft: "└",
+		bottomRight: "┴",
+		horizontal: "─",
+		vertical: "│",
+		topT: "┬",
+		bottomT: "┴",
+		leftT: "├",
+		rightT: "┤",
+		cross: "┼",
+	} as const
 
 	return (
 		<box style={{ width, height, flexDirection: "column", backgroundColor: colors.background }}>
 			{headerVisible && <Header width={width} currentFile={currentFile} />}
-			{rulesVisible && <text content={buildRule("┬")} wrapMode="none" style={ruleStyle} />}
 			<box
 				style={{
 					flexDirection: "row",
@@ -713,10 +724,7 @@ export const Browser = ({
 				{sidebarInline && (
 					<box
 						style={{
-							// Right edge is the divider rule between sidebar and reader.
-							// Drawn in a neutral color regardless of focus — the active
-							// pane is signaled by the sidebar's bg tint instead.
-							border: ["right"],
+							border: sidebarBorderSides,
 							borderColor: colors.border,
 							width: sidebarWidth,
 							flexShrink: 0,
@@ -726,12 +734,15 @@ export const Browser = ({
 							// background. Same rule applies to the reader below.
 							backgroundColor: sidebarActive ? colors.background : colors.surface,
 						}}
+						customBorderChars={SIDEBAR_BORDER_CHARS}
 					>
 						{sidebarBody}
 					</box>
 				)}
 				<box
 					style={{
+						border: readerBorderSides,
+						borderColor: colors.border,
 						padding: 1,
 						flexGrow: 1,
 						flexShrink: 1,
@@ -774,32 +785,30 @@ export const Browser = ({
 				</box>
 			</box>
 			{sidebarAsDrawer && (
-				// Drawer overlays the reader; sits between the top and bottom
-				// horizontal rules so its right-edge `│` slots into the
-				// `┬`/`┴` junctions on those rules.
+				// Drawer overlays the reader, sitting between the Header (if
+				// shown) and the Footer. Carries its own top/bottom/right
+				// borders so the junction characters render where it abuts
+				// the reader's borders below.
 				<box
 					position="absolute"
 					left={0}
-					top={(headerVisible ? HEADER_HEIGHT : 0) + (rulesVisible ? 1 : 0)}
+					top={headerVisible ? HEADER_HEIGHT : 0}
 					width={sidebarWidth}
-					height={Math.max(
-						1,
-						height - FOOTER_HEIGHT - (headerVisible ? HEADER_HEIGHT : 0) - (rulesVisible ? 2 : 0),
-					)}
+					height={Math.max(1, height - FOOTER_HEIGHT - (headerVisible ? HEADER_HEIGHT : 0))}
 					zIndex={5}
 					style={{
-						border: ["right"],
+						border: sidebarBorderSides,
 						borderColor: colors.border,
 						flexDirection: "column",
 						paddingLeft: 1,
 						// Inactive pane dims to surface; active pane stays on background.
 						backgroundColor: sidebarActive ? colors.background : colors.surface,
 					}}
+					customBorderChars={SIDEBAR_BORDER_CHARS}
 				>
 					{sidebarBody}
 				</box>
 			)}
-			{rulesVisible && <text content={buildRule("┴")} wrapMode="none" style={ruleStyle} />}
 			<Footer
 				bindings={footerBindings}
 				ctx={ctx}

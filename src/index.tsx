@@ -10,6 +10,7 @@
 
 import { stat } from "node:fs/promises"
 import { createCliRenderer, SyntaxStyle } from "@opentui/core"
+import type { BorderSides } from "@opentui/core"
 import { createRoot, useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react"
 import { RegistryProvider, useAtomSet, useAtomValue } from "@effect/atom-react"
 import { Cause, Duration, Effect, Fiber, Stream } from "effect"
@@ -152,18 +153,15 @@ export const App = ({ content, title = "house", maxWidth = null, onQuit }: AppPr
 	})
 
 	const headerVisible = shouldShowHeader(height)
-	const rulesVisible = headerVisible
-	// Single-pane mode has no sidebar, so no junction — the rules are plain
-	// `─` runs across the viewport.
-	const ruleContent = "─".repeat(width)
-	const ruleStyle = { fg: colors.border, bg: colors.surface } as const
+	const paneBorderSides: BorderSides[] = headerVisible ? ["top", "bottom"] : []
 
 	return (
 		<box style={{ width, height, flexDirection: "column", backgroundColor: colors.background }}>
 			{headerVisible && <Header width={width} currentFile={title} />}
-			{rulesVisible && <text content={ruleContent} wrapMode="none" style={ruleStyle} />}
 			<box
 				style={{
+					border: paneBorderSides,
+					borderColor: colors.border,
 					padding: 1,
 					flexGrow: 1,
 					flexShrink: 1,
@@ -190,7 +188,6 @@ export const App = ({ content, title = "house", maxWidth = null, onQuit }: AppPr
 					/>
 				</scrollbox>
 			</box>
-			{rulesVisible && <text content={ruleContent} wrapMode="none" style={ruleStyle} />}
 		</box>
 	)
 }
