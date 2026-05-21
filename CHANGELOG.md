@@ -12,6 +12,25 @@ file is the curated, narrative version.
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-05-21
+
+### Added
+
+- Command palette v1: `ctrl+p` opens a modal palette with visible browser
+  commands derived from the keymap, including quit, sidebar toggle, help,
+  filter, open-in-browser, and theme controls.
+- Palette search uses a small tiered scorer so empty queries stay in keymap
+  order while typed queries rank stronger title and word-boundary matches.
+
+### Fixed
+
+- Reader scroll focus is suspended while overlays are open, preventing palette
+  arrow navigation from scrolling the markdown pane behind the modal.
+
+### Tests
+
+- Added command-palette interaction coverage plus scroll regression checks.
+
 ## [0.3.1] — 2026-05-17
 
 Beta release gates (DESIGN §10.2) closed.
@@ -204,7 +223,9 @@ auto-detect, single-binary distribution (issue
 [#2](https://github.com/carlesandres/openmdr/issues/2)),
 Homebrew tap. All tracked.
 
-[Unreleased]: https://github.com/carlesandres/house/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/carlesandres/house/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/carlesandres/house/compare/v0.3.1...v0.4.0
+[0.3.1]: https://github.com/carlesandres/house/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/carlesandres/house/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/carlesandres/house/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/carlesandres/house/compare/v0.1.0...v0.2.0
