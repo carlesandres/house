@@ -261,5 +261,22 @@ describe("checkForUpdate", () => {
 		})
 		expect(info).toBeNull()
 	})
+
+	test("rejects a non-https tarball URL from the registry", async () => {
+		const { fetch: fakeFetch, calls } = makeFakeFetch({
+			"GET https://registry.npmjs.org/@carlesandres/house/latest": () =>
+				okJson({ version: "0.5.0", dist: { tarball: "http://cdn.example/house-0.5.0.tgz" } }),
+		})
+		const info = await checkForUpdate({
+			...baseOpts,
+			env: {},
+			fetchImpl: fakeFetch,
+			cacheRead: async () => null,
+			cacheWrite: async () => {},
+		})
+		expect(info).toBeNull()
+		// We must not have issued the HEAD against the non-https URL.
+		expect(calls.find((c) => c.method === "HEAD")).toBeUndefined()
+	})
 })
 

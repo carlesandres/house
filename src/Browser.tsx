@@ -62,6 +62,9 @@ export interface BrowserProps {
 	 *  time to read it; subsequent transient toasts (theme cycle, etc.)
 	 *  preempt it via the same single-slot channel. Null disables. */
 	readonly updateNotice?: string | null
+	/** TTL (ms) for the update-notice toast. Exposed so tests can use a small
+	 *  value instead of sleeping for the production 10s window. */
+	readonly updateNoticeTtlMs?: number
 }
 
 const defaultReadFile = (path: string): Promise<string> => Effect.runPromise(readFileText(path))
@@ -90,6 +93,7 @@ export const Browser = ({
 	onQuit,
 	readFile = defaultReadFile,
 	updateNotice = null,
+	updateNoticeTtlMs = 10000,
 }: BrowserProps) => {
 	const renderer = useRenderer()
 	const { width, height } = useTerminalDimensions()
@@ -180,8 +184,8 @@ export const Browser = ({
 		if (!updateNotice) return
 		if (updateNoticeSeenRef.current === updateNotice) return
 		updateNoticeSeenRef.current = updateNotice
-		pushFooterNotice(updateNotice, 10000)
-	}, [updateNotice])
+		pushFooterNotice(updateNotice, updateNoticeTtlMs)
+	}, [updateNotice, updateNoticeTtlMs])
 
 	const cycleTheme = (delta: 1 | -1) => {
 		const idx = themeDefinitions.findIndex((d) => d.id === theme.id)

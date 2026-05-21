@@ -54,15 +54,23 @@ const isCi = (env: Record<string, string | undefined>): boolean =>
 	env.CI !== "0" &&
 	env.CI.toLowerCase() !== "false"
 
-const fetchWithTimeout = async (
+/** Run a fetch with a single timeout that covers BOTH the response headers
+ *  and the caller's body read. Returning the bare Response and then reading
+ *  `res.json()` outside the timer leaves the body stream unbounded — a
+ *  stalled connection after headers would hang forever. The consumer
+ *  callback runs while the AbortController is still live, so an abort
+ *  cancels an in-flight body read too. */
+const fetchWithTimeout = async <T>(
 	url: string,
 	init: RequestInit,
+	consume: (res: Response) => Promise<T>,
 	fetchImpl: typeof fetch = fetch,
-): Promise<Response> => {
+): Promise<T> => {
 	const ctrl = new AbortController()
 	const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS)
 	try {
-		return await fetchImpl(url, { ...init, signal: ctrl.signal })
+		const res = await fetchImpl(url, { ...init, signal: ctrl.signal })
+		return await consume(res)
 	} finally {
 		clearTimeout(timer)
 	}
@@ -99,21 +107,34 @@ export const checkForUpdate = async (opts: CheckOptions): Promise<UpdateInfo | n
 	let latestVersion: string
 	let tarballUrl: string
 	try {
-		const res = await fetchWithTimeout(
+		const parsed = await fetchWithTimeout(
 			REGISTRY_URL(opts.pkgName),
 			{ headers: { accept: "application/json" } },
+			async (res) => {
+				if (!res.ok) return null
+				const body = (await res.json()) as unknown
+				if (typeof body !== "object" || body === null) return null
+				const obj = body as Record<string, unknown>
+				const version = obj.version
+				const dist = obj.dist as Record<string, unknown> | undefined
+				const tarball = dist?.tarball
+				if (typeof version !== "string" || typeof tarball !== "string") return null
+				// The registry returns a CDN URL we're about to HEAD without
+				// further validation. Pin to https so a compromised or proxied
+				// registry can't redirect us to file://, http://, or another
+				// scheme we'd issue a request against.
+				try {
+					if (new URL(tarball).protocol !== "https:") return null
+				} catch {
+					return null
+				}
+				return { version, tarball }
+			},
 			opts.fetchImpl,
 		)
-		if (!res.ok) return null
-		const body = (await res.json()) as unknown
-		if (typeof body !== "object" || body === null) return null
-		const obj = body as Record<string, unknown>
-		const version = obj.version
-		const dist = obj.dist as Record<string, unknown> | undefined
-		const tarball = dist?.tarball
-		if (typeof version !== "string" || typeof tarball !== "string") return null
-		latestVersion = version
-		tarballUrl = tarball
+		if (!parsed) return null
+		latestVersion = parsed.version
+		tarballUrl = parsed.tarball
 	} catch {
 		return null
 	}
@@ -122,8 +143,12 @@ export const checkForUpdate = async (opts: CheckOptions): Promise<UpdateInfo | n
 	// makes "only announced when the artifact is available" hold.
 	let tarballOk = false
 	try {
-		const head = await fetchWithTimeout(tarballUrl, { method: "HEAD" }, opts.fetchImpl)
-		tarballOk = head.ok
+		tarballOk = await fetchWithTimeout(
+			tarballUrl,
+			{ method: "HEAD" },
+			async (res) => res.ok,
+			opts.fetchImpl,
+		)
 	} catch {
 		tarballOk = false
 	}

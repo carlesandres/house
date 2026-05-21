@@ -2535,6 +2535,9 @@ describe("Browser — updateNotice", () => {
 	})
 
 	test("after the update notice TTL expires the hint row returns", async () => {
+		// Use a tiny TTL via the prop so this test runs in ~50ms instead of
+		// sleeping the production 10s window.
+		const ttlMs = 30
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
@@ -2542,6 +2545,7 @@ describe("Browser — updateNotice", () => {
 					readFile={makeReader({ "a.md": "x" })}
 					onQuit={() => {}}
 					updateNotice={TEXT}
+					updateNoticeTtlMs={ttlMs}
 				/>,
 				VIEWPORT,
 			)
@@ -2549,15 +2553,14 @@ describe("Browser — updateNotice", () => {
 		await stepFrame(setup!.renderOnce)
 		expect(setup!.captureCharFrame()).toContain(TEXT)
 
-		// 10s TTL on the update notice; advance fake-time past it.
 		await act(async () => {
-			await new Promise<void>((resolve) => setTimeout(resolve, 10_050))
+			await new Promise<void>((resolve) => setTimeout(resolve, ttlMs + 20))
 		})
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
 		expect(frame).not.toContain(TEXT)
 		expect(frame).toContain("q:quit")
-	}, 15_000)
+	})
 })
 
 describe("Browser — header", () => {
