@@ -2204,3 +2204,246 @@ describe("Browser — filter modal", () => {
 		expect(frame).not.toContain("README.md")
 	})
 })
+
+describe("Browser — command palette", () => {
+	test("ctrl+p opens the palette and shows the Commands title", async () => {
+		const files = makeFiles(["README.md"])
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser files={files} readFile={makeReader({ "README.md": "x" })} onQuit={() => {}} />,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		await act(async () => {
+			setup!.mockInput.pressKey("p", { ctrl: true })
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("Commands")
+		// Default-visible command titles from the annotation map are shown.
+		expect(frame).toContain("Toggle sidebar")
+		expect(frame).toContain("Quit")
+	})
+
+	test("Esc closes the palette", async () => {
+		const files = makeFiles(["README.md"])
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser files={files} readFile={makeReader({ "README.md": "x" })} onQuit={() => {}} />,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		await act(async () => {
+			setup!.mockInput.pressKey("p", { ctrl: true })
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).toContain("Commands")
+
+		await act(async () => {
+			setup!.mockInput.pressEscape()
+			// Escape is `\x1b`, the lead of escape sequences. The parser waits
+			// before emitting — see the existing filter tests.
+			await new Promise<void>((resolve) => setTimeout(resolve, 60))
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).not.toContain(" Commands ")
+	})
+
+	test("typing narrows the palette list by fuzzy match", async () => {
+		const files = makeFiles(["README.md"])
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser files={files} readFile={makeReader({ "README.md": "x" })} onQuit={() => {}} />,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		await act(async () => {
+			setup!.mockInput.pressKey("p", { ctrl: true })
+			setup!.mockInput.pressKey("t")
+			setup!.mockInput.pressKey("h")
+			setup!.mockInput.pressKey("e")
+			setup!.mockInput.pressKey("m")
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("Next theme")
+		expect(frame).toContain("Previous theme")
+		// Non-matching commands drop out.
+		expect(frame).not.toContain("Quit")
+		expect(frame).not.toContain("Toggle sidebar")
+	})
+
+	test("Return runs the selected command (quit fires onQuit)", async () => {
+		let quitCalls = 0
+		const files = makeFiles(["README.md"])
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={files}
+					readFile={makeReader({ "README.md": "x" })}
+					onQuit={() => {
+						quitCalls++
+					}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		// Filter to a single "Quit" match, then Return.
+		await act(async () => {
+			setup!.mockInput.pressKey("p", { ctrl: true })
+			setup!.mockInput.pressKey("q")
+			setup!.mockInput.pressKey("u")
+			setup!.mockInput.pressKey("i")
+			setup!.mockInput.pressKey("t")
+		})
+		await stepFrame(setup!.renderOnce)
+		await act(async () => {
+			setup!.mockInput.pressEnter()
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(quitCalls).toBe(1)
+	})
+
+	test("ctrl+p a second time closes the palette (toggle)", async () => {
+		const files = makeFiles(["README.md"])
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser files={files} readFile={makeReader({ "README.md": "x" })} onQuit={() => {}} />,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		await act(async () => {
+			setup!.mockInput.pressKey("p", { ctrl: true })
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).toContain(" Commands ")
+
+		await act(async () => {
+			setup!.mockInput.pressKey("p", { ctrl: true })
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).not.toContain(" Commands ")
+	})
+
+	test("regression: arrow keys in the palette do NOT scroll the reader", async () => {
+		// Bug: opentui's <scrollbox focused> consumes arrow keys *before* React's
+		// useKeyboard fires, so palette navigation also scrolled the reader.
+		// Fix: the scrollbox unfocuses while the palette (or help) is open.
+		// This test would fail with `focused={readerActive}` and passes with
+		// `focused={readerActive && !paletteOpen && !helpVisible}`.
+		// Avoid `_` in the marker — markdown italicizes underscore-delimited
+		// runs and our scrubber drops them from the rendered cells.
+		const longContent = Array.from({ length: 80 }, (_, i) => `MARKER${String(i).padStart(2, "0")}`).join(
+			"\n",
+		)
+		const files = makeFiles(["doc.md"])
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser files={files} readFile={makeReader({ "doc.md": longContent })} onQuit={() => {}} />,
+				VIEWPORT,
+			)
+		})
+		// Two stepFrames: first commits initial render, second flushes the
+		// 80ms debounced reader load so the markdown content is on screen.
+		await stepFrame(setup!.renderOnce)
+		await act(async () => {
+			await new Promise<void>((resolve) => setTimeout(resolve, 120))
+		})
+		await stepFrame(setup!.renderOnce)
+
+		// Move focus to the reader so the scrollbox is "focused" (the
+		// preconditioned state that exhibits the bug). Right-arrow from the
+		// sidebar moves focus to the reader.
+		await act(async () => {
+			setup!.mockInput.pressArrow("right")
+		})
+		await stepFrame(setup!.renderOnce)
+		const beforeFrame = setup!.captureCharFrame()
+		expect(beforeFrame).toContain("MARKER00")
+
+		// Open the palette and arrow down a bunch.
+		await act(async () => {
+			setup!.mockInput.pressKey("p", { ctrl: true })
+		})
+		await stepFrame(setup!.renderOnce)
+		await act(async () => {
+			setup!.mockInput.pressArrow("down")
+			setup!.mockInput.pressArrow("down")
+			setup!.mockInput.pressArrow("down")
+			setup!.mockInput.pressArrow("down")
+			setup!.mockInput.pressArrow("down")
+		})
+		await stepFrame(setup!.renderOnce)
+		const duringFrame = setup!.captureCharFrame()
+		// Palette is up.
+		expect(duringFrame).toContain(" Commands ")
+		// Reader has NOT scrolled — the top line is still on screen behind
+		// the palette overlay. With the old `focused={readerActive}` code,
+		// MARKER00 would have scrolled out of the visible viewport.
+		expect(duringFrame).toContain("MARKER00")
+	})
+
+	test("regression: arrow keys with help open do NOT scroll the reader", async () => {
+		// Same root cause as the palette regression: the scrollbox stole
+		// arrow keys when the reader was focused, even with the help overlay
+		// up. Help itself doesn't react to arrows, so the user could observe
+		// silent scrolling while reading the help text.
+		const longContent = Array.from({ length: 80 }, (_, i) => `MARKER${String(i).padStart(2, "0")}`).join(
+			"\n",
+		)
+		const files = makeFiles(["doc.md"])
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser files={files} readFile={makeReader({ "doc.md": longContent })} onQuit={() => {}} />,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		await act(async () => {
+			await new Promise<void>((resolve) => setTimeout(resolve, 120))
+		})
+		await stepFrame(setup!.renderOnce)
+
+		await act(async () => {
+			setup!.mockInput.pressArrow("right")
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).toContain("MARKER00")
+
+		await act(async () => {
+			setup!.mockInput.pressKey("?")
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).toContain("Help")
+		await act(async () => {
+			setup!.mockInput.pressArrow("down")
+			setup!.mockInput.pressArrow("down")
+			setup!.mockInput.pressArrow("down")
+			setup!.mockInput.pressArrow("down")
+			setup!.mockInput.pressArrow("down")
+		})
+		await stepFrame(setup!.renderOnce)
+
+		// Close help — the overlay covers MARKER00 visually even when the
+		// reader hasn't scrolled, so we have to dismiss it before asserting.
+		await act(async () => {
+			setup!.mockInput.pressEscape()
+			await new Promise<void>((resolve) => setTimeout(resolve, 60))
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(frame).not.toContain(" Help ")
+		// Reader did not scroll — first line is still at the top.
+		expect(frame).toContain("MARKER00")
+	})
+})

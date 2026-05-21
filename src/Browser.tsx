@@ -15,6 +15,9 @@ import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react"
 import { useAtomValue, useAtomSet } from "@effect/atom-react"
 import { Effect } from "effect"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { buildCommands } from "./commands/buildCommands.ts"
+import { clampSelectedIndex, filterCommands } from "./commands/score.ts"
+import { CommandPalette } from "./CommandPalette.tsx"
 import { filterFiles } from "./discovery/filter.ts"
 import { type FileEntry } from "./discovery/walk.ts"
 import { Footer, FOOTER_HEIGHT } from "./Footer.tsx"
@@ -58,12 +61,15 @@ const defaultReadFile = (path: string): Promise<string> => Effect.runPromise(rea
 const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n))
 
 /** Bindings the help overlay lets through. Single source of truth for both
- *  the keyboard early-return and the footer hint filter. */
+ *  the keyboard early-return and the footer hint filter. `palette.open`
+ *  passes through so users can jump from help into the palette in one
+ *  keystroke — `openPalette` closes help on its way in. */
 const HELP_ALLOWED_IDS: ReadonlySet<string> = new Set([
 	"help.toggle",
 	"theme.next",
 	"theme.prev",
 	"theme.toneToggle",
+	"palette.open",
 ])
 
 export const Browser = ({
@@ -108,6 +114,14 @@ export const Browser = ({
 	const [helpVisible, setHelpVisible] = useState<boolean>(false)
 	const [filterOpen, setFilterOpen] = useState<boolean>(false)
 	const [filterQuery, setFilterQuery] = useState<string>("")
+	const [paletteOpen, setPaletteOpen] = useState<boolean>(false)
+	const [paletteQuery, setPaletteQuery] = useState<string>("")
+	const [paletteIndex, setPaletteIndex] = useState<number>(0)
+	// Synchronous mirror for the keyboard handler — same reason filterOpenRef
+	// exists. Without this, the first key after ctrl+p still sees
+	// paletteOpen=false through closure.
+	const paletteOpenRef = useRef(false)
+	const paletteQueryRef = useRef("")
 	// Mirror filter state into refs so the keyboard handler sees synchronous
 	// updates even when multiple keys arrive in a single React batch (the
 	// first key opens the filter; subsequent keys in the same tick would
@@ -219,6 +233,7 @@ export const Browser = ({
 		sidebarShown: shown,
 		helpVisible,
 		filterOpen,
+		paletteOpen,
 		setFocus,
 		setSelectedIndex,
 		toggleShown: () => {
@@ -247,6 +262,17 @@ export const Browser = ({
 			if (focus !== "sidebar") setFocus("sidebar")
 			filterOpenRef.current = true
 			setFilterOpen(true)
+		},
+		openPalette: () => {
+			// Close help if it was open — palette is the active modal now.
+			// Reset query/index so each open starts fresh (no stale state from
+			// the previous session).
+			if (helpVisible) setHelpVisible(() => false)
+			paletteQueryRef.current = ""
+			setPaletteQuery("")
+			setPaletteIndex(0)
+			paletteOpenRef.current = true
+			setPaletteOpen(true)
 		},
 		cycleTheme,
 		toggleTone,
@@ -386,6 +412,69 @@ export const Browser = ({
 				filterQueryRef.current = filterQueryRef.current + char
 				setFilterQuery(filterQueryRef.current)
 				setSelectedIndex(() => 0)
+			}
+			return
+		}
+		// Command palette modal: capture keystrokes for the query input and
+		// list navigation. Esc closes (single press, regardless of query —
+		// #70 Q7a). Return runs the selected command. Up/Down navigate.
+		// Backspace edits the query and is a no-op on empty (#70 Q7b —
+		// intentionally diverges from the filter modal, which closes on
+		// empty-backspace, because accidental close feels worse in the
+		// palette). Printable characters extend the query and snap selection
+		// to 0 (#70 Q7c). Ctrl/Meta-modified keys are swallowed except
+		// ctrl+p, which toggles the palette closed (matches help-toggle's
+		// re-press-to-close behavior).
+		if (paletteOpenRef.current) {
+			const closePalette = () => {
+				paletteOpenRef.current = false
+				paletteQueryRef.current = ""
+				setPaletteOpen(false)
+				setPaletteQuery("")
+				setPaletteIndex(0)
+			}
+			const allCommands = buildCommands(ctx)
+			const filtered = filterCommands(allCommands, paletteQueryRef.current)
+			if (key.name === "escape") {
+				closePalette()
+				return
+			}
+			if (key.name === "return") {
+				const picked = filtered[clampSelectedIndex(paletteIndex, filtered)]
+				closePalette()
+				picked?.run()
+				return
+			}
+			if (key.name === "up") {
+				setPaletteIndex((i) => Math.max(0, i - 1))
+				return
+			}
+			if (key.name === "down") {
+				setPaletteIndex((i) => Math.min(Math.max(0, filtered.length - 1), i + 1))
+				return
+			}
+			if (key.name === "backspace" || key.name === "delete") {
+				if (paletteQueryRef.current.length === 0) return
+				paletteQueryRef.current = paletteQueryRef.current.slice(0, -1)
+				setPaletteQuery(paletteQueryRef.current)
+				setPaletteIndex(0)
+				return
+			}
+			// ctrl+p again closes — matches help-toggle behavior.
+			if (key.ctrl && !key.meta && key.name === "p") {
+				closePalette()
+				return
+			}
+			if (key.ctrl || key.meta) return
+			let char: string | null = null
+			if (key.name === "space") char = " "
+			else if (typeof key.name === "string" && key.name.length === 1) {
+				char = key.shift ? key.name.toUpperCase() : key.name
+			}
+			if (char !== null) {
+				paletteQueryRef.current = paletteQueryRef.current + char
+				setPaletteQuery(paletteQueryRef.current)
+				setPaletteIndex(0)
 			}
 			return
 		}
@@ -607,7 +696,15 @@ export const Browser = ({
 								flexShrink: 1,
 								backgroundColor: colors.background,
 							}}
-							focused={readerActive}
+							// opentui's scrollbox consumes arrow keys at the focused-element
+							// level *before* useKeyboard fires, so a modal that handles
+							// arrow keys itself (palette nav, help dismissal) would still
+							// see the reader scroll alongside its own action. Unfocus the
+							// scrollbox while any blocking modal is up — useKeyboard's
+							// modal branches own the keys in that state. Filter is not
+							// listed because it force-focuses the sidebar (readerActive
+							// is already false).
+							focused={readerActive && !paletteOpen && !helpVisible}
 						>
 							<markdown
 								key={renderedPath ?? "empty"}
@@ -656,6 +753,15 @@ export const Browser = ({
 			/>
 			{helpVisible && (
 				<HelpOverlay bindings={browserBindings} viewportWidth={width} viewportHeight={height} />
+			)}
+			{paletteOpen && (
+				<CommandPalette
+					commands={filterCommands(buildCommands(ctx), paletteQuery)}
+					query={paletteQuery}
+					selectedIndex={paletteIndex}
+					viewportWidth={width}
+					viewportHeight={height}
+				/>
 			)}
 		</box>
 	)

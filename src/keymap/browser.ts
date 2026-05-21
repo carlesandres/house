@@ -15,12 +15,14 @@ export interface BrowserCtx {
 	readonly sidebarShown: boolean
 	readonly helpVisible: boolean
 	readonly filterOpen: boolean
+	readonly paletteOpen: boolean
 	readonly setFocus: (next: BrowserFocus | ((prev: BrowserFocus) => BrowserFocus)) => void
 	readonly setSelectedIndex: (updater: (prev: number) => number) => void
 	/** Toggle `shown` and adjust focus per DESIGN.md §7.1 (see s-behavior table). */
 	readonly toggleShown: () => void
 	readonly setHelpVisible: (updater: (prev: boolean) => boolean) => void
 	readonly openFilter: () => void
+	readonly openPalette: () => void
 	readonly cycleTheme: (delta: 1 | -1) => void
 	readonly toggleTone: () => void
 	readonly quit: () => void
@@ -40,6 +42,7 @@ const stepBy = (c: BrowserCtx, delta: number) =>
 
 const inSidebar = (c: BrowserCtx) => c.focus === "sidebar"
 const filterClosed = (c: BrowserCtx) => !c.filterOpen
+const paletteClosed = (c: BrowserCtx) => !c.paletteOpen
 const inReader = (c: BrowserCtx) => c.focus === "reader"
 const inSidebarWithFiles = (c: BrowserCtx) => inSidebar(c) && haveFiles(c)
 const inReaderWithFiles = (c: BrowserCtx) => inReader(c) && haveFiles(c)
@@ -89,6 +92,19 @@ export const browserBindings: readonly KeyBinding<BrowserCtx>[] = [
 		// no longer needs to gate on focus or sidebar visibility.
 		when: filterClosed,
 		run: (c) => c.openFilter(),
+	},
+	{
+		id: "palette.open",
+		group: "Global",
+		description: "Command palette",
+		hint: "palette",
+		keys: ["ctrl+p"],
+		// Filter swallows ctrl+p as a typed character in its own branch, so this
+		// `when` only matters when the palette is already open (which it
+		// shouldn't re-open). #70 Q2 — fires from everywhere except the filter,
+		// closes help on its way in (handled in Browser.tsx).
+		when: paletteClosed,
+		run: (c) => c.openPalette(),
 	},
 	{
 		id: "serve.current",
