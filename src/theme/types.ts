@@ -97,7 +97,14 @@ export interface ColorPalette {
 	readonly borderActive: string
 	readonly selectedBg: string
 	readonly selectedBgInactive: string
+	readonly selectedListItemText: string
+	readonly primary: string
+	readonly secondary: string
+	readonly accent: string
 	readonly error: string
+	readonly warning: string
+	readonly success: string
+	readonly info: string
 	readonly syntax: Record<string, StyleDefinitionInput>
 }
 
