@@ -15,26 +15,54 @@ import type { ColorPalette, ResolvedTheme, ThemeDefinition, Tone } from "./types
  * - `syntax` is a fully populated opentui tree-sitter scope map built from
  *   `markdown*` and `syntax*` tokens.
  */
-const buildPalette = (r: ResolvedTheme): ColorPalette => ({
-	background: r.background,
-	surface: r.backgroundPanel,
-	text: r.text,
-	textStrong: r.primary,
-	textMuted: r.textMuted,
-	border: r.border,
-	borderActive: r.borderActive,
-	selectedBg: r.backgroundElement,
-	selectedBgInactive: r.borderSubtle,
-	selectedListItemText: r.selectedListItemText,
-	primary: r.primary,
-	secondary: r.secondary,
-	accent: r.accent,
-	error: r.error,
-	warning: r.warning,
-	success: r.success,
-	info: r.info,
-	syntax: buildSyntaxMap(r),
-})
+/** Relative luminance of a `#rrggbb` color (0..1). Sufficient for ordering
+ *  two near-neutral chrome colors — not a full WCAG contrast calculation.
+ *  Non-hex inputs fall back to 0.5 so the caller's ordering is a no-op. */
+const luminance = (hex: string): number => {
+	const m = /^#([0-9a-fA-F]{6})$/.exec(hex)
+	if (!m) return 0.5
+	const h = m[1]!
+	const r = parseInt(h.slice(0, 2), 16)
+	const g = parseInt(h.slice(2, 4), 16)
+	const b = parseInt(h.slice(4, 6), 16)
+	// Rec. 601 weighting — perceptual ordering, not the linearized WCAG variant.
+	return (0.299 * r + 0.587 * g + 0.114 * b) / 255
+}
+
+/** Pane chrome assumes the active/raised pane sits on the darker of the two
+ *  background tokens and the dim chrome on the lighter one. Most themes
+ *  define `background` darker than `backgroundPanel` and this is a no-op;
+ *  some (e.g. cursor) flip the polarity, in which case we swap so the
+ *  active-pane convention stays consistent across themes. */
+const orientChrome = (r: ResolvedTheme): { raised: string; dim: string } => {
+	const bg = r.background
+	const panel = r.backgroundPanel
+	return luminance(bg) <= luminance(panel) ? { raised: bg, dim: panel } : { raised: panel, dim: bg }
+}
+
+const buildPalette = (r: ResolvedTheme): ColorPalette => {
+	const { raised, dim } = orientChrome(r)
+	return {
+		background: raised,
+		surface: dim,
+		text: r.text,
+		textStrong: r.primary,
+		textMuted: r.textMuted,
+		border: r.border,
+		borderActive: r.borderActive,
+		selectedBg: r.backgroundElement,
+		selectedBgInactive: r.borderSubtle,
+		selectedListItemText: r.selectedListItemText,
+		primary: r.primary,
+		secondary: r.secondary,
+		accent: r.accent,
+		error: r.error,
+		warning: r.warning,
+		success: r.success,
+		info: r.info,
+		syntax: buildSyntaxMap(r),
+	}
+}
 
 const buildSyntaxMap = (r: ResolvedTheme): Record<string, StyleDefinitionInput> => {
 	const codeBg = r.backgroundPanel
