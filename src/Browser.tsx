@@ -714,7 +714,7 @@ export const Browser = ({
 					<box
 						style={{
 							border: sidebarBorderSides,
-							borderColor: colors.border,
+							borderColor: colors.textMuted,
 							width: sidebarWidth,
 							flexShrink: 0,
 							flexDirection: "column",
@@ -741,7 +741,7 @@ export const Browser = ({
 				<box
 					style={{
 						border: readerBorderSides,
-						borderColor: colors.border,
+						borderColor: colors.textMuted,
 						flexGrow: 1,
 						flexShrink: 1,
 						flexDirection: "column",
@@ -807,7 +807,7 @@ export const Browser = ({
 					zIndex={5}
 					style={{
 						border: sidebarBorderSides,
-						borderColor: colors.border,
+						borderColor: colors.textMuted,
 						flexDirection: "column",
 						// Dim by default (see inline sidebar); inner body overrides when active.
 						backgroundColor: colors.surface,
