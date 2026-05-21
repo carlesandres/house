@@ -1,7 +1,6 @@
 # house
 
-A terminal markdown reader built on [opentui](https://github.com/anomalyco/opentui).
-Point it at a directory and navigate its `.md` files without leaving the terminal.
+A terminal markdown reader built on [opentui](https://github.com/anomalyco/opentui). Point it at a directory and navigate its `.md` files without leaving the terminal.
 
 ![house demo](tape/house.gif)
 
@@ -18,10 +17,16 @@ bun add -g @carlesandres/house
 ## Upgrade
 
 ```bash
-npm update -g @carlesandres/house
+npm i -g @carlesandres/house
 # or
 bun add -g @carlesandres/house
 ```
+
+When a newer published version is available on npm, house prints a one-line
+notice in the footer at startup and a copy-pasteable upgrade tip on quit.
+The check is opt-out: set `NO_UPDATE_NOTIFIER=1` (any non-empty, non-`0`
+value works) or pass `--no-update-check`. The check is also skipped under
+CI (any non-empty `CI` value).
 
 ## Usage
 
@@ -62,9 +67,7 @@ Precedence, highest to lowest:
 3. Config file
 4. Built-in defaults (`opencode` / `dark`)
 
-The file is optional — a missing file is fine. Invalid keys, unknown themes,
-or malformed TOML fail loudly with a one-line error. Per-project config
-(`.house/config.toml`) and additional keys are deferred.
+The file is optional — a missing file is fine. Invalid keys, unknown themes, or malformed TOML fail loudly with a one-line error. Per-project config (`.house/config.toml`) and additional keys are deferred.
 
 ## Keys
 
@@ -106,15 +109,9 @@ or malformed TOML fail loudly with a one-line error. Per-project config
 
 ## Themes
 
-33 built-in themes, all sourced from the
-[opencode](https://github.com/anomalyco/opencode) TUI palette:
+33 built-in themes, all sourced from the [opencode](https://github.com/anomalyco/opencode) TUI palette:
 
-`aura` · `ayu` · `carbonfox` · `catppuccin` · `catppuccin-frappe` ·
-`catppuccin-macchiato` · `cobalt2` · `cursor` · `dracula` · `everforest` ·
-`flexoki` · `github` · `gruvbox` · `kanagawa` · `lucent-orng` · `material` ·
-`matrix` · `mercury` · `monokai` · `nightowl` · `nord` · `one-dark` ·
-`opencode` · `orng` · `osaka-jade` · `palenight` · `rosepine` · `solarized` ·
-`synthwave84` · `tokyonight` · `vercel` · `vesper` · `zenburn`
+`aura` · `ayu` · `carbonfox` · `catppuccin` · `catppuccin-frappe` · `catppuccin-macchiato` · `cobalt2` · `cursor` · `dracula` · `everforest` · `flexoki` · `github` · `gruvbox` · `kanagawa` · `lucent-orng` · `material` · `matrix` · `mercury` · `monokai` · `nightowl` · `nord` · `one-dark` · `opencode` · `orng` · `osaka-jade` · `palenight` · `rosepine` · `solarized` · `synthwave84` · `tokyonight` · `vercel` · `vesper` · `zenburn`
 
 Each theme supports dark and light tones. Cycle with `t` / `T`; toggle tone with `L`.
 

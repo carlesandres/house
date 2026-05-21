@@ -14,6 +14,7 @@ const empty: ParsedArgs = {
 	version: false,
 	configPath: false,
 	sidebar: null,
+	noUpdateCheck: false,
 }
 const args = (overrides: Partial<ParsedArgs>): ParsedArgs => ({ ...empty, ...overrides })
 

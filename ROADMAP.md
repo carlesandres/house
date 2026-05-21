@@ -41,6 +41,7 @@ An item belongs here if its absence is a visible papercut or a table-stakes capa
 | Theming | Theming v2 — user stylesheets, named theme sets | [#34](https://github.com/carlesandres/house/issues/34) |
 | Theming | Persist active theme to project or global config | [#73](https://github.com/carlesandres/house/issues/73) |
 | Distribution | Standalone binary (no Bun-on-PATH) | [#2](https://github.com/carlesandres/house/issues/2) |
+| Distribution | Notify when a newer version is available (passive, manual upgrade tip) | [#100](https://github.com/carlesandres/house/issues/100) |
 
 ## Backlog
 
@@ -50,7 +51,7 @@ No commitment to ship. Tracked to remember.
 
 | Item | Issue |
 |---|---|
-| Auto-update mechanism | [#12](https://github.com/carlesandres/house/issues/12) |
+| Active auto-update command (depends on #100) | [#12](https://github.com/carlesandres/house/issues/12) |
 | Distribute via Homebrew tap | [#51](https://github.com/carlesandres/house/issues/51) |
 
 ### File handling

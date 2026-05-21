@@ -2489,3 +2489,73 @@ describe("Browser — command palette", () => {
 		expect(frame).toContain("MARKER00")
 	})
 })
+
+describe("Browser — updateNotice", () => {
+	const TEXT = "update available: 0.5.0 (current 0.4.0)"
+
+	test("renders the update notice in the footer when the prop is set", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={makeFiles(["a.md"])}
+					readFile={makeReader({ "a.md": "x" })}
+					onQuit={() => {}}
+					updateNotice={TEXT}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).toContain(TEXT)
+	})
+
+	test("a transient toast (theme cycle) preempts an active update notice", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={makeFiles(["a.md"])}
+					readFile={makeReader({ "a.md": "x" })}
+					onQuit={() => {}}
+					updateNotice={TEXT}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).toContain(TEXT)
+
+		await act(async () => {
+			setup!.mockInput.pressKey("t")
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("theme:")
+		// The longer update text is gone; the slot now carries the theme toast.
+		expect(frame).not.toContain(TEXT)
+	})
+
+	test("after the update notice TTL expires the hint row returns", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={makeFiles(["a.md"])}
+					readFile={makeReader({ "a.md": "x" })}
+					onQuit={() => {}}
+					updateNotice={TEXT}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).toContain(TEXT)
+
+		// 10s TTL on the update notice; advance fake-time past it.
+		await act(async () => {
+			await new Promise<void>((resolve) => setTimeout(resolve, 10_050))
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(frame).not.toContain(TEXT)
+		expect(frame).toContain("q:quit")
+	}, 15_000)
+})

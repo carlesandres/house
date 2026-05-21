@@ -54,6 +54,11 @@ export interface BrowserProps {
 	readonly onQuit?: () => void
 	/** Test seam: replaces the file reader. */
 	readonly readFile?: (path: string) => Promise<string>
+	/** Optional one-shot footer toast surfaced on first appearance (e.g. the
+	 *  "update available" nudge). Shown with an extended TTL so the user has
+	 *  time to read it; subsequent transient toasts (theme cycle, etc.)
+	 *  preempt it via the same single-slot channel. Null disables. */
+	readonly updateNotice?: string | null
 }
 
 const defaultReadFile = (path: string): Promise<string> => Effect.runPromise(readFileText(path))
@@ -81,6 +86,7 @@ export const Browser = ({
 	sidebarMode = "auto",
 	onQuit,
 	readFile = defaultReadFile,
+	updateNotice = null,
 }: BrowserProps) => {
 	const renderer = useRenderer()
 	const { width, height } = useTerminalDimensions()
@@ -134,7 +140,12 @@ export const Browser = ({
 	// keeps them. Layout snapshots are no longer needed — focus drives drawer
 	// dismissal under the §7.1 visibility rule.
 	const priorFilterQueryRef = useRef("")
-	const [footerNotice, setFooterNotice] = useState<string | null>(null)
+	const [footerNotice, setFooterNoticeState] = useState<{
+		readonly text: string
+		readonly ttlMs: number
+	} | null>(null)
+	const pushFooterNotice = (text: string, ttlMs = 2000): void =>
+		setFooterNoticeState({ text, ttlMs })
 	const serverRef = useRef<ServerHandle | null>(null)
 
 	// Stop the preview server on unmount so re-mounts (tests) and clean
@@ -146,13 +157,28 @@ export const Browser = ({
 		}
 	}, [])
 
-	// Single-slot notice with a 2s TTL. A new notice cancels the pending
-	// timer so the latest message gets its own full window.
+	// Single-slot notice with a per-message TTL. A new notice cancels the
+	// pending timer so the latest message gets its own full window. The TTL
+	// travels with the message so a long-lived nudge (update available) and a
+	// transient toast (theme cycle) can share one slot without one stealing
+	// the other's display window.
 	useEffect(() => {
 		if (footerNotice === null) return
-		const timer = setTimeout(() => setFooterNotice(null), 2000)
+		const timer = setTimeout(() => setFooterNoticeState(null), footerNotice.ttlMs)
 		return () => clearTimeout(timer)
 	}, [footerNotice])
+
+	// Push the update-available nudge once, when it arrives from the parent
+	// (the registry probe resolves asynchronously after boot). 10s gives the
+	// user time to read it before it auto-clears; the quit-time stderr print
+	// is the durable record they can copy from scrollback.
+	const updateNoticeSeenRef = useRef<string | null>(null)
+	useEffect(() => {
+		if (!updateNotice) return
+		if (updateNoticeSeenRef.current === updateNotice) return
+		updateNoticeSeenRef.current = updateNotice
+		pushFooterNotice(updateNotice, 10000)
+	}, [updateNotice])
 
 	const cycleTheme = (delta: 1 | -1) => {
 		const idx = themeDefinitions.findIndex((d) => d.id === theme.id)
@@ -160,7 +186,7 @@ export const Browser = ({
 		if (!next) return
 		setActiveTheme(next, theme.tone)
 		setTheme({ id: next.id, tone: theme.tone })
-		setFooterNotice(`theme: ${next.name}`)
+		pushFooterNotice(`theme: ${next.name}`)
 	}
 
 	const toggleTone = () => {
@@ -168,7 +194,7 @@ export const Browser = ({
 		const def = getThemeDefinition(theme.id)
 		if (def) setActiveTheme(def, nextTone)
 		setTheme({ id: theme.id, tone: nextTone })
-		setFooterNotice(`tone: ${nextTone}`)
+		pushFooterNotice(`tone: ${nextTone}`)
 	}
 
 	const displayedFiles = useMemo(() => filterFiles(files, filterQuery), [files, filterQuery])
@@ -288,9 +314,9 @@ export const Browser = ({
 					handle = startServer({ path: file.path })
 					serverRef.current = handle
 					openInBrowser(handle.url)
-					setFooterNotice(`serving at ${handle.url}`)
+					pushFooterNotice(`serving at ${handle.url}`)
 				} catch (err) {
-					setFooterNotice(`serve failed: ${String(err)}`)
+					pushFooterNotice(`serve failed: ${String(err)}`)
 				}
 				return
 			}
@@ -302,7 +328,7 @@ export const Browser = ({
 			// an existing tab on the same URL when one is open, so this is
 			// idempotent for the common case.
 			openInBrowser(handle.url)
-			setFooterNotice(`serving ${file.relativePath} at ${handle.url}`)
+			pushFooterNotice(`serving ${file.relativePath} at ${handle.url}`)
 		},
 		quit: () => {
 			if (onQuit) {
@@ -755,7 +781,7 @@ export const Browser = ({
 				bindings={footerBindings}
 				ctx={ctx}
 				width={width}
-				notice={footerNotice}
+				notice={footerNotice?.text ?? null}
 				discoveryStatus={discoveryStatus}
 				filterQuery={!filterOpen && filterQuery.length > 0 ? filterQuery : null}
 			/>

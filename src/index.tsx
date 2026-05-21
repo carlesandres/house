@@ -25,6 +25,9 @@ import { startServer } from "./serve/server.ts"
 import { colors, setActiveTheme } from "./theme/colors.ts"
 import { themeAtom, type ThemeState } from "./theme/atom.ts"
 import { getThemeDefinition, themeDefinitions } from "./theme/registry.ts"
+import { formatQuitNotice } from "./update/notice.ts"
+import { currentUpdateInfo, startUpdateProbe } from "./update/runtime.ts"
+import { useUpdateNotice } from "./update/useUpdateNotice.ts"
 
 export interface AppProps {
 	/** Markdown source to render. */
@@ -61,6 +64,7 @@ interface DiscoverShellProps {
 }
 
 const DiscoverShell = ({ target, all, sort, maxWidth, sidebarMode }: DiscoverShellProps) => {
+	const updateNotice = useUpdateNotice()
 	const [files, setFiles] = useState<readonly FileEntry[]>([])
 	const [scanning, setScanning] = useState<boolean>(true)
 	const [scanError, setScanError] = useState<string | null>(null)
@@ -105,6 +109,7 @@ const DiscoverShell = ({ target, all, sort, maxWidth, sidebarMode }: DiscoverShe
 			maxWidth={maxWidth}
 			discoveryStatus={discoveryStatus}
 			sidebarMode={sidebarMode}
+			updateNotice={updateNotice}
 		/>
 	)
 }
@@ -182,6 +187,8 @@ export const App = ({ content, title = "house", maxWidth = null, onQuit }: AppPr
 		</box>
 	)
 }
+
+let updateExitHookRegistered = false
 
 if (import.meta.main) {
 	const args = parseArgv(Bun.argv.slice(2))
@@ -275,7 +282,16 @@ if (import.meta.main) {
 			}
 			sidebarMode = args.sidebar
 		}
-		await runTui({ target, themeId, tone, maxWidth, all: args.all, sort, sidebarMode })
+		await runTui({
+			target,
+			themeId,
+			tone,
+			maxWidth,
+			all: args.all,
+			sort,
+			sidebarMode,
+			updateCheck: !args.noUpdateCheck,
+		})
 	}
 }
 
@@ -287,6 +303,9 @@ interface TuiBootOptions {
 	readonly all: boolean
 	readonly sort: SortOrder
 	readonly sidebarMode: SidebarMode
+	/** Run the npm-registry probe and surface the "update available" notice.
+	 *  False suppresses both the toast and the quit-time print. */
+	readonly updateCheck: boolean
 }
 
 async function runTui({
@@ -297,6 +316,7 @@ async function runTui({
 	all,
 	sort,
 	sidebarMode,
+	updateCheck,
 }: TuiBootOptions): Promise<void> {
 	let stats: Awaited<ReturnType<typeof stat>>
 	try {
@@ -304,6 +324,24 @@ async function runTui({
 	} catch (err) {
 		console.error(`house: cannot access ${target}: ${String(err)}`)
 		process.exit(1)
+	}
+
+	if (updateCheck) {
+		// Fire the npm-registry probe in the background. Result lands in a
+		// module singleton; the React tree picks it up via `useUpdateNotice`
+		// for the footer toast, and the 'exit' hook below reads it
+		// synchronously for the scrollback print. Failures are silent — this
+		// whole feature is opportunistic.
+		startUpdateProbe(pkg.name, pkg.version)
+		// Register once per process. Multiple 'exit' listeners would print
+		// the notice multiple times if runTui were ever re-entered.
+		if (!updateExitHookRegistered) {
+			updateExitHookRegistered = true
+			process.on("exit", () => {
+				const info = currentUpdateInfo()
+				if (info) process.stderr.write(formatQuitNotice(info))
+			})
+		}
 	}
 
 	const renderer = await createCliRenderer({ exitOnCtrlC: false })
