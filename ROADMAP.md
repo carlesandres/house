@@ -1,131 +1,148 @@
 # Roadmap
 
-Planned work for house is tracked in GitHub milestones (`beta`,
-`beta — stretch`, `1.0`, `backlog`) — see
-[milestones](https://github.com/carlesandres/house/milestones) for the
-authoritative list. This file groups items by theme for orientation; the
-milestone column is the source of truth for *when*.
+Planned work for house is tracked in GitHub milestones (`beta`, `beta — stretch`, `1.0`, `backlog`) — see [milestones](https://github.com/carlesandres/house/milestones) for the authoritative list. This file groups items by theme for orientation; the milestone column is the source of truth for *when*.
 
-Architectural rationale, UX rules, and key reservations live in `DESIGN.md`.
-Glossary terms (e.g. `beta`) live in `CONTEXT.md`.
+Architectural rationale, UX rules, and key reservations live in `DESIGN.md`. Glossary terms (e.g. `beta`) live in `CONTEXT.md`.
 
 ★ marks a confirmed competitive gap (mdcat / frogmouth / mdr — see issue #16).
 
-## Near-term — beta release gates
+Beta shipped with v0.4.0. The remaining work below is split across the `beta — stretch`, `1.0`, and `backlog` milestones.
+
+## Beta — stretch
+
+Nice for the beta announcement; can slip without blocking.
 
 | Theme | Item | Issue |
 |---|---|---|
-| Chrome | Footer chrome v1 — hunk-style status bar with keymap-derived hints (lands before #22) | [#36](https://github.com/carlesandres/house/issues/36) |
-| Layout | Responsive auto-layout v2 (sidebar visibility + width, `--layout` mode, force-open override) | [#22](https://github.com/carlesandres/house/issues/22) |
+| Onboarding | Add usage tips in the app | [#47](https://github.com/carlesandres/house/issues/47) |
+| Brand | Introduce ⌂ (U+2302) as the project brand mark | [#76](https://github.com/carlesandres/house/issues/76) |
+| Docs | DESIGN.md §7.1 drawer-dismiss rule overstates its scope | [#88](https://github.com/carlesandres/house/issues/88) |
+
+## 1.0 — daily-driver release
+
+An item belongs here if its absence is a visible papercut or a table-stakes capability a daily driver expects. See `CONTEXT.md` §1.0 for the bar.
+
+| Theme | Item | Issue |
+|---|---|---|
+| Bugs | Pane focus and selected sidebar row are hard to distinguish in many themes | [#71](https://github.com/carlesandres/house/issues/71) |
+| Bugs | Relative assets (images, etc.) don't load in browser preview | [#75](https://github.com/carlesandres/house/issues/75) |
+| Bugs | Applied filter has no one-key clear path | [#84](https://github.com/carlesandres/house/issues/84) |
+| Bugs | Filter chip can crowd out key hints when query is long | [#86](https://github.com/carlesandres/house/issues/86) |
+| Bugs | Reader keys act on content occluded by the persistent drawer | [#87](https://github.com/carlesandres/house/issues/87) |
+| File-level | Open current file in `$EDITOR` | [#19](https://github.com/carlesandres/house/issues/19) |
+| File-level | Delete current file with confirmation | [#20](https://github.com/carlesandres/house/issues/20) |
+| Navigation | Search — filename, full-text, fuzzy | [#25](https://github.com/carlesandres/house/issues/25) |
+| Navigation | Navigation history stack (back/forward) ★ | [#29](https://github.com/carlesandres/house/issues/29) |
+| Navigation | Heading jump / in-document TOC panel ★ | [#30](https://github.com/carlesandres/house/issues/30) |
+| Navigation | Per-file bookmarks ★ (depends on #13) | [#33](https://github.com/carlesandres/house/issues/33) |
 | Sidebar | Tree-style sidebar with collapsible folders | [#14](https://github.com/carlesandres/house/issues/14) |
 | Config | Hierarchical config file (prereq for several deferred features) | [#13](https://github.com/carlesandres/house/issues/13) |
-| Rendering | Markdown → HTML rendering investigation | [#18](https://github.com/carlesandres/house/issues/18) |
+| Config | Expand file-settable options (`width`, `sort`, `all`, `port`, `sidebarWidth`) | [#63](https://github.com/carlesandres/house/issues/63) |
+| Theming | Theming v2 — user stylesheets, named theme sets | [#34](https://github.com/carlesandres/house/issues/34) |
+| Theming | Persist active theme to project or global config | [#73](https://github.com/carlesandres/house/issues/73) |
 | Distribution | Standalone binary (no Bun-on-PATH) | [#2](https://github.com/carlesandres/house/issues/2) |
-| Distribution | Auto-update mechanism | [#12](https://github.com/carlesandres/house/issues/12) |
 
-## Bug-fix backlog
+## Backlog
 
-| Item | Issue |
-|---|---|
-| Relative assets (images, etc.) don't load in browser preview | [#75](https://github.com/carlesandres/house/issues/75) |
-| Pane focus and selected sidebar row are hard to distinguish in many themes | [#71](https://github.com/carlesandres/house/issues/71) |
+No commitment to ship. Tracked to remember.
 
-## File-level interactions
+### Distribution
 
 | Item | Issue |
 |---|---|
-| Open current file in `$EDITOR` | [#19](https://github.com/carlesandres/house/issues/19) |
-| Delete current file with confirmation | [#20](https://github.com/carlesandres/house/issues/20) |
+| Auto-update mechanism | [#12](https://github.com/carlesandres/house/issues/12) |
+| Distribute via Homebrew tap | [#51](https://github.com/carlesandres/house/issues/51) |
+
+### File handling
+
+| Item | Issue |
+|---|---|
 | Read markdown from stdin (`house -`) | [#23](https://github.com/carlesandres/house/issues/23) |
 | Cross-file link following | [#24](https://github.com/carlesandres/house/issues/24) |
-| Live reload on file change | [#27](https://github.com/carlesandres/house/issues/27) |
-
-## Navigation & discovery
-
-| Item | Issue |
-|---|---|
-| Command palette (search + run commands; prereq for palette-based theme save) | [#70](https://github.com/carlesandres/house/issues/70) |
-| Search — filename, full-text, fuzzy | [#25](https://github.com/carlesandres/house/issues/25) |
-| Navigation history stack (back/forward) ★ | [#29](https://github.com/carlesandres/house/issues/29) |
-| Heading jump / in-document TOC panel ★ | [#30](https://github.com/carlesandres/house/issues/30) |
-| Per-file bookmarks ★ (depends on #13) | [#33](https://github.com/carlesandres/house/issues/33) |
-| Sidebar: runtime toggle + config option for hidden/gitignored files | [#69](https://github.com/carlesandres/house/issues/69) |
-
-## Networking
-
-| Item | Issue |
-|---|---|
 | Fetch markdown from URL / `github.com/owner/repo` shorthand ★ | [#26](https://github.com/carlesandres/house/issues/26) |
+| Live reload on file change | [#27](https://github.com/carlesandres/house/issues/27) |
+| Consider opening files with other extensions | [#48](https://github.com/carlesandres/house/issues/48) |
+| PDF preview action for markdown files | [#82](https://github.com/carlesandres/house/issues/82) |
 
-## Rendering polish
+### Rendering
 
 | Item | Issue |
 |---|---|
+| Markdown → HTML rendering investigation | [#18](https://github.com/carlesandres/house/issues/18) |
 | Line numbers toggle | [#28](https://github.com/carlesandres/house/issues/28) |
-| Codeblock syntax highlighting (design complete; implementation deferred) | [#72](https://github.com/carlesandres/house/issues/72) |
 | Inline images (iTerm2 / Kitty / Sixel) ★ | [#31](https://github.com/carlesandres/house/issues/31) |
 | OSC 8 hyperlinks for markdown links ★ | [#32](https://github.com/carlesandres/house/issues/32) |
+| Codeblock syntax highlighting (design complete; implementation deferred) | [#72](https://github.com/carlesandres/house/issues/72) |
 
-## Chrome (follow-ons)
+### Command palette follow-ons
+
+| Item | Issue |
+|---|---|
+| Drift check between browserBindings ids and palette annotations | [#90](https://github.com/carlesandres/house/issues/90) |
+| Category grouping with headers (empty-query orientation) | [#91](https://github.com/carlesandres/house/issues/91) |
+| Migrate to atom-driven command registry (ghui-style) | [#92](https://github.com/carlesandres/house/issues/92) |
+| Show disabled commands with reasons | [#93](https://github.com/carlesandres/house/issues/93) |
+| Reveal file in OS file manager | [#94](https://github.com/carlesandres/house/issues/94) |
+| Copy file path to clipboard | [#95](https://github.com/carlesandres/house/issues/95) |
+| Recency-first ordering with persisted history | [#96](https://github.com/carlesandres/house/issues/96) |
+
+### Sidebar & layout follow-ons
+
+| Item | Issue |
+|---|---|
+| Extract `Sidebar.tsx` from `Browser.tsx` | [#66](https://github.com/carlesandres/house/issues/66) |
+| Mouse interaction on the sidebar filter row | [#67](https://github.com/carlesandres/house/issues/67) |
+| Filter-row behaviour in the tight viewport bucket | [#68](https://github.com/carlesandres/house/issues/68) |
+| Runtime toggle + config option for hidden/gitignored files | [#69](https://github.com/carlesandres/house/issues/69) |
+| Enter from reader returns to sidebar (extra key on `reader.back`) | [#78](https://github.com/carlesandres/house/issues/78) |
+| Reconcile `TIGHT_VIEWPORT_THRESHOLD` (80) with `canFitInline` (69) | [#85](https://github.com/carlesandres/house/issues/85) |
+
+### Discovery
+
+| Item | Issue |
+|---|---|
+| Nested `.gitignore` cannot re-include files via negation | [#54](https://github.com/carlesandres/house/issues/54) |
+| Discovery traversal cap (`--max-files`, max depth) | [#80](https://github.com/carlesandres/house/issues/80) |
+| Investigate third-party walker for discovery | [#81](https://github.com/carlesandres/house/issues/81) |
+
+### Chrome (follow-ons)
 
 | Item | Issue |
 |---|---|
 | Footer responsive behavior on tight viewports | [#37](https://github.com/carlesandres/house/issues/37) |
 | Evaluate adding a header chrome (breadcrumb / heading / mode chips) | [#38](https://github.com/carlesandres/house/issues/38) |
-| Filter chip can crowd out key hints when query is long | [#86](https://github.com/carlesandres/house/issues/86) |
 
-## Layout follow-ons (post-#22)
-
-| Item | Issue |
-|---|---|
-| Reconcile `TIGHT_VIEWPORT_THRESHOLD` (80) with `canFitInline` (69) | [#85](https://github.com/carlesandres/house/issues/85) |
-| Reader keys act on content occluded by the persistent drawer | [#87](https://github.com/carlesandres/house/issues/87) |
-| DESIGN.md §7.1 drawer-dismiss rule overstates its scope | [#88](https://github.com/carlesandres/house/issues/88) |
-
-## Theming & keymap
+### Config
 
 | Item | Issue |
 |---|---|
-| Theming v2 — user stylesheets, named theme sets | [#34](https://github.com/carlesandres/house/issues/34) |
-| Persist active theme to project or global config (depends on #70 for palette commands) | [#73](https://github.com/carlesandres/house/issues/73) |
+| Address remaining gaps from adversarial review | [#62](https://github.com/carlesandres/house/issues/62) |
+
+### Theming & keymap
+
+| Item | Issue |
+|---|---|
 | Extract reusable keymap package (`@ghui/keymap` style) | [#35](https://github.com/carlesandres/house/issues/35) |
 
-## Config
+### Reader internals
 
 | Item | Issue |
 |---|---|
-| Expand file-settable options (`width`, `sort`, `all`, `port`, `sidebarWidth`) | [#63](https://github.com/carlesandres/house/issues/63) |
-| Discovery traversal cap (`--max-files`, max depth) — follow-up to #77 | [#80](https://github.com/carlesandres/house/issues/80) |
-| Investigate third-party walker for discovery — follow-up to #77 | [#81](https://github.com/carlesandres/house/issues/81) |
+| Replace opentui focused scrollbox with imperative scroll control (ghui-style) | [#97](https://github.com/carlesandres/house/issues/97) |
+
+### Search infrastructure
+
+| Item | Issue |
+|---|---|
+| Evaluate `/` as the full-text search key | [#40](https://github.com/carlesandres/house/issues/40) |
+
+### Test infrastructure
+
+| Item | Issue |
+|---|---|
+| Investigate PTY test infrastructure for terminal UI coverage | [#39](https://github.com/carlesandres/house/issues/39) |
 
 ## Unscoped — needs design pass before filing
 
 - **Custom per-file actions** — `DESIGN.md §5.3`. Mechanism (config-driven? plugin?) unclear.
-- **Mouse polish** — `DESIGN.md §5.3`. Partially concrete: mouse on sidebar filter row tracked in [#67](https://github.com/carlesandres/house/issues/67); revisit broader scope once layout v2 (#22) lands.
-
-## Featured plan: responsive auto-layout v2 (#22)
-
-Today's layout is a single threshold: below ~80 cols the sidebar collapses;
-above it the sidebar is fixed at ~30 cols. There is no way to reopen the
-sidebar on a narrow terminal and no configurable width.
-
-The plan in [#22](https://github.com/carlesandres/house/issues/22) is to:
-
-1. Keep the existing two-pane shape (no stack/split orientation work).
-2. Replace the binary threshold with three viewport buckets (`tight`,
-   `comfortable`, `roomy`) that drive default sidebar visibility and width
-   independently.
-3. Add an explicit `--layout auto|compact|full` flag and runtime keybinding so
-   the responsive rule can be overridden.
-4. Add a force-open override (`\` on a tight viewport opens the sidebar at min
-   width when reader-min still fits).
-5. Funnel all visibility/width math through one `resolveLayout(...)` helper so
-   render code and key handlers cannot disagree.
-
-Inspiration: `reference/hunk/src/ui/lib/responsive.ts` does the analogous job
-for hunk. Notable differences here — house only has one pane orientation, so
-the "split vs stack" decision in hunk reduces to "sidebar shown vs hidden,"
-and the width math gains a configurable preferred width that hunk does not
-need.
-
-See the issue for acceptance criteria and open questions.
+- **Mouse polish** — `DESIGN.md §5.3`. Partially concrete: mouse on sidebar filter row tracked in [#67](https://github.com/carlesandres/house/issues/67); revisit broader scope now that layout v2 (#22) has landed.
