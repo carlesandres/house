@@ -968,14 +968,14 @@ describe("Browser — footer", () => {
 		await stepFrame(setup!.renderOnce)
 
 		const frame = setup!.captureCharFrame()
-		expect(frame).toContain("q:quit")
-		expect(frame).toContain("?:help")
-		expect(frame).toContain("s:sidebar")
+		expect(frame).toContain("q quit")
+		expect(frame).toContain("? help")
+		expect(frame).toContain("s sidebar")
 		// sidebar.open hint surfaces because focus starts on sidebar.
-		expect(frame).toContain("↵:open")
+		expect(frame).toContain("↵ open")
 		// reader-only hints are absent.
-		expect(frame).not.toContain("[:prev")
-		expect(frame).not.toContain("]:next")
+		expect(frame).not.toContain("[ prev")
+		expect(frame).not.toContain("] next")
 	})
 
 	test("switches to reader-specific hints when focus moves to the reader", async () => {
@@ -997,10 +997,10 @@ describe("Browser — footer", () => {
 		await stepFrame(setup!.renderOnce)
 
 		const frame = setup!.captureCharFrame()
-		expect(frame).toContain("esc:back")
-		expect(frame).toContain("[:prev")
-		expect(frame).toContain("]:next")
-		expect(frame).not.toContain("↵:open")
+		expect(frame).toContain("esc back")
+		expect(frame).toContain("[ prev")
+		expect(frame).toContain("] next")
+		expect(frame).not.toContain("↵ open")
 	})
 
 	test("notice replaces hints after a theme cycle", async () => {
@@ -1015,7 +1015,7 @@ describe("Browser — footer", () => {
 			)
 		})
 		await stepFrame(setup!.renderOnce)
-		expect(setup!.captureCharFrame()).toContain("q:quit")
+		expect(setup!.captureCharFrame()).toContain("q quit")
 
 		await act(async () => {
 			setup!.mockInput.pressKey("t")
@@ -1025,7 +1025,7 @@ describe("Browser — footer", () => {
 		const frame = setup!.captureCharFrame()
 		expect(frame).toContain("theme:")
 		// hint row is replaced while the notice is live.
-		expect(frame).not.toContain("q:quit")
+		expect(frame).not.toContain("q quit")
 	})
 
 	test("falls back to the first key when no full hint fits", async () => {
@@ -1044,7 +1044,7 @@ describe("Browser — footer", () => {
 		await stepFrame(setup!.renderOnce)
 
 		const frame = setup!.captureCharFrame()
-		expect(frame).not.toContain("q:quit")
+		expect(frame).not.toContain("q quit")
 		// At minimum the bare key for the first hint (`q`) should appear so
 		// the row is not silently blank.
 		expect(frame).toContain("q")
@@ -1072,12 +1072,12 @@ describe("Browser — footer", () => {
 		const frame = setup!.captureCharFrame()
 		// help-allowed hints survive; `?` is relabeled "close" since pressing
 		// it now closes the overlay.
-		expect(frame).toContain("?:close")
-		expect(frame).not.toContain("?:help")
-		expect(frame).toContain("t:theme")
+		expect(frame).toContain("? close")
+		expect(frame).not.toContain("? help")
+		expect(frame).toContain("t theme")
 		// suppressed bindings disappear from the row.
-		expect(frame).not.toContain("q:quit")
-		expect(frame).not.toContain("s:sidebar")
+		expect(frame).not.toContain("q quit")
+		expect(frame).not.toContain("s sidebar")
 	})
 })
 
@@ -2600,7 +2600,7 @@ describe("Browser — updateNotice", () => {
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
 		expect(frame).not.toContain(TEXT)
-		expect(frame).toContain("q:quit")
+		expect(frame).toContain("q quit")
 	})
 })
 
