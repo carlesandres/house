@@ -63,17 +63,18 @@ export const initialShownForAuto = (viewport: number): boolean =>
  *
  *  Derived budget: the header is worth a row when the reader still has a
  *  comfortable reading area after subtracting all chrome. Chrome on a Browser
- *  frame: header (1) + footer (1) = 2 rows (the panes are borderless — see
- *  Browser.tsx). We want the reader to retain ≥16 content rows — about a
- *  screenful of prose at typical paragraph density — so the threshold lands
- *  at 2 + 16 = 18. Below that the header drops so short panes (tmux splits,
- *  etc.) keep the reader breathable.
+ *  frame: header (1) + top rule (1) + bottom rule (1) + footer (1) = 4 rows
+ *  (the horizontal rules ride with the header — they only show when the
+ *  header is shown). We want the reader to retain ≥16 content rows — about
+ *  a screenful of prose at typical paragraph density — so the threshold
+ *  lands at 4 + 16 = 20. Below that the header (and rules) drop so short
+ *  panes (tmux splits, etc.) keep the reader breathable.
  *
  *  Width is *not* part of the gate: Header.tsx degrades horizontally by
  *  dropping the version string (then the filename), leaving the brand mark
  *  as a single-cell irreducible identity element. Vertical chrome is the
  *  constrained budget. */
-export const HEADER_HEIGHT_THRESHOLD = 18
+export const HEADER_HEIGHT_THRESHOLD = 20
 
 /** True when the viewport is tall enough to spend a row on the header.
  *  See HEADER_HEIGHT_THRESHOLD for the derivation. */

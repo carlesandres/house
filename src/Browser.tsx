@@ -564,16 +564,23 @@ export const Browser = ({
 	// every keystroke re-renders all N file rows even though only the bg of
 	// two of them changed (old + new selected). On a 195-file vault that
 	// dominates the per-keystroke cost.
-	// Borderless sidebar: header eats HEADER_HEIGHT (when shown), footer
-	// eats FOOTER_HEIGHT, the filter row eats one more cell when files
-	// are present *or* while discovery is in flight (allocates the row
-	// up front so it doesn't pop in when the first file arrives).
+	// Chrome budget: header (when shown) + top rule + bottom rule + footer.
+	// The two horizontal rules ride with the header — they only show on
+	// viewports tall enough to spend rows on chrome. The filter row eats
+	// one more cell when files are present *or* while discovery is in
+	// flight (allocates the row up front so it doesn't pop in when the
+	// first file arrives).
 	const discoveryActive = discoveryStatus !== null && discoveryStatus.length > 0
 	const filterRowVisible = files.length > 0 || discoveryActive
 	const headerVisible = shouldShowHeader(height)
+	const rulesVisible = headerVisible
 	const sidebarBodyHeight = Math.max(
 		1,
-		height - FOOTER_HEIGHT - (headerVisible ? HEADER_HEIGHT : 0) - (filterRowVisible ? 1 : 0),
+		height -
+			FOOTER_HEIGHT -
+			(headerVisible ? HEADER_HEIGHT : 0) -
+			(rulesVisible ? 2 : 0) -
+			(filterRowVisible ? 1 : 0),
 	)
 	const maxScroll = Math.max(0, displayedFiles.length - sidebarBodyHeight)
 	const desiredScroll = (() => {
@@ -678,9 +685,23 @@ export const Browser = ({
 		</>
 	)
 
+	// Horizontal rules above and below the pane row. Junction lands at the
+	// sidebar's right-border column (== sidebarWidth - 1) whenever the
+	// sidebar is visible (inline or drawer); otherwise the rule is a plain
+	// `─` run across the viewport. fg = border, bg = surface so the rule
+	// reads as part of the dim chrome frame around the panes.
+	const sidebarVisibleForRule = sidebarInline || sidebarAsDrawer
+	const junctionAt = sidebarVisibleForRule ? sidebarWidth - 1 : -1
+	const buildRule = (junction: "┬" | "┴"): string => {
+		if (junctionAt < 0 || junctionAt >= width) return "─".repeat(width)
+		return "─".repeat(junctionAt) + junction + "─".repeat(Math.max(0, width - junctionAt - 1))
+	}
+	const ruleStyle = { fg: colors.border, bg: colors.surface } as const
+
 	return (
 		<box style={{ width, height, flexDirection: "column", backgroundColor: colors.background }}>
 			{headerVisible && <Header width={width} currentFile={currentFile} />}
+			{rulesVisible && <text content={buildRule("┬")} wrapMode="none" style={ruleStyle} />}
 			<box
 				style={{
 					flexDirection: "row",
@@ -753,16 +774,18 @@ export const Browser = ({
 				</box>
 			</box>
 			{sidebarAsDrawer && (
-				// Drawer overlays the reader; sits below the Header (which carries
-				// the current filename) when the Header is shown. No top border —
-				// the Header above and Footer below box it in vertically. Right
-				// edge carries the divider rule.
+				// Drawer overlays the reader; sits between the top and bottom
+				// horizontal rules so its right-edge `│` slots into the
+				// `┬`/`┴` junctions on those rules.
 				<box
 					position="absolute"
 					left={0}
-					top={headerVisible ? HEADER_HEIGHT : 0}
+					top={(headerVisible ? HEADER_HEIGHT : 0) + (rulesVisible ? 1 : 0)}
 					width={sidebarWidth}
-					height={Math.max(1, height - FOOTER_HEIGHT - (headerVisible ? HEADER_HEIGHT : 0))}
+					height={Math.max(
+						1,
+						height - FOOTER_HEIGHT - (headerVisible ? HEADER_HEIGHT : 0) - (rulesVisible ? 2 : 0),
+					)}
 					zIndex={5}
 					style={{
 						border: ["right"],
@@ -776,6 +799,7 @@ export const Browser = ({
 					{sidebarBody}
 				</box>
 			)}
+			{rulesVisible && <text content={buildRule("┴")} wrapMode="none" style={ruleStyle} />}
 			<Footer
 				bindings={footerBindings}
 				ctx={ctx}

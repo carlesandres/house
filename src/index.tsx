@@ -152,10 +152,16 @@ export const App = ({ content, title = "house", maxWidth = null, onQuit }: AppPr
 	})
 
 	const headerVisible = shouldShowHeader(height)
+	const rulesVisible = headerVisible
+	// Single-pane mode has no sidebar, so no junction — the rules are plain
+	// `─` runs across the viewport.
+	const ruleContent = "─".repeat(width)
+	const ruleStyle = { fg: colors.border, bg: colors.surface } as const
 
 	return (
 		<box style={{ width, height, flexDirection: "column", backgroundColor: colors.background }}>
 			{headerVisible && <Header width={width} currentFile={title} />}
+			{rulesVisible && <text content={ruleContent} wrapMode="none" style={ruleStyle} />}
 			<box
 				style={{
 					padding: 1,
@@ -184,6 +190,7 @@ export const App = ({ content, title = "house", maxWidth = null, onQuit }: AppPr
 					/>
 				</scrollbox>
 			</box>
+			{rulesVisible && <text content={ruleContent} wrapMode="none" style={ruleStyle} />}
 		</box>
 	)
 }

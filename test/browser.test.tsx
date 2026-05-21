@@ -131,14 +131,15 @@ const bgAt = (frame: CapturedFrame, row: number, col: number): RGBA | null => {
 
 /** True when the sidebar pane is rendered AND focused. Active panes
  *  stay on colors.background; inactive ones dim to colors.surface. We
- *  sample row 3, col 1 — well below the Header and filter row, inside
- *  the sidebar's paddingLeft. When the sidebar is hidden entirely, that
- *  cell belongs to the reader, so we gate on `sidebarIsVisible` first.
- *  Tests that hide the Header (short viewport) should not use this
- *  helper. */
+ *  sample 3 rows from the bottom (past footer + bottom rule, into the
+ *  pane area) at col 0 — that cell sits in the sidebar's paddingLeft
+ *  and is reliably empty, so its bg reflects the pane bg rather than a
+ *  selected-file or filter-row override. When the sidebar is hidden
+ *  entirely, that cell belongs to the reader, so we gate on
+ *  `sidebarIsVisible` first. */
 const sidebarIsFocused = (frame: CapturedFrame, charFrame: string): boolean => {
 	if (!sidebarIsVisible(charFrame)) return false
-	const bg = bgAt(frame, 3, 1)
+	const bg = bgAt(frame, frame.rows - 3, 0)
 	if (!bg) return false
 	return RGBA.fromHex(colors.background).equals(bg)
 }
