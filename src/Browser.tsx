@@ -21,6 +21,7 @@ import { CommandPalette } from "./CommandPalette.tsx"
 import { filterFiles } from "./discovery/filter.ts"
 import { type FileEntry } from "./discovery/walk.ts"
 import { Footer, FOOTER_HEIGHT } from "./Footer.tsx"
+import { Header, HEADER_HEIGHT } from "./Header.tsx"
 import { HelpOverlay } from "./HelpOverlay.tsx"
 import { readFileText } from "./io/readFile.ts"
 import { browserBindings, type BrowserCtx } from "./keymap/browser.ts"
@@ -30,6 +31,7 @@ import {
 	defaultPreferredWidth,
 	initialShownForAuto,
 	resolveSidebarWidth,
+	shouldShowHeader,
 } from "./layout/resolve.ts"
 import { openInBrowser } from "./serve/openBrowser.ts"
 import { startServer, type ServerHandle } from "./serve/server.ts"
@@ -571,11 +573,13 @@ export const Browser = ({
 	// in when the first file arrives).
 	const discoveryActive = discoveryStatus !== null && discoveryStatus.length > 0
 	const filterRowVisible = files.length > 0 || discoveryActive
+	const headerVisible = shouldShowHeader(height)
 	const sidebarBodyHeight = Math.max(
 		1,
 		height -
 			2 -
 			FOOTER_HEIGHT -
+			(headerVisible ? HEADER_HEIGHT : 0) -
 			(filterRowVisible ? 1 : 0) -
 			(sidebarAsDrawer ? drawerTopOffset : 0),
 	)
@@ -683,6 +687,7 @@ export const Browser = ({
 
 	return (
 		<box style={{ width, height, flexDirection: "column", backgroundColor: colors.background }}>
+			{headerVisible && <Header width={width} />}
 			<box
 				style={{
 					flexDirection: "row",
@@ -757,13 +762,18 @@ export const Browser = ({
 				// Offset by 1 row so the reader pane's top border (which carries
 				// the current file name) stays visible above the drawer. Without
 				// this, the user loses the only on-screen indicator of which
-				// file they're reading whenever the drawer is up.
+				// file they're reading whenever the drawer is up. When the header
+				// row is showing, push the drawer down by HEADER_HEIGHT so it
+				// doesn't paint over the brand/version line.
 				<box
 					position="absolute"
 					left={0}
-					top={drawerTopOffset}
+					top={drawerTopOffset + (headerVisible ? HEADER_HEIGHT : 0)}
 					width={sidebarWidth}
-					height={Math.max(1, height - FOOTER_HEIGHT - drawerTopOffset)}
+					height={Math.max(
+						1,
+						height - FOOTER_HEIGHT - drawerTopOffset - (headerVisible ? HEADER_HEIGHT : 0),
+					)}
 					zIndex={5}
 					title={sidebarTitle}
 					titleAlignment="left"

@@ -58,3 +58,11 @@ export const canFitInline = (viewport: number): boolean =>
  */
 export const initialShownForAuto = (viewport: number): boolean =>
 	viewport >= TIGHT_VIEWPORT_THRESHOLD
+
+/** Minimum terminal height to render the header row. Below this, the row
+ *  is dropped so vertical real estate goes to the reader. The header is
+ *  identity/branding chrome — losing it on tight terminals is fine. */
+export const HEADER_HEIGHT_THRESHOLD = 20
+
+/** True when the viewport has room to spend a row on the header. */
+export const shouldShowHeader = (height: number): boolean => height >= HEADER_HEIGHT_THRESHOLD
