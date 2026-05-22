@@ -15,7 +15,6 @@ Nice for the beta announcement; can slip without blocking.
 | Theme | Item | Issue |
 |---|---|---|
 | Onboarding | Add usage tips in the app | [#47](https://github.com/carlesandres/house/issues/47) |
-| Brand | Introduce ⌂ (U+2302) as the project brand mark | [#76](https://github.com/carlesandres/house/issues/76) |
 | Docs | DESIGN.md §7.1 drawer-dismiss rule overstates its scope | [#88](https://github.com/carlesandres/house/issues/88) |
 
 ## 1.0 — daily-driver release
