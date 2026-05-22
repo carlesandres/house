@@ -298,9 +298,7 @@ describe("walk — streaming", () => {
 		})
 		const seen: string[] = []
 		await run(
-			walk(root).pipe(
-				Stream.runForEach((entry) => Effect.sync(() => seen.push(entry.name))),
-			),
+			walk(root).pipe(Stream.runForEach((entry) => Effect.sync(() => seen.push(entry.name)))),
 		)
 		expect(seen.sort()).toEqual(["a.md", "b.md", "c.md"])
 	})
@@ -313,7 +311,11 @@ describe("walk — streaming", () => {
 		for (let i = 0; i < 50; i++) spec[`sub${i}/file.md`] = "x"
 		const root = await fixture(spec)
 		const first = await run(
-			walk(root).pipe(Stream.take(1), Stream.runCollect, Effect.map((c) => Array.from(c))),
+			walk(root).pipe(
+				Stream.take(1),
+				Stream.runCollect,
+				Effect.map((c) => Array.from(c)),
+			),
 		)
 		expect(first).toHaveLength(1)
 	})

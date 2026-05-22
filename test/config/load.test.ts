@@ -83,9 +83,7 @@ describe("loadConfig", () => {
 
 	test("unknown key in file → ConfigError listing the bad key", async () => {
 		await writeFile(cfgPath, `them = "${altTheme}"\n`)
-		await expect(run(loadConfig({ filePath: cfgPath, env: {} }))).rejects.toThrow(
-			/"them"/,
-		)
+		await expect(run(loadConfig({ filePath: cfgPath, env: {} }))).rejects.toThrow(/"them"/)
 	})
 
 	test("partial file: only theme set, tone defaults", async () => {

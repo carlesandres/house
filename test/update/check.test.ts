@@ -8,7 +8,10 @@ interface FakeFetchCall {
 }
 
 const okJson = (body: unknown): Response =>
-	new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } })
+	new Response(JSON.stringify(body), {
+		status: 200,
+		headers: { "content-type": "application/json" },
+	})
 
 const head = (status: number): Response => new Response(null, { status })
 
@@ -197,41 +200,35 @@ describe("checkForUpdate", () => {
 		},
 	)
 
-	test.each([["true"], ["1"], ["whatever"]])(
-		"CI=%s suppresses the probe",
-		async (value) => {
-			const fakeFetch = (async () => {
-				throw new Error("should not fetch")
-			}) as unknown as typeof fetch
-			const info = await checkForUpdate({
-				...baseOpts,
-				env: { CI: value },
-				fetchImpl: fakeFetch,
-				cacheRead: async () => null,
-				cacheWrite: async () => {},
-			})
-			expect(info).toBeNull()
-		},
-	)
+	test.each([["true"], ["1"], ["whatever"]])("CI=%s suppresses the probe", async (value) => {
+		const fakeFetch = (async () => {
+			throw new Error("should not fetch")
+		}) as unknown as typeof fetch
+		const info = await checkForUpdate({
+			...baseOpts,
+			env: { CI: value },
+			fetchImpl: fakeFetch,
+			cacheRead: async () => null,
+			cacheWrite: async () => {},
+		})
+		expect(info).toBeNull()
+	})
 
-	test.each([["0"], ["false"], [""]])(
-		"CI=%s is treated as not-CI (probe runs)",
-		async (value) => {
-			const { fetch: fakeFetch } = makeFakeFetch({
-				"GET https://registry.npmjs.org/@carlesandres/house/latest": () =>
-					okJson({ version: "0.5.0", dist: { tarball: "https://cdn.example/h.tgz" } }),
-				"HEAD https://cdn.example/h.tgz": () => head(200),
-			})
-			const info = await checkForUpdate({
-				...baseOpts,
-				env: { CI: value },
-				fetchImpl: fakeFetch,
-				cacheRead: async () => null,
-				cacheWrite: async () => {},
-			})
-			expect(info?.latestVersion).toBe("0.5.0")
-		},
-	)
+	test.each([["0"], ["false"], [""]])("CI=%s is treated as not-CI (probe runs)", async (value) => {
+		const { fetch: fakeFetch } = makeFakeFetch({
+			"GET https://registry.npmjs.org/@carlesandres/house/latest": () =>
+				okJson({ version: "0.5.0", dist: { tarball: "https://cdn.example/h.tgz" } }),
+			"HEAD https://cdn.example/h.tgz": () => head(200),
+		})
+		const info = await checkForUpdate({
+			...baseOpts,
+			env: { CI: value },
+			fetchImpl: fakeFetch,
+			cacheRead: async () => null,
+			cacheWrite: async () => {},
+		})
+		expect(info?.latestVersion).toBe("0.5.0")
+	})
 
 	test("returns null on a fetch error and does not throw", async () => {
 		const fakeFetch = (async () => {
@@ -279,4 +276,3 @@ describe("checkForUpdate", () => {
 		expect(calls.find((c) => c.method === "HEAD")).toBeUndefined()
 	})
 })
-

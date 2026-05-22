@@ -36,7 +36,10 @@ const FIXTURE = readFileSync("test/fixtures/sample.md", "utf8")
 describe("App", () => {
 	test("renders content from the fixture", async () => {
 		await act(async () => {
-			setup = await testRender(<App content={FIXTURE} title="sample.md" onQuit={() => {}} />, VIEWPORT)
+			setup = await testRender(
+				<App content={FIXTURE} title="sample.md" onQuit={() => {}} />,
+				VIEWPORT,
+			)
 		})
 		await setup!.renderOnce()
 
@@ -58,7 +61,12 @@ describe("App", () => {
 		let quitCalls = 0
 		await act(async () => {
 			setup = await testRender(
-				<App content={FIXTURE} onQuit={() => { quitCalls++ }} />,
+				<App
+					content={FIXTURE}
+					onQuit={() => {
+						quitCalls++
+					}}
+				/>,
 				VIEWPORT,
 			)
 		})
@@ -75,7 +83,12 @@ describe("App", () => {
 		let quitCalls = 0
 		await act(async () => {
 			setup = await testRender(
-				<App content={FIXTURE} onQuit={() => { quitCalls++ }} />,
+				<App
+					content={FIXTURE}
+					onQuit={() => {
+						quitCalls++
+					}}
+				/>,
 				VIEWPORT,
 			)
 		})
