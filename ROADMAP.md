@@ -29,6 +29,16 @@ An item belongs here if its absence is a visible papercut or a table-stakes capa
 | Bugs | Applied filter has no one-key clear path | [#84](https://github.com/carlesandres/house/issues/84) |
 | Bugs | Filter chip can crowd out key hints when query is long | [#86](https://github.com/carlesandres/house/issues/86) |
 | Bugs | Reader keys act on content occluded by the persistent drawer | [#87](https://github.com/carlesandres/house/issues/87) |
+| Architecture | Unify single-file and directory modes (epic) | [#118](https://github.com/carlesandres/house/issues/118) |
+| Architecture | `defaultRoot` config + `--root` flag | [#109](https://github.com/carlesandres/house/issues/109) |
+| Architecture | Spinner component + indexing-status integration | [#110](https://github.com/carlesandres/house/issues/110) |
+| Architecture | Debounced filter (50ms) with flush points | [#111](https://github.com/carlesandres/house/issues/111) |
+| Architecture | Sticky first-match auto-select | [#112](https://github.com/carlesandres/house/issues/112) |
+| Architecture | Browser accepts `initialQuery` prop | [#113](https://github.com/carlesandres/house/issues/113) |
+| Architecture | CLI positional → filter query; delete `App` (breaking) | [#114](https://github.com/carlesandres/house/issues/114) |
+| Architecture | File action group gated on `hasSelected` | [#115](https://github.com/carlesandres/house/issues/115) |
+| Architecture | Sidebar empty-state copy | [#116](https://github.com/carlesandres/house/issues/116) |
+| Architecture | Docs sweep for unified model | [#117](https://github.com/carlesandres/house/issues/117) |
 | File-level | Open current file in `$EDITOR` | [#19](https://github.com/carlesandres/house/issues/19) |
 | File-level | Delete current file with confirmation | [#20](https://github.com/carlesandres/house/issues/20) |
 | Navigation | Search — filename, full-text, fuzzy | [#25](https://github.com/carlesandres/house/issues/25) |
