@@ -4,6 +4,15 @@ A terminal markdown reader and navigator — themable and configurable, with a k
 
 ![house demo](tape/house.gif)
 
+## Features
+
+- **30+ themes** with dark and light tones, cycle live with `t` / `T`
+- **Responsive layout** — sidebar + reader on wide terminals, single-pane stack when narrow
+- **Fuzzy search** across nested folders (`.gitignore`-aware)
+- **Command palette**
+- **Keyboard-driven**
+- **Open in browser**
+
 Requires [Bun](https://bun.sh) on `PATH`.
 
 ## Install
