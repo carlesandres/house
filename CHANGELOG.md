@@ -6,6 +6,8 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 
 ## [Unreleased]
 
+## [0.4.1] — 2026-05-22
+
 ### Added
 
 - Header chrome: borderless one-row identity strip above the panes carries the ⌂ brand mark and running version. Renders in both directory mode (Browser) and single-file mode (App). Hidden on terminals shorter than 20 rows so tight panes keep the reader breathable.
@@ -137,4 +139,4 @@ The v1 MVP, published as `@carlesandres/openmdr` on npm.
 
 Search, stdin, URL fetching, cross-file link following, `$EDITOR` hand-off, syntax highlighting, persistent config, OS-appearance auto-detect, single-binary distribution (issue [#2](https://github.com/carlesandres/openmdr/issues/2)), Homebrew tap. All tracked.
 
-[Unreleased]: https://github.com/carlesandres/house/compare/v0.4.0...HEAD [0.4.0]: https://github.com/carlesandres/house/compare/v0.3.1...v0.4.0 [0.3.1]: https://github.com/carlesandres/house/compare/v0.3.0...v0.3.1 [0.3.0]: https://github.com/carlesandres/house/compare/v0.2.1...v0.3.0 [0.2.1]: https://github.com/carlesandres/house/compare/v0.2.0...v0.2.1 [0.2.0]: https://github.com/carlesandres/house/compare/v0.1.0...v0.2.0 [0.1.0]: https://github.com/carlesandres/house/releases/tag/v0.1.0
+[Unreleased]: https://github.com/carlesandres/house/compare/v0.4.1...HEAD [0.4.1]: https://github.com/carlesandres/house/compare/v0.4.0...v0.4.1 [0.4.0]: https://github.com/carlesandres/house/compare/v0.3.1...v0.4.0 [0.3.1]: https://github.com/carlesandres/house/compare/v0.3.0...v0.3.1 [0.3.0]: https://github.com/carlesandres/house/compare/v0.2.1...v0.3.0 [0.2.1]: https://github.com/carlesandres/house/compare/v0.2.0...v0.2.1 [0.2.0]: https://github.com/carlesandres/house/compare/v0.1.0...v0.2.0 [0.1.0]: https://github.com/carlesandres/house/releases/tag/v0.1.0
