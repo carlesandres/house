@@ -73,7 +73,7 @@ Key reservations for deferred features (search, navigation history, bookmarks, e
 |---|---|
 | Root | Path argument if given, else `cwd`. |
 | Recursion | Unbounded depth from root. |
-| Extensions | `.md`, `.markdown`, `.mdx` (mdx rendered as plain markdown — no JSX evaluation). |
+| Extensions | `.md`, `.markdown`, `.mdx` (mdx rendered as plain markdown — no JSX evaluation). `.mdx` is opt-out via `--no-mdx` or `mdx = false` in `config.toml` (or `HOUSE_MDX=false`). |
 | Ignore files | `.gitignore` honored. Nested `.gitignore` files honored. |
 | Hard skips | `node_modules`, `.git`, `.venv` (always, even with `--all`). |
 | Hidden files | Skipped by default; `--all` to include. |

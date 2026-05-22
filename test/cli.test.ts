@@ -15,6 +15,7 @@ const empty: ParsedArgs = {
 	configPath: false,
 	sidebar: null,
 	noUpdateCheck: false,
+	noMdx: false,
 }
 const args = (overrides: Partial<ParsedArgs>): ParsedArgs => ({ ...empty, ...overrides })
 
@@ -71,6 +72,9 @@ describe("parseArgv — boolean flags", () => {
 	})
 	test("--config-path is parsed as boolean", () => {
 		expect(parseArgv(["--config-path"])).toEqual(args({ configPath: true }))
+	})
+	test("--no-mdx is parsed as boolean", () => {
+		expect(parseArgv(["--no-mdx"])).toEqual(args({ noMdx: true }))
 	})
 })
 

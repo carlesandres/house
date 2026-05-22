@@ -51,6 +51,16 @@ describe("walk — extensions", () => {
 		const result = await run(walkToArray(root))
 		expect(names(result)).toEqual(["README.md"])
 	})
+
+	test("mdx: false excludes .mdx but keeps .md and .markdown", async () => {
+		const root = await fixture({
+			"a.md": "x",
+			"b.markdown": "x",
+			"c.mdx": "x",
+		})
+		const result = await run(walkToArray(root, { mdx: false }))
+		expect(names(result).sort()).toEqual(["a.md", "b.markdown"])
+	})
 })
 
 describe("walk — hard-skip directories", () => {

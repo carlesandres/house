@@ -61,11 +61,12 @@ interface DiscoverShellProps {
 	readonly target: string
 	readonly all: boolean
 	readonly sort: SortOrder
+	readonly mdx: boolean
 	readonly maxWidth: number | null
 	readonly sidebarMode: SidebarMode
 }
 
-const DiscoverShell = ({ target, all, sort, maxWidth, sidebarMode }: DiscoverShellProps) => {
+const DiscoverShell = ({ target, all, sort, mdx, maxWidth, sidebarMode }: DiscoverShellProps) => {
 	const updateNotice = useUpdateNotice()
 	const [files, setFiles] = useState<readonly FileEntry[]>([])
 	const [scanning, setScanning] = useState<boolean>(true)
@@ -75,7 +76,7 @@ const DiscoverShell = ({ target, all, sort, maxWidth, sidebarMode }: DiscoverShe
 	const countRef = useRef(0)
 
 	useEffect(() => {
-		const program = walk(target, { all, sort }).pipe(
+		const program = walk(target, { all, sort, mdx }).pipe(
 			Stream.groupedWithin(64, Duration.millis(60)),
 			Stream.runForEach((chunk) =>
 				Effect.sync(() => {
@@ -100,7 +101,7 @@ const DiscoverShell = ({ target, all, sort, maxWidth, sidebarMode }: DiscoverShe
 		return () => {
 			Effect.runFork(Fiber.interrupt(fiber))
 		}
-	}, [target, all, sort])
+	}, [target, all, sort, mdx])
 
 	const discoveryStatus = scanError ?? (scanning ? `indexing… ${countRef.current}` : null)
 
@@ -209,12 +210,20 @@ if (import.meta.main) {
 	}
 
 	const config = await Effect.runPromise(
-		loadConfig({ cli: { theme: args.theme, tone: args.tone } }),
+		loadConfig({
+			cli: {
+				theme: args.theme,
+				tone: args.tone,
+				// --no-mdx is a one-way override: present means "off". When
+				// absent, fall through to env/file/default.
+				mdx: args.noMdx ? false : null,
+			},
+		}),
 	).catch((err: unknown) => {
 		console.error(`house: ${formatConfigError(err)}`)
 		process.exit(2)
 	})
-	const { theme: themeId, tone } = config
+	const { theme: themeId, tone, mdx } = config
 	const themeDef = getThemeDefinition(themeId)
 	if (themeDef === undefined) {
 		// Unreachable: Config.schema validated themeId against themeDefinitions.
@@ -291,6 +300,7 @@ if (import.meta.main) {
 			maxWidth,
 			all: args.all,
 			sort,
+			mdx,
 			sidebarMode,
 			updateCheck: !args.noUpdateCheck,
 		})
@@ -304,6 +314,7 @@ interface TuiBootOptions {
 	readonly maxWidth: number | null
 	readonly all: boolean
 	readonly sort: SortOrder
+	readonly mdx: boolean
 	readonly sidebarMode: SidebarMode
 	/** Run the npm-registry probe and surface the "update available" notice.
 	 *  False suppresses both the toast and the quit-time print. */
@@ -317,6 +328,7 @@ async function runTui({
 	maxWidth,
 	all,
 	sort,
+	mdx,
 	sidebarMode,
 	updateCheck,
 }: TuiBootOptions): Promise<void> {
@@ -356,6 +368,7 @@ async function runTui({
 					target={target}
 					all={all}
 					sort={sort}
+					mdx={mdx}
 					maxWidth={maxWidth}
 					sidebarMode={sidebarMode}
 				/>

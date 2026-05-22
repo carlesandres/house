@@ -18,39 +18,96 @@ import { themeDefinitions } from "../theme/registry.ts"
 export interface HouseConfig {
 	readonly theme: string
 	readonly tone: "dark" | "light"
+	readonly mdx: boolean
 }
 
 export interface CliOverrides {
 	readonly theme: string | null
 	readonly tone: string | null
+	readonly mdx: boolean | null
 }
 
 const DEFAULT_THEME = "opencode"
 const DEFAULT_TONE: "dark" | "light" = "dark"
+const DEFAULT_MDX = true
 
 const themeIds = themeDefinitions.map((t) => t.id)
 
 /**
  * Top-level keys the config file is allowed to set. Kept in sync by hand
  * with `schema` below — when adding a key, add it both places.
- * Used by `fileProvider` to reject typo'd keys (e.g. `them = "..."`) loudly
- * rather than silently falling back to defaults.
+ * Used by `fileProvider` to warn about unrecognized keys (with a
+ * did-you-mean hint when one is close) while still loading the rest.
  */
-const KNOWN_FILE_KEYS: ReadonlySet<string> = new Set(["theme", "tone"])
+const KNOWN_FILE_KEYS: ReadonlySet<string> = new Set(["theme", "tone", "mdx"])
 
 const schema = Config.all({
 	theme: Config.schema(Schema.Literals(themeIds), "theme"),
 	tone: Config.schema(Schema.Literals(["dark", "light"] as const), "tone"),
+	// Boolean stored as string literal because providers stringify values
+	// (TOML bools, env vars, CLI flags all flow through as text). Mapped to
+	// a real boolean in `loadConfig` below.
+	mdx: Config.schema(Schema.Literals(["true", "false"] as const), "mdx"),
 })
 
 const defaultsProvider = (): ConfigProvider.ConfigProvider =>
-	ConfigProvider.fromUnknown({ theme: DEFAULT_THEME, tone: DEFAULT_TONE })
+	ConfigProvider.fromUnknown({
+		theme: DEFAULT_THEME,
+		tone: DEFAULT_TONE,
+		mdx: String(DEFAULT_MDX),
+	})
+
+/**
+ * Levenshtein edit distance, capped at `cap` for early exit.
+ * Used only to suggest "did you mean X?" when a config key looks like a
+ * typo of a known one. Tiny inputs (≤ ~20 chars), so the naive O(n·m)
+ * fill is fine.
+ */
+const editDistance = (a: string, b: string, cap: number): number => {
+	if (Math.abs(a.length - b.length) > cap) return cap + 1
+	const prev: number[] = Array.from({ length: b.length + 1 })
+	const curr: number[] = Array.from({ length: b.length + 1 })
+	for (let j = 0; j <= b.length; j++) prev[j] = j
+	for (let i = 1; i <= a.length; i++) {
+		curr[0] = i
+		let rowMin = curr[0]!
+		for (let j = 1; j <= b.length; j++) {
+			const cost = a[i - 1] === b[j - 1] ? 0 : 1
+			curr[j] = Math.min(prev[j]! + 1, curr[j - 1]! + 1, prev[j - 1]! + cost)
+			if (curr[j]! < rowMin) rowMin = curr[j]!
+		}
+		if (rowMin > cap) return cap + 1
+		for (let j = 0; j <= b.length; j++) prev[j] = curr[j]!
+	}
+	return prev[b.length]!
+}
+
+const suggestKey = (unknown: string, known: readonly string[]): string | null => {
+	let best: { key: string; dist: number } | null = null
+	for (const k of known) {
+		const d = editDistance(unknown, k, 2)
+		if (d <= 2 && (best === null || d < best.dist)) best = { key: k, dist: d }
+	}
+	return best?.key ?? null
+}
+
+const formatUnknownKeyWarning = (path: string, key: string, known: readonly string[]): string => {
+	const suggestion = suggestKey(key, known)
+	const hint = suggestion ? ` — did you mean "${suggestion}"?` : ""
+	return `house: ignoring unknown key "${key}" in ${path}${hint}`
+}
 
 /**
  * Reads a TOML file at `path`. Missing file → `undefined` for every key
- * (per-key fallthrough). Malformed TOML → `SourceError` (hard fail upstream).
+ * (per-key fallthrough). Malformed TOML → `SourceError` (hard fail
+ * upstream). Unknown top-level keys are warned about via `onWarning` and
+ * dropped — this preserves forward-compat with newer config schemas while
+ * still flagging typos like `them = "..."`.
  */
-const fileProvider = (path: string): ConfigProvider.ConfigProvider => {
+const fileProvider = (
+	path: string,
+	onWarning: (message: string) => void,
+): ConfigProvider.ConfigProvider => {
 	let cache: { data: Record<string, unknown> | null } | null = null
 	const load = Effect.gen(function* () {
 		if (cache !== null) return cache.data
@@ -69,17 +126,17 @@ const fileProvider = (path: string): ConfigProvider.ConfigProvider => {
 					cause,
 				}),
 		})
-		const unknown = Object.keys(parsed).filter((k) => !KNOWN_FILE_KEYS.has(k))
-		if (unknown.length > 0) {
-			const known = [...KNOWN_FILE_KEYS].join(", ")
-			return yield* Effect.fail(
-				new ConfigProvider.SourceError({
-					message: `unknown key${unknown.length > 1 ? "s" : ""} in ${path}: ${unknown.map((k) => `"${k}"`).join(", ")} (known: ${known})`,
-				}),
-			)
+		const known = [...KNOWN_FILE_KEYS]
+		const filtered: Record<string, unknown> = {}
+		for (const [k, v] of Object.entries(parsed)) {
+			if (KNOWN_FILE_KEYS.has(k)) {
+				filtered[k] = v
+			} else {
+				onWarning(formatUnknownKeyWarning(path, k, known))
+			}
 		}
-		cache = { data: parsed }
-		return parsed
+		cache = { data: filtered }
+		return filtered
 	})
 	return ConfigProvider.make((path) =>
 		Effect.gen(function* () {
@@ -112,8 +169,10 @@ const envProvider = (env: Record<string, string | undefined>): ConfigProvider.Co
 	const entries: Array<[string, string]> = []
 	const theme = env["HOUSE_THEME"]
 	const tone = env["HOUSE_TONE"]
+	const mdx = env["HOUSE_MDX"]
 	if (theme !== undefined) entries.push(["theme", theme])
 	if (tone !== undefined) entries.push(["tone", tone])
+	if (mdx !== undefined) entries.push(["mdx", mdx])
 	return ConfigProvider.fromUnknown(Object.fromEntries(entries))
 }
 
@@ -121,6 +180,7 @@ const cliProvider = (overrides: CliOverrides): ConfigProvider.ConfigProvider => 
 	const entries: Array<[string, string]> = []
 	if (overrides.theme !== null) entries.push(["theme", overrides.theme])
 	if (overrides.tone !== null) entries.push(["tone", overrides.tone])
+	if (overrides.mdx !== null) entries.push(["mdx", String(overrides.mdx)])
 	return ConfigProvider.fromUnknown(Object.fromEntries(entries))
 }
 
@@ -130,6 +190,8 @@ export interface LoadOptions {
 	readonly filePath?: string
 	/** Override env (tests). Defaults to `process.env`. */
 	readonly env?: Record<string, string>
+	/** Sink for non-fatal warnings (unknown keys). Defaults to stderr. */
+	readonly onWarning?: (message: string) => void
 }
 
 export const defaultConfigPath = (): string =>
@@ -156,11 +218,14 @@ export const formatConfigError = (err: unknown): string => {
 export const loadConfig = (
 	options: LoadOptions = {},
 ): Effect.Effect<HouseConfig, Config.ConfigError> => {
-	const cli = options.cli ?? { theme: null, tone: null }
+	const cli = options.cli ?? { theme: null, tone: null, mdx: null }
+	const onWarning = options.onWarning ?? ((msg) => process.stderr.write(`${msg}\n`))
 	const provider = cliProvider(cli).pipe(
 		ConfigProvider.orElse(envProvider(options.env ?? process.env)),
-		ConfigProvider.orElse(fileProvider(options.filePath ?? defaultConfigPath())),
+		ConfigProvider.orElse(fileProvider(options.filePath ?? defaultConfigPath(), onWarning)),
 		ConfigProvider.orElse(defaultsProvider()),
 	)
-	return schema.parse(provider)
+	return schema
+		.parse(provider)
+		.pipe(Effect.map((raw) => ({ theme: raw.theme, tone: raw.tone, mdx: raw.mdx === "true" })))
 }

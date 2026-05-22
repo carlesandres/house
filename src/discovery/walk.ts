@@ -19,6 +19,8 @@ export interface WalkOptions {
 	readonly all?: boolean
 	/** Group order within each directory. Default `dirs-first`. */
 	readonly sort?: SortOrder
+	/** Include `.mdx` files alongside `.md`/`.markdown`. Default `true`. */
+	readonly mdx?: boolean
 }
 
 export class DiscoveryError extends Data.TaggedError("DiscoveryError")<{
@@ -27,6 +29,7 @@ export class DiscoveryError extends Data.TaggedError("DiscoveryError")<{
 }> {}
 
 const MARKDOWN_EXTENSIONS = new Set([".md", ".markdown", ".mdx"])
+const MARKDOWN_EXTENSIONS_NO_MDX = new Set([".md", ".markdown"])
 const HARD_SKIP_DIRS = new Set(["node_modules", ".git", ".venv"])
 
 interface IgnoreLevel {
@@ -85,7 +88,7 @@ async function* walkDirGen(
 	dirPath: string,
 	rootPath: string,
 	parentLevels: readonly IgnoreLevel[],
-	opts: { all: boolean; sort: SortOrder },
+	opts: { all: boolean; sort: SortOrder; mdx: boolean },
 	signal: AbortSignal,
 ): AsyncGenerator<FileEntry, void, void> {
 	if (signal.aborted) return
@@ -119,7 +122,8 @@ async function* walkDirGen(
 
 		if (!entry.isFile()) continue
 		if (!opts.all && entry.name.startsWith(".")) continue
-		if (!MARKDOWN_EXTENSIONS.has(extname(entry.name).toLowerCase())) continue
+		const allowed = opts.mdx ? MARKDOWN_EXTENSIONS : MARKDOWN_EXTENSIONS_NO_MDX
+		if (!allowed.has(extname(entry.name).toLowerCase())) continue
 		if (!opts.all && isIgnored(entryPath, false, levels)) continue
 
 		yield {
@@ -137,7 +141,7 @@ async function* walkDirGen(
  * at its next `signal.aborted` check.
  *
  * Rules (see DESIGN.md §6):
- * - Extensions: `.md`, `.markdown`, `.mdx`.
+ * - Extensions: `.md`, `.markdown`, and `.mdx` (unless `mdx: false`).
  * - Hard skips (always): `node_modules`, `.git`, `.venv`.
  * - Hidden files/dirs (leading `.`) skipped unless `all: true`.
  * - `.gitignore` honored, including nested `.gitignore` files.
@@ -153,6 +157,7 @@ export const walk = (
 	const opts = {
 		all: options.all ?? false,
 		sort: options.sort ?? ("dirs-first" as SortOrder),
+		mdx: options.mdx ?? true,
 	}
 	const controller = new AbortController()
 	const iterable: AsyncIterable<FileEntry> = {
