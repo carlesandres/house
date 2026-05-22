@@ -21,6 +21,7 @@ import { clampSelectedIndex, filterCommands } from "./commands/score.ts"
 import { CommandPalette } from "./CommandPalette.tsx"
 import { filterFiles } from "./discovery/filter.ts"
 import { type FileEntry } from "./discovery/walk.ts"
+import { BRAND, BRAND_NAME } from "./brand.ts"
 import { Footer, FOOTER_HEIGHT } from "./Footer.tsx"
 import { Header, HEADER_HEIGHT } from "./Header.tsx"
 import { HelpOverlay } from "./HelpOverlay.tsx"
@@ -776,6 +777,24 @@ export const Browser = ({
 						>
 							{error ? (
 								<text content={error} style={{ fg: colors.error }} />
+							) : !renderedPath ? (
+								// Reader empty state — no file selected. Brand mark centered as a
+								// welcome anchor; in-app tips (#47) will live here too.
+								<box
+									style={{
+										flexGrow: 1,
+										flexShrink: 1,
+										alignItems: "center",
+										justifyContent: "center",
+										backgroundColor: readerActive ? colors.background : colors.surface,
+									}}
+								>
+									<text
+										content={`${BRAND} ${BRAND_NAME}`}
+										wrapMode="none"
+										style={{ fg: colors.textMuted }}
+									/>
+								</box>
 							) : (
 								<scrollbox
 									style={{
