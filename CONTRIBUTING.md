@@ -115,6 +115,10 @@ DESIGN.md §12 records design choices we deferred and the trigger that should br
 - Commit messages: imperative, lowercase prefix (`feat:`, `fix:`, `refactor:`, `docs:`, `ci:`, `chore:`, `build:`, `test:`). The one-line subject is the contract; bodies are encouraged when the *why* isn't obvious.
 - PR titles match the same shape. Keep PRs small enough to review in one sitting.
 
+## Update notifier
+
+When a newer published version is available on npm, house prints a one-line notice in the footer at startup and a copy-pasteable upgrade tip on quit. The check is opt-out: set `NO_UPDATE_NOTIFIER=1` (any non-empty, non-`0` value works) or pass `--no-update-check`. The check is also skipped under CI (any non-empty `CI` value).
+
 ## Release flow
 
 Release-event-driven. See `.github/workflows/publish.yml` and the more detailed step-by-step in `AGENTS.md`. Quick version:

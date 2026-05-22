@@ -8,6 +8,12 @@ Notes for AI assistants (and humans) working in this repo. This file is about *t
 - `CONTRIBUTING.md` — local loop, testing, commit/PR shape, release flow.
 - `CHANGELOG.md` — what's queued under `[Unreleased]`. New work appends here; release time moves it under a dated heading.
 
+## Docs split
+
+- `README.md` is **user-oriented**: what house is, install, usage, keys, configuration surface. Keep the top focused on users and features, not implementation. No internals, no env-var matrices for niche behaviors, no contributor instructions.
+- `CONTRIBUTING.md` is **developer-oriented**: local loop, testing, commit/PR shape, release flow, and any implementation detail a user doesn't need to read.
+- When tempted to add an implementation paragraph to the README, put it in `CONTRIBUTING.md` (or `DESIGN.md` if it's about scope/intent) instead.
+
 ## Conventions worth knowing
 
 - Format: **tabs, no semicolons, 100-col, trailing commas** (see `.oxfmtrc.json`). `bun run format` writes; CI gates on `format:check`.

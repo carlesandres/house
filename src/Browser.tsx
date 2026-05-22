@@ -21,6 +21,7 @@ import { clampSelectedIndex, filterCommands } from "./commands/score.ts"
 import { CommandPalette } from "./CommandPalette.tsx"
 import { filterFiles } from "./discovery/filter.ts"
 import { type FileEntry } from "./discovery/walk.ts"
+import { BRAND, BRAND_NAME } from "./brand.ts"
 import { Footer, FOOTER_HEIGHT } from "./Footer.tsx"
 import { Header, HEADER_HEIGHT } from "./Header.tsx"
 import { HelpOverlay } from "./HelpOverlay.tsx"
@@ -141,8 +142,7 @@ export const Browser = ({
 	const filterOpenRef = useRef(false)
 	const filterQueryRef = useRef("")
 	// Snapshot the query at filter-open so Esc reverts edits but commit (Return)
-	// keeps them. Layout snapshots are no longer needed — focus drives drawer
-	// dismissal under the §7.1 visibility rule.
+	// keeps them.
 	const priorFilterQueryRef = useRef("")
 	const [footerNotice, setFooterNoticeState] = useState<{
 		readonly text: string
@@ -269,13 +269,21 @@ export const Browser = ({
 		setFocus,
 		setSelectedIndex,
 		toggleShown: () => {
-			// Per DESIGN.md §7.1 s-behavior table:
-			//   shown=true,  focus=sidebar → shown=false, focus=reader
-			//                                (otherwise the drawer would
-			//                                 immediately re-appear)
-			//   shown=true,  focus=reader  → shown=false, focus=reader
-			//   shown=false, focus=reader  → shown=true,  focus=sidebar
-			//   shown=false, focus=sidebar → shown=true,  focus=sidebar
+			// Two layout shapes, two behaviors:
+			//   wide  → flip the sticky `shown` preference. Per DESIGN.md §7.1
+			//           s-behavior table: also nudge focus so the visibility
+			//           rule (`visible = shown || focus==="sidebar"`) reflects
+			//           the user's intent instead of forcing the sidebar back
+			//           on via focus.
+			//   narrow → swap which screen is up (focus is the source of truth
+			//           for render). Sync `shown` to the new screen so a later
+			//           resize to wide opens with the right pane visible.
+			if (!canFitInline(width)) {
+				const next = focus === "sidebar" ? "reader" : "sidebar"
+				setFocus(next)
+				setShown(next === "sidebar")
+				return
+			}
 			if (shown) {
 				setShown(false)
 				if (focus === "sidebar") setFocus("reader")
@@ -286,10 +294,11 @@ export const Browser = ({
 		},
 		setHelpVisible,
 		openFilter: () => {
-			// Focus the sidebar so the filter input has a home. Under §7.1's
-			// `visible = shown || focus==="sidebar"` rule, focus alone makes
-			// the sidebar visible (as a drawer when `shown=false`), so we no
-			// longer need to mutate `shown` here.
+			// Focus the sidebar so the filter input has a home. In wide,
+			// §7.1's visibility rule (`shown || focus === "sidebar"`) brings
+			// the inline sidebar back on screen if it was hidden. In narrow,
+			// focusing the sidebar swaps to the sidebar screen. Either way
+			// no need to mutate `shown`.
 			priorFilterQueryRef.current = filterQueryRef.current
 			if (focus !== "sidebar") setFocus("sidebar")
 			filterOpenRef.current = true
@@ -391,18 +400,20 @@ export const Browser = ({
 						if (idx >= 0) setSelectedIndex(() => idx)
 					}
 				}
-				// Where focus lands depends on layout intent (DESIGN.md §7.1):
+				// Where focus lands after the filter closes:
 				//   commit (Return on a real pick) → reader, always. The user
 				//     asked to open the match; show them what they picked.
-				//   cancel (Esc, or Return with no pick) → if the sidebar is
-				//     inline (shown && fits), keep focus there so j/k keeps
-				//     walking the list; if the sidebar was only up as a drawer
-				//     (shown=false), dismiss focus to the reader so the drawer
-				//     disappears under the §7.1 visibility rule.
+				//   cancel (Esc, or Return with no pick) → restore the user's
+				//     pre-filter intent. If the sidebar was up before the
+				//     filter opened (shown=true), stay in it so j/k keeps
+				//     walking. If the sidebar was hidden (shown=false), go
+				//     back to the reader so the sidebar dismisses — in narrow
+				//     that swaps screens; in wide that drops the focus-driven
+				//     sidebar revival.
 				if (effectiveCommit) {
 					setFocus("reader")
 				} else {
-					setFocus(shown && canFitInline(width) ? "sidebar" : "reader")
+					setFocus(shown ? "sidebar" : "reader")
 				}
 			}
 			if (key.name === "escape") {
@@ -546,15 +557,15 @@ export const Browser = ({
 	const sidebarWidth = resolveSidebarWidth(width, defaultPreferredWidth(width))
 	const sidebarActive = focus === "sidebar"
 	const readerActive = focus === "reader"
-	// Visibility = shown OR sidebar-focused. When visible-because-focused
-	// only, render as a drawer (absolute) on top of the reader. We also
-	// fall back to drawer rendering when the viewport is too narrow for
-	// the inline two-pane layout even with `shown=true` (Q2 in DESIGN.md
-	// §7.1) — preserves the user's preference without squeezing the reader
-	// below READER_MIN_WIDTH.
-	const sidebarVisible = shown || sidebarActive
-	const sidebarAsDrawer = sidebarVisible && (!shown || !canFitInline(width))
-	const sidebarInline = sidebarVisible && !sidebarAsDrawer
+	// Wide vs narrow drives the entire layout shape.
+	//   wide   → inline two-pane (today). visible = shown || focus==="sidebar".
+	//   narrow → single-pane stack: whichever pane has focus fills the area.
+	//            `shown` is silently ignored for render in narrow; `focus`
+	//            is the single source of truth.
+	// See DESIGN.md §7.1.
+	const isNarrow = !canFitInline(width)
+	const sidebarInline = isNarrow ? sidebarActive : shown || sidebarActive
+	const readerVisible = isNarrow ? readerActive : true
 	// Currently-selected file shown in the Header (which replaced the
 	// per-pane border title that used to carry this information).
 	const currentFile = selected?.relativePath ?? null
@@ -585,9 +596,12 @@ export const Browser = ({
 		if (desiredScroll !== sidebarScroll) setSidebarScroll(desiredScroll)
 	}, [desiredScroll, sidebarScroll])
 	const visibleFiles = displayedFiles.slice(desiredScroll, desiredScroll + sidebarBodyHeight)
-	// Available width for sidebar text rows: pane width minus 1-cell left
-	// padding and 1-cell right border (the divider rule).
-	const sidebarTextWidth = Math.max(4, sidebarWidth - 2)
+	// Available width for sidebar text rows. Wide-inline: sidebarWidth minus
+	// 1-cell left padding and 1-cell right divider border. Narrow-stack: the
+	// sidebar flex-grows to fill the viewport with no right divider, so the
+	// budget is the viewport minus the 1-cell left padding only.
+	const sidebarPaneWidth = isNarrow ? width : sidebarWidth
+	const sidebarTextWidth = Math.max(4, sidebarPaneWidth - (isNarrow ? 1 : 2))
 	// Right-anchored truncation: keep the filename visible, lose the prefix
 	// with a leading ellipsis when the path is too long.
 	const truncatePath = useCallback(
@@ -634,9 +648,8 @@ export const Browser = ({
 		[helpVisible],
 	)
 
-	// One sidebar element is reused for inline and drawer rendering; only
-	// the wrapper differs (flex sibling vs absolute-positioned). The body is
-	// identical so file rows / filter row don't drift between modes.
+	// One sidebar body for both wide-inline and narrow-stack rendering; only
+	// the wrapper differs (fixed-width sibling vs flex-grow full-pane).
 	const sidebarBody = (
 		<>
 			{filterRowVisible && (
@@ -713,17 +726,20 @@ export const Browser = ({
 				{sidebarInline && (
 					<box
 						style={{
-							border: sidebarBorderSides,
+							// Narrow mode runs single-pane: the sidebar fills the area
+							// and drops its right divider (no neighbour to abut).
+							border: isNarrow ? readerBorderSides : sidebarBorderSides,
 							borderColor: colors.textMuted,
-							width: sidebarWidth,
-							flexShrink: 0,
+							...(isNarrow
+								? { flexGrow: 1, flexShrink: 1 }
+								: { width: sidebarWidth, flexShrink: 0 }),
 							flexDirection: "column",
 							// Dim by default. Borders/separators ride on this so they read
 							// as a single connected frame regardless of focus; only the
 							// active pane's inner body overrides to the raised tint below.
 							backgroundColor: colors.surface,
 						}}
-						customBorderChars={SIDEBAR_BORDER_CHARS}
+						{...(isNarrow ? {} : { customBorderChars: SIDEBAR_BORDER_CHARS })}
 					>
 						<box
 							style={{
@@ -738,95 +754,81 @@ export const Browser = ({
 						</box>
 					</box>
 				)}
-				<box
-					style={{
-						border: readerBorderSides,
-						borderColor: colors.textMuted,
-						flexGrow: 1,
-						flexShrink: 1,
-						flexDirection: "column",
-						// Dim by default (see sidebar note); inner body overrides when active.
-						backgroundColor: colors.surface,
-					}}
-				>
+				{readerVisible && (
 					<box
 						style={{
+							border: readerBorderSides,
+							borderColor: colors.textMuted,
 							flexGrow: 1,
 							flexShrink: 1,
 							flexDirection: "column",
-							padding: 1,
-							backgroundColor: readerActive ? colors.background : colors.surface,
+							// Dim by default (see sidebar note); inner body overrides when active.
+							backgroundColor: colors.surface,
 						}}
 					>
-						{error ? (
-							<text content={error} style={{ fg: colors.error }} />
-						) : (
-							<scrollbox
-								style={{
-									scrollY: true,
-									scrollX: false,
-									flexGrow: 1,
-									flexShrink: 1,
-									backgroundColor: readerActive ? colors.background : colors.surface,
-								}}
-								// opentui's scrollbox consumes arrow keys at the focused-element
-								// level *before* useKeyboard fires, so a modal that handles
-								// arrow keys itself (palette nav, help dismissal) would still
-								// see the reader scroll alongside its own action. Unfocus the
-								// scrollbox while any blocking modal is up — useKeyboard's
-								// modal branches own the keys in that state. Filter is not
-								// listed because it force-focuses the sidebar (readerActive
-								// is already false).
-								focused={readerActive && !paletteOpen && !helpVisible}
-							>
-								<markdown
-									key={renderedPath ?? "empty"}
-									content={content}
-									syntaxStyle={syntaxStyle}
-									fg={colors.text}
-									bg={readerActive ? colors.background : colors.surface}
-									conceal
-									style={{ width: maxWidth ?? "100%" }}
-								/>
-							</scrollbox>
-						)}
+						<box
+							style={{
+								flexGrow: 1,
+								flexShrink: 1,
+								flexDirection: "column",
+								padding: 1,
+								backgroundColor: readerActive ? colors.background : colors.surface,
+							}}
+						>
+							{error ? (
+								<text content={error} style={{ fg: colors.error }} />
+							) : !renderedPath ? (
+								// Reader empty state — no file selected. Brand mark centered as a
+								// welcome anchor; in-app tips (#47) will live here too.
+								<box
+									style={{
+										flexGrow: 1,
+										flexShrink: 1,
+										alignItems: "center",
+										justifyContent: "center",
+										backgroundColor: readerActive ? colors.background : colors.surface,
+									}}
+								>
+									<text
+										content={`${BRAND} ${BRAND_NAME}`}
+										wrapMode="none"
+										style={{ fg: colors.textMuted }}
+									/>
+								</box>
+							) : (
+								<scrollbox
+									style={{
+										scrollY: true,
+										scrollX: false,
+										flexGrow: 1,
+										flexShrink: 1,
+										backgroundColor: readerActive ? colors.background : colors.surface,
+									}}
+									// opentui's scrollbox consumes arrow keys at the focused-element
+									// level *before* useKeyboard fires, so a modal that handles
+									// arrow keys itself (palette nav, help dismissal) would still
+									// see the reader scroll alongside its own action. Unfocus the
+									// scrollbox while any blocking modal is up — useKeyboard's
+									// modal branches own the keys in that state. Filter is not
+									// listed because it force-focuses the sidebar (readerActive
+									// is already false).
+									focused={readerActive && !paletteOpen && !helpVisible}
+								>
+									<markdown
+										key={renderedPath ?? "empty"}
+										content={content}
+										syntaxStyle={syntaxStyle}
+										fg={colors.text}
+										bg={readerActive ? colors.background : colors.surface}
+										conceal
+										style={{ width: maxWidth ?? "100%" }}
+									/>
+								</scrollbox>
+							)}
+						</box>
 					</box>
-				</box>
+				)}
 			</box>
-			{sidebarAsDrawer && (
-				// Drawer overlays the reader, sitting between the Header and
-				// the Footer. Carries its own top/bottom/right borders so the
-				// junction characters render where it abuts the reader's
-				// borders below.
-				<box
-					position="absolute"
-					left={0}
-					top={HEADER_HEIGHT}
-					width={sidebarWidth}
-					height={Math.max(1, height - FOOTER_HEIGHT - HEADER_HEIGHT)}
-					zIndex={5}
-					style={{
-						border: sidebarBorderSides,
-						borderColor: colors.textMuted,
-						flexDirection: "column",
-						// Dim by default (see inline sidebar); inner body overrides when active.
-						backgroundColor: colors.surface,
-					}}
-					customBorderChars={SIDEBAR_BORDER_CHARS}
-				>
-					<box
-						style={{
-							flexGrow: 1,
-							flexShrink: 1,
-							flexDirection: "column",
-							paddingLeft: 1,
-							backgroundColor: sidebarActive ? colors.background : colors.surface,
-						}}
-					>
-						{sidebarBody}
-					</box>
-				</box>
-			)}
 			<Footer
 				bindings={footerBindings}
 				ctx={ctx}

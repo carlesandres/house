@@ -144,11 +144,24 @@ const sidebarIsFocused = (frame: CapturedFrame, charFrame: string): boolean => {
 	return RGBA.fromHex(colors.background).equals(bg)
 }
 
-/** True when the sidebar is rendered (inline or drawer). Detected via the
- *  right-edge divider rule character (`│`). Tests that open the help
- *  overlay or command palette — both of which also render `│` — should
- *  not use this helper while a modal is up. */
-const sidebarIsVisible = (frame: string): boolean => frame.includes("│")
+/** True when the sidebar pane is rendered. Two shapes:
+ *   - Wide (inline two-pane): the right-edge divider rune `│` marks the
+ *     sidebar's right edge.
+ *   - Narrow (single-pane stack): no divider; the sidebar fills the area.
+ *     Detected by counting how many entries from `files` appear in the
+ *     frame — the Header surfaces the *one* selected file even in
+ *     reader-only mode, but only the sidebar list shows multiple files.
+ *
+ *  Callers in narrow scenarios should pass `files`. Tests that open the
+ *  help overlay or command palette — both of which also render `│` —
+ *  should not use this helper while a modal is up. */
+const sidebarIsVisible = (frame: string, files?: readonly string[]): boolean => {
+	if (frame.includes("│")) return true
+	if (!files || files.length < 2) return false
+	let hits = 0
+	for (const f of files) if (frame.includes(f)) hits++
+	return hits >= 2
+}
 
 const settleBrowser = async () => {
 	await act(async () => {
@@ -517,7 +530,7 @@ describe("Browser — #22 layout v2", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
-		expect(sidebarIsVisible(setup!.captureCharFrame())).toBe(true)
+		expect(sidebarIsVisible(setup!.captureCharFrame(), ["a.md", "b.md"])).toBe(true)
 		expect(frame).toContain("a.md")
 	})
 
@@ -2608,7 +2621,11 @@ describe("Browser — header", () => {
 	test("renders brand mark and version on a tall viewport", async () => {
 		await act(async () => {
 			setup = await renderBrowser(
-				<Browser files={makeFiles(["a.md"])} readFile={makeReader({ "a.md": "x" })} onQuit={() => {}} />,
+				<Browser
+					files={makeFiles(["a.md"])}
+					readFile={makeReader({ "a.md": "x" })}
+					onQuit={() => {}}
+				/>,
 				{ width: 120, height: 30 },
 			)
 		})
@@ -2622,7 +2639,11 @@ describe("Browser — header", () => {
 	test("renders the header even on short viewports", async () => {
 		await act(async () => {
 			setup = await renderBrowser(
-				<Browser files={makeFiles(["a.md"])} readFile={makeReader({ "a.md": "x" })} onQuit={() => {}} />,
+				<Browser
+					files={makeFiles(["a.md"])}
+					readFile={makeReader({ "a.md": "x" })}
+					onQuit={() => {}}
+				/>,
 				{ width: 120, height: 8 },
 			)
 		})

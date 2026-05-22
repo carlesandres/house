@@ -14,9 +14,9 @@ describe("renderHtml", () => {
 		expect(html).toContain("<p>world</p>")
 		// CSS is embedded, not linked.
 		expect(html).toContain("<style>")
-		expect(html).not.toContain("<link rel=\"stylesheet\"")
+		expect(html).not.toContain('<link rel="stylesheet"')
 		// Live-reload bootstrap is inline.
-		expect(html).toContain("EventSource(\"/__reload\")")
+		expect(html).toContain('EventSource("/__reload")')
 	})
 
 	test("escapes the title", () => {

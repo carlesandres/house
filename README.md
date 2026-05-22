@@ -1,8 +1,17 @@
-# house
+# ⌂ house
 
-A terminal markdown reader built on [opentui](https://github.com/anomalyco/opentui). Point it at a directory and navigate its `.md` files without leaving the terminal.
+A terminal markdown reader and navigator — themable and configurable, with a keyboard-driven modern UI. Point it at a directory and browse its `.md` files without leaving the terminal.
 
 ![house demo](tape/house.gif)
+
+## Features
+
+- **30+ themes** with dark and light tones
+- **Responsive layout**
+- **Fuzzy search** across nested folders (`.gitignore`-aware)
+- **Command palette**
+- **Keyboard-driven**
+- **Open in browser**
 
 Requires [Bun](https://bun.sh) on `PATH`.
 
@@ -21,12 +30,6 @@ npm i -g @carlesandres/house
 # or
 bun add -g @carlesandres/house
 ```
-
-When a newer published version is available on npm, house prints a one-line
-notice in the footer at startup and a copy-pasteable upgrade tip on quit.
-The check is opt-out: set `NO_UPDATE_NOTIFIER=1` (any non-empty, non-`0`
-value works) or pass `--no-update-check`. The check is also skipped under
-CI (any non-empty `CI` value).
 
 ## Usage
 

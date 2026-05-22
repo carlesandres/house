@@ -51,6 +51,16 @@ describe("walk — extensions", () => {
 		const result = await run(walkToArray(root))
 		expect(names(result)).toEqual(["README.md"])
 	})
+
+	test("mdx: false excludes .mdx but keeps .md and .markdown", async () => {
+		const root = await fixture({
+			"a.md": "x",
+			"b.markdown": "x",
+			"c.mdx": "x",
+		})
+		const result = await run(walkToArray(root, { mdx: false }))
+		expect(names(result).sort()).toEqual(["a.md", "b.markdown"])
+	})
 })
 
 describe("walk — hard-skip directories", () => {
@@ -298,9 +308,7 @@ describe("walk — streaming", () => {
 		})
 		const seen: string[] = []
 		await run(
-			walk(root).pipe(
-				Stream.runForEach((entry) => Effect.sync(() => seen.push(entry.name))),
-			),
+			walk(root).pipe(Stream.runForEach((entry) => Effect.sync(() => seen.push(entry.name)))),
 		)
 		expect(seen.sort()).toEqual(["a.md", "b.md", "c.md"])
 	})
@@ -313,7 +321,11 @@ describe("walk — streaming", () => {
 		for (let i = 0; i < 50; i++) spec[`sub${i}/file.md`] = "x"
 		const root = await fixture(spec)
 		const first = await run(
-			walk(root).pipe(Stream.take(1), Stream.runCollect, Effect.map((c) => Array.from(c))),
+			walk(root).pipe(
+				Stream.take(1),
+				Stream.runCollect,
+				Effect.map((c) => Array.from(c)),
+			),
 		)
 		expect(first).toHaveLength(1)
 	})

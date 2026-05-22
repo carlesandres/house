@@ -38,17 +38,17 @@ Sleep 1s
 Escape
 Sleep 500ms
 Type "t"
-Sleep 800ms
+Sleep 1600ms
 Type "t"
-Sleep 800ms
+Sleep 1600ms
 Type "t"
-Sleep 800ms
+Sleep 1600ms
 
 # Flip dark/light tone
 Type "L"
-Sleep 1s
+Sleep 2s
 Type "L"
-Sleep 800ms
+Sleep 1600ms
 
 # Quit
 Type "q"

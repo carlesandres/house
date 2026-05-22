@@ -1,7 +1,10 @@
 import { describe, expect, test } from "bun:test"
 import { dispatch, type KeyBinding, type KeyMatch } from "../src/keymap/keymap.ts"
 
-const k = (name: string, mods: { shift?: boolean; ctrl?: boolean; meta?: boolean } = {}): KeyMatch => ({
+const k = (
+	name: string,
+	mods: { shift?: boolean; ctrl?: boolean; meta?: boolean } = {},
+): KeyMatch => ({
 	name,
 	shift: mods.shift ?? false,
 	ctrl: mods.ctrl ?? false,
@@ -76,12 +79,26 @@ describe("dispatch — modifiers", () => {
 })
 
 describe("dispatch — when-gating", () => {
-	interface Ctx { readonly mode: "a" | "b" }
+	interface Ctx {
+		readonly mode: "a" | "b"
+	}
 	test("`when` predicate gates whether a binding fires", () => {
 		const calls: string[] = []
 		const bindings: KeyBinding<Ctx>[] = [
-			{ id: "a-only", description: "", keys: ["j"], when: (c) => c.mode === "a", run: () => calls.push("a") },
-			{ id: "b-only", description: "", keys: ["j"], when: (c) => c.mode === "b", run: () => calls.push("b") },
+			{
+				id: "a-only",
+				description: "",
+				keys: ["j"],
+				when: (c) => c.mode === "a",
+				run: () => calls.push("a"),
+			},
+			{
+				id: "b-only",
+				description: "",
+				keys: ["j"],
+				when: (c) => c.mode === "b",
+				run: () => calls.push("b"),
+			},
 		]
 		dispatch(bindings, { mode: "a" }, k("j"))
 		dispatch(bindings, { mode: "b" }, k("j"))
@@ -91,7 +108,13 @@ describe("dispatch — when-gating", () => {
 	test("first matching enabled binding wins; later ones are skipped", () => {
 		const calls: string[] = []
 		const bindings: KeyBinding<Ctx>[] = [
-			{ id: "first", description: "", keys: ["j"], when: () => true, run: () => calls.push("first") },
+			{
+				id: "first",
+				description: "",
+				keys: ["j"],
+				when: () => true,
+				run: () => calls.push("first"),
+			},
 			{ id: "second", description: "", keys: ["j"], run: () => calls.push("second") },
 		]
 		dispatch(bindings, { mode: "a" }, k("j"))

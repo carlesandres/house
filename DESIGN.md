@@ -73,7 +73,7 @@ Key reservations for deferred features (search, navigation history, bookmarks, e
 |---|---|
 | Root | Path argument if given, else `cwd`. |
 | Recursion | Unbounded depth from root. |
-| Extensions | `.md`, `.markdown`, `.mdx` (mdx rendered as plain markdown — no JSX evaluation). |
+| Extensions | `.md`, `.markdown`, `.mdx` (mdx rendered as plain markdown — no JSX evaluation). `.mdx` is opt-out via `--no-mdx` or `mdx = false` in `config.toml` (or `HOUSE_MDX=false`). |
 | Ignore files | `.gitignore` honored. Nested `.gitignore` files honored. |
 | Hard skips | `node_modules`, `.git`, `.venv` (always, even with `--all`). |
 | Hidden files | Skipped by default; `--all` to include. |
@@ -86,15 +86,19 @@ Discovery is a **non-trivial product decision** — users notice when their ment
 
 ## 7. UX Architecture
 
-### 7.1 Layout — hybrid two-pane
+### 7.1 Layout — wide two-pane, narrow single-pane stack
 
-Two pieces of state drive the layout: `shown` (the user's sticky sidebar preference) and `focus` (which pane has the keyboard). Visibility is derived:
+Layout shape switches on viewport. The boundary is `canFitInline(width)` — true when `SIDEBAR_MIN + DIVIDER + READER_MIN` (69 cols) fits side-by-side.
+
+**Wide (≥ 69 cols) — inline two-pane.** Two pieces of state: `shown` (the user's sticky sidebar preference) and `focus` (which pane has the keyboard). Visibility is derived:
 
 ```
 visible = shown || focus === "sidebar"
 ```
 
-That single rule means a hidden sidebar becomes reachable just by focusing it (via `/` or `tab`), without a separate "open sidebar" operation. When it is visible only because focus is in it, it renders as a **drawer** — absolute-positioned over the reader. When focus leaves the sidebar, the drawer disappears. There is no explicit close.
+That rule means a hidden sidebar becomes reachable just by focusing it (via `/`, `tab`, or `s`), without a separate "open sidebar" operation.
+
+**Narrow (< 69 cols) — single-pane stack.** Only one pane renders at a time, filling the entire pane area. `focus` is the single source of truth for which screen is up; `shown` is silently ignored for render but kept in sync so a later resize to wide opens with the right pane visible. No drawer, no overlay — the reader doesn't render underneath the sidebar.
 
 Width is a pure function of viewport, decoupled from visibility:
 
@@ -103,25 +107,28 @@ resolveSidebarWidth(viewport, preferred) =
   clamp(preferred, SIDEBAR_MIN, viewport - DIVIDER - READER_MIN)
 ```
 
-Same formula for inline and drawer rendering. Until persistent config (#13) lands, `preferred` is derived from viewport (`floor(width * 0.25)` clamped to `[28, 60]`).
+Until persistent config (#13) lands, `preferred` is derived from viewport (`floor(width * 0.25)` clamped to `[28, 60]`).
 
 **Launch** — `--sidebar=auto|on|off` initialises `shown`:
 
-- `auto` (default) — consult the viewport bucket once: `< 80` cols starts hidden, otherwise shown. Buckets are launch-only.
-- `on` — `shown=true`. Honored on every viewport: where the inline layout fits, the sidebar sits beside the reader; where it doesn't, the sidebar is rendered as a drawer over the reader instead of squeezing it. See *Drawer-on-narrow-viewport* below.
-- `off` — `shown=false`. Sidebar still reachable on demand (drawer).
+- `auto` (default) — `shown=true`. Every viewport boots on the sidebar: narrow as the single visible screen, wide as the focused inline pane.
+- `on` — `shown=true`. Same as `auto` in v1; reserved for future per-pane sticky behaviors.
+- `off` — `shown=false`, focus=reader. Boots into reader (narrow) or reader-only inline (wide). Sidebar still reachable via `s`/`tab`/`/`.
 
-**Drawer-on-narrow-viewport** — when `shown=true` but `SIDEBAR_MIN + DIVIDER + READER_MIN` doesn't fit in the viewport, the sidebar silently renders as drawer instead of inline. `shown` stays `true`; only the rendering swaps. The reader keeps its full width; the user's preference is preserved. The drawer is offset one row from the top so the reader pane's title (current file name) stays visible above it.
+**Resize** — switching layouts preserves intent:
+
+- wide → narrow: whichever pane was focused becomes the single visible screen.
+- narrow → wide: the visible pane becomes the focused inline pane; the other pane appears according to the wide visibility rule.
 
 **Filter discoverability** — when a filter is applied (query non-empty) and the input is closed, the footer shows a `[filter: <query>]` chip in the hint row. Surfaces the otherwise-invisible invariant that `[`/`]` walks the filtered set even when the sidebar is hidden.
 
 ```
-shown=true, inline                shown=false, drawer (focus=sidebar)
-┌────┬─────────────────┐          ┌────┐─────────────────┐
-│ ▸R │ # Title         │          │ ▸R │# Title          │
-│  d │                 │          │  d │                 │
-│  x │ Body...         │          │  x │Body...          │
-└────┴─────────────────┘          └────┘─────────────────┘
+wide, shown=true, inline           narrow, focus=sidebar
+┌────┬─────────────────┐           ┌──────────────────────┐
+│ ▸R │ # Title         │           │ ▸ README.md          │
+│  d │                 │           │   notes.md           │
+│  x │ Body...         │           │   …                  │
+└────┴─────────────────┘           └──────────────────────┘
 ```
 
 This is more work than glow's sequential full-screen views, but it is what `opentui`'s layout system was designed for, and it is the natural seed for the future doc-explorer (a tree sidebar already in the right place).
@@ -159,7 +166,33 @@ Do not bind these in v1:
 | `B` | Bookmarks panel |
 | `ctrl+[` / `ctrl+]` | Navigation history back / forward |
 
-### 7.4 Theming
+### 7.4 Unified browser model
+
+**Status: planned (umbrella [#118](https://github.com/carlesandres/house/issues/118)).** The principles below are committed; the implementation is sequenced across #109–#117. Any agent picking up one of those issues must read this section first — it is the contract the individual diffs are working towards.
+
+There is **no "single-file mode"**. The Browser is the only render target. Whatever the user passes on the CLI, the resulting UI is Browser + sidebar + reader. The differences between "I named a file" and "I named a directory" collapse into a single axis: what filter query is preloaded.
+
+**Invariant 1 — the sidebar is populated by search, never imperatively.** Sidebar contents are exactly `filter(discoveredPool, query)`. No code path may push entries into the sidebar by any other route. Refactors that need to "show entry X" must reframe as "what `(discoveryRoot, query)` pair selects X". This invariant exists so the sidebar has one source of truth; imperative population would diverge from the active filter under any edit / re-discovery / user input.
+
+**Invariant 2 — the discovery root and the query are independent inputs.** Discovery root is resolved from (highest wins): `--root <dir>` → `defaultRoot` config → built-in `"cwd"`. `defaultRoot` is string-valued — `"cwd"` (default) or `"git"` (repo root via parent walk, silent cwd fallback). The CLI positional argument never controls discovery root; that surface is reserved for `--root` and config.
+
+**Invariant 3 — the CLI positional is the initial filter query.** `house README.md` → walk the discovery root, seed the filter to `"README.md"`. The fuzzy scorer (`src/discovery/filter.ts`) ranks `README.md` highest (word-start + adjacency bonuses), sticky auto-select lands on it, the reader renders it. Clearing the filter (`Esc`) reveals the full tree. The CLI query is *applied* (live filter, visible in the filter chip), not *consumed* (silently picks selection and clears) — applied is the only shape that honors Invariant 1.
+
+**Invariant 4 — the selected file drives the reader, regardless of focus.** As long as exactly one file is the active selection, that file's content is in the reader pane. Focus determines where keystrokes land, not what is shown. Empty selection → blank reader. There is no separate "open this file in the reader" action distinct from "select it".
+
+**Invariant 5 — file-scoped actions are gated on `hasSelected`, not on `haveFiles`.** The File keymap group (`o` open-in-browser, `[` prev, `]` next) is available iff `selected !== null`. `haveFiles` (list non-empty) is a sloppy proxy that breaks under debounced filter + sticky select, where the list can be non-empty while no row is the selection. `hasSelected` is the honest predicate.
+
+**Invariant 6 — filter input and applied filter are separated by a 50ms debounce.** `filterInput` (immediate) drives the typed line and the filter chip. `filterApplied` (debounced) drives `filterFiles` and selection. Three flush points bypass the debounce so the UI never feels stuck: launch with a seeded query (`initialQuery` initializes *both* states), `Esc` clearing the filter, `Return` committing a pick.
+
+**Invariant 7 — sticky first-match auto-select.** Once `filterApplied` produces its first non-empty result, selection snaps to index 0 and stays. Later-streamed entries with higher scores never reseat selection under the user. The gate re-arms when `filterApplied` changes.
+
+**Empty states.** Post-discovery, with nothing to select, the sidebar shows a single dim row in place of the file list: `no markdown files in <rootDir>` (empty pool) or `no matches for "<query>"` (pool non-empty, zero matches). The reader stays blank. The footer hint row drops File-scoped hints automatically via `hasSelected`.
+
+**What this replaces.** The previous design had an `App` component for file targets and a `Browser` for directory targets, each with its own keymap. That split is the bug that motivated this work: `s` and `o` silently no-op in `App` because they're `Browser`-scoped. Under the unified model, `App` is deleted, `--serve <path>` takes its own explicit path (the positional is reserved for the query), and `house docs/` walks `defaultRoot` and filter-matches `"docs/"` instead of walking `./docs/` directly.
+
+**Behavior-change note for `house docs/`.** Same visible result in the common case (the docs files surface at the top of the sidebar), but the mechanics differ — the entire discovery root is scanned, not just `docs/`. No compat shim; this is the cost of the cleaner model.
+
+### 7.5 Theming
 
 v1 ships **dark + light** as flat TypeScript objects of ~12 semantic tokens (see `src/theme/types.ts`: background, surface, text, textStrong, textMuted, border, borderActive, selectedBg, selectedBgInactive, error, syntax). Selection is via `--theme dark|light` (default `dark`).
 

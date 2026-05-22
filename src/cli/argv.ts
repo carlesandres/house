@@ -29,6 +29,8 @@ export interface ParsedArgs {
 	 *  probe and the "update available" notice. Mirrors the
 	 *  `NO_UPDATE_NOTIFIER` env var so opt-out is reachable without env state. */
 	readonly noUpdateCheck: boolean
+	/** True when `--no-mdx` was passed: exclude `.mdx` files from discovery. */
+	readonly noMdx: boolean
 }
 
 /**
@@ -52,6 +54,7 @@ export const parseArgv = (argv: readonly string[]): ParsedArgs => {
 	let configPath = false
 	let sidebar: string | null = null
 	let noUpdateCheck = false
+	let noMdx = false
 
 	for (let i = 0; i < argv.length; i++) {
 		const arg = argv[i]!
@@ -107,6 +110,9 @@ export const parseArgv = (argv: readonly string[]): ParsedArgs => {
 			case "--no-update-check":
 				noUpdateCheck = true
 				continue
+			case "--no-mdx":
+				noMdx = true
+				continue
 		}
 		if (path === null && !arg.startsWith("-")) {
 			path = arg
@@ -127,6 +133,7 @@ export const parseArgv = (argv: readonly string[]): ParsedArgs => {
 		configPath,
 		sidebar,
 		noUpdateCheck,
+		noMdx,
 	}
 }
 
@@ -149,9 +156,10 @@ options:
   -v, --version  print version and exit
   --config-path  print path to the config file and exit
   --no-update-check  suppress the "newer version available" check (also via NO_UPDATE_NOTIFIER=1)
+  --no-mdx       exclude .mdx files from discovery (default: included)
 
 configuration:
   file: $XDG_CONFIG_HOME/house/config.toml  (default ~/.config/house/config.toml)
-  keys: theme, tone
-  env:  HOUSE_THEME, HOUSE_TONE
+  keys: theme, tone, mdx
+  env:  HOUSE_THEME, HOUSE_TONE, HOUSE_MDX
   precedence (high → low): flags → env → file → defaults`

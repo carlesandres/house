@@ -27,13 +27,42 @@ const run = <A, E>(eff: Effect.Effect<A, E>) => Effect.runPromise(eff as Effect.
 describe("loadConfig", () => {
 	test("returns built-in defaults when nothing is set", async () => {
 		const cfg = await run(loadConfig({ filePath: cfgPath, env: {} }))
-		expect(cfg).toEqual({ theme: "opencode", tone: "dark" })
+		expect(cfg).toEqual({ theme: "opencode", tone: "dark", mdx: true })
+	})
+
+	test("mdx = false in file is honored", async () => {
+		await writeFile(cfgPath, `mdx = false\n`)
+		const cfg = await run(loadConfig({ filePath: cfgPath, env: {} }))
+		expect(cfg.mdx).toBe(false)
+	})
+
+	test("HOUSE_MDX env beats file", async () => {
+		await writeFile(cfgPath, `mdx = true\n`)
+		const cfg = await run(loadConfig({ filePath: cfgPath, env: { HOUSE_MDX: "false" } }))
+		expect(cfg.mdx).toBe(false)
+	})
+
+	test("CLI mdx=false beats env and file", async () => {
+		await writeFile(cfgPath, `mdx = true\n`)
+		const cfg = await run(
+			loadConfig({
+				filePath: cfgPath,
+				env: { HOUSE_MDX: "true" },
+				cli: { theme: null, tone: null, mdx: false },
+			}),
+		)
+		expect(cfg.mdx).toBe(false)
+	})
+
+	test("invalid mdx value → ConfigError", async () => {
+		await writeFile(cfgPath, `mdx = "maybe"\n`)
+		await expect(run(loadConfig({ filePath: cfgPath, env: {} }))).rejects.toThrow(/mdx/i)
 	})
 
 	test("file overrides defaults; missing key falls through to default", async () => {
 		await writeFile(cfgPath, `theme = "${altTheme}"\n`)
 		const cfg = await run(loadConfig({ filePath: cfgPath, env: {} }))
-		expect(cfg).toEqual({ theme: altTheme, tone: "dark" })
+		expect(cfg).toEqual({ theme: altTheme, tone: "dark", mdx: true })
 	})
 
 	test("env beats file (per-key)", async () => {
@@ -41,7 +70,7 @@ describe("loadConfig", () => {
 		const cfg = await run(
 			loadConfig({ filePath: cfgPath, env: { HOUSE_THEME: altTheme2, HOUSE_TONE: "light" } }),
 		)
-		expect(cfg).toEqual({ theme: altTheme2, tone: "light" })
+		expect(cfg).toEqual({ theme: altTheme2, tone: "light", mdx: true })
 	})
 
 	test("CLI beats env (per-key)", async () => {
@@ -49,7 +78,7 @@ describe("loadConfig", () => {
 			loadConfig({
 				filePath: cfgPath,
 				env: { HOUSE_TONE: "dark" },
-				cli: { theme: null, tone: "light" },
+				cli: { theme: null, tone: "light", mdx: null },
 			}),
 		)
 		expect(cfg.tone).toBe("light")
@@ -61,7 +90,7 @@ describe("loadConfig", () => {
 			loadConfig({
 				filePath: cfgPath,
 				env: { HOUSE_THEME: altTheme2 },
-				cli: { theme: "opencode", tone: null },
+				cli: { theme: "opencode", tone: null, mdx: null },
 			}),
 		)
 		expect(cfg.theme).toBe("opencode")
@@ -81,11 +110,40 @@ describe("loadConfig", () => {
 		)
 	})
 
-	test("unknown key in file → ConfigError listing the bad key", async () => {
-		await writeFile(cfgPath, `them = "${altTheme}"\n`)
-		await expect(run(loadConfig({ filePath: cfgPath, env: {} }))).rejects.toThrow(
-			/"them"/,
+	test("unknown key in file → warning + still loads with defaults", async () => {
+		// Forward-compat: a config written for a future house version should
+		// not break the current one. Unknown keys are dropped with a warning.
+		await writeFile(cfgPath, `futureFeature = "on"\n`)
+		const warnings: string[] = []
+		const cfg = await run(
+			loadConfig({ filePath: cfgPath, env: {}, onWarning: (m) => warnings.push(m) }),
 		)
+		expect(cfg).toEqual({ theme: "opencode", tone: "dark", mdx: true })
+		expect(warnings).toHaveLength(1)
+		expect(warnings[0]).toMatch(/"futureFeature"/)
+	})
+
+	test("typo'd key suggests the closest known key", async () => {
+		await writeFile(cfgPath, `them = "${altTheme}"\n`)
+		const warnings: string[] = []
+		const cfg = await run(
+			loadConfig({ filePath: cfgPath, env: {}, onWarning: (m) => warnings.push(m) }),
+		)
+		expect(cfg.theme).toBe("opencode") // bad key dropped → default
+		expect(warnings[0]).toMatch(/did you mean "theme"/)
+	})
+
+	test("unknown key far from any known key gets no suggestion", async () => {
+		await writeFile(cfgPath, `xyzzy = "on"\n`)
+		const warnings: string[] = []
+		await run(loadConfig({ filePath: cfgPath, env: {}, onWarning: (m) => warnings.push(m) }))
+		expect(warnings[0]).not.toMatch(/did you mean/)
+	})
+
+	test("known keys still load when an unknown sibling is present", async () => {
+		await writeFile(cfgPath, `theme = "${altTheme}"\nfutureFeature = "on"\n`)
+		const cfg = await run(loadConfig({ filePath: cfgPath, env: {}, onWarning: () => {} }))
+		expect(cfg.theme).toBe(altTheme)
 	})
 
 	test("partial file: only theme set, tone defaults", async () => {
