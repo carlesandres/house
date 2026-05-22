@@ -6,8 +6,8 @@ A terminal markdown reader and navigator — themable and configurable, with a k
 
 ## Features
 
-- **30+ themes** with dark and light tones, cycle live with `t` / `T`
-- **Responsive layout** — sidebar + reader on wide terminals, single-pane stack when narrow
+- **30+ themes** with dark and light tones
+- **Responsive layout**
 - **Fuzzy search** across nested folders (`.gitignore`-aware)
 - **Command palette**
 - **Keyboard-driven**
