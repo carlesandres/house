@@ -4,7 +4,6 @@ import {
 	READER_MIN_WIDTH,
 	SIDEBAR_MAX_WIDTH,
 	SIDEBAR_MIN_WIDTH,
-	TIGHT_VIEWPORT_THRESHOLD,
 	canFitInline,
 	defaultPreferredWidth,
 	initialShownForAuto,
@@ -59,10 +58,9 @@ describe("defaultPreferredWidth", () => {
 })
 
 describe("initialShownForAuto", () => {
-	test("hidden below the tight threshold, shown at or above it", () => {
-		expect(initialShownForAuto(TIGHT_VIEWPORT_THRESHOLD - 1)).toBe(false)
-		expect(initialShownForAuto(TIGHT_VIEWPORT_THRESHOLD)).toBe(true)
-		expect(initialShownForAuto(TIGHT_VIEWPORT_THRESHOLD + 50)).toBe(true)
+	test("always shows the sidebar (narrow: stack-mode sidebar; wide: inline)", () => {
+		expect(initialShownForAuto(40)).toBe(true)
+		expect(initialShownForAuto(80)).toBe(true)
+		expect(initialShownForAuto(200)).toBe(true)
 	})
 })
-

@@ -86,15 +86,19 @@ Discovery is a **non-trivial product decision** — users notice when their ment
 
 ## 7. UX Architecture
 
-### 7.1 Layout — hybrid two-pane
+### 7.1 Layout — wide two-pane, narrow single-pane stack
 
-Two pieces of state drive the layout: `shown` (the user's sticky sidebar preference) and `focus` (which pane has the keyboard). Visibility is derived:
+Layout shape switches on viewport. The boundary is `canFitInline(width)` — true when `SIDEBAR_MIN + DIVIDER + READER_MIN` (69 cols) fits side-by-side.
+
+**Wide (≥ 69 cols) — inline two-pane.** Two pieces of state: `shown` (the user's sticky sidebar preference) and `focus` (which pane has the keyboard). Visibility is derived:
 
 ```
 visible = shown || focus === "sidebar"
 ```
 
-That single rule means a hidden sidebar becomes reachable just by focusing it (via `/` or `tab`), without a separate "open sidebar" operation. When it is visible only because focus is in it, it renders as a **drawer** — absolute-positioned over the reader. When focus leaves the sidebar, the drawer disappears. There is no explicit close.
+That rule means a hidden sidebar becomes reachable just by focusing it (via `/`, `tab`, or `s`), without a separate "open sidebar" operation.
+
+**Narrow (< 69 cols) — single-pane stack.** Only one pane renders at a time, filling the entire pane area. `focus` is the single source of truth for which screen is up; `shown` is silently ignored for render but kept in sync so a later resize to wide opens with the right pane visible. No drawer, no overlay — the reader doesn't render underneath the sidebar.
 
 Width is a pure function of viewport, decoupled from visibility:
 
@@ -103,25 +107,28 @@ resolveSidebarWidth(viewport, preferred) =
   clamp(preferred, SIDEBAR_MIN, viewport - DIVIDER - READER_MIN)
 ```
 
-Same formula for inline and drawer rendering. Until persistent config (#13) lands, `preferred` is derived from viewport (`floor(width * 0.25)` clamped to `[28, 60]`).
+Until persistent config (#13) lands, `preferred` is derived from viewport (`floor(width * 0.25)` clamped to `[28, 60]`).
 
 **Launch** — `--sidebar=auto|on|off` initialises `shown`:
 
-- `auto` (default) — consult the viewport bucket once: `< 80` cols starts hidden, otherwise shown. Buckets are launch-only.
-- `on` — `shown=true`. Honored on every viewport: where the inline layout fits, the sidebar sits beside the reader; where it doesn't, the sidebar is rendered as a drawer over the reader instead of squeezing it. See *Drawer-on-narrow-viewport* below.
-- `off` — `shown=false`. Sidebar still reachable on demand (drawer).
+- `auto` (default) — `shown=true`. Every viewport boots on the sidebar: narrow as the single visible screen, wide as the focused inline pane.
+- `on` — `shown=true`. Same as `auto` in v1; reserved for future per-pane sticky behaviors.
+- `off` — `shown=false`, focus=reader. Boots into reader (narrow) or reader-only inline (wide). Sidebar still reachable via `s`/`tab`/`/`.
 
-**Drawer-on-narrow-viewport** — when `shown=true` but `SIDEBAR_MIN + DIVIDER + READER_MIN` doesn't fit in the viewport, the sidebar silently renders as drawer instead of inline. `shown` stays `true`; only the rendering swaps. The reader keeps its full width; the user's preference is preserved. The drawer is offset one row from the top so the reader pane's title (current file name) stays visible above it.
+**Resize** — switching layouts preserves intent:
+
+- wide → narrow: whichever pane was focused becomes the single visible screen.
+- narrow → wide: the visible pane becomes the focused inline pane; the other pane appears according to the wide visibility rule.
 
 **Filter discoverability** — when a filter is applied (query non-empty) and the input is closed, the footer shows a `[filter: <query>]` chip in the hint row. Surfaces the otherwise-invisible invariant that `[`/`]` walks the filtered set even when the sidebar is hidden.
 
 ```
-shown=true, inline                shown=false, drawer (focus=sidebar)
-┌────┬─────────────────┐          ┌────┐─────────────────┐
-│ ▸R │ # Title         │          │ ▸R │# Title          │
-│  d │                 │          │  d │                 │
-│  x │ Body...         │          │  x │Body...          │
-└────┴─────────────────┘          └────┘─────────────────┘
+wide, shown=true, inline           narrow, focus=sidebar
+┌────┬─────────────────┐           ┌──────────────────────┐
+│ ▸R │ # Title         │           │ ▸ README.md          │
+│  d │                 │           │   notes.md           │
+│  x │ Body...         │           │   …                  │
+└────┴─────────────────┘           └──────────────────────┘
 ```
 
 This is more work than glow's sequential full-screen views, but it is what `opentui`'s layout system was designed for, and it is the natural seed for the future doc-explorer (a tree sidebar already in the right place).

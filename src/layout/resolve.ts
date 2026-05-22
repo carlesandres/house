@@ -18,8 +18,6 @@ export const SIDEBAR_MAX_WIDTH = 60
 export const READER_MIN_WIDTH = 40
 /** Column gap painted between the two panes when both are inline. */
 export const DIVIDER_WIDTH = 1
-/** Launch-bucket threshold for `--sidebar=auto`. < this → start hidden. */
-export const TIGHT_VIEWPORT_THRESHOLD = 80
 
 /**
  * Continuous clamp. `preferred` is the user's desired width (until #13 lands,
@@ -28,7 +26,7 @@ export const TIGHT_VIEWPORT_THRESHOLD = 80
  *
  * Result is not clamped *up* to SIDEBAR_MIN when the viewport itself is too
  * narrow to hold both panes — the caller decides whether to render at all
- * (e.g. drawer instead of inline). See `canFitInline`.
+ * (e.g. single-pane stack instead of inline). See `canFitInline`.
  */
 export const resolveSidebarWidth = (viewport: number, preferred: number): number => {
 	const ceiling = viewport - DIVIDER_WIDTH - READER_MIN_WIDTH
@@ -46,15 +44,17 @@ export const defaultPreferredWidth = (viewport: number): number =>
 
 /**
  * True when an inline (side-by-side) layout still gives the reader at least
- * READER_MIN_WIDTH. When false, the caller should render the sidebar as a
- * drawer instead — see DESIGN.md §7.1 Q2.
+ * READER_MIN_WIDTH. When false, the viewport is "narrow" and the UI runs in
+ * single-pane stack mode — sidebar OR reader fills the pane area, never both.
+ * See DESIGN.md §7.1.
  */
 export const canFitInline = (viewport: number): boolean =>
 	viewport >= SIDEBAR_MIN_WIDTH + DIVIDER_WIDTH + READER_MIN_WIDTH
 
 /**
- * Launch bucket decision for `--sidebar=auto`. Buckets are consulted once at
- * launch only; subsequent visibility changes go through `shown` + focus.
+ * Initial sidebar visibility for `--sidebar=auto`. Always true — every
+ * viewport now boots on the sidebar (narrow: as the single visible screen;
+ * wide: as the focused inline pane). `--sidebar=off` is the only way to
+ * boot directly into the reader.
  */
-export const initialShownForAuto = (viewport: number): boolean =>
-	viewport >= TIGHT_VIEWPORT_THRESHOLD
+export const initialShownForAuto = (_viewport: number): boolean => true
