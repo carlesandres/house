@@ -6,6 +6,12 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 
 ## [Unreleased]
 
+## [0.4.3] — 2026-05-23
+
+### Fixed
+
+- Dependency alignment: bumped `effect` to `4.0.0-beta.70` to match `@effect/atom-react@4.0.0-beta.70`, removing npm `ERESOLVE overriding peer dependency` warnings during global installs.
+
 ## [0.4.2] — 2026-05-23
 
 ### Added
@@ -167,4 +173,13 @@ The v1 MVP, published as `@carlesandres/openmdr` on npm.
 
 Search, stdin, URL fetching, cross-file link following, `$EDITOR` hand-off, syntax highlighting, persistent config, OS-appearance auto-detect, single-binary distribution (issue [#2](https://github.com/carlesandres/openmdr/issues/2)), Homebrew tap. All tracked.
 
-[Unreleased]: https://github.com/carlesandres/house/compare/v0.4.2...HEAD [0.4.2]: https://github.com/carlesandres/house/compare/v0.4.1...v0.4.2 [0.4.1]: https://github.com/carlesandres/house/compare/v0.4.0...v0.4.1 [0.4.0]: https://github.com/carlesandres/house/compare/v0.3.1...v0.4.0 [0.3.1]: https://github.com/carlesandres/house/compare/v0.3.0...v0.3.1 [0.3.0]: https://github.com/carlesandres/house/compare/v0.2.1...v0.3.0 [0.2.1]: https://github.com/carlesandres/house/compare/v0.2.0...v0.2.1 [0.2.0]: https://github.com/carlesandres/house/compare/v0.1.0...v0.2.0 [0.1.0]: https://github.com/carlesandres/house/releases/tag/v0.1.0
+[Unreleased]: https://github.com/carlesandres/house/compare/v0.4.3...HEAD
+[0.4.3]: https://github.com/carlesandres/house/compare/v0.4.2...v0.4.3
+[0.4.2]: https://github.com/carlesandres/house/compare/v0.4.1...v0.4.2
+[0.4.1]: https://github.com/carlesandres/house/compare/v0.4.0...v0.4.1
+[0.4.0]: https://github.com/carlesandres/house/compare/v0.3.1...v0.4.0
+[0.3.1]: https://github.com/carlesandres/house/compare/v0.3.0...v0.3.1
+[0.3.0]: https://github.com/carlesandres/house/compare/v0.2.1...v0.3.0
+[0.2.1]: https://github.com/carlesandres/house/compare/v0.2.0...v0.2.1
+[0.2.0]: https://github.com/carlesandres/house/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/carlesandres/house/releases/tag/v0.1.0
