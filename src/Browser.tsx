@@ -36,6 +36,7 @@ import {
 	resolveSidebarWidth,
 } from "./layout/resolve.ts"
 import { formatSidebarRow } from "./layout/sidebarRow.ts"
+import { PromptRow } from "./PromptRow.tsx"
 import { openInBrowser } from "./serve/openBrowser.ts"
 import { startServer, type ServerHandle } from "./serve/server.ts"
 import { colors, setActiveTheme } from "./theme/colors.ts"
@@ -671,30 +672,6 @@ export const Browser = ({
 		[sidebarTextWidth],
 	)
 
-	// Filter row content + color. Three reachable states:
-	//   editing  — filterOpen=true              → /<query>▏  in textStrong
-	//   applied  — !filterOpen && query !== ""  → /<query>   in text
-	//   idle     — !filterOpen && query === ""  → "/ filter…" in textMuted
-	const filterRowFg = filterOpen
-		? colors.textStrong
-		: filterQuery.length > 0
-			? colors.text
-			: colors.textMuted
-	const filterRowRaw = filterOpen
-		? `/${filterQuery}▏`
-		: filterQuery.length > 0
-			? `/${filterQuery}`
-			: "/ filter…"
-	// Editing keeps the cursor visible — anchor the right edge with a leading
-	// ellipsis when the query overflows. Applied/idle anchor the left edge
-	// (lose the tail) so the leading `/` always reads as a filter marker.
-	const filterRowContent =
-		filterRowRaw.length <= sidebarTextWidth
-			? filterRowRaw
-			: filterOpen
-				? "…" + filterRowRaw.slice(filterRowRaw.length - sidebarTextWidth + 1)
-				: filterRowRaw.slice(0, sidebarTextWidth - 1) + "…"
-
 	// While help is open, the `?` key closes the overlay — relabel its hint
 	// so the footer accurately describes what pressing the key will do.
 	// Memoized: `helpVisible` changes rarely; `browserBindings` and
@@ -714,7 +691,12 @@ export const Browser = ({
 	const sidebarBody = (
 		<>
 			{filterRowVisible && (
-				<text content={filterRowContent} wrapMode="none" style={{ fg: filterRowFg }} />
+				<PromptRow
+					query={filterQuery}
+					editing={filterOpen}
+					placeholder="/ to filter…"
+					width={sidebarTextWidth}
+				/>
 			)}
 			{displayedFiles.length === 0 ? (
 				<text

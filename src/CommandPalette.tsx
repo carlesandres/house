@@ -11,6 +11,7 @@
 
 import { RGBA } from "@opentui/core"
 import { colors } from "./theme/colors.ts"
+import { PromptRow } from "./PromptRow.tsx"
 import type { AppCommand } from "./commands/types.ts"
 
 // Semi-transparent black scrim painted across the viewport behind the modal.
@@ -104,11 +105,7 @@ export const CommandPalette = ({
 					backgroundColor: colors.surface,
 				}}
 			>
-				<text
-					wrapMode="none"
-					content={fit(`> ${query}▏`, rowWidth)}
-					style={{ fg: colors.textStrong }}
-				/>
+				<PromptRow query={query} editing={true} width={rowWidth} />
 				<text content=" " />
 				{commands.length === 0 ? (
 					<text wrapMode="none" content="  (no matches)" style={{ fg: colors.textMuted }} />
