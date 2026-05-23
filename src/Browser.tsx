@@ -262,6 +262,7 @@ export const Browser = ({
 	// operate on what the user actually sees.
 	const ctx: BrowserCtx = {
 		files: displayedFiles,
+		hasSelected: selected != null,
 		focus,
 		sidebarShown: shown,
 		helpVisible,

@@ -10,6 +10,11 @@ export type BrowserFocus = "sidebar" | "reader"
 
 export interface BrowserCtx {
 	readonly files: readonly FileEntry[]
+	/** True iff `files[selectedIndex]` resolves to an entry. The honest
+	 *  predicate for File-group actions (`o`, `e`, `[`, `]`): with debounced
+	 *  filter and sticky auto-select, `files.length > 0` can be true while
+	 *  `selectedIndex` is invalid for the displayed list. See #115. */
+	readonly hasSelected: boolean
 	readonly focus: BrowserFocus
 	/** User's sticky sidebar preference. Visibility is `shown || focus==="sidebar"`. */
 	readonly sidebarShown: boolean
@@ -37,6 +42,7 @@ const JUMP = 8
 const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n))
 const lastIndex = (c: BrowserCtx) => Math.max(0, c.files.length - 1)
 const haveFiles = (c: BrowserCtx) => c.files.length > 0
+const hasSelected = (c: BrowserCtx) => c.hasSelected
 const stepBy = (c: BrowserCtx, delta: number) =>
 	c.setSelectedIndex((i) => clamp(i + delta, 0, lastIndex(c)))
 
@@ -45,7 +51,10 @@ const filterClosed = (c: BrowserCtx) => !c.filterOpen
 const paletteClosed = (c: BrowserCtx) => !c.paletteOpen
 const inReader = (c: BrowserCtx) => c.focus === "reader"
 const inSidebarWithFiles = (c: BrowserCtx) => inSidebar(c) && haveFiles(c)
-const inReaderWithFiles = (c: BrowserCtx) => inReader(c) && haveFiles(c)
+/** Reader-only sibling-step gate: needs a current selection plus a sibling
+ *  to step to. `hasSelected` implies `files.length >= 1`, so `>= 2` is the
+ *  meaningful extra condition. */
+const inReaderWithSibling = (c: BrowserCtx) => inReader(c) && hasSelected(c) && c.files.length >= 2
 
 export const browserBindings: readonly KeyBinding<BrowserCtx>[] = [
 	// Global
@@ -105,15 +114,6 @@ export const browserBindings: readonly KeyBinding<BrowserCtx>[] = [
 		// closes help on its way in (handled in Browser.tsx).
 		when: paletteClosed,
 		run: (c) => c.openPalette(),
-	},
-	{
-		id: "serve.current",
-		group: "Global",
-		description: "Open current file in browser as HTML",
-		hint: "html",
-		keys: ["o"],
-		when: haveFiles,
-		run: (c) => c.serveCurrent(),
 	},
 	{
 		id: "theme.next",
@@ -213,6 +213,40 @@ export const browserBindings: readonly KeyBinding<BrowserCtx>[] = [
 		run: (c) => c.setFocus("reader"),
 	},
 
+	// File — actions on the currently-selected file. Gated on `hasSelected`
+	// (per #115) so they're available exactly when the reader has something
+	// to act on, regardless of focus or filter state.
+	{
+		id: "serve.current",
+		group: "File",
+		description: "Open current file in browser as HTML",
+		hint: "html",
+		keys: ["o"],
+		when: hasSelected,
+		run: (c) => c.serveCurrent(),
+	},
+	{
+		// `[`/`]` keep the `inReader` clause so they're only typed from the
+		// reader (sidebar uses j/k for stepping). The File-group predicate is
+		// additive: needs a selection *and* a sibling to step to.
+		id: "reader.prevFile",
+		group: "File",
+		description: "Prev file",
+		hint: "prev",
+		keys: ["["],
+		when: inReaderWithSibling,
+		run: (c) => stepBy(c, -1),
+	},
+	{
+		id: "reader.nextFile",
+		group: "File",
+		description: "Next file",
+		hint: "next",
+		keys: ["]"],
+		when: inReaderWithSibling,
+		run: (c) => stepBy(c, 1),
+	},
+
 	// Reader
 	{
 		id: "reader.back",
@@ -222,23 +256,5 @@ export const browserBindings: readonly KeyBinding<BrowserCtx>[] = [
 		keys: ["escape", "left", "h"],
 		when: inReader,
 		run: (c) => c.setFocus("sidebar"),
-	},
-	{
-		id: "reader.prevFile",
-		group: "Reader",
-		description: "Prev file",
-		hint: "prev",
-		keys: ["["],
-		when: inReaderWithFiles,
-		run: (c) => stepBy(c, -1),
-	},
-	{
-		id: "reader.nextFile",
-		group: "Reader",
-		description: "Next file",
-		hint: "next",
-		keys: ["]"],
-		when: inReaderWithFiles,
-		run: (c) => stepBy(c, 1),
 	},
 ]
