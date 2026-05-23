@@ -22,6 +22,7 @@ It is explicitly **not** glow rewritten in TypeScript: glow's center of gravity 
 These are hard non-goals. We will say no to PRs that pull in this direction.
 
 - **Not an editor.** No buffer, no insert mode, no writes to disk. (Future releases may shell out to `$EDITOR`, but that is a hand-off, not editing inside the app.)
+- **Not Windows-supported in v1.** Target platforms are macOS and Linux. Bun runs on Windows, but `house` has never been validated there — see the tracking epic [#129](https://github.com/carlesandres/house/issues/129) for the gap list. We will not block PRs that incidentally improve Windows compat, but we will not accept Windows-only complexity until the tier is explicitly chosen.
 - **Not an exporter.** No HTML, PDF, or image output.
 - **Not a cloud / sync service.** Glow had a stash feature; it was removed. We will not reintroduce that class of feature.
 - **Not a general-purpose pager.** We will not try to replace `less`. Piping arbitrary text into `house` is out of scope.
@@ -160,11 +161,11 @@ Do not bind these in v1:
 
 | Key | Reserved for |
 |---|---|
-| `e` | Open in `$EDITOR` |
-| `o` | Open externally (browser / Finder / xdg-open) |
 | `r` | Reload current file |
 | `B` | Bookmarks panel |
 | `ctrl+[` / `ctrl+]` | Navigation history back / forward |
+
+`e` (open in `$EDITOR`) and `o` (open externally, currently HTML browser) are shipped — see the keymap. Reload semantics: `r` remains reserved because `e`'s post-edit reload is automatic; a manual reload is only needed if we ship file-watching as a separate feature.
 
 ### 7.4 Unified browser model
 

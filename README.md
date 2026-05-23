@@ -13,7 +13,7 @@ A terminal markdown reader and navigator — themable and configurable, with a k
 - **Keyboard-driven**
 - **Open in browser**
 
-Requires [Bun](https://bun.sh) on `PATH`.
+Requires [Bun](https://bun.sh) on `PATH`. Supported on macOS and Linux; Windows is unsupported and unvalidated (see [#129](https://github.com/carlesandres/house/issues/129)).
 
 ## Install
 
@@ -83,6 +83,7 @@ The file is optional — a missing file is fine. Invalid keys, unknown themes, o
 | `s` | Toggle sidebar visibility |
 | `?` | Show / dismiss help overlay |
 | `o` | Open current file in browser as HTML |
+| `e` | Open current file in `$EDITOR` (`$VISUAL` takes precedence) |
 | `t` | Next theme |
 | `T` | Previous theme |
 | `L` | Toggle dark / light tone |

@@ -38,7 +38,6 @@ An item belongs here if its absence is a visible papercut or a table-stakes capa
 | Architecture | File action group gated on `hasSelected` | [#115](https://github.com/carlesandres/house/issues/115) |
 | Architecture | Sidebar empty-state copy | [#116](https://github.com/carlesandres/house/issues/116) |
 | Architecture | Docs sweep for unified model | [#117](https://github.com/carlesandres/house/issues/117) |
-| File-level | Open current file in `$EDITOR` | [#19](https://github.com/carlesandres/house/issues/19) |
 | File-level | Delete current file with confirmation | [#20](https://github.com/carlesandres/house/issues/20) |
 | Navigation | Search — filename, full-text, fuzzy | [#25](https://github.com/carlesandres/house/issues/25) |
 | Navigation | Navigation history stack (back/forward) ★ | [#29](https://github.com/carlesandres/house/issues/29) |
@@ -63,6 +62,7 @@ No commitment to ship. Tracked to remember.
 |---|---|
 | Active auto-update command (depends on #100) | [#12](https://github.com/carlesandres/house/issues/12) |
 | Distribute via Homebrew tap | [#51](https://github.com/carlesandres/house/issues/51) |
+| Windows support (epic; see also #128 PATHEXT) | [#129](https://github.com/carlesandres/house/issues/129) |
 
 ### File handling
 

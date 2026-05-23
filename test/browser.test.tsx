@@ -996,6 +996,36 @@ describe("Browser — footer", () => {
 	})
 
 	test("switches to reader-specific hints when focus moves to the reader", async () => {
+		// Needs ≥2 files for the `[`/`]` prev/next hints to appear — they're
+		// gated on `inReaderWithSibling` (#115) so a single-file vault hides
+		// them as there's nowhere to step to.
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={makeFiles(["a.md", "b.md"])}
+					readFile={makeReader({ "a.md": "x", "b.md": "y" })}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		await act(async () => {
+			setup!.mockInput.pressTab()
+		})
+		await stepFrame(setup!.renderOnce)
+
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("esc back")
+		expect(frame).toContain("[ prev")
+		expect(frame).toContain("] next")
+		expect(frame).not.toContain("↵ open")
+	})
+
+	test("hides `[`/`]` hints in the reader when only one file is displayed", async () => {
+		// #115: File-group siblings need an actual sibling. Single-file
+		// vaults should not surface dead hints.
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
@@ -1015,9 +1045,8 @@ describe("Browser — footer", () => {
 
 		const frame = setup!.captureCharFrame()
 		expect(frame).toContain("esc back")
-		expect(frame).toContain("[ prev")
-		expect(frame).toContain("] next")
-		expect(frame).not.toContain("↵ open")
+		expect(frame).not.toContain("[ prev")
+		expect(frame).not.toContain("] next")
 	})
 
 	test("notice replaces hints after a theme cycle", async () => {

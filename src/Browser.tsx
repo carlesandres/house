@@ -25,6 +25,7 @@ import { BRAND, BRAND_NAME } from "./brand.ts"
 import { Footer, FOOTER_HEIGHT } from "./Footer.tsx"
 import { Header, HEADER_HEIGHT } from "./Header.tsx"
 import { HelpOverlay } from "./HelpOverlay.tsx"
+import { openInEditor, resolveEditor } from "./io/editor.ts"
 import { readFileText } from "./io/readFile.ts"
 import { browserBindings, type BrowserCtx } from "./keymap/browser.ts"
 import { dispatch } from "./keymap/keymap.ts"
@@ -262,6 +263,7 @@ export const Browser = ({
 	// operate on what the user actually sees.
 	const ctx: BrowserCtx = {
 		files: displayedFiles,
+		hasSelected: selected != null,
 		focus,
 		sidebarShown: shown,
 		helpVisible,
@@ -351,6 +353,67 @@ export const Browser = ({
 			}
 			renderer?.destroy()
 			process.exit(0)
+		},
+		editCurrent: () => {
+			const file = displayedFiles[selectedIndex]
+			if (!file) return
+			const editor = resolveEditor(process.env)
+			if (!editor) {
+				pushFooterNotice("set $EDITOR or $VISUAL to use e")
+				return
+			}
+			if (!renderer) {
+				// Test environments without a real renderer (e.g. testRender's
+				// host) don't expose suspend/resume. Nothing safe to do here.
+				pushFooterNotice("editor unavailable in this environment")
+				return
+			}
+			// Fire-and-forget: useKeyboard's run() is synchronous, but the
+			// editor session is naturally async. We always re-enter the
+			// renderer in the finally block so a thrown error never leaves
+			// the user staring at a dead terminal.
+			void (async () => {
+				renderer.suspend()
+				renderer.currentRenderBuffer.clear()
+				let result
+				try {
+					result = await openInEditor({ editor, filePath: file.path })
+				} finally {
+					renderer.currentRenderBuffer.clear()
+					renderer.resume()
+					renderer.requestRender()
+				}
+				// Only reload the in-memory cache when the edited file is the
+				// one currently displayed. Editing a sidebar-selected file that
+				// the reader hasn't caught up to (debounce in flight) is fine —
+				// the regular load path picks up the new mtime when renderedPath
+				// advances.
+				if (file.path === renderedPath) {
+					try {
+						const text = await readFile(file.path)
+						setLoaded({ path: file.path, content: text })
+						setError(null)
+					} catch (err) {
+						const message = String(err)
+						const enoent =
+							(err as { code?: string } | null)?.code === "ENOENT" || message.includes("ENOENT")
+						if (enoent) {
+							pushFooterNotice(`${file.relativePath} no longer exists`)
+							setError(`Cannot read ${file.path}: ${message}`)
+							setLoaded(null)
+						} else {
+							pushFooterNotice(`reload failed: ${message}`)
+						}
+					}
+				}
+				if (!result.ok) {
+					if (result.reason === "spawn-failed") {
+						pushFooterNotice(`editor not found: ${editor.cmd}`)
+					} else if (result.reason === "non-zero") {
+						pushFooterNotice(`editor exited ${result.detail}`)
+					}
+				}
+			})()
 		},
 	}
 
@@ -676,7 +739,7 @@ export const Browser = ({
 					return (
 						<text key={file.path} wrapMode="none" style={rowStyle}>
 							<span style={{ fg: basenameFg }}>{basename}</span>
-							{separator !== "" && (
+							{parent !== "" && (
 								<span style={{ fg: colors.textMuted }}>{`${separator}${parent}`}</span>
 							)}
 						</text>
