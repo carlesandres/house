@@ -24,6 +24,7 @@ An item belongs here if its absence is a visible papercut or a table-stakes capa
 | Theme | Item | Issue |
 |---|---|---|
 | Bugs | Pane focus and selected sidebar row are hard to distinguish in many themes | [#71](https://github.com/carlesandres/house/issues/71) |
+| Bugs | `npm i -g` emits ERESOLVE peer-dependency warnings (effect ↔ @effect/atom-react) | [#143](https://github.com/carlesandres/house/issues/143) |
 | Bugs | Relative assets (images, etc.) don't load in browser preview | [#75](https://github.com/carlesandres/house/issues/75) |
 | Bugs | Applied filter has no one-key clear path | [#84](https://github.com/carlesandres/house/issues/84) |
 | Bugs | Filter chip can crowd out key hints when query is long | [#86](https://github.com/carlesandres/house/issues/86) |
