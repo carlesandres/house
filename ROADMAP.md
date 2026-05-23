@@ -62,6 +62,7 @@ No commitment to ship. Tracked to remember.
 |---|---|
 | Active auto-update command (depends on #100) | [#12](https://github.com/carlesandres/house/issues/12) |
 | Distribute via Homebrew tap | [#51](https://github.com/carlesandres/house/issues/51) |
+| Windows support (epic; see also #128 PATHEXT) | [#129](https://github.com/carlesandres/house/issues/129) |
 
 ### File handling
 

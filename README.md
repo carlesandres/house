@@ -13,7 +13,7 @@ A terminal markdown reader and navigator — themable and configurable, with a k
 - **Keyboard-driven**
 - **Open in browser**
 
-Requires [Bun](https://bun.sh) on `PATH`.
+Requires [Bun](https://bun.sh) on `PATH`. Supported on macOS and Linux; Windows is unsupported and unvalidated (see [#129](https://github.com/carlesandres/house/issues/129)).
 
 ## Install
 

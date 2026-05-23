@@ -139,10 +139,8 @@ export interface OpenInEditorOptions {
  * into a shell string — so paths with shell metacharacters can't be
  * misinterpreted.
  *
- * Windows note: `Bun.spawn` resolves bare names against PATH but does not
- * walk PATHEXT, so `.cmd` shims (typical for `code`, `nvim`, etc. on
- * Windows) won't resolve. POSIX-only for now; Windows handling is a
- * follow-up.
+ * Windows is unsupported (see #129). The PATHEXT gap that breaks `.cmd`
+ * shims (`code.cmd`, `nvim.cmd`) is tracked specifically in #128.
  */
 export const openInEditor = async ({
 	editor,
