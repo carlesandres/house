@@ -138,7 +138,11 @@ export const Footer = <C,>({
 		hints.push({ key: null, label: `[filter: ${filterQuery}]` })
 	}
 	for (const b of bindings) {
-		if (b.when && !b.when(ctx)) continue
+		// Hint visibility prefers `hintWhen` (binding-specific) over `when`
+		// (dispatch gate). Falling back to `when` keeps the original
+		// "hint shows when binding is enabled" behavior for the common case.
+		const visibleGate = b.hintWhen ?? b.when
+		if (visibleGate && !visibleGate(ctx)) continue
 		const h = formatHint(b)
 		if (h !== null) hints.push(h)
 	}

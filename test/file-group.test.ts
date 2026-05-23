@@ -27,6 +27,7 @@ interface CtxOverrides {
 	readonly hasSelected?: boolean
 	readonly focus?: BrowserFocus
 	readonly filterOpen?: boolean
+	readonly filterQuery?: string
 	readonly paletteOpen?: boolean
 	readonly onServe?: () => void
 	readonly onEdit?: () => void
@@ -40,12 +41,14 @@ const makeCtx = (o: CtxOverrides = {}): BrowserCtx => ({
 	sidebarShown: true,
 	helpVisible: false,
 	filterOpen: o.filterOpen ?? false,
+	filterQuery: o.filterQuery ?? "",
 	paletteOpen: o.paletteOpen ?? false,
 	setFocus: noopSetFocus,
 	setSelectedIndex: o.setSelectedIndex ?? noopSetIndex,
 	toggleShown: noop,
 	setHelpVisible: noopSetHelp,
 	openFilter: noop,
+	clearAndOpenFilter: noop,
 	openPalette: noop,
 	cycleTheme: noop,
 	toggleTone: noop,

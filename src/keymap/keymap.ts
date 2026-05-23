@@ -34,6 +34,12 @@ export interface KeyBinding<C> {
 	readonly hint?: string
 	/** If present, the binding only fires when this returns true. */
 	readonly when?: (ctx: C) => boolean
+	/** If present, the footer hint is shown only when this returns true. When
+	 *  absent, hint visibility falls back to `when`. Use when a binding's
+	 *  dispatch gate is broader than the situations where the hint is useful
+	 *  (e.g. "clear filter" fires from anywhere but only deserves a hint when
+	 *  there is actually a filter to clear). */
+	readonly hintWhen?: (ctx: C) => boolean
 	readonly run: (ctx: C) => void
 }
 

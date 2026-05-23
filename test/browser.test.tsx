@@ -1499,8 +1499,8 @@ describe("Browser — sidebar filter row", () => {
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
 		// Placeholder visible, modal is not open (no cursor).
-		expect(frame).toContain("/ filter…")
-		expect(frame).not.toContain("/▏")
+		expect(frame).toContain("> / to filter…")
+		expect(frame).not.toContain("> ▏")
 	})
 
 	test("filter row is suppressed on an empty vault (no '/ filter…')", async () => {
@@ -1513,7 +1513,7 @@ describe("Browser — sidebar filter row", () => {
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
 		expect(frame).toContain("no markdown files")
-		expect(frame).not.toContain("/ filter…")
+		expect(frame).not.toContain("> / to filter…")
 	})
 
 	test("editing state shows the live query with a cursor", async () => {
@@ -1535,9 +1535,9 @@ describe("Browser — sidebar filter row", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
-		expect(frame).toContain("/re▏")
+		expect(frame).toContain("> re▏")
 		// Placeholder gone while editing.
-		expect(frame).not.toContain("/ filter…")
+		expect(frame).not.toContain("> / to filter…")
 	})
 
 	test("applied state persists query after Return; no cursor visible", async () => {
@@ -1569,8 +1569,8 @@ describe("Browser — sidebar filter row", () => {
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
 		// Applied: prefix + query, no cursor.
-		expect(frame).toContain("/int")
-		expect(frame).not.toContain("/int▏")
+		expect(frame).toContain("> int")
+		expect(frame).not.toContain("> int▏")
 		// Filtered list stays narrowed — non-matching files remain hidden.
 		expect(frame).not.toContain("README.md")
 		expect(frame).not.toContain("notes.md")
@@ -1610,10 +1610,10 @@ describe("Browser — sidebar filter row", () => {
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
 		// Query carried into editing state with cursor.
-		expect(frame).toContain("/int▏")
+		expect(frame).toContain("> int▏")
 	})
 
-	test("Esc reverts to the prior query (applied state survives a cancelled edit)", async () => {
+	test("Esc keeps the typed query applied (close-without-revert)", async () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
@@ -1629,7 +1629,7 @@ describe("Browser — sidebar filter row", () => {
 			)
 		})
 		await stepFrame(setup!.renderOnce)
-		// Commit "int" so we have an applied filter to revert to.
+		// Commit "int" so we have an applied filter.
 		await act(async () => {
 			setup!.mockInput.pressKey("/")
 			setup!.mockInput.pressKey("i")
@@ -1645,7 +1645,7 @@ describe("Browser — sidebar filter row", () => {
 			setup!.mockInput.pressKey("o")
 		})
 		await stepFrame(setup!.renderOnce)
-		expect(setup!.captureCharFrame()).toContain("/intro▏")
+		expect(setup!.captureCharFrame()).toContain("> intro▏")
 
 		await act(async () => {
 			setup!.mockInput.pressEscape()
@@ -1653,13 +1653,14 @@ describe("Browser — sidebar filter row", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
-		// Reverted to applied "/int", not cleared. Match with trailing space to
-		// avoid colliding with the "docs/intro.md" file row underneath.
-		expect(frame).toContain("/int ")
-		expect(frame).not.toContain("/intro ")
-		expect(frame).not.toContain("/▏")
+		// Typed query is preserved as the applied filter (no revert). Match
+		// with trailing space to avoid colliding with the "docs/intro.md" file
+		// row underneath.
+		expect(frame).toContain("> intro ")
+		expect(frame).not.toContain("> ▏")
 		// Filtered list still narrowed.
 		expect(frame).not.toContain("README.md")
+		expect(frame).not.toContain("notes.md")
 	})
 })
 
@@ -1687,7 +1688,7 @@ describe("Browser — filter modal", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		// Filter input row visible.
-		expect(setup!.captureCharFrame()).toContain("/▏")
+		expect(setup!.captureCharFrame()).toContain("> ▏")
 
 		await act(async () => {
 			setup!.mockInput.pressKey("r")
@@ -1696,14 +1697,14 @@ describe("Browser — filter modal", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
-		expect(frame).toContain("/rea")
+		expect(frame).toContain("> rea")
 		expect(frame).toContain("README.md")
 		// Non-matching paths are filtered out.
 		expect(frame).not.toContain("notes.md")
 		expect(frame).not.toContain("docs/intro.md")
 	})
 
-	test("escape closes the filter and restores the full list", async () => {
+	test("escape closes the filter but keeps the query applied (no-revert)", async () => {
 		const files = makeFiles(["README.md", "notes.md"])
 		await act(async () => {
 			setup = await renderBrowser(
@@ -1730,10 +1731,11 @@ describe("Browser — filter modal", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
+		// Editing cursor gone; query "r" still applied — list stays narrowed.
+		expect(frame).not.toContain("> r▏")
+		expect(frame).toContain("> r ")
 		expect(frame).toContain("README.md")
-		expect(frame).toContain("notes.md")
-		// Filter input row gone.
-		expect(frame).not.toContain("/r▏")
+		expect(frame).not.toContain("notes.md")
 	})
 
 	test("enter closes the filter and focuses the reader on the match", async () => {
@@ -1771,7 +1773,7 @@ describe("Browser — filter modal", () => {
 		const frame = setup!.captureCharFrame()
 		// Reader is now focused on docs/intro.md; filter is closed.
 		expect(readerTitleContains(frame, "docs/intro.md")).toBe(true)
-		expect(frame).not.toContain("/int▏")
+		expect(frame).not.toContain("> int▏")
 	})
 
 	test("backspace removes a query character and re-broadens the list", async () => {
@@ -1854,11 +1856,11 @@ describe("Browser — filter modal", () => {
 		expect(readerTitleContains(frame, "alpha.md")).toBe(false)
 	})
 
-	test("escape keeps the cursor on the highlighted match (not a random file at the same numeric index)", async () => {
-		// Same shape as above: cursor at filtered[0]=docs/readme.md (full-list
-		// index 3). Without translation, Esc would leave selectedIndex=0
-		// (alpha.md) under the cursor. With translation, the cursor follows
-		// the highlighted match into the restored list.
+	test("escape keeps the cursor on the highlighted match", async () => {
+		// With no-revert Esc, the filtered list shape doesn't change on
+		// close — selectedIndex stays valid and the cursor stays on the
+		// match it was on. Regression guard against any future logic that
+		// might mutate selection on close.
 		const files = makeFiles(["alpha.md", "beta.md", "gamma.md", "docs/readme.md"])
 		await act(async () => {
 			setup = await renderBrowser(
@@ -1894,16 +1896,17 @@ describe("Browser — filter modal", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
-		// Filter closed; full list visible again.
-		expect(frame).not.toContain("/readme▏")
-		expect(frame).toContain("alpha.md")
-		expect(frame).toContain("beta.md")
-		expect(frame).toContain("gamma.md")
+		// Filter closed (no editing cursor); query "readme" still applied so
+		// only the match is visible in the sidebar.
+		expect(frame).not.toContain("> readme▏")
+		expect(frame).toContain("> readme ")
+		expect(frame).not.toContain("alpha.md")
+		expect(frame).not.toContain("beta.md")
+		expect(frame).not.toContain("gamma.md")
 		expect(frame).toContain("docs/readme.md")
 		// Reader title reflects docs/readme.md — the file under the cursor
-		// when Esc fired — NOT alpha.md.
+		// when Esc fired.
 		expect(readerTitleContains(frame, "docs/readme.md")).toBe(true)
-		expect(readerTitleContains(frame, "alpha.md")).toBe(false)
 		// Cancel keeps focus in the sidebar when the layout is inline so
 		// j/k keeps walking the restored list. Drawer dismissal only
 		// applies when the sidebar was up purely because of focus. See
@@ -2007,7 +2010,7 @@ describe("Browser — filter modal", () => {
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
 		// Filter input is up.
-		expect(frame).toContain("/▏")
+		expect(frame).toContain("> ▏")
 		// Sidebar is focused (the modal needs a home).
 		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(true)
 	})
@@ -2039,7 +2042,7 @@ describe("Browser — filter modal", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
-		expect(frame).toContain("/▏")
+		expect(frame).toContain("> ▏")
 		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(true)
 	})
 
@@ -2066,7 +2069,7 @@ describe("Browser — filter modal", () => {
 			setup!.mockInput.pressKey("/")
 		})
 		await stepFrame(setup!.renderOnce)
-		expect(setup!.captureCharFrame()).toContain("/▏")
+		expect(setup!.captureCharFrame()).toContain("> ▏")
 
 		await act(async () => {
 			setup!.mockInput.pressEscape()
@@ -2074,16 +2077,19 @@ describe("Browser — filter modal", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
-		expect(frame).not.toContain("/▏")
+		expect(frame).not.toContain("> ▏")
 		// Restored to hidden.
 		expect(sidebarIsVisible(setup!.captureCharFrame())).toBe(false)
 	})
 
-	test("Esc after typing reverts the query and dismisses the drawer", async () => {
+	test("Esc after typing keeps the query applied and dismisses the drawer", async () => {
 		// Under DESIGN.md §7.1, Esc always returns focus to the reader,
 		// which dismisses any drawer-by-focus. The pre-#22 behavior of
 		// "leave the sidebar open if the user typed" is gone — the
-		// userTyped distinction does not exist anymore.
+		// userTyped distinction does not exist anymore. Note: with the
+		// no-revert Esc semantics, the typed query stays applied even
+		// though the drawer goes away — the next `/` will resume editing
+		// it.
 		const files = makeFiles(["README.md", "notes.md"])
 		await act(async () => {
 			setup = await renderBrowser(
@@ -2115,9 +2121,10 @@ describe("Browser — filter modal", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
-		// Filter input gone; query reverted; drawer dismissed (shown=false,
-		// focus=reader).
-		expect(frame).not.toContain("/r▏")
+		// Filter input gone (no editing cursor); drawer dismissed (shown=false,
+		// focus=reader). Query "r" is kept as the applied filter; reopening
+		// with `/` would resume editing it.
+		expect(frame).not.toContain("> r▏")
 		expect(sidebarIsVisible(setup!.captureCharFrame())).toBe(false)
 	})
 
@@ -2149,7 +2156,7 @@ describe("Browser — filter modal", () => {
 		const frame = setup!.captureCharFrame()
 		// Help is still open; no filter input.
 		expect(frame).toContain("Help")
-		expect(frame).not.toContain("/▏")
+		expect(frame).not.toContain("> ▏")
 	})
 
 	test("backspace at empty query closes the modal (removes the slash)", async () => {
@@ -2171,7 +2178,7 @@ describe("Browser — filter modal", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		// Sanity: modal is up.
-		expect(setup!.captureCharFrame()).toContain("/▏")
+		expect(setup!.captureCharFrame()).toContain("> ▏")
 
 		await act(async () => {
 			setup!.mockInput.pressBackspace()
@@ -2179,14 +2186,14 @@ describe("Browser — filter modal", () => {
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
 		// Editing cursor gone; idle placeholder back.
-		expect(frame).not.toContain("/▏")
-		expect(frame).toContain("/ filter…")
+		expect(frame).not.toContain("> ▏")
+		expect(frame).toContain("> / to filter…")
 		// Both files still visible (no committed filter).
 		expect(frame).toContain("README.md")
 		expect(frame).toContain("notes.md")
 	})
 
-	test("backspace past empty from applied state reverts to the prior filter", async () => {
+	test("backspace past empty from applied state closes with the (now empty) query", async () => {
 		const files = makeFiles(["README.md", "docs/intro.md", "notes.md"])
 		await act(async () => {
 			setup = await renderBrowser(
@@ -2203,7 +2210,7 @@ describe("Browser — filter modal", () => {
 			)
 		})
 		await stepFrame(setup!.renderOnce)
-		// Commit an applied filter "/int".
+		// Commit an applied filter "> int".
 		await act(async () => {
 			setup!.mockInput.pressKey("/")
 			setup!.mockInput.pressKey("i")
@@ -2213,8 +2220,9 @@ describe("Browser — filter modal", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 
-		// Re-open, delete all three chars, then one more backspace closes.
-		// Esc-equivalent: revert to applied "/int", not idle.
+		// Re-open and delete all three chars; the fourth backspace closes the
+		// modal. With no-revert semantics, the applied query is now empty —
+		// the full list comes back.
 		await act(async () => {
 			setup!.mockInput.pressKey("/")
 			setup!.mockInput.pressBackspace()
@@ -2224,17 +2232,21 @@ describe("Browser — filter modal", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
-		expect(frame).not.toContain("/▏")
-		expect(frame).toContain("/int ")
-		// Applied filter still narrows the list.
-		expect(frame).not.toContain("README.md")
-		expect(frame).not.toContain("notes.md")
+		// Editing cursor gone; idle placeholder back.
+		expect(frame).not.toContain("> ▏")
+		expect(frame).toContain("> / to filter…")
+		// Filter cleared — full list visible.
+		expect(frame).toContain("README.md")
+		expect(frame).toContain("notes.md")
 	})
 
 	test("return with zero matches closes the filter and keeps focus in the inline sidebar", async () => {
 		// On a zero-match list there's nothing to commit, so Return is treated
-		// as Esc: query reverts. With the sidebar inline (shown && fits) focus
-		// stays in the sidebar so j/k continues to walk the restored list.
+		// as Esc: closes the modal with the typed query still applied. With
+		// the sidebar inline (shown && fits) focus stays in the sidebar so
+		// j/k continues to walk the list. The "stranded with no visible
+		// files" trade-off is tracked in the linked issue — recovery is
+		// Ctrl+U (inside filter) or `/` then backspace.
 		const files = makeFiles(["README.md", "notes.md"])
 		await act(async () => {
 			setup = await renderBrowser(
@@ -2263,11 +2275,319 @@ describe("Browser — filter modal", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
-		// Filter closed, full list back, sidebar still focused.
-		expect(frame).not.toContain("/zzz▏")
+		// Filter closed (no editing cursor); zero-match query "zzz" stays
+		// applied, so the list remains empty. Sidebar still focused.
+		expect(frame).not.toContain("> zzz▏")
+		expect(frame).toContain("> zzz ")
+		expect(frame).not.toContain("README.md")
+		expect(frame).not.toContain("notes.md")
+		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(true)
+	})
+
+	test("ctrl+\\ inside the filter modal clears the input but stays in filter mode", async () => {
+		const files = makeFiles(["README.md", "notes.md", "docs/intro.md"])
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={files}
+					readFile={makeReader({
+						"README.md": "x",
+						"notes.md": "y",
+						"docs/intro.md": "z",
+					})}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		// Type "int" → list narrows to docs/intro.md.
+		await act(async () => {
+			setup!.mockInput.pressKey("/")
+			setup!.mockInput.pressKey("i")
+			setup!.mockInput.pressKey("n")
+			setup!.mockInput.pressKey("t")
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).toContain("> int▏")
+
+		// Ctrl+\ clears the input but does NOT close filter mode.
+		await act(async () => {
+			setup!.mockInput.pressKey("\\", { ctrl: true })
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		// Editing cursor still present on an empty query.
+		expect(frame).toContain("> ▏")
+		// Full list back.
 		expect(frame).toContain("README.md")
 		expect(frame).toContain("notes.md")
-		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(true)
+	})
+
+	test("ctrl+u inside the filter modal does NOT clear (reserved for sidebar/reader page-up)", async () => {
+		const files = makeFiles(["README.md", "notes.md", "docs/intro.md"])
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={files}
+					readFile={makeReader({
+						"README.md": "x",
+						"notes.md": "y",
+						"docs/intro.md": "z",
+					})}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		await act(async () => {
+			setup!.mockInput.pressKey("/")
+			setup!.mockInput.pressKey("i")
+			setup!.mockInput.pressKey("n")
+			setup!.mockInput.pressKey("t")
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).toContain("> int▏")
+
+		await act(async () => {
+			setup!.mockInput.pressKey("u", { ctrl: true })
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		// Query unchanged; modal still open. Ctrl+U is swallowed inside the
+		// filter input — its sidebar page-up binding doesn't fire either,
+		// since the keymap doesn't see keys while filter is open.
+		expect(frame).toContain("> int▏")
+	})
+
+	test("ctrl+\\ from sidebar with an applied filter clears it and reopens the modal", async () => {
+		const files = makeFiles(["README.md", "notes.md", "docs/intro.md"])
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={files}
+					readFile={makeReader({
+						"README.md": "x",
+						"notes.md": "y",
+						"docs/intro.md": "z",
+					})}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		// Commit "int" then close filter mode by hitting Esc (no-revert: query
+		// stays applied, sidebar narrowed to docs/intro.md).
+		await act(async () => {
+			setup!.mockInput.pressKey("/")
+			setup!.mockInput.pressKey("i")
+			setup!.mockInput.pressKey("n")
+			setup!.mockInput.pressKey("t")
+			setup!.mockInput.pressEscape()
+			await new Promise<void>((resolve) => setTimeout(resolve, 60))
+		})
+		await stepFrame(setup!.renderOnce)
+		// Sanity: filter is closed and "> int " is applied.
+		expect(setup!.captureCharFrame()).toContain("> int ")
+
+		// Ctrl+\ from the sidebar: clear + reopen.
+		await act(async () => {
+			setup!.mockInput.pressKey("\\", { ctrl: true })
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		// Editing cursor present on an empty query; full list back.
+		expect(frame).toContain("> ▏")
+		expect(frame).toContain("README.md")
+		expect(frame).toContain("notes.md")
+		expect(frame).toContain("intro.md")
+	})
+
+	test("ctrl+\\ from the reader with an applied filter clears, opens, and focuses the sidebar", async () => {
+		const files = makeFiles(["README.md", "notes.md", "docs/intro.md"])
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={files}
+					readFile={makeReader({
+						"README.md": "x",
+						"notes.md": "y",
+						"docs/intro.md": "z",
+					})}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		// Apply a filter and commit on the match (focus → reader).
+		await act(async () => {
+			setup!.mockInput.pressKey("/")
+			setup!.mockInput.pressKey("i")
+			setup!.mockInput.pressKey("n")
+			setup!.mockInput.pressKey("t")
+			setup!.mockInput.pressEnter()
+			await new Promise<void>((resolve) => setTimeout(resolve, 60))
+		})
+		await stepFrame(setup!.renderOnce)
+
+		// Ctrl+\ from the reader: should move focus to sidebar, clear, open.
+		await act(async () => {
+			setup!.mockInput.pressKey("\\", { ctrl: true })
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("> ▏")
+		expect(frame).toContain("README.md")
+		expect(frame).toContain("notes.md")
+	})
+
+	test("ctrl+\\ from idle (no filter applied) opens the filter fresh", async () => {
+		const files = makeFiles(["README.md", "notes.md"])
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={files}
+					readFile={makeReader({ "README.md": "x", "notes.md": "y" })}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		// No filter applied (idle).
+		expect(setup!.captureCharFrame()).toContain("> / to filter…")
+
+		await act(async () => {
+			setup!.mockInput.pressKey("\\", { ctrl: true })
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		// Editing cursor on empty query — equivalent to pressing `/`.
+		expect(frame).toContain("> ▏")
+	})
+
+	test("ctrl+\\ with the command palette open is swallowed (palette stays, no filter open)", async () => {
+		const files = makeFiles(["README.md", "notes.md"])
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={files}
+					readFile={makeReader({ "README.md": "x", "notes.md": "y" })}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		// Open palette.
+		await act(async () => {
+			setup!.mockInput.pressKey("p", { ctrl: true })
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).toContain("Commands")
+
+		// Ctrl+\ while palette open: should be swallowed by the palette
+		// modal (matches its general ctrl-modified-key swallow rule), not
+		// tear it down to open the filter.
+		await act(async () => {
+			setup!.mockInput.pressKey("\\", { ctrl: true })
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		// Palette still up.
+		expect(frame).toContain("Commands")
+		// Filter modal is NOT open — sidebar row shows the idle placeholder,
+		// not the editing chevron. (Both palette and filter inputs use "> ▏",
+		// so check the sidebar row text specifically.)
+		expect(frame).toContain("> / to filter…")
+	})
+
+	test("ctrl+\\ with the help overlay open is swallowed (help stays, no filter open)", async () => {
+		const files = makeFiles(["README.md", "notes.md"])
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={files}
+					readFile={makeReader({ "README.md": "x", "notes.md": "y" })}
+					onQuit={() => {}}
+				/>,
+				{ width: 120, height: 50 },
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		await act(async () => {
+			setup!.mockInput.pressKey("?")
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).toContain("Help")
+
+		await act(async () => {
+			setup!.mockInput.pressKey("\\", { ctrl: true })
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		// Help still up; no filter editing cursor.
+		expect(frame).toContain("Help")
+		expect(frame).not.toContain("> ▏")
+	})
+
+	test("footer shows `ctrl+\\ clear` only when a filter is applied and no modal is open", async () => {
+		const files = makeFiles(["README.md", "notes.md", "docs/intro.md"])
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={files}
+					readFile={makeReader({
+						"README.md": "x",
+						"notes.md": "y",
+						"docs/intro.md": "z",
+					})}
+					onQuit={() => {}}
+				/>,
+				{ width: 160, height: 40 },
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		// Idle (no filter): hint absent.
+		expect(setup!.captureCharFrame()).not.toContain("ctrl+\\ clear")
+
+		// Apply a filter and close the modal (no-revert Esc keeps it applied).
+		await act(async () => {
+			setup!.mockInput.pressKey("/")
+			setup!.mockInput.pressKey("i")
+			setup!.mockInput.pressKey("n")
+			setup!.mockInput.pressKey("t")
+			setup!.mockInput.pressEscape()
+			await new Promise<void>((resolve) => setTimeout(resolve, 60))
+		})
+		await stepFrame(setup!.renderOnce)
+		// Hint now visible.
+		expect(setup!.captureCharFrame()).toContain("ctrl+\\ clear")
+
+		// Open the palette: hint should disappear (palette ctx hides it).
+		await act(async () => {
+			setup!.mockInput.pressKey("p", { ctrl: true })
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).not.toContain("ctrl+\\ clear")
+
+		// Close palette, open help: hint should also be hidden under help.
+		await act(async () => {
+			setup!.mockInput.pressEscape()
+			await new Promise<void>((resolve) => setTimeout(resolve, 60))
+		})
+		await stepFrame(setup!.renderOnce)
+		await act(async () => {
+			setup!.mockInput.pressKey("?")
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).not.toContain("ctrl+\\ clear")
 	})
 
 	test("printable characters do not fire their normal bindings while filter is open", async () => {
@@ -2293,7 +2613,7 @@ describe("Browser — filter modal", () => {
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
 		// Sidebar still visible; `s` went into the query.
-		expect(frame).toContain("/s▏")
+		expect(frame).toContain("> s▏")
 		expect(frame).toContain("scripts/build.md")
 		// README.md doesn't fuzzy-match 's' as a subsequence? It contains an
 		// 's' in some terminal fonts — actually README.md has no 's', so it

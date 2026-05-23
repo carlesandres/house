@@ -48,7 +48,12 @@ An item belongs here if its absence is a visible papercut or a table-stakes capa
 | Config | Expand file-settable options (`width`, `sort`, `all`, `port`, `sidebarWidth`) | [#63](https://github.com/carlesandres/house/issues/63) |
 | Theming | Theming v2 — user stylesheets, named theme sets | [#34](https://github.com/carlesandres/house/issues/34) |
 | Theming | Persist active theme to project or global config | [#73](https://github.com/carlesandres/house/issues/73) |
-| Distribution | Standalone binary (no Bun-on-PATH) | [#2](https://github.com/carlesandres/house/issues/2) |
+| Distribution | Standalone binary (no Bun-on-PATH) — epic | [#2](https://github.com/carlesandres/house/issues/2) |
+| Distribution | Split `src/standalone.ts` entrypoint for fast `--version`/`--help` | [#131](https://github.com/carlesandres/house/issues/131) |
+| Distribution | Bundle published source via `dev/build-cli.ts` + `prepack` hook | [#132](https://github.com/carlesandres/house/issues/132) |
+| Distribution | `dev/build-standalone.ts` (`bun build --compile --bytecode`, per-platform) | [#133](https://github.com/carlesandres/house/issues/133) |
+| Distribution | Per-platform binary npm packages via `dev/build-npm-packages.ts` | [#134](https://github.com/carlesandres/house/issues/134) |
+| Distribution | `bin/house.js` Node shim with binary-package resolver + Bun fallback | [#135](https://github.com/carlesandres/house/issues/135) |
 | Distribution | Notify when a newer version is available (passive, manual upgrade tip) | [#100](https://github.com/carlesandres/house/issues/100) |
 | Tooling | One-command release flow (`bun run release`) | [#121](https://github.com/carlesandres/house/issues/121) |
 

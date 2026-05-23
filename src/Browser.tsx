@@ -36,6 +36,7 @@ import {
 	resolveSidebarWidth,
 } from "./layout/resolve.ts"
 import { formatSidebarRow } from "./layout/sidebarRow.ts"
+import { PromptRow } from "./PromptRow.tsx"
 import { openInBrowser } from "./serve/openBrowser.ts"
 import { startServer, type ServerHandle } from "./serve/server.ts"
 import { colors, setActiveTheme } from "./theme/colors.ts"
@@ -143,9 +144,6 @@ export const Browser = ({
 	// otherwise still observe filterOpen=false through closure).
 	const filterOpenRef = useRef(false)
 	const filterQueryRef = useRef("")
-	// Snapshot the query at filter-open so Esc reverts edits but commit (Return)
-	// keeps them.
-	const priorFilterQueryRef = useRef("")
 	const [footerNotice, setFooterNoticeState] = useState<{
 		readonly text: string
 		readonly ttlMs: number
@@ -268,6 +266,7 @@ export const Browser = ({
 		sidebarShown: shown,
 		helpVisible,
 		filterOpen,
+		filterQuery,
 		paletteOpen,
 		setFocus,
 		setSelectedIndex,
@@ -302,7 +301,17 @@ export const Browser = ({
 			// the inline sidebar back on screen if it was hidden. In narrow,
 			// focusing the sidebar swaps to the sidebar screen. Either way
 			// no need to mutate `shown`.
-			priorFilterQueryRef.current = filterQueryRef.current
+			if (focus !== "sidebar") setFocus("sidebar")
+			filterOpenRef.current = true
+			setFilterOpen(true)
+		},
+		clearAndOpenFilter: () => {
+			// Reset both the ref and the state so the freshly-opened modal
+			// shows an empty input and selection lands on the first file in
+			// the (now unfiltered) list.
+			filterQueryRef.current = ""
+			setFilterQuery("")
+			setSelectedIndex(() => 0)
 			if (focus !== "sidebar") setFocus("sidebar")
 			filterOpenRef.current = true
 			setFilterOpen(true)
@@ -418,62 +427,32 @@ export const Browser = ({
 	}
 
 	useKeyboard((key) => {
-		// Filter modal: capture keystrokes for the input. Esc closes and
-		// clears; Return closes, clears, and focuses the reader (open the
-		// match); Backspace edits; Up/Down navigate the filtered list;
-		// printable characters extend the query and reset selection to 0.
-		// Everything else is swallowed so normal bindings (j/k as nav,
-		// `s`, `t`, …) don't fire while the user is typing. This sits
-		// outside the data-driven keymap for the same reason the help
-		// branch does — see DESIGN.md §12.
+		// Filter modal: capture keystrokes for the input. Esc closes,
+		// leaving the typed query applied as the active filter; Return
+		// closes and focuses the reader (open the match); Ctrl+\ clears
+		// the input but stays in filter mode (same binding used from
+		// outside the modal — single chord, single mental model. Ctrl+U
+		// is deliberately not overloaded here; it stays reserved for its
+		// sidebar/reader half-page-up role); Backspace edits; Up/Down
+		// navigate the filtered list; printable characters extend the
+		// query and reset selection to 0. Everything else is swallowed
+		// so normal bindings (j/k as nav, `s`, `t`, …) don't fire while
+		// the user is typing. This sits outside the data-driven keymap
+		// for the same reason the help branch does — see DESIGN.md §12.
 		if (filterOpenRef.current) {
-			// One close path used by both Esc and Return. Closing the filter
-			// restores the full list; translating the highlighted match to
-			// its index in `files` keeps the cursor on whatever the user was
-			// looking at when they hit the key, instead of landing on a
-			// random file at the same numeric position in a now-different
-			// list. `focusReader=true` is the Return semantic (open the
-			// match); false is Esc (cancel, stay in sidebar).
-			//
-			// Centralized so the dual filterOpenRef / filterOpen invariant
-			// only has to be maintained in one place (plus `openFilter`).
+			// One close path used by both Esc and Return. `commit=true` is
+			// the Return semantic (open the match in the reader); false is
+			// Esc (stop typing, keep the applied filter, stay in sidebar).
 			const closeFilter = (commit: boolean) => {
 				const picked = displayedFiles[selectedIndex] ?? null
-				// Return on a zero-match list has nothing to commit. Treat it
-				// as Esc so the user isn't stranded in an "applied filter with
-				// no visible files" state they'd have to back out of manually.
 				const effectiveCommit = commit && picked !== null
 				filterOpenRef.current = false
 				setFilterOpen(false)
-				if (effectiveCommit) {
-					// Return keeps the query. selectedIndex is already a valid
-					// position in the (still-filtered) displayedFiles list, so
-					// no translation is needed.
-				} else {
-					// Esc reverts the query to its pre-session value. After the
-					// revert, displayedFiles may change shape — translate the
-					// cursor by path so it stays on whatever the user was
-					// looking at, instead of snapping to a numerically-equivalent
-					// row in the restored list.
-					const before = priorFilterQueryRef.current
-					filterQueryRef.current = before
-					setFilterQuery(before)
-					if (picked) {
-						const restored = before === "" ? files : filterFiles(files, before)
-						const idx = restored.findIndex((f) => f.path === picked.path)
-						if (idx >= 0) setSelectedIndex(() => idx)
-					}
-				}
 				// Where focus lands after the filter closes:
-				//   commit (Return on a real pick) → reader, always. The user
-				//     asked to open the match; show them what they picked.
-				//   cancel (Esc, or Return with no pick) → restore the user's
-				//     pre-filter intent. If the sidebar was up before the
-				//     filter opened (shown=true), stay in it so j/k keeps
-				//     walking. If the sidebar was hidden (shown=false), go
-				//     back to the reader so the sidebar dismisses — in narrow
-				//     that swaps screens; in wide that drops the focus-driven
-				//     sidebar revival.
+				//   commit (Return on a real pick) → reader. The user asked
+				//     to open the match; show them what they picked.
+				//   otherwise → sidebar if it's up so j/k keeps walking the
+				//     filtered list; reader if the sidebar was hidden.
 				if (effectiveCommit) {
 					setFocus("reader")
 				} else {
@@ -488,11 +467,19 @@ export const Browser = ({
 				closeFilter(true)
 				return
 			}
+			if (key.ctrl && key.name === "\\") {
+				// Same action as the `filter.clearOrOpen` binding fires from
+				// outside the modal: clear the query, reset selection. The
+				// keymap doesn't see keys in filter mode, so this branch is
+				// the in-modal half of that single chord.
+				filterQueryRef.current = ""
+				setFilterQuery("")
+				setSelectedIndex(() => 0)
+				return
+			}
 			if (key.name === "backspace" || key.name === "delete") {
-				// Pressing backspace/delete with no query left removes the
-				// leading `/` — i.e. closes the modal. Equivalent to Esc:
-				// reverts to the pre-session query (so an applied filter
-				// survives a "I changed my mind" tap).
+				// Backspace on empty input closes the modal — the leading `/`
+				// chevron is the last thing left to "delete."
 				if (filterQueryRef.current.length === 0) {
 					closeFilter(false)
 					return
@@ -671,30 +658,6 @@ export const Browser = ({
 		[sidebarTextWidth],
 	)
 
-	// Filter row content + color. Three reachable states:
-	//   editing  — filterOpen=true              → /<query>▏  in textStrong
-	//   applied  — !filterOpen && query !== ""  → /<query>   in text
-	//   idle     — !filterOpen && query === ""  → "/ filter…" in textMuted
-	const filterRowFg = filterOpen
-		? colors.textStrong
-		: filterQuery.length > 0
-			? colors.text
-			: colors.textMuted
-	const filterRowRaw = filterOpen
-		? `/${filterQuery}▏`
-		: filterQuery.length > 0
-			? `/${filterQuery}`
-			: "/ filter…"
-	// Editing keeps the cursor visible — anchor the right edge with a leading
-	// ellipsis when the query overflows. Applied/idle anchor the left edge
-	// (lose the tail) so the leading `/` always reads as a filter marker.
-	const filterRowContent =
-		filterRowRaw.length <= sidebarTextWidth
-			? filterRowRaw
-			: filterOpen
-				? "…" + filterRowRaw.slice(filterRowRaw.length - sidebarTextWidth + 1)
-				: filterRowRaw.slice(0, sidebarTextWidth - 1) + "…"
-
 	// While help is open, the `?` key closes the overlay — relabel its hint
 	// so the footer accurately describes what pressing the key will do.
 	// Memoized: `helpVisible` changes rarely; `browserBindings` and
@@ -714,7 +677,12 @@ export const Browser = ({
 	const sidebarBody = (
 		<>
 			{filterRowVisible && (
-				<text content={filterRowContent} wrapMode="none" style={{ fg: filterRowFg }} />
+				<PromptRow
+					query={filterQuery}
+					editing={filterOpen}
+					placeholder="/ to filter…"
+					width={sidebarTextWidth}
+				/>
 			)}
 			{displayedFiles.length === 0 ? (
 				<text
