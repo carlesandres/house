@@ -20,6 +20,9 @@ export interface BrowserCtx {
 	readonly sidebarShown: boolean
 	readonly helpVisible: boolean
 	readonly filterOpen: boolean
+	/** Current applied/edited filter query. Used by `filter.clearOrOpen`'s
+	 *  hint gate so the hint only appears when there is something to clear. */
+	readonly filterQuery: string
 	readonly paletteOpen: boolean
 	readonly setFocus: (next: BrowserFocus | ((prev: BrowserFocus) => BrowserFocus)) => void
 	readonly setSelectedIndex: (updater: (prev: number) => number) => void
@@ -27,6 +30,10 @@ export interface BrowserCtx {
 	readonly toggleShown: () => void
 	readonly setHelpVisible: (updater: (prev: boolean) => boolean) => void
 	readonly openFilter: () => void
+	/** Clear the current filter query and open the filter modal in a single
+	 *  action. Bound to `\` so users can reset a stranded zero-match filter
+	 *  without first reopening with `/` and backspacing. */
+	readonly clearAndOpenFilter: () => void
 	readonly openPalette: () => void
 	readonly cycleTheme: (delta: 1 | -1) => void
 	readonly toggleTone: () => void
@@ -104,6 +111,28 @@ export const browserBindings: readonly KeyBinding<BrowserCtx>[] = [
 		// no longer needs to gate on focus or sidebar visibility.
 		when: filterClosed,
 		run: (c) => c.openFilter(),
+	},
+	{
+		id: "filter.clearOrOpen",
+		group: "Sidebar",
+		description: "Clear filter",
+		hint: "clear",
+		keys: ["ctrl+\\"],
+		// Fires from anywhere outside the filter modal via the keymap.
+		// Inside the filter modal it's intercepted directly in Browser.tsx
+		// (the filter mode owns key handling), but the action is the same —
+		// clear input, keep modal open. Palette/help branches short-circuit
+		// dispatch in Browser.tsx, so we don't need to gate on them for
+		// behavior; the `hintWhen` gate keeps the footer chip from showing
+		// when there's nothing to clear or when a modal owns the input.
+		// Chord chosen over single `\` so the binding works inside the
+		// filter input without colliding with the typed character; ctrl+u
+		// is deliberately left to its reader/sidebar half-page-up role to
+		// avoid overload.
+		when: filterClosed,
+		hintWhen: (c) =>
+			filterClosed(c) && !c.paletteOpen && !c.helpVisible && c.filterQuery.length > 0,
+		run: (c) => c.clearAndOpenFilter(),
 	},
 	{
 		id: "palette.open",
