@@ -6,6 +6,34 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 
 ## [Unreleased]
 
+## [0.4.2] — 2026-05-23
+
+### Added
+
+- Editor hand-off: press `e` to open the selected file in `$EDITOR`/`$VISUAL` (`#19`).
+- Sidebar rows now render basename-first with segment-aware parent-path elision, improving scanability in deep trees.
+- `ctrl+\\` clears an active sidebar filter query without leaving filter mode.
+
+### Changed
+
+- Sidebar filter input and command palette input now share a single `PromptRow` UI path for consistent rendering and behavior.
+
+### Fixed
+
+- Dev server SSE stream (`/__reload`) now stays open past Bun's 10s idle timeout.
+- Filter Escape behavior no longer reverts to the pre-filter selection; Escape now closes/clears filter predictably.
+
+### Docs
+
+- README synced with current features, options, keys, and config behavior.
+- Windows support is now documented as POSIX-only for this release line, with tracking issues linked.
+- ROADMAP docs updated for release tooling and standalone-binary epic breakdown.
+
+### Tests
+
+- Added PTY regression coverage for selection background behavior.
+- Added sidebar coverage for basename+parent rendering and `fitTail` behavior at very narrow widths.
+
 ## [0.4.1] — 2026-05-22
 
 ### Added
@@ -139,4 +167,4 @@ The v1 MVP, published as `@carlesandres/openmdr` on npm.
 
 Search, stdin, URL fetching, cross-file link following, `$EDITOR` hand-off, syntax highlighting, persistent config, OS-appearance auto-detect, single-binary distribution (issue [#2](https://github.com/carlesandres/openmdr/issues/2)), Homebrew tap. All tracked.
 
-[Unreleased]: https://github.com/carlesandres/house/compare/v0.4.1...HEAD [0.4.1]: https://github.com/carlesandres/house/compare/v0.4.0...v0.4.1 [0.4.0]: https://github.com/carlesandres/house/compare/v0.3.1...v0.4.0 [0.3.1]: https://github.com/carlesandres/house/compare/v0.3.0...v0.3.1 [0.3.0]: https://github.com/carlesandres/house/compare/v0.2.1...v0.3.0 [0.2.1]: https://github.com/carlesandres/house/compare/v0.2.0...v0.2.1 [0.2.0]: https://github.com/carlesandres/house/compare/v0.1.0...v0.2.0 [0.1.0]: https://github.com/carlesandres/house/releases/tag/v0.1.0
+[Unreleased]: https://github.com/carlesandres/house/compare/v0.4.2...HEAD [0.4.2]: https://github.com/carlesandres/house/compare/v0.4.1...v0.4.2 [0.4.1]: https://github.com/carlesandres/house/compare/v0.4.0...v0.4.1 [0.4.0]: https://github.com/carlesandres/house/compare/v0.3.1...v0.4.0 [0.3.1]: https://github.com/carlesandres/house/compare/v0.3.0...v0.3.1 [0.3.0]: https://github.com/carlesandres/house/compare/v0.2.1...v0.3.0 [0.2.1]: https://github.com/carlesandres/house/compare/v0.2.0...v0.2.1 [0.2.0]: https://github.com/carlesandres/house/compare/v0.1.0...v0.2.0 [0.1.0]: https://github.com/carlesandres/house/releases/tag/v0.1.0
