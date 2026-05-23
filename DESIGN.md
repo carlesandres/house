@@ -160,11 +160,11 @@ Do not bind these in v1:
 
 | Key | Reserved for |
 |---|---|
-| `e` | Open in `$EDITOR` |
-| `o` | Open externally (browser / Finder / xdg-open) |
 | `r` | Reload current file |
 | `B` | Bookmarks panel |
 | `ctrl+[` / `ctrl+]` | Navigation history back / forward |
+
+`e` (open in `$EDITOR`) and `o` (open externally, currently HTML browser) are shipped — see the keymap. Reload semantics: `r` remains reserved because `e`'s post-edit reload is automatic; a manual reload is only needed if we ship file-watching as a separate feature.
 
 ### 7.4 Unified browser model
 

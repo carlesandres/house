@@ -33,6 +33,9 @@ export interface BrowserCtx {
 	readonly quit: () => void
 	/** Start (or retarget) the HTML preview server on the focused file. */
 	readonly serveCurrent: () => void
+	/** Suspend the TUI, hand the TTY to `$EDITOR`, resume and re-read on
+	 *  exit. No-op when nothing is selected; gating is the binding's job. */
+	readonly editCurrent: () => void
 }
 
 /** Step size for shift+j/k and the space/b/page keys. Constant for v1; could
@@ -224,6 +227,15 @@ export const browserBindings: readonly KeyBinding<BrowserCtx>[] = [
 		keys: ["o"],
 		when: hasSelected,
 		run: (c) => c.serveCurrent(),
+	},
+	{
+		id: "file.edit",
+		group: "File",
+		description: "Open current file in $EDITOR",
+		hint: "edit",
+		keys: ["e"],
+		when: hasSelected,
+		run: (c) => c.editCurrent(),
 	},
 	{
 		// `[`/`]` keep the `inReader` clause so they're only typed from the

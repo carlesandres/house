@@ -114,3 +114,51 @@ const pickEnv = (value: string | undefined): string | null => {
 	const trimmed = value.trim()
 	return trimmed.length === 0 ? null : trimmed
 }
+
+/** Result of a launched editor session. Never throws — every failure is
+ *  surfaced as a tagged value so the caller can decide UX. */
+export type EditorRunResult =
+	| { readonly ok: true; readonly exitCode: number }
+	| {
+			readonly ok: false
+			readonly reason: "spawn-failed" | "non-zero"
+			readonly detail?: string
+	  }
+
+export interface OpenInEditorOptions {
+	readonly editor: ResolvedEditor
+	readonly filePath: string
+}
+
+/**
+ * Launch the resolved editor on `filePath`, inheriting stdio so the
+ * editor takes over the TTY. Caller is responsible for suspending /
+ * resuming the renderer around this call (see Browser.tsx).
+ *
+ * The file path is passed as a separate argv element — never interpolated
+ * into a shell string — so paths with shell metacharacters can't be
+ * misinterpreted.
+ *
+ * Windows note: `Bun.spawn` resolves bare names against PATH but does not
+ * walk PATHEXT, so `.cmd` shims (typical for `code`, `nvim`, etc. on
+ * Windows) won't resolve. POSIX-only for now; Windows handling is a
+ * follow-up.
+ */
+export const openInEditor = async ({
+	editor,
+	filePath,
+}: OpenInEditorOptions): Promise<EditorRunResult> => {
+	const argv = [editor.cmd, ...editor.args, filePath]
+	try {
+		const proc = Bun.spawn(argv, {
+			stdin: "inherit",
+			stdout: "inherit",
+			stderr: "inherit",
+		})
+		const exitCode = await proc.exited
+		if (exitCode === 0) return { ok: true, exitCode }
+		return { ok: false, reason: "non-zero", detail: String(exitCode) }
+	} catch (err) {
+		return { ok: false, reason: "spawn-failed", detail: String(err) }
+	}
+}

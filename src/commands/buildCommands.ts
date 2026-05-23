@@ -45,6 +45,7 @@ const annotations: Record<string, Annotation> = {
 	"help.toggle": { title: "Show help", category: "App" },
 	"filter.open": { title: "Filter files…", category: "Navigation" },
 	"serve.current": { title: "Open in browser", category: "File" },
+	"file.edit": { title: "Open in editor", category: "File", keywords: ["editor", "vim", "vscode"] },
 	"theme.next": { category: "Appearance" },
 	"theme.prev": { category: "Appearance" },
 	"theme.toneToggle": { title: "Toggle dark/light tone", category: "Appearance" },

@@ -29,6 +29,7 @@ interface CtxOverrides {
 	readonly filterOpen?: boolean
 	readonly paletteOpen?: boolean
 	readonly onServe?: () => void
+	readonly onEdit?: () => void
 	readonly setSelectedIndex?: (u: (prev: number) => number) => void
 }
 
@@ -50,6 +51,7 @@ const makeCtx = (o: CtxOverrides = {}): BrowserCtx => ({
 	toggleTone: noop,
 	quit: noop,
 	serveCurrent: o.onServe ?? noop,
+	editCurrent: o.onEdit ?? noop,
 })
 
 const k = (name: string): KeyMatch => ({ name, shift: false, ctrl: false, meta: false })
@@ -139,9 +141,36 @@ describe("File group — `[` / `]` (prev/next file)", () => {
 	})
 })
 
+describe("File group — `e` (open in $EDITOR)", () => {
+	test("fires when hasSelected", () => {
+		let fired = false
+		const ctx = makeCtx({ hasSelected: true, onEdit: () => (fired = true) })
+		expect(dispatch(browserBindings, ctx, k("e"))?.id).toBe("file.edit")
+		expect(fired).toBe(true)
+	})
+
+	test("does not fire when !hasSelected", () => {
+		let fired = false
+		const ctx = makeCtx({ hasSelected: false, onEdit: () => (fired = true) })
+		expect(dispatch(browserBindings, ctx, k("e"))).toBeNull()
+		expect(fired).toBe(false)
+	})
+
+	test("fires from the reader too (focus-agnostic)", () => {
+		let fired = false
+		const ctx = makeCtx({
+			focus: "reader",
+			hasSelected: true,
+			onEdit: () => (fired = true),
+		})
+		expect(dispatch(browserBindings, ctx, k("e"))?.id).toBe("file.edit")
+		expect(fired).toBe(true)
+	})
+})
+
 describe("File group — array layout", () => {
-	test("`o`, `[`, `]` all carry group=\"File\"", () => {
-		const ids = ["serve.current", "reader.prevFile", "reader.nextFile"] as const
+	test("`o`, `e`, `[`, `]` all carry group=\"File\"", () => {
+		const ids = ["serve.current", "file.edit", "reader.prevFile", "reader.nextFile"] as const
 		for (const id of ids) {
 			const b = browserBindings.find((x) => x.id === id)
 			expect(b?.group).toBe("File")
