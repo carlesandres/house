@@ -44,26 +44,28 @@
 		"format": "oxfmt src/",
 		"format:check": "oxfmt --check src/",
 		"test": "bun test",
+		"test:pty": "HOUSE_PTY=1 bun test test/pty/",
 		"build:themes": "bun run dev/build-themes.ts",
 		"repro:pty-codeblocks": "bun run dev/repro-pty-codeblocks.ts",
 		"prepare": "git config core.hooksPath .githooks 2>/dev/null || true"
 	},
 	"dependencies": {
-		"@effect/atom-react": "4.0.0-beta.59",
-		"@opentui/core": "0.2.12",
-		"@opentui/react": "0.2.12",
+		"@effect/atom-react": "4.0.0-beta.70",
+		"@opentui/core": "0.2.15",
+		"@opentui/react": "0.2.15",
 		"effect": "4.0.0-beta.59",
 		"ignore": "^7.0.5",
-		"marked": "^18.0.3",
-		"react": "19.2.5",
+		"marked": "^18.0.4",
+		"react": "19.2.6",
 		"scheduler": "0.27.0"
 	},
 	"devDependencies": {
-		"@effect/language-service": "0.85.1",
-		"@types/bun": "1.3.12",
-		"@types/react": "19.2.14",
-		"oxfmt": "0.47.0",
-		"oxlint": "1.62.0",
-		"typescript": "6.0.2"
+		"@effect/language-service": "0.86.2",
+		"@types/bun": "1.3.14",
+		"@types/react": "19.2.15",
+		"oxfmt": "0.51.0",
+		"oxlint": "1.66.0",
+		"tuistory": "^0.8.0",
+		"typescript": "6.0.3"
 	}
 }
