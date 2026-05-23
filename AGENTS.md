@@ -49,7 +49,11 @@ npm pack --dry-run      # show exactly what would land on npm
 
 Release-event-driven. Modeled on ghui, adapted for this repo's branch protection (direct commits to `main` are blocked, every change goes through a PR).
 
-1. Move `[Unreleased]` items in `CHANGELOG.md` under a new `## [X.Y.Z] — YYYY-MM-DD` heading; update the link refs at the bottom of the file.
+1. Build release notes from `main` commits since the last tag before touching versions.
+   - Start with `[Unreleased]` in `CHANGELOG.md`.
+   - Then run `git log --first-parent --oneline vX.Y.Z..origin/main` (where `vX.Y.Z` is the latest tag) and verify every user-visible change is represented.
+   - If `[Unreleased]` is empty or incomplete, reconstruct it from that commit range first, then move it under a new `## [X.Y.Z] — YYYY-MM-DD` heading.
+   - Update the link refs at the bottom of the file.
 2. Bump `version` in `package.json`.
 3. From `main`, branch off (`git checkout -b release/vX.Y.Z`), commit (`chore: release vX.Y.Z`) — do **not** amend earlier commits — and push the branch.
 4. Open a PR into `main` titled `chore: release vX.Y.Z`. Wait for CI to be green (typecheck + lint + format:check + test + `npm pack --dry-run`). Merge.

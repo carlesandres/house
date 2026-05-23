@@ -123,12 +123,12 @@ When a newer published version is available on npm, house prints a one-line noti
 
 Release-event-driven. See `.github/workflows/publish.yml` and the more detailed step-by-step in `AGENTS.md`. Quick version:
 
-1. Move `[Unreleased]` items in `CHANGELOG.md` under a new dated heading; update link refs.
+1. Build release notes from `main` commits since the last tag: check `[Unreleased]`, run `git log --first-parent --oneline vX.Y.Z..origin/main`, and ensure every user-visible change is represented. If `[Unreleased]` is empty/incomplete, reconstruct it from that range before moving it under a new dated heading and updating link refs.
 2. Bump `version` in `package.json`.
 3. Branch off `main` (e.g. `release/vX.Y.Z`), commit `chore: release vX.Y.Z`, push, open a PR into `main`. Wait for CI; merge. Direct commits to `main` are blocked by branch protection.
 4. After merge, pull `main` locally, then `gh release create vX.Y.Z --target main --title vX.Y.Z --generate-notes` — the workflow takes it from there (`npm publish` via Trusted Publisher).
 
-The release workflow builds on five runners (mac arm64/x64, linux arm64/x64, windows x64), runs smoke on each, and attaches archives to a GitHub release with auto-generated notes. There is no npm or Homebrew distribution yet — see DESIGN.md §10.5.
+The publish workflow runs on `release: published` and `workflow_dispatch`, then executes `bun run typecheck`, validates `v${package.version}` equals the release tag name, runs `npm pack --dry-run`, and publishes via Trusted Publisher (OIDC, no `NPM_TOKEN`).
 
 ## License
 

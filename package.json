@@ -1,6 +1,6 @@
 {
 	"name": "@carlesandres/house",
-	"version": "0.4.1",
+	"version": "0.4.2",
 	"description": "TUI-first markdown reader on opentui",
 	"type": "module",
 	"license": "MIT",
