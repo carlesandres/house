@@ -74,5 +74,12 @@ const row = (basename: string, parent: string): SidebarRowParts => ({
 	parent,
 })
 
-const fitTail = (s: string, width: number): string =>
-	s.length <= width ? s : s.slice(0, Math.max(1, width - 1)) + "…"
+const fitTail = (s: string, width: number): string => {
+	if (s.length <= width) return s
+	// At width ≤ 1 there's no room for both a character and the ellipsis; emit
+	// a single char so the result respects the budget. Callers currently clamp
+	// width to ≥ 4, but the helper carries its own floor so a tighter future
+	// caller can't silently overflow the column.
+	if (width <= 1) return s.slice(0, 1)
+	return s.slice(0, width - 1) + "…"
+}

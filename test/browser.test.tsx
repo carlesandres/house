@@ -85,12 +85,12 @@ describe("Browser — sidebar", () => {
 		await setup!.renderOnce()
 		const frame = setup!.captureCharFrame()
 		// Sidebar rows render basename-first with the parent path as a dim suffix
-		// (e.g. "intro.md  ·  docs"). Asserting on the basenames + parent segment
-		// keeps the test resilient to the separator/styling details.
+		// (e.g. "intro.md  ·  docs"). Match the full shape so a regression that
+		// drops the parent suffix — or renders it without the separator — fails
+		// here instead of silently passing on a basename-only frame.
 		expect(frame).toContain("README.md")
-		expect(frame).toContain("intro.md")
-		expect(frame).toContain("api.md")
-		expect(frame).toContain("docs")
+		expect(frame).toMatch(/intro\.md\s+·\s+docs/)
+		expect(frame).toMatch(/api\.md\s+·\s+docs/)
 	})
 
 	test("shows '(no markdown files)' when files is empty", async () => {
