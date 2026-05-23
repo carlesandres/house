@@ -84,9 +84,13 @@ describe("Browser — sidebar", () => {
 		})
 		await setup!.renderOnce()
 		const frame = setup!.captureCharFrame()
+		// Sidebar rows render basename-first with the parent path as a dim suffix
+		// (e.g. "intro.md  ·  docs"). Asserting on the basenames + parent segment
+		// keeps the test resilient to the separator/styling details.
 		expect(frame).toContain("README.md")
-		expect(frame).toContain("docs/intro.md")
-		expect(frame).toContain("docs/api.md")
+		expect(frame).toContain("intro.md")
+		expect(frame).toContain("api.md")
+		expect(frame).toContain("docs")
 	})
 
 	test("shows '(no markdown files)' when files is empty", async () => {
