@@ -86,9 +86,12 @@ export const startServer = ({ path, port = 0 }: StartOptions): ServerHandle => {
 		// user's local files, so leaking them to the network would be a
 		// surprise. URL strings are localhost-only by construction below.
 		hostname: "127.0.0.1",
-		async fetch(req) {
+		async fetch(req, server) {
 			const url = new URL(req.url)
 			if (url.pathname === "/__reload") {
+				// SSE stream is silent between file changes; without this Bun
+				// closes the request at the default 10s idleTimeout and warns.
+				server.timeout(req, 0)
 				// `cancel` receives a reason, not the controller — capture
 				// the controller in `start` so we can remove it from the set
 				// on disconnect. Without this, dead clients accumulate.
