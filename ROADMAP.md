@@ -51,6 +51,7 @@ An item belongs here if its absence is a visible papercut or a table-stakes capa
 | Theming | Persist active theme to project or global config | [#73](https://github.com/carlesandres/house/issues/73) |
 | Distribution | Standalone binary (no Bun-on-PATH) | [#2](https://github.com/carlesandres/house/issues/2) |
 | Distribution | Notify when a newer version is available (passive, manual upgrade tip) | [#100](https://github.com/carlesandres/house/issues/100) |
+| Tooling | One-command release flow (`bun run release`) | [#121](https://github.com/carlesandres/house/issues/121) |
 
 ## Backlog
 
