@@ -34,6 +34,7 @@ import {
 	initialShownForAuto,
 	resolveSidebarWidth,
 } from "./layout/resolve.ts"
+import { formatSidebarRow } from "./layout/sidebarRow.ts"
 import { openInBrowser } from "./serve/openBrowser.ts"
 import { startServer, type ServerHandle } from "./serve/server.ts"
 import { colors, setActiveTheme } from "./theme/colors.ts"
@@ -602,11 +603,8 @@ export const Browser = ({
 	// budget is the viewport minus the 1-cell left padding only.
 	const sidebarPaneWidth = isNarrow ? width : sidebarWidth
 	const sidebarTextWidth = Math.max(4, sidebarPaneWidth - (isNarrow ? 1 : 2))
-	// Right-anchored truncation: keep the filename visible, lose the prefix
-	// with a leading ellipsis when the path is too long.
-	const truncatePath = useCallback(
-		(s: string): string =>
-			s.length <= sidebarTextWidth ? s : "…" + s.slice(s.length - sidebarTextWidth + 1),
+	const layoutSidebarRow = useCallback(
+		(relativePath: string) => formatSidebarRow(relativePath, sidebarTextWidth),
 		[sidebarTextWidth],
 	)
 
@@ -670,20 +668,18 @@ export const Browser = ({
 				visibleFiles.map((file, idx) => {
 					const realIdx = desiredScroll + idx
 					const isSelected = realIdx === selectedIndex
-					const display = truncatePath(file.relativePath)
-					if (!isSelected) {
-						return (
-							<text key={file.path} content={display} wrapMode="none" style={{ fg: colors.text }} />
-						)
-					}
-					const bg = sidebarActive ? colors.selectedBg : colors.selectedBgInactive
+					const { basename, separator, parent } = layoutSidebarRow(file.relativePath)
+					const basenameFg = isSelected ? colors.textStrong : colors.text
+					const rowStyle = isSelected
+						? { bg: sidebarActive ? colors.selectedBg : colors.selectedBgInactive }
+						: {}
 					return (
-						<text
-							key={file.path}
-							content={display}
-							wrapMode="none"
-							style={{ fg: colors.textStrong, bg }}
-						/>
+						<text key={file.path} wrapMode="none" style={rowStyle}>
+							<span style={{ fg: basenameFg }}>{basename}</span>
+							{separator !== "" && (
+								<span style={{ fg: colors.textMuted }}>{`${separator}${parent}`}</span>
+							)}
+						</text>
 					)
 				})
 			)}

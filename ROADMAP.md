@@ -151,7 +151,7 @@ No commitment to ship. Tracked to remember.
 
 | Item | Issue |
 |---|---|
-| Investigate PTY test infrastructure for terminal UI coverage | [#39](https://github.com/carlesandres/house/issues/39) |
+| Add targeted PTY tests using tuistory harness | [#124](https://github.com/carlesandres/house/issues/124) |
 
 ## Unscoped — needs design pass before filing
 
