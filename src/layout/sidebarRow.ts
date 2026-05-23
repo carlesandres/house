@@ -28,7 +28,7 @@ const MIN_PARENT_BUDGET = 3
 
 export interface SidebarRowParts {
 	readonly basename: string
-	readonly separator: "" | typeof SIDEBAR_ROW_SEPARATOR
+	readonly separator: string
 	readonly parent: string
 }
 

@@ -676,7 +676,7 @@ export const Browser = ({
 					return (
 						<text key={file.path} wrapMode="none" style={rowStyle}>
 							<span style={{ fg: basenameFg }}>{basename}</span>
-							{separator !== "" && (
+							{parent !== "" && (
 								<span style={{ fg: colors.textMuted }}>{`${separator}${parent}`}</span>
 							)}
 						</text>
