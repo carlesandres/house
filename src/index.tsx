@@ -19,6 +19,7 @@ import pkg from "../package.json" with { type: "json" }
 import { Browser } from "./Browser.tsx"
 import { parseArgv, usage } from "./cli/argv.ts"
 import { defaultConfigPath, formatConfigError, loadConfig } from "./config/load.ts"
+import { parseShowList, SHOW_CATEGORIES, type ShowCategory } from "./discovery/show.ts"
 import { walk, type FileEntry, type SortOrder } from "./discovery/walk.ts"
 import { Header } from "./Header.tsx"
 import { readFileText } from "./io/readFile.ts"
@@ -59,15 +60,27 @@ export type SidebarMode = "auto" | "on" | "off"
 
 interface DiscoverShellProps {
 	readonly target: string
-	readonly all: boolean
+	/** Resolved discovery vocabulary from the config layer. The shift+a
+	 *  toggle (#145) is session-only sugar that flips between this set
+	 *  and the full vocabulary; the underlying categories remain
+	 *  independent everywhere else. */
+	readonly initialShow: readonly ShowCategory[]
 	readonly sort: SortOrder
 	readonly mdx: boolean
 	readonly maxWidth: number | null
 	readonly sidebarMode: SidebarMode
 }
 
-const DiscoverShell = ({ target, all, sort, mdx, maxWidth, sidebarMode }: DiscoverShellProps) => {
+const DiscoverShell = ({
+	target,
+	initialShow,
+	sort,
+	mdx,
+	maxWidth,
+	sidebarMode,
+}: DiscoverShellProps) => {
 	const updateNotice = useUpdateNotice()
+	const [show, setShow] = useState<readonly ShowCategory[]>(initialShow)
 	const [files, setFiles] = useState<readonly FileEntry[]>([])
 	const [scanning, setScanning] = useState<boolean>(true)
 	const [scanError, setScanError] = useState<string | null>(null)
@@ -76,7 +89,15 @@ const DiscoverShell = ({ target, all, sort, mdx, maxWidth, sidebarMode }: Discov
 	const countRef = useRef(0)
 
 	useEffect(() => {
-		const program = walk(target, { all, sort, mdx }).pipe(
+		// Restart from a clean slate every time the discovery set changes.
+		// Required for the `all` toggle (#145): without this, a flip would
+		// concatenate the new walk onto stale entries and leave `scanning`
+		// stuck on whatever the previous walk last set it to.
+		setFiles([])
+		setScanning(true)
+		setScanError(null)
+		countRef.current = 0
+		const program = walk(target, { show, sort, mdx }).pipe(
 			Stream.groupedWithin(64, Duration.millis(60)),
 			Stream.runForEach((chunk) =>
 				Effect.sync(() => {
@@ -101,7 +122,7 @@ const DiscoverShell = ({ target, all, sort, mdx, maxWidth, sidebarMode }: Discov
 		return () => {
 			Effect.runFork(Fiber.interrupt(fiber))
 		}
-	}, [target, all, sort, mdx])
+	}, [target, show, sort, mdx])
 
 	const discoveryStatus = scanError ?? (scanning ? `indexing… ${countRef.current}` : null)
 
@@ -112,6 +133,15 @@ const DiscoverShell = ({ target, all, sort, mdx, maxWidth, sidebarMode }: Discov
 			discoveryStatus={discoveryStatus}
 			sidebarMode={sidebarMode}
 			updateNotice={updateNotice}
+			onToggleAll={() => {
+				// shift+a is the only place the categories are treated as a
+				// single thing. If every category is already on, fall back
+				// to "show none"; otherwise opt into the full vocabulary.
+				// Each press is a stable round-trip between [] and full.
+				const next: readonly ShowCategory[] =
+					show.length === SHOW_CATEGORIES.length ? [] : [...SHOW_CATEGORIES]
+				setShow(next)
+			}}
 		/>
 	)
 }
@@ -209,6 +239,20 @@ if (import.meta.main) {
 		process.exit(0)
 	}
 
+	// Parse --show eagerly so an invalid token fails fast with the CLI-style
+	// "house: ..." message, before any I/O work in loadConfig kicks off.
+	let cliShow: readonly ShowCategory[] | null = null
+	if (args.show !== null) {
+		const parsed = parseShowList(args.show)
+		if (!parsed.ok) {
+			console.error(
+				`house: --show: unknown category "${parsed.invalid.join('", "')}" (valid: ${SHOW_CATEGORIES.join(", ")})`,
+			)
+			process.exit(2)
+		}
+		cliShow = parsed.value
+	}
+
 	const config = await Effect.runPromise(
 		loadConfig({
 			cli: {
@@ -217,13 +261,16 @@ if (import.meta.main) {
 				// --no-mdx is a one-way override: present means "off". When
 				// absent, fall through to env/file/default.
 				mdx: args.noMdx ? false : null,
+				// `--show` replaces env/file when present (set semantics —
+				// no per-category merge across sources). `null` falls through.
+				show: cliShow,
 			},
 		}),
 	).catch((err: unknown) => {
 		console.error(`house: ${formatConfigError(err)}`)
 		process.exit(2)
 	})
-	const { theme: themeId, tone, mdx } = config
+	const { theme: themeId, tone, mdx, show } = config
 	const themeDef = getThemeDefinition(themeId)
 	if (themeDef === undefined) {
 		// Unreachable: Config.schema validated themeId against themeDefinitions.
@@ -298,7 +345,7 @@ if (import.meta.main) {
 			themeId,
 			tone,
 			maxWidth,
-			all: args.all,
+			show,
 			sort,
 			mdx,
 			sidebarMode,
@@ -312,7 +359,7 @@ interface TuiBootOptions {
 	readonly themeId: string
 	readonly tone: "dark" | "light"
 	readonly maxWidth: number | null
-	readonly all: boolean
+	readonly show: readonly ShowCategory[]
 	readonly sort: SortOrder
 	readonly mdx: boolean
 	readonly sidebarMode: SidebarMode
@@ -326,7 +373,7 @@ async function runTui({
 	themeId,
 	tone,
 	maxWidth,
-	all,
+	show,
 	sort,
 	mdx,
 	sidebarMode,
@@ -366,7 +413,7 @@ async function runTui({
 			<RegistryProvider initialValues={[[themeAtom, initialTheme]]}>
 				<DiscoverShell
 					target={target}
-					all={all}
+					initialShow={show}
 					sort={sort}
 					mdx={mdx}
 					maxWidth={maxWidth}

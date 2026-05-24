@@ -13,23 +13,33 @@
 import { homedir } from "node:os"
 import { join } from "node:path"
 import { Config, ConfigProvider, Effect, Schema } from "effect"
+import { parseShowList, SHOW_CATEGORIES, type ShowCategory } from "../discovery/show.ts"
 import { themeDefinitions } from "../theme/registry.ts"
 
 export interface HouseConfig {
 	readonly theme: string
 	readonly tone: "dark" | "light"
 	readonly mdx: boolean
+	/** Categories of normally-skipped entries to opt into. See
+	 *  `src/discovery/show.ts` for the vocabulary. Empty array (the
+	 *  default) yields the conservative discovery set. */
+	readonly show: readonly ShowCategory[]
 }
 
 export interface CliOverrides {
 	readonly theme: string | null
 	readonly tone: string | null
 	readonly mdx: boolean | null
+	/** When non-null, the parsed `--show` list completely replaces env/file
+	 *  (no per-category merging — sets compose by replacement, like every
+	 *  other CLI override here). `--show ""` sets the empty set. */
+	readonly show: readonly ShowCategory[] | null
 }
 
 const DEFAULT_THEME = "opencode"
 const DEFAULT_TONE: "dark" | "light" = "dark"
 const DEFAULT_MDX = true
+const DEFAULT_SHOW = ""
 
 const themeIds = themeDefinitions.map((t) => t.id)
 
@@ -39,7 +49,7 @@ const themeIds = themeDefinitions.map((t) => t.id)
  * Used by `fileProvider` to warn about unrecognized keys (with a
  * did-you-mean hint when one is close) while still loading the rest.
  */
-const KNOWN_FILE_KEYS: ReadonlySet<string> = new Set(["theme", "tone", "mdx"])
+const KNOWN_FILE_KEYS: ReadonlySet<string> = new Set(["theme", "tone", "mdx", "show"])
 
 const schema = Config.all({
 	theme: Config.schema(Schema.Literals(themeIds), "theme"),
@@ -48,6 +58,11 @@ const schema = Config.all({
 	// (TOML bools, env vars, CLI flags all flow through as text). Mapped to
 	// a real boolean in `loadConfig` below.
 	mdx: Config.schema(Schema.Literals(["true", "false"] as const), "mdx"),
+	// `show` arrives as a comma-separated string from every provider
+	// (`fileProvider` coerces TOML arrays via `String()`, which produces
+	// `"hidden,gitignored"`). Token-level validation happens in `loadConfig`
+	// so the error message can list valid categories at the field's path.
+	show: Config.schema(Schema.String, "show"),
 })
 
 const defaultsProvider = (): ConfigProvider.ConfigProvider =>
@@ -55,6 +70,7 @@ const defaultsProvider = (): ConfigProvider.ConfigProvider =>
 		theme: DEFAULT_THEME,
 		tone: DEFAULT_TONE,
 		mdx: String(DEFAULT_MDX),
+		show: DEFAULT_SHOW,
 	})
 
 /**
@@ -170,9 +186,11 @@ const envProvider = (env: Record<string, string | undefined>): ConfigProvider.Co
 	const theme = env["HOUSE_THEME"]
 	const tone = env["HOUSE_TONE"]
 	const mdx = env["HOUSE_MDX"]
+	const show = env["HOUSE_SHOW"]
 	if (theme !== undefined) entries.push(["theme", theme])
 	if (tone !== undefined) entries.push(["tone", tone])
 	if (mdx !== undefined) entries.push(["mdx", mdx])
+	if (show !== undefined) entries.push(["show", show])
 	return ConfigProvider.fromUnknown(Object.fromEntries(entries))
 }
 
@@ -181,6 +199,7 @@ const cliProvider = (overrides: CliOverrides): ConfigProvider.ConfigProvider => 
 	if (overrides.theme !== null) entries.push(["theme", overrides.theme])
 	if (overrides.tone !== null) entries.push(["tone", overrides.tone])
 	if (overrides.mdx !== null) entries.push(["mdx", String(overrides.mdx)])
+	if (overrides.show !== null) entries.push(["show", overrides.show.join(",")])
 	return ConfigProvider.fromUnknown(Object.fromEntries(entries))
 }
 
@@ -217,15 +236,35 @@ export const formatConfigError = (err: unknown): string => {
 
 export const loadConfig = (
 	options: LoadOptions = {},
-): Effect.Effect<HouseConfig, Config.ConfigError> => {
-	const cli = options.cli ?? { theme: null, tone: null, mdx: null }
+): Effect.Effect<HouseConfig, Config.ConfigError | Error> => {
+	const cli = options.cli ?? { theme: null, tone: null, mdx: null, show: null }
 	const onWarning = options.onWarning ?? ((msg) => process.stderr.write(`${msg}\n`))
 	const provider = cliProvider(cli).pipe(
 		ConfigProvider.orElse(envProvider(options.env ?? process.env)),
 		ConfigProvider.orElse(fileProvider(options.filePath ?? defaultConfigPath(), onWarning)),
 		ConfigProvider.orElse(defaultsProvider()),
 	)
-	return schema
-		.parse(provider)
-		.pipe(Effect.map((raw) => ({ theme: raw.theme, tone: raw.tone, mdx: raw.mdx === "true" })))
+	return schema.parse(provider).pipe(
+		Effect.flatMap((raw) => {
+			const parsed = parseShowList(raw.show)
+			if (!parsed.ok) {
+				// Effect's `Config.ConfigError` requires a `SchemaError` or
+				// `SourceError` cause that we don't have a clean constructor
+				// for here — surface as a plain Error and let the boot
+				// layer's existing `formatConfigError` (which already handles
+				// `instanceof Error`) render it.
+				return Effect.fail(
+					new Error(
+						`show: unknown category "${parsed.invalid.join('", "')}" (valid: ${SHOW_CATEGORIES.join(", ")})`,
+					),
+				)
+			}
+			return Effect.succeed({
+				theme: raw.theme,
+				tone: raw.tone,
+				mdx: raw.mdx === "true",
+				show: parsed.value,
+			})
+		}),
+	)
 }

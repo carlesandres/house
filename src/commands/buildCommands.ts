@@ -44,6 +44,11 @@ const annotations: Record<string, Annotation> = {
 	"sidebar.toggle": { title: "Toggle sidebar", category: "View" },
 	"help.toggle": { title: "Show help", category: "App" },
 	"filter.open": { title: "Filter files…", category: "Navigation" },
+	"discovery.toggleAll": {
+		title: "Toggle hidden / gitignored files",
+		category: "Navigation",
+		keywords: ["hidden", "gitignore", "dotfiles", "all"],
+	},
 	"serve.current": { title: "Open in browser", category: "File" },
 	"file.edit": { title: "Open in editor", category: "File", keywords: ["editor", "vim", "vscode"] },
 	"theme.next": { category: "Appearance" },

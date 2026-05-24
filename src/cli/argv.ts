@@ -9,8 +9,6 @@ export interface ParsedArgs {
 	readonly tone: string | null
 	/** Value of `--width <N>`, or null. Validated by the boot layer (must be a positive integer). */
 	readonly width: string | null
-	/** True when `--all` was passed: include hidden + gitignored files in discovery. */
-	readonly all: boolean
 	/** Value of `--sort <mode>` (`dirs-first` or `files-first`), or null. Validated by the boot layer. */
 	readonly sort: string | null
 	/** True when `--serve` was passed: serve the given file as HTML, skip TUI. */
@@ -31,6 +29,11 @@ export interface ParsedArgs {
 	readonly noUpdateCheck: boolean
 	/** True when `--no-mdx` was passed: exclude `.mdx` files from discovery. */
 	readonly noMdx: boolean
+	/** Raw value of `--show <list>`, or null if the flag wasn't passed.
+	 *  Comma-separated list of category names; the boot layer validates
+	 *  tokens against the known vocabulary (see `discovery/show.ts`).
+	 *  `--show ""` is a meaningful value: clears the set. */
+	readonly show: string | null
 }
 
 /**
@@ -45,7 +48,6 @@ export const parseArgv = (argv: readonly string[]): ParsedArgs => {
 	let theme: string | null = null
 	let tone: string | null = null
 	let width: string | null = null
-	let all = false
 	let sort: string | null = null
 	let serve = false
 	let port: string | null = null
@@ -55,6 +57,7 @@ export const parseArgv = (argv: readonly string[]): ParsedArgs => {
 	let sidebar: string | null = null
 	let noUpdateCheck = false
 	let noMdx = false
+	let show: string | null = null
 
 	for (let i = 0; i < argv.length; i++) {
 		const arg = argv[i]!
@@ -70,9 +73,6 @@ export const parseArgv = (argv: readonly string[]): ParsedArgs => {
 			case "--width":
 				width = argv[i + 1] ?? null
 				i++
-				continue
-			case "--all":
-				all = true
 				continue
 			case "--sort":
 				sort = argv[i + 1] ?? null
@@ -113,6 +113,15 @@ export const parseArgv = (argv: readonly string[]): ParsedArgs => {
 			case "--no-mdx":
 				noMdx = true
 				continue
+			case "--show":
+				// Always consume the following arg, even when it looks like
+				// a flag — `--show ""` is meaningful (explicit empty set),
+				// and the empty-string regression matters more than the
+				// near-miss case of someone forgetting the value. Boot
+				// validates tokens.
+				show = argv[i + 1] ?? null
+				i++
+				continue
 		}
 		if (path === null && !arg.startsWith("-")) {
 			path = arg
@@ -124,7 +133,6 @@ export const parseArgv = (argv: readonly string[]): ParsedArgs => {
 		theme,
 		tone,
 		width,
-		all,
 		sort,
 		serve,
 		port,
@@ -134,6 +142,7 @@ export const parseArgv = (argv: readonly string[]): ParsedArgs => {
 		sidebar,
 		noUpdateCheck,
 		noMdx,
+		show,
 	}
 }
 
@@ -147,7 +156,8 @@ options:
   --theme <id>   color theme: ${themeList} (default: opencode)
   --tone <mode>  dark or light (default: dark)
   --width <N>    cap rendered markdown width at N columns
-  --all          include hidden and gitignored files in discovery
+  --show <list>  reveal normally-skipped entries; comma-separated subset of:
+                   hidden, gitignored. Use --show "" to clear.
   --sort <mode>  sidebar order: dirs-first (default) or files-first
   --sidebar <m>  initial sidebar visibility: auto (default), on, or off
   --serve        serve the given file as HTML in the browser (skips TUI)
@@ -160,6 +170,6 @@ options:
 
 configuration:
   file: $XDG_CONFIG_HOME/house/config.toml  (default ~/.config/house/config.toml)
-  keys: theme, tone, mdx
-  env:  HOUSE_THEME, HOUSE_TONE, HOUSE_MDX
+  keys: theme, tone, mdx, show
+  env:  HOUSE_THEME, HOUSE_TONE, HOUSE_MDX, HOUSE_SHOW
   precedence (high → low): flags → env → file → defaults`

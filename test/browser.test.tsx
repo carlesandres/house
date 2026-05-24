@@ -2970,6 +2970,116 @@ describe("Browser — updateNotice", () => {
 	})
 })
 
+describe("Browser — discovery toggle (#145)", () => {
+	// A small stateful wrapper that mirrors DiscoverShell's role: it owns the
+	// `all` flag and switches between two file sets when Browser asks for a
+	// toggle. We don't run the real walker here — the unit under test is the
+	// Browser's selection-preservation behaviour, not the file stream.
+	const VISIBLE = ["readme.md", "docs/intro.md"]
+	const WITH_HIDDEN = [".hidden.md", "readme.md", "docs/intro.md"]
+
+	const Wrapper = ({ initialAll = false }: { readonly initialAll?: boolean }) => {
+		// Mirrors DiscoverShell's shift+a sugar: the toggle round-trips
+		// between "no categories" and "every category". Everywhere else in
+		// the system the categories are independent — this collapse only
+		// exists because the UI keybind is the one place we treat them
+		// as a single thing.
+		const [showAll, setShowAll] = React.useState(initialAll)
+		const files = makeFiles(showAll ? WITH_HIDDEN : VISIBLE)
+		return (
+			<Browser
+				files={files}
+				readFile={makeReader(
+					Object.fromEntries([...VISIBLE, ...WITH_HIDDEN].map((f) => [f, `# ${f}`])),
+				)}
+				onQuit={() => {}}
+				onToggleAll={() => setShowAll((v) => !v)}
+				initialIndex={initialAll ? WITH_HIDDEN.indexOf(".hidden.md") : 0}
+			/>
+		)
+	}
+
+	test("toggle on: a non-hidden selection survives the re-walk", async () => {
+		await act(async () => {
+			setup = await renderBrowser(<Wrapper />, VIEWPORT)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		// Start on readme.md (index 0). Move to docs/intro.md so we have a
+		// non-trivial selection to preserve.
+		await act(async () => {
+			setup!.mockInput.pressKey("j")
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(readerTitleContains(setup!.captureCharFrame(), "docs/intro.md")).toBe(true)
+
+		await act(async () => {
+			setup!.mockInput.pressKey("a", { shift: true })
+		})
+		await stepFrame(setup!.renderOnce)
+
+		const frame = setup!.captureCharFrame()
+		// Hidden file is now in the sidebar.
+		expect(frame).toContain(".hidden.md")
+		// Selection sticks on docs/intro.md even though a new entry showed up first.
+		expect(readerTitleContains(frame, "docs/intro.md")).toBe(true)
+	})
+
+	test("toggle off: selection on a hidden file restores when toggled back on", async () => {
+		await act(async () => {
+			setup = await renderBrowser(<Wrapper initialAll={true} />, VIEWPORT)
+		})
+		await stepFrame(setup!.renderOnce)
+		// .hidden.md is selected initially.
+		expect(readerTitleContains(setup!.captureCharFrame(), ".hidden.md")).toBe(true)
+
+		// Toggle off: the hidden file disappears from the list. Pending ref
+		// stays armed; visible selection falls to the first remaining entry.
+		await act(async () => {
+			setup!.mockInput.pressKey("a", { shift: true })
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).not.toContain(".hidden.md")
+
+		// Toggle back on: hidden file returns, pending restores selection.
+		await act(async () => {
+			setup!.mockInput.pressKey("a", { shift: true })
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain(".hidden.md")
+		expect(readerTitleContains(frame, ".hidden.md")).toBe(true)
+	})
+
+	test("pressing j after a toggle-off clears pending: original selection is not restored", async () => {
+		await act(async () => {
+			setup = await renderBrowser(<Wrapper initialAll={true} />, VIEWPORT)
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(readerTitleContains(setup!.captureCharFrame(), ".hidden.md")).toBe(true)
+
+		// Toggle off (pending = .hidden.md), then user-driven j clears pending.
+		await act(async () => {
+			setup!.mockInput.pressKey("a", { shift: true })
+		})
+		await stepFrame(setup!.renderOnce)
+		await act(async () => {
+			setup!.mockInput.pressKey("j")
+		})
+		await stepFrame(setup!.renderOnce)
+
+		// Toggle back on: hidden file is in the list again, but selection
+		// should NOT snap back to it — pending was cleared by `j`.
+		await act(async () => {
+			setup!.mockInput.pressKey("a", { shift: true })
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain(".hidden.md")
+		expect(readerTitleContains(frame, ".hidden.md")).toBe(false)
+	})
+})
+
 describe("Browser — header", () => {
 	test("renders brand mark and version on a tall viewport", async () => {
 		await act(async () => {

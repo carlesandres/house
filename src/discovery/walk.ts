@@ -2,6 +2,7 @@ import { readdir, readFile } from "node:fs/promises"
 import { extname, join, relative, resolve } from "node:path"
 import { Data, Effect, Stream } from "effect"
 import ignore, { type Ignore } from "ignore"
+import type { ShowCategory } from "./show.ts"
 
 export interface FileEntry {
 	/** Absolute path on disk. */
@@ -15,8 +16,11 @@ export interface FileEntry {
 export type SortOrder = "dirs-first" | "files-first"
 
 export interface WalkOptions {
-	/** Include hidden files and gitignored entries. Hard skips still apply. */
-	readonly all?: boolean
+	/** Categories of normally-skipped entries to opt into. Empty (the
+	 *  default) yields the conservative set: no dotfiles, no gitignored
+	 *  entries. Order is irrelevant — semantics are set membership. Hard
+	 *  skips (`node_modules`, `.git`, `.venv`) always apply. */
+	readonly show?: Iterable<ShowCategory>
 	/** Group order within each directory. Default `dirs-first`. */
 	readonly sort?: SortOrder
 	/** Include `.mdx` files alongside `.md`/`.markdown`. Default `true`. */
@@ -88,13 +92,13 @@ async function* walkDirGen(
 	dirPath: string,
 	rootPath: string,
 	parentLevels: readonly IgnoreLevel[],
-	opts: { all: boolean; sort: SortOrder; mdx: boolean },
+	opts: { showHidden: boolean; showGitignored: boolean; sort: SortOrder; mdx: boolean },
 	signal: AbortSignal,
 ): AsyncGenerator<FileEntry, void, void> {
 	if (signal.aborted) return
 
 	let levels = parentLevels
-	if (!opts.all) {
+	if (!opts.showGitignored) {
 		const ig = await tryLoadGitignore(dirPath)
 		if (signal.aborted) return
 		if (ig) levels = [...parentLevels, { dir: dirPath, ig }]
@@ -114,17 +118,17 @@ async function* walkDirGen(
 
 		if (entry.isDirectory()) {
 			if (HARD_SKIP_DIRS.has(entry.name)) continue
-			if (!opts.all && entry.name.startsWith(".")) continue
-			if (!opts.all && isIgnored(entryPath, true, levels)) continue
+			if (!opts.showHidden && entry.name.startsWith(".")) continue
+			if (!opts.showGitignored && isIgnored(entryPath, true, levels)) continue
 			yield* walkDirGen(entryPath, rootPath, levels, opts, signal)
 			continue
 		}
 
 		if (!entry.isFile()) continue
-		if (!opts.all && entry.name.startsWith(".")) continue
+		if (!opts.showHidden && entry.name.startsWith(".")) continue
 		const allowed = opts.mdx ? MARKDOWN_EXTENSIONS : MARKDOWN_EXTENSIONS_NO_MDX
 		if (!allowed.has(extname(entry.name).toLowerCase())) continue
-		if (!opts.all && isIgnored(entryPath, false, levels)) continue
+		if (!opts.showGitignored && isIgnored(entryPath, false, levels)) continue
 
 		yield {
 			path: entryPath,
@@ -143,7 +147,7 @@ async function* walkDirGen(
  * Rules (see DESIGN.md §6):
  * - Extensions: `.md`, `.markdown`, and `.mdx` (unless `mdx: false`).
  * - Hard skips (always): `node_modules`, `.git`, `.venv`.
- * - Hidden files/dirs (leading `.`) skipped unless `all: true`.
+ * - Hidden files/dirs (leading `.`) skipped unless `show` contains `"hidden"`.
  * - `.gitignore` honored, including nested `.gitignore` files.
  * - Symlinks not followed.
  * - Sort: alphabetical within each group; directories before files
@@ -154,8 +158,10 @@ export const walk = (
 	options: WalkOptions = {},
 ): Stream.Stream<FileEntry, DiscoveryError> => {
 	const absRoot = resolve(root)
+	const show = new Set<ShowCategory>(options.show ?? [])
 	const opts = {
-		all: options.all ?? false,
+		showHidden: show.has("hidden"),
+		showGitignored: show.has("gitignored"),
 		sort: options.sort ?? ("dirs-first" as SortOrder),
 		mdx: options.mdx ?? true,
 	}

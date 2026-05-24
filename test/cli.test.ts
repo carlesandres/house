@@ -6,7 +6,6 @@ const empty: ParsedArgs = {
 	theme: null,
 	tone: null,
 	width: null,
-	all: false,
 	sort: null,
 	serve: false,
 	port: null,
@@ -16,6 +15,7 @@ const empty: ParsedArgs = {
 	sidebar: null,
 	noUpdateCheck: false,
 	noMdx: false,
+	show: null,
 }
 const args = (overrides: Partial<ParsedArgs>): ParsedArgs => ({ ...empty, ...overrides })
 
@@ -59,9 +59,6 @@ describe("parseArgv — --width", () => {
 })
 
 describe("parseArgv — boolean flags", () => {
-	test("--all is parsed as boolean", () => {
-		expect(parseArgv(["--all"])).toEqual(args({ all: true }))
-	})
 	test("--help and -h are parsed as help", () => {
 		expect(parseArgv(["--help"])).toEqual(args({ help: true }))
 		expect(parseArgv(["-h"])).toEqual(args({ help: true }))
@@ -75,6 +72,40 @@ describe("parseArgv — boolean flags", () => {
 	})
 	test("--no-mdx is parsed as boolean", () => {
 		expect(parseArgv(["--no-mdx"])).toEqual(args({ noMdx: true }))
+	})
+})
+
+describe("parseArgv — --show", () => {
+	test("captures the value after --show", () => {
+		expect(parseArgv(["--show", "hidden,gitignored"])).toEqual(
+			args({ show: "hidden,gitignored" }),
+		)
+	})
+	test("captures a single category", () => {
+		expect(parseArgv(["--show", "hidden"])).toEqual(args({ show: "hidden" }))
+	})
+	test("captures empty string verbatim (means: clear)", () => {
+		// Explicit empty set — the parser must keep this distinct from
+		// "flag absent" so the boot layer can tell "user opted in to no
+		// categories" from "user didn't say".
+		expect(parseArgv(["--show", ""])).toEqual(args({ show: "" }))
+	})
+	test("captures unknown tokens verbatim (boot validates)", () => {
+		expect(parseArgv(["--show", "bogus,hidden"])).toEqual(args({ show: "bogus,hidden" }))
+	})
+	test("--show with no value yields null", () => {
+		expect(parseArgv(["--show"])).toEqual(args({ show: null }))
+	})
+	test("--all is NOT a recognised flag (removed in the show refactor)", () => {
+		// Regression guard for the breaking change: --all is gone, only the
+		// shift+a UI keybind retains the "show everything" sugar.
+		expect(parseArgv(["--all"])).toEqual(empty)
+	})
+	test("--hidden / --gitignored are NOT recognised flags", () => {
+		// They moved into --show <list>. Guard against accidental
+		// re-introduction during future refactors.
+		expect(parseArgv(["--hidden"])).toEqual(empty)
+		expect(parseArgv(["--gitignored"])).toEqual(empty)
 	})
 })
 
@@ -108,8 +139,8 @@ describe("parseArgv — --sidebar", () => {
 
 describe("parseArgv — combined", () => {
 	test("path + multiple flags", () => {
-		expect(parseArgv(["docs", "--theme", "light", "--width", "80", "--all"])).toEqual(
-			args({ path: "docs", theme: "light", width: "80", all: true }),
-		)
+		expect(
+			parseArgv(["docs", "--theme", "light", "--width", "80", "--show", "hidden,gitignored"]),
+		).toEqual(args({ path: "docs", theme: "light", width: "80", show: "hidden,gitignored" }))
 	})
 })

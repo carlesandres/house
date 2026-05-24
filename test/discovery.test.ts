@@ -91,13 +91,13 @@ describe("walk — hard-skip directories", () => {
 		expect(names(result)).toEqual(["top.md"])
 	})
 
-	test("hard-skips apply even with all: true", async () => {
+	test("hard-skips apply even with show=[hidden,gitignored]", async () => {
 		const root = await fixture({
 			"top.md": "x",
 			"node_modules/x.md": "x",
 			".git/y.md": "x",
 		})
-		const result = await run(walkToArray(root, { all: true }))
+		const result = await run(walkToArray(root, { show: ["hidden", "gitignored"] }))
 		expect(names(result)).toEqual(["top.md"])
 	})
 })
@@ -115,16 +115,29 @@ describe("walk — hidden files", () => {
 		expect(names(result)).toEqual(["visible.md"])
 	})
 
-	test("includes hidden files with all: true", async () => {
+	test("includes hidden files with show=[hidden]", async () => {
 		const root = await fixture({ "visible.md": "x", ".hidden.md": "x" })
-		const result = await run(walkToArray(root, { all: true }))
+		const result = await run(walkToArray(root, { show: ["hidden"] }))
 		expect(names(result).sort()).toEqual([".hidden.md", "visible.md"])
 	})
 
-	test("reveals contents of hidden directories with all: true", async () => {
+	test("reveals contents of hidden directories with show=[hidden]", async () => {
 		const root = await fixture({ "visible.md": "x", ".secret/inside.md": "x" })
-		const result = await run(walkToArray(root, { all: true }))
+		const result = await run(walkToArray(root, { show: ["hidden"] }))
 		expect(names(result).sort()).toEqual([".secret/inside.md", "visible.md"])
+	})
+
+	test("show=[hidden] alone does NOT bypass .gitignore", async () => {
+		// Independence of the two axes — pre-#145 `all` collapsed both; the
+		// split keeps gitignore filtering active when only hidden is on.
+		const root = await fixture({
+			".gitignore": "ignored.md\n",
+			".hidden.md": "x",
+			"ignored.md": "x",
+			"visible.md": "x",
+		})
+		const result = await run(walkToArray(root, { show: ["hidden"] }))
+		expect(names(result).sort()).toEqual([".hidden.md", "visible.md"])
 	})
 })
 
@@ -160,13 +173,24 @@ describe("walk — gitignore", () => {
 		expect(names(result).sort()).toEqual(["other/secret.md"])
 	})
 
-	test("all: true ignores .gitignore rules", async () => {
+	test("show=[gitignored] ignores .gitignore rules", async () => {
 		const root = await fixture({
 			".gitignore": "ignored.md\n",
 			"visible.md": "x",
 			"ignored.md": "x",
 		})
-		const result = await run(walkToArray(root, { all: true }))
+		const result = await run(walkToArray(root, { show: ["gitignored"] }))
+		expect(names(result).sort()).toEqual(["ignored.md", "visible.md"])
+	})
+
+	test("show=[gitignored] alone does NOT reveal hidden files", async () => {
+		const root = await fixture({
+			".gitignore": "ignored.md\n",
+			".hidden.md": "x",
+			"ignored.md": "x",
+			"visible.md": "x",
+		})
+		const result = await run(walkToArray(root, { show: ["gitignored"] }))
 		expect(names(result).sort()).toEqual(["ignored.md", "visible.md"])
 	})
 
