@@ -128,7 +128,7 @@ const fgOfSpanContaining = (frame: CapturedFrame, text: string): RGBA | null => 
 }
 
 /** Bg color at (row, col) in a captured frame. Used for focus assertions:
- *  the sidebar tints to colors.backgroundPanel when focused, colors.background
+ *  the sidebar tints to colors.background when focused, colors.backgroundPanel
  *  otherwise. */
 const bgAt = (frame: CapturedFrame, row: number, col: number): RGBA | null => {
 	const line = frame.lines[row]

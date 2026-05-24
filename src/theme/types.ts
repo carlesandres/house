@@ -82,10 +82,10 @@ export type TokenName = keyof ThemeTokens
 export type ResolvedTheme = Readonly<Record<TokenName, HexColor>>
 
 /**
- * The flat color object consumed by Browser/HelpOverlay/index. Keeps the
- * existing names (`background`, `surface`, `text`, `syntax`, …) so the
- * UI files don't all have to change. Values come from
- * `colors.ts`'s adapter, which maps `ResolvedTheme` → this shape.
+ * The flat color object consumed by Browser/HelpOverlay/index. Uses the
+ * OpenCode-aligned UI token names directly (`background`, `backgroundPanel`,
+ * `backgroundElement`, `borderSubtle`, `primary`, `secondary`, …). Values
+ * come from `colors.ts`'s adapter, which maps `ResolvedTheme` → this shape.
  */
 export interface ColorPalette {
 	readonly background: string
