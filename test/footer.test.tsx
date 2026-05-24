@@ -1,5 +1,4 @@
 import { afterEach, beforeAll } from "bun:test"
-import { act } from "react"
 import { testRender } from "@opentui/react/test-utils"
 import { destroyTestRenderer } from "./helpers/opentui-test-cleanup.ts"
 
