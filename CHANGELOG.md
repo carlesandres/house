@@ -6,6 +6,8 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 
 ## [Unreleased]
 
+## [0.4.5] — 2026-05-24
+
 ### Changed
 
 - npm install/upgrade runtime baseline is now explicit: Node `>=22.22.2` is required when installing `@carlesandres/house` via npm, matching transitive engine requirements.
@@ -201,7 +203,8 @@ The v1 MVP, published as `@carlesandres/openmdr` on npm.
 
 Search, stdin, URL fetching, cross-file link following, `$EDITOR` hand-off, syntax highlighting, persistent config, OS-appearance auto-detect, single-binary distribution (issue [#2](https://github.com/carlesandres/openmdr/issues/2)), Homebrew tap. All tracked.
 
-[Unreleased]: https://github.com/carlesandres/house/compare/v0.4.4...HEAD
+[Unreleased]: https://github.com/carlesandres/house/compare/v0.4.5...HEAD
+[0.4.5]: https://github.com/carlesandres/house/compare/v0.4.4...v0.4.5
 [0.4.4]: https://github.com/carlesandres/house/compare/v0.4.3...v0.4.4
 [0.4.3]: https://github.com/carlesandres/house/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/carlesandres/house/compare/v0.4.1...v0.4.2
