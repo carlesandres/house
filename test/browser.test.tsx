@@ -82,7 +82,7 @@ describe("Browser — sidebar", () => {
 				VIEWPORT,
 			)
 		})
-		await setup!.renderOnce()
+		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
 		// Sidebar rows render basename-first with the parent path as a dim suffix
 		// (e.g. "intro.md  ·  docs"). Match the full shape so a regression that
@@ -100,7 +100,7 @@ describe("Browser — sidebar", () => {
 				VIEWPORT,
 			)
 		})
-		await setup!.renderOnce()
+		await stepFrame(setup!.renderOnce)
 		expect(setup!.captureCharFrame()).toContain("no markdown files")
 	})
 })
@@ -975,7 +975,7 @@ describe("Browser — quit", () => {
 				VIEWPORT,
 			)
 		})
-		await setup!.renderOnce()
+		await stepFrame(setup!.renderOnce)
 		await act(async () => {
 			setup!.mockInput.pressKey("q")
 		})
@@ -996,7 +996,7 @@ describe("Browser — quit", () => {
 				VIEWPORT,
 			)
 		})
-		await setup!.renderOnce()
+		await stepFrame(setup!.renderOnce)
 		await act(async () => {
 			setup!.mockInput.pressCtrlC()
 		})

@@ -1,18 +1,14 @@
 /**
  * Fuzzy filter for the sidebar.
  *
- * Matching: case-insensitive subsequence on `relativePath`. A query "drm"
- * matches "docs/readme.md". Scoring (higher is better):
- *   - +10 for a match at the start of the string or right after `/`
- *     (word boundary — what the user typed lines up with a path segment)
- *   - +5 when the current match is adjacent to the previous one
- *     (consecutive runs read as "drm" matching the literal substring)
- *   - +1 otherwise
+ * Matching stays intentionally small and pure: case-insensitive subsequence on
+ * the filename and full relative path. Ranking prefers what users usually mean
+ * in a sidebar:
+ *   - filename matches above folder-only matches
+ *   - files in the current folder above equally good nested matches
+ *   - shallower paths above deeper ones as a soft tie-break
  *
- * The scorer is intentionally tiny — the only goal is to surface the
- * "obvious" match for short queries against a few hundred paths. A full
- * fzf-style scorer (with bonuses for camelCase, separators, etc.) is
- * deferred until the simple version proves insufficient.
+ * Empty query preserves discovery/tree order.
  */
 
 import type { FileEntry } from "./walk.ts"
@@ -36,6 +32,42 @@ export const fuzzyScore = (query: string, target: string): number | null => {
 	return score
 }
 
+const splitPath = (relativePath: string): { fileName: string; depth: number } => {
+	const slash = relativePath.lastIndexOf("/")
+	return {
+		fileName: slash >= 0 ? relativePath.slice(slash + 1) : relativePath,
+		depth: slash >= 0 ? relativePath.split("/").length - 1 : 0,
+	}
+}
+
+const fileStem = (fileName: string): string => {
+	const dot = fileName.lastIndexOf(".")
+	return dot > 0 ? fileName.slice(0, dot) : fileName
+}
+
+const rankFile = (query: string, file: FileEntry): number | null => {
+	const pathScore = fuzzyScore(query, file.relativePath)
+	if (pathScore === null) return null
+
+	const { fileName, depth } = splitPath(file.relativePath)
+	const q = query.toLowerCase()
+	const name = fileName.toLowerCase()
+	const stem = fileStem(fileName).toLowerCase()
+	const nameScore = fuzzyScore(query, fileName) ?? 0
+
+	let score = pathScore * 10
+	score += nameScore * 100
+
+	if (name === q || stem === q) score += 5_000
+	else if (name.startsWith(q) || stem.startsWith(q)) score += 2_000
+	else if (name.includes(q)) score += 1_000
+
+	if (depth === 0) score += 300
+	score -= depth * 10
+
+	return score
+}
+
 /**
  * Filter and re-rank a file list by a query. Empty query returns the input
  * unchanged (preserves the discovery sort order). Non-empty query keeps
@@ -47,7 +79,7 @@ export const filterFiles = (files: readonly FileEntry[], query: string): readonl
 	const scored: { file: FileEntry; score: number; index: number }[] = []
 	for (let i = 0; i < files.length; i++) {
 		const file = files[i]!
-		const score = fuzzyScore(query, file.relativePath)
+		const score = rankFile(query, file)
 		if (score === null) continue
 		scored.push({ file, score, index: i })
 	}

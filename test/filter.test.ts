@@ -69,4 +69,23 @@ describe("filterFiles", () => {
 		const out = paths(filterFiles(xs, "drm"))
 		expect(out).toContain("docs/readme.md")
 	})
+
+	test("filename matches outrank folder-only matches", () => {
+		const xs = files(["readme/notes.md", "docs/readme.md"])
+		expect(paths(filterFiles(xs, "readme"))).toEqual(["docs/readme.md", "readme/notes.md"])
+	})
+
+	test("current-folder files outrank equally good nested matches", () => {
+		const xs = files(["readme.md", "docs/readme.md", "docs/guides/readme.md"])
+		expect(paths(filterFiles(xs, "readme")).slice(0, 3)).toEqual([
+			"readme.md",
+			"docs/readme.md",
+			"docs/guides/readme.md",
+		])
+	})
+
+	test("exact filename match outranks prefix-only variants", () => {
+		const xs = files(["readme-old.md", "readme.md", "docs/readme-notes.md"])
+		expect(paths(filterFiles(xs, "readme"))[0]).toBe("readme.md")
+	})
 })
