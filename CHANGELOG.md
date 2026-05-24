@@ -6,6 +6,22 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 
 ## [Unreleased]
 
+## [0.4.4] — 2026-05-24
+
+### Added
+
+- Discovery visibility controls: new `--show <list>` CLI flag, `HOUSE_SHOW` env var, and TOML `show = ["..."]` config, replacing boolean discovery toggles with explicit categories (`hidden`, `gitignored`).
+- Session visibility toggle: `shift+a` flips discovery between the configured visibility set and showing all categories, preserving selection across the re-walk.
+- Launch-in-filter option: `--start-in-filter` CLI flag, `HOUSE_START_IN_FILTER` env var, and TOML `start_in_filter = true` open the sidebar filter prompt focused at startup.
+
+### Changed
+
+- Discovery plumbing now uses a first-class visibility-category model so future categories can be added without reshaping CLI/config/TUI surfaces.
+
+### Docs
+
+- README updated for the discovery-show vocabulary (`--show`, `HOUSE_SHOW`, `show=[...]`) and the `shift+a` keybind.
+
 ## [0.4.3] — 2026-05-23
 
 ### Fixed
@@ -173,7 +189,8 @@ The v1 MVP, published as `@carlesandres/openmdr` on npm.
 
 Search, stdin, URL fetching, cross-file link following, `$EDITOR` hand-off, syntax highlighting, persistent config, OS-appearance auto-detect, single-binary distribution (issue [#2](https://github.com/carlesandres/openmdr/issues/2)), Homebrew tap. All tracked.
 
-[Unreleased]: https://github.com/carlesandres/house/compare/v0.4.3...HEAD
+[Unreleased]: https://github.com/carlesandres/house/compare/v0.4.4...HEAD
+[0.4.4]: https://github.com/carlesandres/house/compare/v0.4.3...v0.4.4
 [0.4.3]: https://github.com/carlesandres/house/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/carlesandres/house/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/carlesandres/house/compare/v0.4.0...v0.4.1
