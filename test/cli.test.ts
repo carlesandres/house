@@ -16,6 +16,7 @@ const empty: ParsedArgs = {
 	noUpdateCheck: false,
 	noMdx: false,
 	show: null,
+	startInFilter: false,
 }
 const args = (overrides: Partial<ParsedArgs>): ParsedArgs => ({ ...empty, ...overrides })
 
@@ -72,6 +73,9 @@ describe("parseArgv — boolean flags", () => {
 	})
 	test("--no-mdx is parsed as boolean", () => {
 		expect(parseArgv(["--no-mdx"])).toEqual(args({ noMdx: true }))
+	})
+	test("--start-in-filter is parsed as boolean", () => {
+		expect(parseArgv(["--start-in-filter"])).toEqual(args({ startInFilter: true }))
 	})
 })
 

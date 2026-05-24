@@ -24,6 +24,10 @@ export interface HouseConfig {
 	 *  `src/discovery/show.ts` for the vocabulary. Empty array (the
 	 *  default) yields the conservative discovery set. */
 	readonly show: readonly ShowCategory[]
+	/** Open the sidebar filter prompt on launch so the user can type
+	 *  immediately. Esc returns to normal focus (no special behavior).
+	 *  Default false. */
+	readonly startInFilter: boolean
 }
 
 export interface CliOverrides {
@@ -34,12 +38,14 @@ export interface CliOverrides {
 	 *  (no per-category merging — sets compose by replacement, like every
 	 *  other CLI override here). `--show ""` sets the empty set. */
 	readonly show: readonly ShowCategory[] | null
+	readonly startInFilter: boolean | null
 }
 
 const DEFAULT_THEME = "opencode"
 const DEFAULT_TONE: "dark" | "light" = "dark"
 const DEFAULT_MDX = true
 const DEFAULT_SHOW = ""
+const DEFAULT_START_IN_FILTER = false
 
 const themeIds = themeDefinitions.map((t) => t.id)
 
@@ -49,7 +55,13 @@ const themeIds = themeDefinitions.map((t) => t.id)
  * Used by `fileProvider` to warn about unrecognized keys (with a
  * did-you-mean hint when one is close) while still loading the rest.
  */
-const KNOWN_FILE_KEYS: ReadonlySet<string> = new Set(["theme", "tone", "mdx", "show"])
+const KNOWN_FILE_KEYS: ReadonlySet<string> = new Set([
+	"theme",
+	"tone",
+	"mdx",
+	"show",
+	"start_in_filter",
+])
 
 const schema = Config.all({
 	theme: Config.schema(Schema.Literals(themeIds), "theme"),
@@ -63,6 +75,7 @@ const schema = Config.all({
 	// `"hidden,gitignored"`). Token-level validation happens in `loadConfig`
 	// so the error message can list valid categories at the field's path.
 	show: Config.schema(Schema.String, "show"),
+	start_in_filter: Config.schema(Schema.Literals(["true", "false"] as const), "start_in_filter"),
 })
 
 const defaultsProvider = (): ConfigProvider.ConfigProvider =>
@@ -71,6 +84,7 @@ const defaultsProvider = (): ConfigProvider.ConfigProvider =>
 		tone: DEFAULT_TONE,
 		mdx: String(DEFAULT_MDX),
 		show: DEFAULT_SHOW,
+		start_in_filter: String(DEFAULT_START_IN_FILTER),
 	})
 
 /**
@@ -187,10 +201,12 @@ const envProvider = (env: Record<string, string | undefined>): ConfigProvider.Co
 	const tone = env["HOUSE_TONE"]
 	const mdx = env["HOUSE_MDX"]
 	const show = env["HOUSE_SHOW"]
+	const startInFilter = env["HOUSE_START_IN_FILTER"]
 	if (theme !== undefined) entries.push(["theme", theme])
 	if (tone !== undefined) entries.push(["tone", tone])
 	if (mdx !== undefined) entries.push(["mdx", mdx])
 	if (show !== undefined) entries.push(["show", show])
+	if (startInFilter !== undefined) entries.push(["start_in_filter", startInFilter])
 	return ConfigProvider.fromUnknown(Object.fromEntries(entries))
 }
 
@@ -200,6 +216,8 @@ const cliProvider = (overrides: CliOverrides): ConfigProvider.ConfigProvider => 
 	if (overrides.tone !== null) entries.push(["tone", overrides.tone])
 	if (overrides.mdx !== null) entries.push(["mdx", String(overrides.mdx)])
 	if (overrides.show !== null) entries.push(["show", overrides.show.join(",")])
+	if (overrides.startInFilter !== null)
+		entries.push(["start_in_filter", String(overrides.startInFilter)])
 	return ConfigProvider.fromUnknown(Object.fromEntries(entries))
 }
 
@@ -237,7 +255,13 @@ export const formatConfigError = (err: unknown): string => {
 export const loadConfig = (
 	options: LoadOptions = {},
 ): Effect.Effect<HouseConfig, Config.ConfigError | Error> => {
-	const cli = options.cli ?? { theme: null, tone: null, mdx: null, show: null }
+	const cli = options.cli ?? {
+		theme: null,
+		tone: null,
+		mdx: null,
+		show: null,
+		startInFilter: null,
+	}
 	const onWarning = options.onWarning ?? ((msg) => process.stderr.write(`${msg}\n`))
 	const provider = cliProvider(cli).pipe(
 		ConfigProvider.orElse(envProvider(options.env ?? process.env)),
@@ -264,6 +288,7 @@ export const loadConfig = (
 				tone: raw.tone,
 				mdx: raw.mdx === "true",
 				show: parsed.value,
+				startInFilter: raw.start_in_filter === "true",
 			})
 		}),
 	)

@@ -69,6 +69,7 @@ interface DiscoverShellProps {
 	readonly mdx: boolean
 	readonly maxWidth: number | null
 	readonly sidebarMode: SidebarMode
+	readonly startInFilter: boolean
 }
 
 const DiscoverShell = ({
@@ -78,6 +79,7 @@ const DiscoverShell = ({
 	mdx,
 	maxWidth,
 	sidebarMode,
+	startInFilter,
 }: DiscoverShellProps) => {
 	const updateNotice = useUpdateNotice()
 	const [show, setShow] = useState<readonly ShowCategory[]>(initialShow)
@@ -132,6 +134,7 @@ const DiscoverShell = ({
 			maxWidth={maxWidth}
 			discoveryStatus={discoveryStatus}
 			sidebarMode={sidebarMode}
+			startInFilter={startInFilter}
 			updateNotice={updateNotice}
 			onToggleAll={() => {
 				// shift+a is the only place the categories are treated as a
@@ -264,13 +267,15 @@ if (import.meta.main) {
 				// `--show` replaces env/file when present (set semantics —
 				// no per-category merge across sources). `null` falls through.
 				show: cliShow,
+				// One-way override: present means "on". Absent → env/file/default.
+				startInFilter: args.startInFilter ? true : null,
 			},
 		}),
 	).catch((err: unknown) => {
 		console.error(`house: ${formatConfigError(err)}`)
 		process.exit(2)
 	})
-	const { theme: themeId, tone, mdx, show } = config
+	const { theme: themeId, tone, mdx, show, startInFilter } = config
 	const themeDef = getThemeDefinition(themeId)
 	if (themeDef === undefined) {
 		// Unreachable: Config.schema validated themeId against themeDefinitions.
@@ -349,6 +354,7 @@ if (import.meta.main) {
 			sort,
 			mdx,
 			sidebarMode,
+			startInFilter,
 			updateCheck: !args.noUpdateCheck,
 		})
 	}
@@ -363,6 +369,7 @@ interface TuiBootOptions {
 	readonly sort: SortOrder
 	readonly mdx: boolean
 	readonly sidebarMode: SidebarMode
+	readonly startInFilter: boolean
 	/** Run the npm-registry probe and surface the "update available" notice.
 	 *  False suppresses both the toast and the quit-time print. */
 	readonly updateCheck: boolean
@@ -377,6 +384,7 @@ async function runTui({
 	sort,
 	mdx,
 	sidebarMode,
+	startInFilter,
 	updateCheck,
 }: TuiBootOptions): Promise<void> {
 	let stats: Awaited<ReturnType<typeof stat>>
@@ -418,6 +426,7 @@ async function runTui({
 					mdx={mdx}
 					maxWidth={maxWidth}
 					sidebarMode={sidebarMode}
+					startInFilter={startInFilter}
 				/>
 			</RegistryProvider>,
 		)

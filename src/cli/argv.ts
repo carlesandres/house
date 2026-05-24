@@ -29,6 +29,9 @@ export interface ParsedArgs {
 	readonly noUpdateCheck: boolean
 	/** True when `--no-mdx` was passed: exclude `.mdx` files from discovery. */
 	readonly noMdx: boolean
+	/** True when `--start-in-filter` was passed: open the sidebar filter
+	 *  prompt on launch (one-way override; default is off). */
+	readonly startInFilter: boolean
 	/** Raw value of `--show <list>`, or null if the flag wasn't passed.
 	 *  Comma-separated list of category names; the boot layer validates
 	 *  tokens against the known vocabulary (see `discovery/show.ts`).
@@ -58,6 +61,7 @@ export const parseArgv = (argv: readonly string[]): ParsedArgs => {
 	let noUpdateCheck = false
 	let noMdx = false
 	let show: string | null = null
+	let startInFilter = false
 
 	for (let i = 0; i < argv.length; i++) {
 		const arg = argv[i]!
@@ -113,6 +117,9 @@ export const parseArgv = (argv: readonly string[]): ParsedArgs => {
 			case "--no-mdx":
 				noMdx = true
 				continue
+			case "--start-in-filter":
+				startInFilter = true
+				continue
 			case "--show":
 				// Always consume the following arg, even when it looks like
 				// a flag — `--show ""` is meaningful (explicit empty set),
@@ -143,6 +150,7 @@ export const parseArgv = (argv: readonly string[]): ParsedArgs => {
 		noUpdateCheck,
 		noMdx,
 		show,
+		startInFilter,
 	}
 }
 
@@ -167,9 +175,10 @@ options:
   --config-path  print path to the config file and exit
   --no-update-check  suppress the "newer version available" check (also via NO_UPDATE_NOTIFIER=1)
   --no-mdx       exclude .mdx files from discovery (default: included)
+  --start-in-filter  open the sidebar filter prompt on launch
 
 configuration:
   file: $XDG_CONFIG_HOME/house/config.toml  (default ~/.config/house/config.toml)
-  keys: theme, tone, mdx, show
-  env:  HOUSE_THEME, HOUSE_TONE, HOUSE_MDX, HOUSE_SHOW
+  keys: theme, tone, mdx, show, start_in_filter
+  env:  HOUSE_THEME, HOUSE_TONE, HOUSE_MDX, HOUSE_SHOW, HOUSE_START_IN_FILTER
   precedence (high → low): flags → env → file → defaults`
