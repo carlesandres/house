@@ -761,9 +761,9 @@ export const Browser = ({
 					const realIdx = desiredScroll + idx
 					const isSelected = realIdx === selectedIndex
 					const { basename, separator, parent } = layoutSidebarRow(file.relativePath)
-					const basenameFg = isSelected ? colors.textStrong : colors.text
+					const basenameFg = isSelected ? colors.primary : colors.text
 					const rowStyle = isSelected
-						? { bg: sidebarActive ? colors.selectedBg : colors.selectedBgInactive }
+						? { bg: sidebarActive ? colors.backgroundElement : colors.borderSubtle }
 						: {}
 					return (
 						<text key={file.path} wrapMode="none" style={rowStyle}>
@@ -801,14 +801,16 @@ export const Browser = ({
 	} as const
 
 	return (
-		<box style={{ width, height, flexDirection: "column", backgroundColor: colors.surface }}>
+		<box
+			style={{ width, height, flexDirection: "column", backgroundColor: colors.backgroundPanel }}
+		>
 			<Header width={width} currentFile={currentFile} />
 			<box
 				style={{
 					flexDirection: "row",
 					flexGrow: 1,
 					flexShrink: 1,
-					backgroundColor: colors.surface,
+					backgroundColor: colors.backgroundPanel,
 				}}
 			>
 				{sidebarInline && (
@@ -825,7 +827,7 @@ export const Browser = ({
 							// Dim by default. Borders/separators ride on this so they read
 							// as a single connected frame regardless of focus; only the
 							// active pane's inner body overrides to the raised tint below.
-							backgroundColor: colors.surface,
+							backgroundColor: colors.backgroundPanel,
 						}}
 						{...(isNarrow ? {} : { customBorderChars: SIDEBAR_BORDER_CHARS })}
 					>
@@ -835,7 +837,7 @@ export const Browser = ({
 								flexShrink: 1,
 								flexDirection: "column",
 								paddingLeft: 1,
-								backgroundColor: sidebarActive ? colors.background : colors.surface,
+								backgroundColor: sidebarActive ? colors.background : colors.backgroundPanel,
 							}}
 						>
 							{sidebarBody}
@@ -851,7 +853,7 @@ export const Browser = ({
 							flexShrink: 1,
 							flexDirection: "column",
 							// Dim by default (see sidebar note); inner body overrides when active.
-							backgroundColor: colors.surface,
+							backgroundColor: colors.backgroundPanel,
 						}}
 					>
 						<box
@@ -860,7 +862,7 @@ export const Browser = ({
 								flexShrink: 1,
 								flexDirection: "column",
 								padding: 1,
-								backgroundColor: readerActive ? colors.background : colors.surface,
+								backgroundColor: readerActive ? colors.background : colors.backgroundPanel,
 							}}
 						>
 							{error ? (
@@ -874,7 +876,7 @@ export const Browser = ({
 										flexShrink: 1,
 										alignItems: "center",
 										justifyContent: "center",
-										backgroundColor: readerActive ? colors.background : colors.surface,
+										backgroundColor: readerActive ? colors.background : colors.backgroundPanel,
 									}}
 								>
 									<text
@@ -890,7 +892,7 @@ export const Browser = ({
 										scrollX: false,
 										flexGrow: 1,
 										flexShrink: 1,
-										backgroundColor: readerActive ? colors.background : colors.surface,
+										backgroundColor: readerActive ? colors.background : colors.backgroundPanel,
 									}}
 									// opentui's scrollbox consumes arrow keys at the focused-element
 									// level *before* useKeyboard fires, so a modal that handles
@@ -907,7 +909,7 @@ export const Browser = ({
 										content={content}
 										syntaxStyle={syntaxStyle}
 										fg={colors.text}
-										bg={readerActive ? colors.background : colors.surface}
+										bg={readerActive ? colors.background : colors.backgroundPanel}
 										conceal
 										style={{ width: maxWidth ?? "100%" }}
 									/>

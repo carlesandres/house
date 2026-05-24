@@ -119,8 +119,16 @@ const readerTitleContains = (frame: string, name: string): boolean => {
 	return first.includes(`· ${name}`)
 }
 
+const fgOfSpanContaining = (frame: CapturedFrame, text: string): RGBA | null => {
+	for (const line of frame.lines) {
+		const hit = line.spans.find((s) => s.text.includes(text))
+		if (hit) return hit.fg
+	}
+	return null
+}
+
 /** Bg color at (row, col) in a captured frame. Used for focus assertions:
- *  the sidebar tints to colors.surface when focused, colors.background
+ *  the sidebar tints to colors.backgroundPanel when focused, colors.background
  *  otherwise. */
 const bgAt = (frame: CapturedFrame, row: number, col: number): RGBA | null => {
 	const line = frame.lines[row]
@@ -134,7 +142,7 @@ const bgAt = (frame: CapturedFrame, row: number, col: number): RGBA | null => {
 }
 
 /** True when the sidebar pane is rendered AND focused. Active panes
- *  stay on colors.background; inactive ones dim to colors.surface. We
+ *  stay on colors.background; inactive ones dim to colors.backgroundPanel. We
  *  sample 3 rows from the bottom (past footer + bottom rule, into the
  *  pane area) at col 0 — that cell sits in the sidebar's paddingLeft
  *  and is reliably empty, so its bg reflects the pane bg rather than a
@@ -625,6 +633,32 @@ describe("Browser — #22 layout v2", () => {
 		const frame = setup!.captureCharFrame()
 		// The chip appears in the footer row, alongside the regular hints.
 		expect(frame).toContain("[filter: al]")
+	})
+
+	test("filter chip uses secondary token as active metadata", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={makeFiles(["alpha.md", "beta.md"])}
+					readFile={makeReader({ "alpha.md": "a", "beta.md": "b" })}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		await act(async () => {
+			setup!.mockInput.pressKey("/")
+			setup!.mockInput.pressKey("a")
+			setup!.mockInput.pressKey("l")
+			setup!.mockInput.pressEnter()
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(
+			fgOfSpanContaining(setup!.captureSpans(), "[filter: al]")?.equals(
+				RGBA.fromHex(colors.secondary),
+			),
+		).toBe(true)
 	})
 
 	test("filter chip does NOT appear while the filter input is open", async () => {

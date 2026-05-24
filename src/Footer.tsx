@@ -126,7 +126,7 @@ export const Footer = <C,>({
 		flexDirection: "row",
 		paddingLeft: 1,
 		paddingRight: 1,
-		backgroundColor: colors.surface,
+		backgroundColor: colors.backgroundPanel,
 	} as const
 
 	const hints: Hint[] = []
@@ -183,7 +183,7 @@ export const Footer = <C,>({
 			if (h.key === null) {
 				return [
 					...sep,
-					<text key={`l${i}`} content={h.label} wrapMode="none" style={{ fg: colors.textMuted }} />,
+					<text key={`l${i}`} content={h.label} wrapMode="none" style={{ fg: colors.secondary }} />,
 				]
 			}
 			return [
@@ -198,12 +198,12 @@ export const Footer = <C,>({
 			]
 		})
 
-	// Priority: notice > (status + hints). Notice fg is strong; status sits
-	// at the muted level so it reads as ambient state, not an event.
+	// Priority: notice > (status + hints). Discovery status uses the secondary
+	// token: active metadata, but not a warning/error event.
 	if (noticeContent !== null) {
 		return (
 			<box style={rowStyle}>
-				<text content={noticeContent} wrapMode="none" style={{ fg: colors.textStrong }} />
+				<text content={noticeContent} wrapMode="none" style={{ fg: colors.primary }} />
 			</box>
 		)
 	}
@@ -211,7 +211,7 @@ export const Footer = <C,>({
 	if (status !== null) {
 		return (
 			<box style={rowStyle}>
-				<text content={statusContent} wrapMode="none" style={{ fg: colors.textMuted }} />
+				<text content={statusContent} wrapMode="none" style={{ fg: colors.secondary }} />
 				<text content={STATUS_SEPARATOR} wrapMode="none" style={{ fg: colors.textMuted }} />
 				{renderHints()}
 			</box>

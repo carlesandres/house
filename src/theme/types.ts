@@ -89,14 +89,13 @@ export type ResolvedTheme = Readonly<Record<TokenName, HexColor>>
  */
 export interface ColorPalette {
 	readonly background: string
-	readonly surface: string
+	readonly backgroundPanel: string
+	readonly backgroundElement: string
 	readonly text: string
-	readonly textStrong: string
 	readonly textMuted: string
 	readonly border: string
 	readonly borderActive: string
-	readonly selectedBg: string
-	readonly selectedBgInactive: string
+	readonly borderSubtle: string
 	readonly selectedListItemText: string
 	readonly primary: string
 	readonly secondary: string
