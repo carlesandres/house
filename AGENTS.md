@@ -20,7 +20,7 @@ Notes for AI assistants (and humans) working in this repo. This file is about *t
 - Test root: `bunfig.toml` pins `[test] root = "test"` so `bun test` doesn't crawl `reference/`.
 - `TODO(revisit: <topic>)` markers in source point back at `DESIGN.md` §12. `grep -r 'TODO(revisit:' src/` lists them.
 - Bindings live in `src/keymap/browser.ts` as data. Adding a key: append a `KeyBinding`, the `?` overlay picks it up. Reserved keys (`/`, `e`, `o`, `r`) are off-limits in v1.
-- Themes are typed `ColorPalette` values (`src/theme/types.ts`) consumed via the mutable singleton `colors`. Pattern lifted from ghui at small scale; do not introduce React Context for theme.
+- Themes resolve into typed semantic tokens (`src/theme/types.ts`) consumed via the mutable singleton `colors`. Pattern lifted from ghui at small scale; do not introduce React Context for theme. Before adding or changing token usage, check DESIGN.md §7.5's token table and choose by semantic role, not by a single theme's color.
 
 ## Headless test pattern
 

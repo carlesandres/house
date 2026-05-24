@@ -106,7 +106,7 @@ export const HelpOverlay = <C,>({
 					borderColor: colors.textMuted,
 					padding: 1,
 					flexDirection: "column",
-					backgroundColor: colors.surface,
+					backgroundColor: colors.backgroundPanel,
 				}}
 			>
 				{rows.map((row) => {

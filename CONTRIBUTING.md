@@ -89,7 +89,9 @@ Do not bind these keys — they are reserved for v2 (DESIGN.md §7.3): `/`, `e`,
 
 ## Themes
 
-A theme is a `ColorPalette` value (see `src/theme/types.ts`). To add one: drop a new file in `src/theme/`, register it in `src/theme/registry.ts`, and add it to the `--theme` validation in `src/cli/argv.ts`. v2 has user-supplied stylesheets on the deferred list; until then, themes are TS values shipped with the binary.
+A theme resolves from opencode-style JSON into the typed token surface in `src/theme/types.ts`, then into the `ColorPalette` singleton. The exposed UI tokens keep OpenCode's naming (`background`, `backgroundPanel`, `backgroundElement`, `borderSubtle`, `primary`, `secondary`, etc.). To add one: drop a new JSON file in `src/theme/themes/` and register it in `src/theme/loader.ts`.
+
+Before using a token in UI code, check DESIGN.md §7.5's semantic token table. Tokens are role-based: choose by intended meaning, not by the color a single bundled theme happens to render.
 
 ## Demo recordings
 

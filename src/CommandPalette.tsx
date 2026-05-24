@@ -102,7 +102,7 @@ export const CommandPalette = ({
 					border: true,
 					borderColor: colors.textMuted,
 					flexDirection: "column",
-					backgroundColor: colors.surface,
+					backgroundColor: colors.backgroundPanel,
 				}}
 			>
 				<PromptRow query={query} editing={true} width={rowWidth} />
@@ -119,15 +119,15 @@ export const CommandPalette = ({
 							? fitRight(cmd.shortcut, SHORTCUT_WIDTH)
 							: " ".repeat(SHORTCUT_WIDTH)
 						// Title and shortcut render as separate spans so the shortcut
-						// can use `textMuted` while the title uses `text`/`textStrong`.
+						// can use `textMuted` while the title uses `text`/`primary`.
 						// Same trick opencode pulls with `--text-weak` — the theme
 						// guarantees the contrast, we just pick the right role.
-						const titleFg = isSelected ? colors.textStrong : colors.text
+						const titleFg = isSelected ? colors.primary : colors.text
 						return (
 							<text
 								key={cmd.id}
 								wrapMode="none"
-								style={isSelected ? { bg: colors.selectedBg } : {}}
+								style={isSelected ? { bg: colors.backgroundElement } : {}}
 							>
 								<span style={{ fg: titleFg }}>{`${selector}${titleText} `}</span>
 								<span style={{ fg: colors.textMuted }}>{shortcutText}</span>

@@ -6,6 +6,16 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 
 ## [Unreleased]
 
+### Changed
+
+- Active filter/status metadata now uses the secondary theme token, matching opencode's use of `secondary` for active contextual metadata.
+- UI theme consumers now use the opencode-aligned `primary` token directly for strong emphasis and selected foreground.
+- UI chrome no longer uses house-only aliases (`surface`, `selectedBg`, `selectedBgInactive`), and background/backgroundPanel are no longer reordered by luminance.
+
+### Docs
+
+- Added semantic token usage guidance for supported theme tokens.
+
 ## [0.4.5] — 2026-05-24
 
 ### Changed

@@ -195,7 +195,31 @@ There is **no "single-file mode"**. The Browser is the only render target. Whate
 
 ### 7.5 Theming
 
-v1 ships **dark + light** as flat TypeScript objects of ~12 semantic tokens (see `src/theme/types.ts`: background, surface, text, textStrong, textMuted, border, borderActive, selectedBg, selectedBgInactive, error, syntax). Selection is via `--theme dark|light` (default `dark`).
+Themes are opencode-derived JSON definitions resolved into the typed token surface in `src/theme/types.ts`, then exposed through the `ColorPalette` singleton consumed by UI components. Selection is via config/CLI and can be cycled at runtime.
+
+The semantic tokens are intentionally about UI role, not color names. When styling chrome, pick the token by meaning first and only then check how each bundled theme renders it.
+
+| Token | Intended use |
+|---|---|
+| `background` | Main active pane background and base canvas. |
+| `backgroundPanel` | Panel chrome and inactive pane background. |
+| `backgroundElement` | Raised inner element background and active selection background. |
+| `text` | Default readable UI text. |
+| `textMuted` | Secondary copy, labels, separators, disabled-looking metadata. |
+| `border` | Default pane and modal borders. |
+| `borderActive` | Focused/active border where a border itself carries state. |
+| `borderSubtle` | Low-contrast dividers and inactive selection background. |
+| `selectedListItemText` | Foreground for selected list rows when a theme needs explicit contrast. |
+| `primary` | Brand/primary accent, strong emphasis, and selected foreground. |
+| `secondary` | Active contextual metadata: focused prompt marker, active filter chip, pending/discovery state, agent-like labels. Not generic emphasis. |
+| `accent` | Decorative or alternate accent for uncommon UI highlights. |
+| `error` | Errors and destructive/failed states. |
+| `warning` | Warnings, caution, or needs-attention states. |
+| `success` | Completed, confirmed, or positive states. |
+| `info` | Informational status distinct from active metadata. |
+| `syntax` | Markdown and fenced-code `SyntaxStyle` scope map built from `markdown*` and `syntax*` theme tokens. |
+
+The raw theme token surface also includes markdown-specific tokens (`markdownHeading`, `markdownLink`, etc.) and fenced-code syntax tokens (`syntaxKeyword`, `syntaxString`, etc.). Use those through `colors.syntax` for rendered markdown instead of applying UI accent tokens to document content.
 
 Terminal-background auto-detect (OSC 11 / `COLORFGBG` / fallback) is **deferred to beta** — see §12. Until that lands, users opt in via `--theme`.
 

@@ -149,6 +149,9 @@ The file is optional — a missing file is fine. Invalid keys, unknown themes, o
 
 Each theme supports dark and light tones. Cycle with `t` / `T`; toggle tone with `L`.
 
+For the supported semantic theme tokens and their intended usage, see
+[DESIGN.md §7.5](https://github.com/carlesandres/house/blob/main/DESIGN.md#75-theming).
+
 ## Inspiration
 
 - [glow](https://github.com/charmbracelet/glow) — render markdown on the CLI, with pizzazz
