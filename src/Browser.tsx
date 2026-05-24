@@ -761,7 +761,15 @@ export const Browser = ({
 					const realIdx = desiredScroll + idx
 					const isSelected = realIdx === selectedIndex
 					const { basename, separator, parent } = layoutSidebarRow(file.relativePath)
-					const basenameFg = isSelected ? colors.primary : colors.text
+					const selectedFg =
+						colors.selectedListItemText === colors.background
+							? colors.primary
+							: colors.selectedListItemText
+					const basenameFg = isSelected
+						? sidebarActive
+							? selectedFg
+							: colors.primary
+						: colors.text
 					const rowStyle = isSelected
 						? { bg: sidebarActive ? colors.backgroundElement : colors.borderSubtle }
 						: {}

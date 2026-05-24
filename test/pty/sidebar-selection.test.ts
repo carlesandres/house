@@ -23,7 +23,7 @@ const RUN = process.env.HOUSE_PTY === "1"
 
 const theme = getThemeDefinition("opencode")!
 const resolved = resolveTheme(theme.source, "dark")
-const selectedBg = resolved.backgroundElement
+const selectedRowBg = resolved.backgroundElement
 
 const tempDirs: string[] = []
 const sessions: Session[] = []
@@ -69,7 +69,7 @@ describe.skipIf(!RUN)("sidebar selection background (PTY)", () => {
 
 		const onlySelectedBg = await session.text({
 			immediate: true,
-			only: { background: selectedBg },
+			only: { background: selectedRowBg },
 			trimEnd: true,
 		})
 
