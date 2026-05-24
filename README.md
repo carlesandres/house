@@ -14,7 +14,14 @@ A terminal markdown reader and navigator — themable and configurable, with a k
 - **Open in browser**
 - **Open in `$EDITOR`**
 
-Requires [Bun](https://bun.sh) on `PATH`. Supported on macOS and Linux; Windows is unsupported and unvalidated (see [#129](https://github.com/carlesandres/house/issues/129)).
+Requires [Bun](https://bun.sh) on `PATH`.
+
+## Runtime requirements
+
+- Bun: required to run `house`.
+- npm install/upgrade path: Node `>=22.22.2` (Node 24 LTS recommended).
+
+Supported on macOS and Linux; Windows is unsupported and unvalidated (see [#129](https://github.com/carlesandres/house/issues/129)).
 
 ## Install
 

@@ -6,6 +6,18 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 
 ## [Unreleased]
 
+### Changed
+
+- npm install/upgrade runtime baseline is now explicit: Node `>=22.22.2` is required when installing `@carlesandres/house` via npm, matching transitive engine requirements.
+
+### Docs
+
+- README now calls out the Node `>=22.22.2` requirement for npm-based install/upgrade.
+
+### Tests
+
+- CI now includes an npm global-install smoke matrix on Node `22.22.2` and Node `24` with `engine-strict=true`, catching runtime-floor regressions before release.
+
 ## [0.4.4] — 2026-05-24
 
 ### Added
