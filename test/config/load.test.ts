@@ -27,7 +27,7 @@ const run = <A, E>(eff: Effect.Effect<A, E>) => Effect.runPromise(eff as Effect.
 describe("loadConfig", () => {
 	test("returns built-in defaults when nothing is set", async () => {
 		const cfg = await run(loadConfig({ filePath: cfgPath, env: {} }))
-		expect(cfg).toEqual({ theme: "opencode", tone: "dark", mdx: true, show: [] })
+		expect(cfg).toEqual({ theme: "opencode", tone: "dark", mdx: true, show: [], startInFilter: false })
 	})
 
 	test("mdx = false in file is honored", async () => {
@@ -48,7 +48,7 @@ describe("loadConfig", () => {
 			loadConfig({
 				filePath: cfgPath,
 				env: { HOUSE_MDX: "true" },
-				cli: { theme: null, tone: null, mdx: false, show: null },
+				cli: { theme: null, tone: null, mdx: false, show: null, startInFilter: null },
 			}),
 		)
 		expect(cfg.mdx).toBe(false)
@@ -62,7 +62,7 @@ describe("loadConfig", () => {
 	test("file overrides defaults; missing key falls through to default", async () => {
 		await writeFile(cfgPath, `theme = "${altTheme}"\n`)
 		const cfg = await run(loadConfig({ filePath: cfgPath, env: {} }))
-		expect(cfg).toEqual({ theme: altTheme, tone: "dark", mdx: true, show: [] })
+		expect(cfg).toEqual({ theme: altTheme, tone: "dark", mdx: true, show: [], startInFilter: false })
 	})
 
 	test("env beats file (per-key)", async () => {
@@ -70,7 +70,7 @@ describe("loadConfig", () => {
 		const cfg = await run(
 			loadConfig({ filePath: cfgPath, env: { HOUSE_THEME: altTheme2, HOUSE_TONE: "light" } }),
 		)
-		expect(cfg).toEqual({ theme: altTheme2, tone: "light", mdx: true, show: [] })
+		expect(cfg).toEqual({ theme: altTheme2, tone: "light", mdx: true, show: [], startInFilter: false })
 	})
 
 	test("CLI beats env (per-key)", async () => {
@@ -78,7 +78,7 @@ describe("loadConfig", () => {
 			loadConfig({
 				filePath: cfgPath,
 				env: { HOUSE_TONE: "dark" },
-				cli: { theme: null, tone: "light", mdx: null, show: null },
+				cli: { theme: null, tone: "light", mdx: null, show: null, startInFilter: null },
 			}),
 		)
 		expect(cfg.tone).toBe("light")
@@ -90,7 +90,7 @@ describe("loadConfig", () => {
 			loadConfig({
 				filePath: cfgPath,
 				env: { HOUSE_THEME: altTheme2 },
-				cli: { theme: "opencode", tone: null, mdx: null, show: null },
+				cli: { theme: "opencode", tone: null, mdx: null, show: null, startInFilter: null },
 			}),
 		)
 		expect(cfg.theme).toBe("opencode")
@@ -118,7 +118,7 @@ describe("loadConfig", () => {
 		const cfg = await run(
 			loadConfig({ filePath: cfgPath, env: {}, onWarning: (m) => warnings.push(m) }),
 		)
-		expect(cfg).toEqual({ theme: "opencode", tone: "dark", mdx: true, show: [] })
+		expect(cfg).toEqual({ theme: "opencode", tone: "dark", mdx: true, show: [], startInFilter: false })
 		expect(warnings).toHaveLength(1)
 		expect(warnings[0]).toMatch(/"futureFeature"/)
 	})
@@ -184,7 +184,7 @@ describe("loadConfig", () => {
 			loadConfig({
 				filePath: cfgPath,
 				env: { HOUSE_SHOW: "gitignored" },
-				cli: { theme: null, tone: null, mdx: null, show: ["hidden"] },
+				cli: { theme: null, tone: null, mdx: null, show: ["hidden"], startInFilter: null },
 			}),
 		)
 		expect(cfg.show).toEqual(["hidden"])
@@ -209,6 +209,39 @@ describe("loadConfig", () => {
 			}),
 		)
 		expect(cfg.show).toEqual(["hidden", "gitignored"])
+	})
+
+	test("start_in_filter = true in file is honored", async () => {
+		await writeFile(cfgPath, `start_in_filter = true\n`)
+		const cfg = await run(loadConfig({ filePath: cfgPath, env: {} }))
+		expect(cfg.startInFilter).toBe(true)
+	})
+
+	test("HOUSE_START_IN_FILTER env beats file", async () => {
+		await writeFile(cfgPath, `start_in_filter = true\n`)
+		const cfg = await run(
+			loadConfig({ filePath: cfgPath, env: { HOUSE_START_IN_FILTER: "false" } }),
+		)
+		expect(cfg.startInFilter).toBe(false)
+	})
+
+	test("CLI startInFilter beats env and file", async () => {
+		await writeFile(cfgPath, `start_in_filter = false\n`)
+		const cfg = await run(
+			loadConfig({
+				filePath: cfgPath,
+				env: { HOUSE_START_IN_FILTER: "false" },
+				cli: { theme: null, tone: null, mdx: null, show: null, startInFilter: true },
+			}),
+		)
+		expect(cfg.startInFilter).toBe(true)
+	})
+
+	test("invalid start_in_filter value → ConfigError", async () => {
+		await writeFile(cfgPath, `start_in_filter = "maybe"\n`)
+		await expect(run(loadConfig({ filePath: cfgPath, env: {} }))).rejects.toThrow(
+			/start_in_filter/i,
+		)
 	})
 
 	test("partial file: only theme set, tone defaults", async () => {

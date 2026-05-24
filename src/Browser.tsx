@@ -72,6 +72,10 @@ export interface BrowserProps {
 	 *  from this side; we just snapshot the selected path so it can be
 	 *  restored across the re-walk the parent triggers. */
 	readonly onToggleAll?: () => void
+	/** Open the sidebar filter prompt on mount so the user can type
+	 *  immediately. Esc closes it through the normal close path — no
+	 *  special "first close" behavior. */
+	readonly startInFilter?: boolean
 }
 
 const defaultReadFile = (path: string): Promise<string> => Effect.runPromise(readFileText(path))
@@ -101,6 +105,7 @@ export const Browser = ({
 	updateNotice = null,
 	updateNoticeTtlMs = 10000,
 	onToggleAll,
+	startInFilter = false,
 }: BrowserProps) => {
 	const renderer = useRenderer()
 	const { width, height } = useTerminalDimensions()
@@ -129,10 +134,16 @@ export const Browser = ({
 				return initialShownForAuto(width)
 		}
 	})
-	const [focus, setFocus] = useState<"sidebar" | "reader">(() => (shown ? "sidebar" : "reader"))
+	// startInFilter mirrors `openFilter`'s focus rule: the filter input lives
+	// in the sidebar, so opening it on mount also forces sidebar focus
+	// regardless of `--sidebar=off` (§7.1's visibility derivation surfaces
+	// the sidebar via focus even when `shown` is false).
+	const [focus, setFocus] = useState<"sidebar" | "reader">(() =>
+		shown || startInFilter ? "sidebar" : "reader",
+	)
 	const [sidebarScroll, setSidebarScroll] = useState<number>(0)
 	const [helpVisible, setHelpVisible] = useState<boolean>(false)
-	const [filterOpen, setFilterOpen] = useState<boolean>(false)
+	const [filterOpen, setFilterOpen] = useState<boolean>(startInFilter)
 	const [filterQuery, setFilterQuery] = useState<string>("")
 	const [paletteOpen, setPaletteOpen] = useState<boolean>(false)
 	const [paletteQuery, setPaletteQuery] = useState<string>("")
@@ -148,7 +159,7 @@ export const Browser = ({
 	// updates even when multiple keys arrive in a single React batch (the
 	// first key opens the filter; subsequent keys in the same tick would
 	// otherwise still observe filterOpen=false through closure).
-	const filterOpenRef = useRef(false)
+	const filterOpenRef = useRef(startInFilter)
 	const filterQueryRef = useRef("")
 	const [footerNotice, setFooterNoticeState] = useState<{
 		readonly text: string
