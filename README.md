@@ -47,7 +47,7 @@ house [options] <path>
 | `--theme <name>` | `opencode` | Starting theme (see list below) |
 | `--tone dark\|light` | `dark` | Starting tone |
 | `--width <N>` | — | Cap rendered markdown width at N columns |
-| `--all` | off | Include hidden and gitignored files in discovery |
+| `--show <list>` | `""` | Reveal normally-skipped entries; comma-separated subset of `hidden`, `gitignored`. Use `--show ""` to clear. |
 | `--sort <mode>` | `dirs-first` | Sidebar order: `dirs-first` or `files-first` |
 | `--sidebar <mode>` | `auto` | Initial sidebar visibility: `auto`, `on`, or `off` |
 | `--serve` | off | Serve the given file as HTML in the browser (skips TUI) |
@@ -73,16 +73,21 @@ Run `house --config-path` to print the exact location.
 theme = "tokyonight"
 tone  = "dark"
 mdx   = true
+show  = ["hidden", "gitignored"]
 ```
 
-Supported keys: `theme`, `tone`, `mdx`.
+Supported keys: `theme`, `tone`, `mdx`, `show`.
+
+`show` is a list of normally-skipped categories to opt into. Known categories: `hidden` (dot-prefixed entries), `gitignored` (entries matched by a `.gitignore`). Default is the empty list. Hard skips (`node_modules`, `.git`, `.venv`) always apply.
 
 Precedence, highest to lowest:
 
-1. CLI flags (`--theme`, `--tone`, `--no-mdx`)
-2. Env vars (`HOUSE_THEME`, `HOUSE_TONE`, `HOUSE_MDX`)
+1. CLI flags (`--theme`, `--tone`, `--no-mdx`, `--show`)
+2. Env vars (`HOUSE_THEME`, `HOUSE_TONE`, `HOUSE_MDX`, `HOUSE_SHOW`)
 3. Config file
-4. Built-in defaults (`opencode` / `dark` / `mdx = true`)
+4. Built-in defaults (`opencode` / `dark` / `mdx = true` / `show = []`)
+
+`HOUSE_SHOW` takes a comma-separated list (`HOUSE_SHOW=hidden,gitignored`). For `show` specifically, each source completely replaces the next — categories don't merge across layers. Press `shift+a` in the TUI to round-trip between the configured set and the full vocabulary without editing config.
 
 The file is optional — a missing file is fine. Invalid keys, unknown themes, or malformed TOML fail loudly with a one-line error. Per-project config (`.house/config.toml`) and additional keys are deferred.
 
@@ -116,6 +121,7 @@ The file is optional — a missing file is fine. Invalid keys, unknown themes, o
 | `g` | First file |
 | `G` | Last file |
 | `/` | Filter files (fuzzy match on path) |
+| `A` | Toggle hidden + gitignored entries (session-only; round-trips with the configured `show`) |
 | `↵` / `→` / `l` | Open file (focus reader) |
 
 ### Reader

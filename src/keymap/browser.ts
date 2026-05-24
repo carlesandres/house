@@ -43,6 +43,11 @@ export interface BrowserCtx {
 	/** Suspend the TUI, hand the TTY to `$EDITOR`, resume and re-read on
 	 *  exit. No-op when nothing is selected; gating is the binding's job. */
 	readonly editCurrent: () => void
+	/** Toggle hidden + gitignored discovery axes together (#145 — UI sugar
+	 *  for `shift+a`; the underlying flags stay independent everywhere
+	 *  else). Snapshots the current selected path so it can be restored
+	 *  once the re-walk completes. */
+	readonly toggleAll: () => void
 }
 
 /** Step size for shift+j/k and the space/b/page keys. Constant for v1; could
@@ -146,6 +151,19 @@ export const browserBindings: readonly KeyBinding<BrowserCtx>[] = [
 		// closes help on its way in (handled in Browser.tsx).
 		when: paletteClosed,
 		run: (c) => c.openPalette(),
+	},
+	{
+		id: "discovery.toggleAll",
+		group: "Sidebar",
+		description: "Show / hide hidden and gitignored files",
+		// No footer hint: shift+a is help/palette only. The footer hint row is
+		// already at width capacity on narrow viewports, and the toggle isn't
+		// a per-row action you reach for constantly.
+		keys: ["shift+a"],
+		// Selection-preservation logic lives in Browser.tsx — see the
+		// `pendingSelectionPath` ref. The toggle itself is session-only and
+		// does not write back to the TOML config.
+		run: (c) => c.toggleAll(),
 	},
 	{
 		id: "theme.next",

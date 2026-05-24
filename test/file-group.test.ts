@@ -55,6 +55,7 @@ const makeCtx = (o: CtxOverrides = {}): BrowserCtx => ({
 	quit: noop,
 	serveCurrent: o.onServe ?? noop,
 	editCurrent: o.onEdit ?? noop,
+	toggleAll: noop,
 })
 
 const k = (name: string): KeyMatch => ({ name, shift: false, ctrl: false, meta: false })

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import { browserBindings, type BrowserCtx } from "../src/keymap/browser.ts"
 import { dispatch, type KeyBinding, type KeyMatch } from "../src/keymap/keymap.ts"
 
 const k = (
@@ -119,5 +120,56 @@ describe("dispatch — when-gating", () => {
 		]
 		dispatch(bindings, { mode: "a" }, k("j"))
 		expect(calls).toEqual(["first"])
+	})
+})
+
+describe("browserBindings — discovery.toggleAll", () => {
+	const noop = () => {}
+	const stubCtx = (overrides: Partial<BrowserCtx> = {}): BrowserCtx => ({
+		files: [],
+		hasSelected: false,
+		focus: "sidebar",
+		sidebarShown: true,
+		helpVisible: false,
+		filterOpen: false,
+		filterQuery: "",
+		paletteOpen: false,
+		setFocus: noop,
+		setSelectedIndex: noop,
+		toggleShown: noop,
+		setHelpVisible: noop,
+		openFilter: noop,
+		clearAndOpenFilter: noop,
+		openPalette: noop,
+		cycleTheme: noop,
+		toggleTone: noop,
+		quit: noop,
+		serveCurrent: noop,
+		editCurrent: noop,
+		toggleAll: noop,
+		...overrides,
+	})
+
+	test("shift+a dispatches discovery.toggleAll", () => {
+		let fired = 0
+		const fired_binding = dispatch(
+			browserBindings,
+			stubCtx({ toggleAll: () => (fired += 1) }),
+			k("a", { shift: true }),
+		)
+		expect(fired_binding?.id).toBe("discovery.toggleAll")
+		expect(fired).toBe(1)
+	})
+
+	test("plain `a` does not fire discovery.toggleAll", () => {
+		let fired = 0
+		dispatch(browserBindings, stubCtx({ toggleAll: () => (fired += 1) }), k("a"))
+		expect(fired).toBe(0)
+	})
+
+	test("the binding is exposed as a command in the palette pipeline", async () => {
+		const { buildCommands } = await import("../src/commands/buildCommands.ts")
+		const commands = buildCommands(stubCtx())
+		expect(commands.find((c) => c.id === "discovery.toggleAll")).toBeTruthy()
 	})
 })

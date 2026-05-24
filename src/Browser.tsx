@@ -67,6 +67,11 @@ export interface BrowserProps {
 	/** TTL (ms) for the update-notice toast. Exposed so tests can use a small
 	 *  value instead of sleeping for the production 10s window. */
 	readonly updateNoticeTtlMs?: number
+	/** Flip the parent's discovery vocabulary (#145). Browser doesn't need
+	 *  to know which categories are currently on — the toggle is opaque
+	 *  from this side; we just snapshot the selected path so it can be
+	 *  restored across the re-walk the parent triggers. */
+	readonly onToggleAll?: () => void
 }
 
 const defaultReadFile = (path: string): Promise<string> => Effect.runPromise(readFileText(path))
@@ -95,6 +100,7 @@ export const Browser = ({
 	readFile = defaultReadFile,
 	updateNotice = null,
 	updateNoticeTtlMs = 10000,
+	onToggleAll,
 }: BrowserProps) => {
 	const renderer = useRenderer()
 	const { width, height } = useTerminalDimensions()
@@ -151,6 +157,13 @@ export const Browser = ({
 	const pushFooterNotice = (text: string, ttlMs = 2000): void =>
 		setFooterNoticeState({ text, ttlMs })
 	const serverRef = useRef<ServerHandle | null>(null)
+	// #145 selection preservation across an `all` re-walk. When the user
+	// toggles, we snapshot the currently selected path; once the new file set
+	// streams in, we restore selection by path. If the path isn't present in
+	// the new set (e.g. it was a hidden file and `all` just went off), the
+	// ref stays armed so toggling back later re-selects it. Any user-driven
+	// selection move (j/k/g/G/click) clears it — user intent has moved on.
+	const pendingSelectionPathRef = useRef<string | null>(null)
 
 	// Stop the preview server on unmount so re-mounts (tests) and clean
 	// shutdowns don't leak a listening socket.
@@ -211,6 +224,22 @@ export const Browser = ({
 		}
 	}, [displayedFiles.length, selectedIndex])
 
+	// #145 selection restoration. Runs whenever the displayed file list
+	// changes (re-walk batches, filter changes). If the user has a path
+	// armed (set by toggleAll) and it now appears in the displayed subset,
+	// restore selection to that index and disarm. If the path is not
+	// present, keep the ref armed — toggling back later (or future stream
+	// batches in the same toggle) will find it.
+	useEffect(() => {
+		const target = pendingSelectionPathRef.current
+		if (target === null) return
+		const idx = displayedFiles.findIndex((f) => f.path === target)
+		if (idx >= 0) {
+			setSelectedIndex(idx)
+			pendingSelectionPathRef.current = null
+		}
+	}, [displayedFiles])
+
 	const selected = displayedFiles[selectedIndex]
 
 	// Track the path whose content is currently rendered. Updated lazily via
@@ -269,7 +298,15 @@ export const Browser = ({
 		filterQuery,
 		paletteOpen,
 		setFocus,
-		setSelectedIndex,
+		// Wrapped so any keymap-driven selection move (j/k/g/G/[/], reader
+		// prev/next) clears the pending-restore ref from #145. Internal
+		// callers that should NOT clear pending (the filter modal's typing
+		// branch, the post-filter clamp effect, the restoration effect
+		// itself) deliberately use the raw `setSelectedIndex` setter.
+		setSelectedIndex: (updater) => {
+			pendingSelectionPathRef.current = null
+			setSelectedIndex(updater)
+		},
 		toggleShown: () => {
 			// Two layout shapes, two behaviors:
 			//   wide  → flip the sticky `shown` preference. Per DESIGN.md §7.1
@@ -330,6 +367,19 @@ export const Browser = ({
 		},
 		cycleTheme,
 		toggleTone,
+		toggleAll: () => {
+			// Snapshot the currently displayed selection unless a snapshot is
+			// already armed (a prior toggle's selection survived the re-walk
+			// and is still waiting to come back). The armed path is the one
+			// the user originally chose; preserving it across a toggle-off /
+			// toggle-on round-trip is the headline ergonomic of #145.
+			// User-driven nav (j/k/g/G via the wrapped setSelectedIndex below)
+			// clears pending, so a follow-up toggle starts a fresh snapshot.
+			if (pendingSelectionPathRef.current === null && selected) {
+				pendingSelectionPathRef.current = selected.path
+			}
+			onToggleAll?.()
+		},
 		serveCurrent: () => {
 			const file = displayedFiles[selectedIndex]
 			if (!file) return

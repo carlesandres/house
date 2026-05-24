@@ -27,7 +27,7 @@ const run = <A, E>(eff: Effect.Effect<A, E>) => Effect.runPromise(eff as Effect.
 describe("loadConfig", () => {
 	test("returns built-in defaults when nothing is set", async () => {
 		const cfg = await run(loadConfig({ filePath: cfgPath, env: {} }))
-		expect(cfg).toEqual({ theme: "opencode", tone: "dark", mdx: true })
+		expect(cfg).toEqual({ theme: "opencode", tone: "dark", mdx: true, show: [] })
 	})
 
 	test("mdx = false in file is honored", async () => {
@@ -48,7 +48,7 @@ describe("loadConfig", () => {
 			loadConfig({
 				filePath: cfgPath,
 				env: { HOUSE_MDX: "true" },
-				cli: { theme: null, tone: null, mdx: false },
+				cli: { theme: null, tone: null, mdx: false, show: null },
 			}),
 		)
 		expect(cfg.mdx).toBe(false)
@@ -62,7 +62,7 @@ describe("loadConfig", () => {
 	test("file overrides defaults; missing key falls through to default", async () => {
 		await writeFile(cfgPath, `theme = "${altTheme}"\n`)
 		const cfg = await run(loadConfig({ filePath: cfgPath, env: {} }))
-		expect(cfg).toEqual({ theme: altTheme, tone: "dark", mdx: true })
+		expect(cfg).toEqual({ theme: altTheme, tone: "dark", mdx: true, show: [] })
 	})
 
 	test("env beats file (per-key)", async () => {
@@ -70,7 +70,7 @@ describe("loadConfig", () => {
 		const cfg = await run(
 			loadConfig({ filePath: cfgPath, env: { HOUSE_THEME: altTheme2, HOUSE_TONE: "light" } }),
 		)
-		expect(cfg).toEqual({ theme: altTheme2, tone: "light", mdx: true })
+		expect(cfg).toEqual({ theme: altTheme2, tone: "light", mdx: true, show: [] })
 	})
 
 	test("CLI beats env (per-key)", async () => {
@@ -78,7 +78,7 @@ describe("loadConfig", () => {
 			loadConfig({
 				filePath: cfgPath,
 				env: { HOUSE_TONE: "dark" },
-				cli: { theme: null, tone: "light", mdx: null },
+				cli: { theme: null, tone: "light", mdx: null, show: null },
 			}),
 		)
 		expect(cfg.tone).toBe("light")
@@ -90,7 +90,7 @@ describe("loadConfig", () => {
 			loadConfig({
 				filePath: cfgPath,
 				env: { HOUSE_THEME: altTheme2 },
-				cli: { theme: "opencode", tone: null, mdx: null },
+				cli: { theme: "opencode", tone: null, mdx: null, show: null },
 			}),
 		)
 		expect(cfg.theme).toBe("opencode")
@@ -118,7 +118,7 @@ describe("loadConfig", () => {
 		const cfg = await run(
 			loadConfig({ filePath: cfgPath, env: {}, onWarning: (m) => warnings.push(m) }),
 		)
-		expect(cfg).toEqual({ theme: "opencode", tone: "dark", mdx: true })
+		expect(cfg).toEqual({ theme: "opencode", tone: "dark", mdx: true, show: [] })
 		expect(warnings).toHaveLength(1)
 		expect(warnings[0]).toMatch(/"futureFeature"/)
 	})
@@ -144,6 +144,71 @@ describe("loadConfig", () => {
 		await writeFile(cfgPath, `theme = "${altTheme}"\nfutureFeature = "on"\n`)
 		const cfg = await run(loadConfig({ filePath: cfgPath, env: {}, onWarning: () => {} }))
 		expect(cfg.theme).toBe(altTheme)
+	})
+
+	test("show = [...] TOML array is parsed", async () => {
+		await writeFile(cfgPath, `show = ["hidden", "gitignored"]\n`)
+		const cfg = await run(loadConfig({ filePath: cfgPath, env: {} }))
+		expect(cfg.show).toEqual(["hidden", "gitignored"])
+	})
+
+	test("show = [] disables all categories explicitly", async () => {
+		await writeFile(cfgPath, `show = []\n`)
+		const cfg = await run(loadConfig({ filePath: cfgPath, env: {} }))
+		expect(cfg.show).toEqual([])
+	})
+
+	test("show with a single category", async () => {
+		await writeFile(cfgPath, `show = ["hidden"]\n`)
+		const cfg = await run(loadConfig({ filePath: cfgPath, env: {} }))
+		expect(cfg.show).toEqual(["hidden"])
+	})
+
+	test("HOUSE_SHOW env (comma-separated) beats file", async () => {
+		await writeFile(cfgPath, `show = ["hidden"]\n`)
+		const cfg = await run(
+			loadConfig({ filePath: cfgPath, env: { HOUSE_SHOW: "gitignored" } }),
+		)
+		expect(cfg.show).toEqual(["gitignored"])
+	})
+
+	test("HOUSE_SHOW='' clears via env", async () => {
+		await writeFile(cfgPath, `show = ["hidden", "gitignored"]\n`)
+		const cfg = await run(loadConfig({ filePath: cfgPath, env: { HOUSE_SHOW: "" } }))
+		expect(cfg.show).toEqual([])
+	})
+
+	test("CLI show beats env and file (replacement, not merge)", async () => {
+		await writeFile(cfgPath, `show = ["hidden", "gitignored"]\n`)
+		const cfg = await run(
+			loadConfig({
+				filePath: cfgPath,
+				env: { HOUSE_SHOW: "gitignored" },
+				cli: { theme: null, tone: null, mdx: null, show: ["hidden"] },
+			}),
+		)
+		expect(cfg.show).toEqual(["hidden"])
+	})
+
+	test("invalid show token in file → ConfigError naming the token", async () => {
+		await writeFile(cfgPath, `show = ["bogus"]\n`)
+		await expect(run(loadConfig({ filePath: cfgPath, env: {} }))).rejects.toThrow(/bogus/)
+	})
+
+	test("invalid show token in env → ConfigError naming the token", async () => {
+		await expect(
+			run(loadConfig({ filePath: cfgPath, env: { HOUSE_SHOW: "hidden,gremlin" } })),
+		).rejects.toThrow(/gremlin/)
+	})
+
+	test("show tokens are trimmed and de-duped", async () => {
+		const cfg = await run(
+			loadConfig({
+				filePath: cfgPath,
+				env: { HOUSE_SHOW: " hidden , hidden , gitignored " },
+			}),
+		)
+		expect(cfg.show).toEqual(["hidden", "gitignored"])
 	})
 
 	test("partial file: only theme set, tone defaults", async () => {
