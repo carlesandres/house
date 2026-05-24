@@ -17,6 +17,7 @@ import { SyntaxStyle } from "@opentui/core"
 import { MockTreeSitterClient } from "@opentui/core/testing"
 import { testRender } from "@opentui/react/test-utils"
 import type { CapturedFrame, CapturedSpan, RGBA } from "@opentui/core"
+import { destroyTestRenderer } from "./helpers/opentui-test-cleanup.ts"
 
 beforeAll(() => {
 	// @ts-expect-error — globalThis.IS_REACT_ACT_ENVIRONMENT is a React internal
@@ -44,12 +45,8 @@ const sameColor = (a: RGBA, b: RGBA): boolean =>
 let setup: Awaited<ReturnType<typeof testRender>> | null = null
 
 afterEach(() => {
-	if (setup) {
-		act(() => {
-			setup!.renderer.destroy()
-		})
-		setup = null
-	}
+	destroyTestRenderer(setup)
+	setup = null
 })
 
 const mountWithFence = async (lang: string, mock: MockTreeSitterClient) => {

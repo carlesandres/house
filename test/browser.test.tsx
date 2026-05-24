@@ -12,6 +12,7 @@ import { colors, setActiveTheme } from "../src/theme/colors.ts"
 import { themeAtom } from "../src/theme/atom.ts"
 import { themeDefinitions } from "../src/theme/registry.ts"
 import { resolveTheme } from "../src/theme/resolve.ts"
+import { destroyTestRenderer } from "./helpers/opentui-test-cleanup.ts"
 
 beforeAll(() => {
 	// @ts-expect-error — globalThis.IS_REACT_ACT_ENVIRONMENT is a React internal
@@ -21,12 +22,8 @@ beforeAll(() => {
 let setup: Awaited<ReturnType<typeof testRender>> | null = null
 
 afterEach(() => {
-	if (setup) {
-		act(() => {
-			setup!.renderer.destroy()
-		})
-		setup = null
-	}
+	destroyTestRenderer(setup)
+	setup = null
 })
 
 const VIEWPORT = { width: 120, height: 30 }

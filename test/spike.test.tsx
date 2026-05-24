@@ -13,6 +13,7 @@ import { afterEach, beforeAll, describe, expect, test } from "bun:test"
 import { act } from "react"
 import { testRender } from "@opentui/react/test-utils"
 import { App } from "../src/index.tsx"
+import { destroyTestRenderer } from "./helpers/opentui-test-cleanup.ts"
 
 beforeAll(() => {
 	// @ts-expect-error — globalThis.IS_REACT_ACT_ENVIRONMENT is a React internal
@@ -22,12 +23,8 @@ beforeAll(() => {
 let setup: Awaited<ReturnType<typeof testRender>> | null = null
 
 afterEach(() => {
-	if (setup) {
-		act(() => {
-			setup!.renderer.destroy()
-		})
-		setup = null
-	}
+	destroyTestRenderer(setup)
+	setup = null
 })
 
 const VIEWPORT = { width: 100, height: 30 }
