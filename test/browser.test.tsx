@@ -562,6 +562,60 @@ describe("Browser — #22 layout v2", () => {
 		expect(readerTitleContains(setup!.captureCharFrame(), "a.md")).toBe(true)
 	})
 
+	test("startupFocus=filter opens the sidebar filter at launch", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={makeFiles(["a.md", "b.md"])}
+					readFile={makeReader({ "a.md": "x", "b.md": "y" })}
+					onQuit={() => {}}
+					startupFocus="filter"
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("> ▏")
+		expect(sidebarIsFocused(setup!.captureSpans(), frame)).toBe(true)
+	})
+
+	test("startupFocus=reader keeps sidebar hidden with --sidebar=off", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={makeFiles(["a.md", "b.md"])}
+					readFile={makeReader({ "a.md": "x", "b.md": "y" })}
+					onQuit={() => {}}
+					sidebarMode="off"
+					startupFocus="reader"
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(sidebarIsVisible(setup!.captureCharFrame())).toBe(false)
+		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(false)
+	})
+
+	test("startupFocus=sidebar focuses sidebar without opening filter", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={makeFiles(["a.md", "b.md"])}
+					readFile={makeReader({ "a.md": "x", "b.md": "y" })}
+					onQuit={() => {}}
+					startupFocus="sidebar"
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(sidebarIsFocused(setup!.captureSpans(), frame)).toBe(true)
+		expect(frame).not.toContain("> ▏")
+	})
+
 	test("--sidebar=auto consults the viewport bucket once", async () => {
 		// 60 cols < 80 → starts hidden.
 		await act(async () => {

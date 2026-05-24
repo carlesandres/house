@@ -1,3 +1,4 @@
+import { Command } from "commander"
 import { themeDefinitions } from "../theme/registry.ts"
 
 export interface ParsedArgs {
@@ -29,14 +30,73 @@ export interface ParsedArgs {
 	readonly noUpdateCheck: boolean
 	/** True when `--no-mdx` was passed: exclude `.mdx` files from discovery. */
 	readonly noMdx: boolean
-	/** True when `--start-in-filter` was passed: open the sidebar filter
-	 *  prompt on launch (one-way override; default is off). */
-	readonly startInFilter: boolean
+	/** Value of `--focus <mode>` (`sidebar`, `reader`, `filter`), or null.
+	 *  Validated by the boot layer. */
+	readonly focus: string | null
 	/** Raw value of `--show <list>`, or null if the flag wasn't passed.
 	 *  Comma-separated list of category names; the boot layer validates
 	 *  tokens against the known vocabulary (see `discovery/show.ts`).
 	 *  `--show ""` is a meaningful value: clears the set. */
 	readonly show: string | null
+}
+
+const createProgram = () =>
+	new Command()
+		.allowUnknownOption(true)
+		.allowExcessArguments(true)
+		.exitOverride()
+		.helpOption(false)
+		.option("--theme [id]")
+		.option("--tone [mode]")
+		.option("--width [N]")
+		.option("--sort [mode]")
+		.option("--serve")
+		.option("--port [N]")
+		.option("--config-path")
+		.option("--sidebar [mode]")
+		.option("--no-update-check")
+		.option("--no-mdx")
+		.option("--focus [mode]")
+		.option("--show [list]")
+		.option("-h, --help")
+		.option("-v, --version")
+		.argument("[path]")
+
+const VALUE_FLAGS: ReadonlySet<string> = new Set([
+	"--theme",
+	"--tone",
+	"--width",
+	"--sort",
+	"--port",
+	"--sidebar",
+	"--focus",
+	"--show",
+])
+
+const BOOLEAN_FLAGS: ReadonlySet<string> = new Set([
+	"--serve",
+	"--config-path",
+	"--no-update-check",
+	"--no-mdx",
+	"--help",
+	"-h",
+	"--version",
+	"-v",
+])
+
+const findPathArg = (argv: readonly string[]): string | null => {
+	for (let i = 0; i < argv.length; i++) {
+		const arg = argv[i]!
+		if (VALUE_FLAGS.has(arg)) {
+			const next = argv[i + 1]
+			if (next !== undefined && !next.startsWith("-")) i++
+			continue
+		}
+		if (BOOLEAN_FLAGS.has(arg)) continue
+		if (arg.startsWith("-")) continue
+		return arg
+	}
+	return null
 }
 
 /**
@@ -47,110 +107,28 @@ export interface ParsedArgs {
  * without coupling the parser to it.
  */
 export const parseArgv = (argv: readonly string[]): ParsedArgs => {
-	let path: string | null = null
-	let theme: string | null = null
-	let tone: string | null = null
-	let width: string | null = null
-	let sort: string | null = null
-	let serve = false
-	let port: string | null = null
-	let help = false
-	let version = false
-	let configPath = false
-	let sidebar: string | null = null
-	let noUpdateCheck = false
-	let noMdx = false
-	let show: string | null = null
-	let startInFilter = false
-
-	for (let i = 0; i < argv.length; i++) {
-		const arg = argv[i]!
-		switch (arg) {
-			case "--theme":
-				theme = argv[i + 1] ?? null
-				i++
-				continue
-			case "--tone":
-				tone = argv[i + 1] ?? null
-				i++
-				continue
-			case "--width":
-				width = argv[i + 1] ?? null
-				i++
-				continue
-			case "--sort":
-				sort = argv[i + 1] ?? null
-				i++
-				continue
-			case "--serve":
-				serve = true
-				continue
-			case "--port":
-				port = argv[i + 1] ?? null
-				i++
-				continue
-			case "--help":
-			case "-h":
-				help = true
-				continue
-			case "--version":
-			case "-v":
-				version = true
-				continue
-			case "--config-path":
-				configPath = true
-				continue
-			case "--sidebar": {
-				// Don't swallow the following flag as the sidebar value.
-				// `--sidebar --width 80` should leave sidebar=null (the boot
-				// layer reports a missing value) without losing --width.
-				const next = argv[i + 1]
-				if (next !== undefined && !next.startsWith("-")) {
-					sidebar = next
-					i++
-				}
-				continue
-			}
-			case "--no-update-check":
-				noUpdateCheck = true
-				continue
-			case "--no-mdx":
-				noMdx = true
-				continue
-			case "--start-in-filter":
-				startInFilter = true
-				continue
-			case "--show":
-				// Always consume the following arg, even when it looks like
-				// a flag — `--show ""` is meaningful (explicit empty set),
-				// and the empty-string regression matters more than the
-				// near-miss case of someone forgetting the value. Boot
-				// validates tokens.
-				show = argv[i + 1] ?? null
-				i++
-				continue
-		}
-		if (path === null && !arg.startsWith("-")) {
-			path = arg
-		}
-	}
+	const program = createProgram()
+	program.parse([...argv], { from: "user" })
+	const opts = program.opts<Record<string, unknown>>()
+	const pathArg = findPathArg(argv)
+	const stringOrNull = (value: unknown): string | null => (typeof value === "string" ? value : null)
 
 	return {
-		path,
-		theme,
-		tone,
-		width,
-		sort,
-		serve,
-		port,
-		help,
-		version,
-		configPath,
-		sidebar,
-		noUpdateCheck,
-		noMdx,
-		show,
-		startInFilter,
+		path: typeof pathArg === "string" ? pathArg : null,
+		theme: stringOrNull(opts["theme"]),
+		tone: stringOrNull(opts["tone"]),
+		width: stringOrNull(opts["width"]),
+		sort: stringOrNull(opts["sort"]),
+		serve: opts["serve"] === true,
+		port: stringOrNull(opts["port"]),
+		help: opts["help"] === true,
+		version: opts["version"] === true,
+		configPath: opts["configPath"] === true,
+		sidebar: stringOrNull(opts["sidebar"]),
+		noUpdateCheck: opts["noUpdateCheck"] === true,
+		noMdx: opts["mdx"] === false,
+		show: stringOrNull(opts["show"]),
+		focus: stringOrNull(opts["focus"]),
 	}
 }
 
@@ -168,6 +146,7 @@ options:
                    hidden, gitignored. Use --show "" to clear.
   --sort <mode>  sidebar order: dirs-first (default) or files-first
   --sidebar <m>  initial sidebar visibility: auto (default), on, or off
+  --focus <m>    startup focus: sidebar, reader, or filter (default: filter)
   --serve        serve the given file as HTML in the browser (skips TUI)
   --port <N>     port for --serve (default: OS-assigned)
   -h, --help     show this help and exit
@@ -175,10 +154,9 @@ options:
   --config-path  print path to the config file and exit
   --no-update-check  suppress the "newer version available" check (also via NO_UPDATE_NOTIFIER=1)
   --no-mdx       exclude .mdx files from discovery (default: included)
-  --start-in-filter  open the sidebar filter prompt on launch
 
 configuration:
   file: $XDG_CONFIG_HOME/house/config.toml  (default ~/.config/house/config.toml)
-  keys: theme, tone, mdx, show, start_in_filter
-  env:  HOUSE_THEME, HOUSE_TONE, HOUSE_MDX, HOUSE_SHOW, HOUSE_START_IN_FILTER
+  keys: theme, tone, mdx, show, focus
+  env:  HOUSE_THEME, HOUSE_TONE, HOUSE_MDX, HOUSE_SHOW, HOUSE_FOCUS
   precedence (high → low): flags → env → file → defaults`

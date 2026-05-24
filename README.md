@@ -57,10 +57,10 @@ house [options] <path>
 | `--show <list>` | `""` | Reveal normally-skipped entries; comma-separated subset of `hidden`, `gitignored`. Use `--show ""` to clear. |
 | `--sort <mode>` | `dirs-first` | Sidebar order: `dirs-first` or `files-first` |
 | `--sidebar <mode>` | `auto` | Initial sidebar visibility: `auto`, `on`, or `off` |
+| `--focus <mode>` | `filter` | Startup focus: `sidebar`, `reader`, or `filter`. `filter` opens the sidebar filter prompt immediately. |
 | `--serve` | off | Serve the given file as HTML in the browser (skips TUI) |
 | `--port <N>` | OS-assigned | Port for `--serve` |
 | `--no-mdx` | off | Exclude `.mdx` files from discovery |
-| `--start-in-filter` | off | Open the sidebar filter prompt on launch so you can type a query immediately. Press Esc to dismiss. |
 | `--no-update-check` | off | Suppress the "newer version available" check (also via `NO_UPDATE_NOTIFIER=1`) |
 | `--config-path` | — | Print the resolved config-file path and exit |
 | `-h`, `--help` | — | Show help and exit |
@@ -82,19 +82,19 @@ theme = "tokyonight"
 tone  = "dark"
 mdx   = true
 show  = ["hidden", "gitignored"]
-start_in_filter = false
+focus = "filter"
 ```
 
-Supported keys: `theme`, `tone`, `mdx`, `show`, `start_in_filter`.
+Supported keys: `theme`, `tone`, `mdx`, `show`, `focus`.
 
 `show` is a list of normally-skipped categories to opt into. Known categories: `hidden` (dot-prefixed entries), `gitignored` (entries matched by a `.gitignore`). Default is the empty list. Hard skips (`node_modules`, `.git`, `.venv`) always apply.
 
 Precedence, highest to lowest:
 
-1. CLI flags (`--theme`, `--tone`, `--no-mdx`, `--show`, `--start-in-filter`)
-2. Env vars (`HOUSE_THEME`, `HOUSE_TONE`, `HOUSE_MDX`, `HOUSE_SHOW`, `HOUSE_START_IN_FILTER`)
+1. CLI flags (`--theme`, `--tone`, `--no-mdx`, `--show`, `--focus`)
+2. Env vars (`HOUSE_THEME`, `HOUSE_TONE`, `HOUSE_MDX`, `HOUSE_SHOW`, `HOUSE_FOCUS`)
 3. Config file
-4. Built-in defaults (`opencode` / `dark` / `mdx = true` / `show = []` / `start_in_filter = false`)
+4. Built-in defaults (`opencode` / `dark` / `mdx = true` / `show = []` / `focus = "filter"`)
 
 `HOUSE_SHOW` takes a comma-separated list (`HOUSE_SHOW=hidden,gitignored`). For `show` specifically, each source completely replaces the next — categories don't merge across layers. Press `shift+a` in the TUI to round-trip between the configured set and the full vocabulary without editing config.
 

@@ -8,6 +8,7 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 
 ### Changed
 
+- Startup behavior now uses `--focus <sidebar|reader|filter>`, `HOUSE_FOCUS`, and TOML `focus = "..."`; the built-in startup default is now `filter`.
 - Active filter/status metadata now uses the secondary theme token, matching opencode's use of `secondary` for active contextual metadata.
 - UI theme consumers now use the opencode-aligned `primary` token directly for strong emphasis and selected foreground.
 - UI chrome no longer uses house-only aliases (`surface`, `selectedBg`, `selectedBgInactive`), and background/backgroundPanel are no longer reordered by luminance.
@@ -38,7 +39,6 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 
 - Discovery visibility controls: new `--show <list>` CLI flag, `HOUSE_SHOW` env var, and TOML `show = ["..."]` config, replacing boolean discovery toggles with explicit categories (`hidden`, `gitignored`).
 - Session visibility toggle: `shift+a` flips discovery between the configured visibility set and showing all categories, preserving selection across the re-walk.
-- Launch-in-filter option: `--start-in-filter` CLI flag, `HOUSE_START_IN_FILTER` env var, and TOML `start_in_filter = true` open the sidebar filter prompt focused at startup.
 
 ### Changed
 

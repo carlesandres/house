@@ -44,6 +44,7 @@ import { themeAtom } from "./theme/atom.ts"
 import { themeDefinitions, getThemeDefinition } from "./theme/registry.ts"
 
 export type SidebarMode = "auto" | "on" | "off"
+export type StartupFocus = "sidebar" | "reader" | "filter"
 
 export interface BrowserProps {
 	readonly files: readonly FileEntry[]
@@ -72,10 +73,9 @@ export interface BrowserProps {
 	 *  from this side; we just snapshot the selected path so it can be
 	 *  restored across the re-walk the parent triggers. */
 	readonly onToggleAll?: () => void
-	/** Open the sidebar filter prompt on mount so the user can type
-	 *  immediately. Esc closes it through the normal close path — no
-	 *  special "first close" behavior. */
-	readonly startInFilter?: boolean
+	/** Startup pane/input target. `filter` opens the sidebar filter prompt on
+	 *  mount so the user can type immediately. */
+	readonly startupFocus?: StartupFocus | null
 }
 
 const defaultReadFile = (path: string): Promise<string> => Effect.runPromise(readFileText(path))
@@ -105,7 +105,7 @@ export const Browser = ({
 	updateNotice = null,
 	updateNoticeTtlMs = 10000,
 	onToggleAll,
-	startInFilter = false,
+	startupFocus = null,
 }: BrowserProps) => {
 	const renderer = useRenderer()
 	const { width, height } = useTerminalDimensions()
@@ -134,12 +134,23 @@ export const Browser = ({
 				return initialShownForAuto(width)
 		}
 	})
-	// startInFilter mirrors `openFilter`'s focus rule: the filter input lives
-	// in the sidebar, so opening it on mount also forces sidebar focus
-	// regardless of `--sidebar=off` (§7.1's visibility derivation surfaces
-	// the sidebar via focus even when `shown` is false).
+	const startInFilter = startupFocus === "filter"
+	const initialFocus: "sidebar" | "reader" =
+		startupFocus === null
+			? shown
+				? "sidebar"
+				: "reader"
+			: startupFocus === "reader"
+				? "reader"
+				: "sidebar"
+	// `filter` mirrors `openFilter`'s focus rule: the filter input lives in
+	// the sidebar, so opening it on mount also forces sidebar focus regardless
+	// of `--sidebar=off` (§7.1's visibility derivation surfaces the sidebar via
+	// focus even when `shown` is false). Plain `sidebar` startup shares the
+	// same pane focus without opening the prompt. When omitted, preserve the
+	// legacy Browser behavior: initial focus follows visibility.
 	const [focus, setFocus] = useState<"sidebar" | "reader">(() =>
-		shown || startInFilter ? "sidebar" : "reader",
+		shown || initialFocus === "sidebar" ? "sidebar" : "reader",
 	)
 	const [sidebarScroll, setSidebarScroll] = useState<number>(0)
 	const [helpVisible, setHelpVisible] = useState<boolean>(false)
