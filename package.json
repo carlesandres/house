@@ -12,6 +12,9 @@
 		"url": "https://github.com/carlesandres/house/issues"
 	},
 	"homepage": "https://github.com/carlesandres/house#readme",
+	"engines": {
+		"node": ">=22.22.2"
+	},
 	"keywords": [
 		"markdown",
 		"reader",
