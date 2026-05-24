@@ -41,5 +41,5 @@ jobs:
         run: npm config set engine-strict true
       - name: Global install smoke test from tarball
         run: |
-          version="$(node -p \"require('./package.json').version\")"
+          version="$(node -p "require('./package.json').version")"
           npm install -g "./carlesandres-house-${version}.tgz" --prefix "${RUNNER_TEMP}/npm-global"
