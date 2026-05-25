@@ -6,6 +6,10 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 
 ## [Unreleased]
 
+### Changed
+
+- File actions now use uppercase `E` / `O` instead of lowercase `e` / `o`, adding a small amount of friction to edit and open-in-browser actions.
+
 ## [0.4.6] — 2026-05-25
 
 ### Added
@@ -73,7 +77,7 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 
 ### Added
 
-- Editor hand-off: press `e` to open the selected file in `$EDITOR`/`$VISUAL` (`#19`).
+- Editor hand-off: press `E` to open the selected file in `$EDITOR`/`$VISUAL` (`#19`).
 - Sidebar rows now render basename-first with segment-aware parent-path elision, improving scanability in deep trees.
 - `ctrl+\\` clears an active sidebar filter query without leaving filter mode.
 
@@ -207,7 +211,7 @@ The v1 MVP, published as `@carlesandres/openmdr` on npm.
 ### Added — keymap
 
 - `KeyBinding[]` with `id` / `description` / `keys` / `group` / optional `when` / `run`. Single source for both `useKeyboard` dispatch and the help overlay.
-- Bindings: `j`/`k` + arrows, shift-jump, page/half-page, `g`/`G`, `return`/`l`/`→`, `escape`/`h`/`←`, `[`/`]`, `tab`, `\`, `?`, `q`/`ctrl+c`. Reserved (not bound): `/`, `e`, `o`, `r`.
+- Bindings: `j`/`k` + arrows, shift-jump, page/half-page, `g`/`G`, `return`/`l`/`→`, `escape`/`h`/`←`, `[`/`]`, `tab`, `\`, `?`, `q`/`ctrl+c`. Reserved (not bound): `/`, `r`.
 
 ### Added — release infra
 

@@ -167,7 +167,7 @@ Do not bind these in v1:
 | `B` | Bookmarks panel |
 | `ctrl+[` / `ctrl+]` | Navigation history back / forward |
 
-`e` (open in `$EDITOR`) and `o` (open externally, currently HTML browser) are shipped — see the keymap. Reload semantics: `r` remains reserved because `e`'s post-edit reload is automatic; a manual reload is only needed if we ship file-watching as a separate feature.
+`E` (open in `$EDITOR`) and `O` (open externally, currently HTML browser) are shipped — see the keymap. Reload semantics: `r` remains reserved because `E`'s post-edit reload is automatic; a manual reload is only needed if we ship file-watching as a separate feature.
 
 ### 7.4 Unified browser model
 
@@ -183,7 +183,7 @@ There is **no "single-file mode"**. The Browser is the only render target. Whate
 
 **Invariant 4 — the selected file drives the reader, regardless of focus.** As long as exactly one file is the active selection, that file's content is in the reader pane. Focus determines where keystrokes land, not what is shown. Empty selection → blank reader. There is no separate "open this file in the reader" action distinct from "select it".
 
-**Invariant 5 — file-scoped actions are gated on `hasSelected`, not on `haveFiles`.** The File keymap group (`o` open-in-browser, `[` prev, `]` next) is available iff `selected !== null`. `haveFiles` (list non-empty) is a sloppy proxy that breaks under debounced filter + sticky select, where the list can be non-empty while no row is the selection. `hasSelected` is the honest predicate.
+**Invariant 5 — file-scoped actions are gated on `hasSelected`, not on `haveFiles`.** The File keymap group (`O` open-in-browser, `[` prev, `]` next) is available iff `selected !== null`. `haveFiles` (list non-empty) is a sloppy proxy that breaks under debounced filter + sticky select, where the list can be non-empty while no row is the selection. `hasSelected` is the honest predicate.
 
 **Invariant 6 — filter input and applied filter are separated by a 50ms debounce.** `filterInput` (immediate) drives the typed line and the filter chip. `filterApplied` (debounced) drives `filterFiles` and selection. Three flush points bypass the debounce so the UI never feels stuck: launch with a seeded query (`initialQuery` initializes *both* states), `Esc` clearing the filter, `Return` committing a pick.
 
@@ -191,7 +191,7 @@ There is **no "single-file mode"**. The Browser is the only render target. Whate
 
 **Empty states.** Post-discovery, with nothing to select, the sidebar shows a single dim row in place of the file list: `no markdown files in <rootDir>` (empty pool) or `no matches for "<query>"` (pool non-empty, zero matches). The reader stays blank. The footer hint row drops File-scoped hints automatically via `hasSelected`.
 
-**What this replaces.** The previous design had an `App` component for file targets and a `Browser` for directory targets, each with its own keymap. That split is the bug that motivated this work: `s` and `o` silently no-op in `App` because they're `Browser`-scoped. Under the unified model, `App` is deleted, `--serve <path>` takes its own explicit path (the positional is reserved for the query), and `house docs/` walks `defaultRoot` and filter-matches `"docs/"` instead of walking `./docs/` directly.
+**What this replaces.** The previous design had an `App` component for file targets and a `Browser` for directory targets, each with its own keymap. That split is the bug that motivated this work: `s` and `O` silently no-op in `App` because they're `Browser`-scoped. Under the unified model, `App` is deleted, `--serve <path>` takes its own explicit path (the positional is reserved for the query), and `house docs/` walks `defaultRoot` and filter-matches `"docs/"` instead of walking `./docs/` directly.
 
 **Behavior-change note for `house docs/`.** Same visible result in the common case (the docs files surface at the top of the sidebar), but the mechanics differ — the entire discovery root is scanned, not just `docs/`. No compat shim; this is the cost of the cleaner model.
 

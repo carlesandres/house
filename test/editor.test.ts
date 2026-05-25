@@ -2,7 +2,7 @@
  * Tests for the `$VISUAL` / `$EDITOR` resolver and POSIX shell-split.
  *
  * Spawn behavior is intentionally out of scope — exercised by the PTY
- * smoke test once `e` is wired into Browser.
+ * smoke test once `E` is wired into Browser.
  */
 
 import { describe, expect, test } from "bun:test"
@@ -45,7 +45,7 @@ describe("splitEditorString", () => {
 		])
 	})
 
-	test("double-quoted escapes for \\\" and \\\\", () => {
+	test('double-quoted escapes for \\" and \\\\', () => {
 		expect(splitEditorString('vim "say \\"hi\\""')).toEqual(["vim", 'say "hi"'])
 		expect(splitEditorString('vim "a\\\\b"')).toEqual(["vim", "a\\b"])
 	})

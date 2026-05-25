@@ -11,7 +11,7 @@ export type BrowserFocus = "sidebar" | "reader"
 export interface BrowserCtx {
 	readonly files: readonly FileEntry[]
 	/** True iff `files[selectedIndex]` resolves to an entry. The honest
-	 *  predicate for File-group actions (`o`, `e`, `[`, `]`): with debounced
+	 *  predicate for File-group actions (`O`, `E`, `[`, `]`): with debounced
 	 *  filter and sticky auto-select, `files.length > 0` can be true while
 	 *  `selectedIndex` is invalid for the displayed list. See #115. */
 	readonly hasSelected: boolean
@@ -278,7 +278,7 @@ export const browserBindings: readonly KeyBinding<BrowserCtx>[] = [
 		group: "File",
 		description: "Open current file in browser as HTML",
 		hint: "html",
-		keys: ["o"],
+		keys: ["shift+o"],
 		when: hasSelected,
 		run: (c) => c.serveCurrent(),
 	},
@@ -287,7 +287,7 @@ export const browserBindings: readonly KeyBinding<BrowserCtx>[] = [
 		group: "File",
 		description: "Open current file in $EDITOR",
 		hint: "edit",
-		keys: ["e"],
+		keys: ["shift+e"],
 		when: hasSelected,
 		run: (c) => c.editCurrent(),
 	},
