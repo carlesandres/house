@@ -142,6 +142,7 @@ describe("browserBindings — discovery.toggleAll", () => {
 		sidebarShown: true,
 		helpVisible: false,
 		filterOpen: false,
+		restoreFilterOnSidebarFocus: false,
 		filterQuery: "",
 		paletteOpen: false,
 		setFocus: noop,

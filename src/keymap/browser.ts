@@ -20,6 +20,7 @@ export interface BrowserCtx {
 	readonly sidebarShown: boolean
 	readonly helpVisible: boolean
 	readonly filterOpen: boolean
+	readonly restoreFilterOnSidebarFocus: boolean
 	/** Current applied/edited filter query. Used by `filter.clearOrOpen`'s
 	 *  hint gate so the hint only appears when there is something to clear. */
 	readonly filterQuery: string
@@ -87,7 +88,13 @@ export const browserBindings: readonly KeyBinding<BrowserCtx>[] = [
 		description: "Toggle focus (sidebar ↔ reader)",
 		hint: "focus",
 		keys: ["tab"],
-		run: (c) => c.setFocus((f) => (f === "sidebar" ? "reader" : "sidebar")),
+		run: (c) => {
+			if (c.focus === "reader" && c.restoreFilterOnSidebarFocus) {
+				c.openFilter()
+			} else {
+				c.setFocus((f) => (f === "sidebar" ? "reader" : "sidebar"))
+			}
+		},
 	},
 	{
 		id: "sidebar.toggle",

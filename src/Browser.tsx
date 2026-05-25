@@ -187,6 +187,7 @@ export const Browser = ({
 	// otherwise still observe filterOpen=false through closure).
 	const filterOpenRef = useRef(startInFilter)
 	const filterQueryRef = useRef("")
+	const restoreFilterOnSidebarFocusRef = useRef(startInFilter)
 	const [footerNotice, setFooterNoticeState] = useState<{
 		readonly text: string
 		readonly ttlMs: number
@@ -333,6 +334,7 @@ export const Browser = ({
 		sidebarShown: shown,
 		helpVisible,
 		filterOpen,
+		restoreFilterOnSidebarFocus: restoreFilterOnSidebarFocusRef.current,
 		filterQuery,
 		paletteOpen,
 		setFocus,
@@ -377,6 +379,7 @@ export const Browser = ({
 			// focusing the sidebar swaps to the sidebar screen. Either way
 			// no need to mutate `shown`.
 			if (focus !== "sidebar") setFocus("sidebar")
+			restoreFilterOnSidebarFocusRef.current = true
 			filterOpenRef.current = true
 			setFilterOpen(true)
 		},
@@ -388,6 +391,7 @@ export const Browser = ({
 			setFilterQuery("")
 			setSelectedIndex(() => 0)
 			if (focus !== "sidebar") setFocus("sidebar")
+			restoreFilterOnSidebarFocusRef.current = true
 			filterOpenRef.current = true
 			setFilterOpen(true)
 		},
@@ -527,13 +531,14 @@ export const Browser = ({
 		// so normal bindings (j/k as nav, `s`, `t`, …) don't fire while
 		// the user is typing. This sits outside the data-driven keymap
 		// for the same reason the help branch does — see DESIGN.md §12.
-		if (filterOpenRef.current) {
+		if (filterOpenRef.current && focus === "sidebar") {
 			// One close path used by both Esc and Return. `commit=true` is
 			// the Return semantic (open the match in the reader); false is
 			// Esc (stop typing, keep the applied filter, stay in sidebar).
 			const closeFilter = (commit: boolean) => {
 				const picked = displayedFiles[selectedIndex] ?? null
 				const effectiveCommit = commit && picked !== null
+				restoreFilterOnSidebarFocusRef.current = false
 				filterOpenRef.current = false
 				setFilterOpen(false)
 				// Where focus lands after the filter closes:
@@ -556,7 +561,10 @@ export const Browser = ({
 				return
 			}
 			if (key.name === "tab" || (key.ctrl && key.name === "i" && !key.shift && !key.meta)) {
-				closeFilter(true)
+				restoreFilterOnSidebarFocusRef.current = true
+				filterOpenRef.current = false
+				setFilterOpen(false)
+				setFocus("reader")
 				return
 			}
 			if (key.ctrl && key.name === "\\") {

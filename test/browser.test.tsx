@@ -653,7 +653,7 @@ describe("Browser — #22 layout v2", () => {
 		expect(sidebarIsFocused(setup!.captureSpans(), frame)).toBe(true)
 	})
 
-	test("tab from the startup filter closes it and focuses the reader", async () => {
+	test("tab from the startup filter returns to the filter on the next tab", async () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
@@ -676,6 +676,15 @@ describe("Browser — #22 layout v2", () => {
 		expect(frame).not.toContain("> ▏")
 		expect(sidebarIsFocused(setup!.captureSpans(), frame)).toBe(false)
 		expect(readerTitleContains(frame, "a.md")).toBe(true)
+
+		await act(async () => {
+			setup!.mockInput.pressTab()
+		})
+		await stepFrame(setup!.renderOnce)
+
+		const returnedFrame = setup!.captureCharFrame()
+		expect(returnedFrame).toContain("> ▏")
+		expect(sidebarIsFocused(setup!.captureSpans(), returnedFrame)).toBe(true)
 	})
 
 	test("startupFocus=reader keeps sidebar hidden with --sidebar=off", async () => {

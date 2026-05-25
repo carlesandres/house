@@ -41,6 +41,7 @@ const makeCtx = (o: CtxOverrides = {}): BrowserCtx => ({
 	sidebarShown: true,
 	helpVisible: false,
 	filterOpen: o.filterOpen ?? false,
+	restoreFilterOnSidebarFocus: false,
 	filterQuery: o.filterQuery ?? "",
 	paletteOpen: o.paletteOpen ?? false,
 	setFocus: noopSetFocus,
@@ -173,7 +174,7 @@ describe("File group — `e` (open in $EDITOR)", () => {
 })
 
 describe("File group — array layout", () => {
-	test("`o`, `e`, `[`, `]` all carry group=\"File\"", () => {
+	test('`o`, `e`, `[`, `]` all carry group="File"', () => {
 		const ids = ["serve.current", "file.edit", "reader.prevFile", "reader.nextFile"] as const
 		for (const id of ids) {
 			const b = browserBindings.find((x) => x.id === id)

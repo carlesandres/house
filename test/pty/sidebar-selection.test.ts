@@ -107,7 +107,7 @@ describe.skipIf(!RUN)("sidebar selection background (PTY)", () => {
 		expect(frame).not.toContain("⌂ house · b.md")
 	})
 
-	test("tab from the startup filter closes it and focuses the reader", async () => {
+	test("tab from the startup filter returns to the filter on the next tab", async () => {
 		const dir = mkdtempSync(join(tmpdir(), "house-pty-filter-tab-"))
 		tempDirs.push(dir)
 		writeFileSync(join(dir, "a.md"), "# a\n")
@@ -127,5 +127,13 @@ describe.skipIf(!RUN)("sidebar selection background (PTY)", () => {
 		expect(frame).toContain("⌂ house · a.md")
 		expect(frame).toContain("# a")
 		expect(frame).not.toContain("No files match: j")
+
+		await session.press("tab")
+		await session.waitIdle({ timeout: 500 }).catch(() => {})
+		await session.type("b")
+		await session.waitIdle({ timeout: 500 }).catch(() => {})
+
+		const returnedFrame = await session.text({ immediate: true, trimEnd: true })
+		expect(returnedFrame).toContain("> b▏")
 	})
 })
