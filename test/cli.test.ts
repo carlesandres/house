@@ -16,7 +16,7 @@ const empty: ParsedArgs = {
 	noUpdateCheck: false,
 	noMdx: false,
 	show: null,
-	startInFilter: false,
+	focus: null,
 }
 const args = (overrides: Partial<ParsedArgs>): ParsedArgs => ({ ...empty, ...overrides })
 
@@ -74,16 +74,26 @@ describe("parseArgv — boolean flags", () => {
 	test("--no-mdx is parsed as boolean", () => {
 		expect(parseArgv(["--no-mdx"])).toEqual(args({ noMdx: true }))
 	})
-	test("--start-in-filter is parsed as boolean", () => {
-		expect(parseArgv(["--start-in-filter"])).toEqual(args({ startInFilter: true }))
+})
+
+describe("parseArgv — --focus", () => {
+	test("captures the value after --focus", () => {
+		expect(parseArgv(["--focus", "filter"])).toEqual(args({ focus: "filter" }))
+	})
+	test("captures unknown focus values verbatim (boot validates)", () => {
+		expect(parseArgv(["--focus", "weird"])).toEqual(args({ focus: "weird" }))
+	})
+	test("--focus with no value yields null", () => {
+		expect(parseArgv(["--focus"])).toEqual(args({ focus: null }))
+	})
+	test("--focus does not swallow the following flag", () => {
+		expect(parseArgv(["--focus", "--width", "80"])).toEqual(args({ focus: null, width: "80" }))
 	})
 })
 
 describe("parseArgv — --show", () => {
 	test("captures the value after --show", () => {
-		expect(parseArgv(["--show", "hidden,gitignored"])).toEqual(
-			args({ show: "hidden,gitignored" }),
-		)
+		expect(parseArgv(["--show", "hidden,gitignored"])).toEqual(args({ show: "hidden,gitignored" }))
 	})
 	test("captures a single category", () => {
 		expect(parseArgv(["--show", "hidden"])).toEqual(args({ show: "hidden" }))

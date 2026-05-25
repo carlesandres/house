@@ -12,6 +12,7 @@ import { colors, setActiveTheme } from "../src/theme/colors.ts"
 import { themeAtom } from "../src/theme/atom.ts"
 import { themeDefinitions } from "../src/theme/registry.ts"
 import { resolveTheme } from "../src/theme/resolve.ts"
+import { destroyTestRenderer } from "./helpers/opentui-test-cleanup.ts"
 
 beforeAll(() => {
 	// @ts-expect-error — globalThis.IS_REACT_ACT_ENVIRONMENT is a React internal
@@ -21,12 +22,8 @@ beforeAll(() => {
 let setup: Awaited<ReturnType<typeof testRender>> | null = null
 
 afterEach(() => {
-	if (setup) {
-		act(() => {
-			setup!.renderer.destroy()
-		})
-		setup = null
-	}
+	destroyTestRenderer(setup)
+	setup = null
 })
 
 const VIEWPORT = { width: 120, height: 30 }
@@ -82,7 +79,7 @@ describe("Browser — sidebar", () => {
 				VIEWPORT,
 			)
 		})
-		await setup!.renderOnce()
+		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
 		// Sidebar rows render basename-first with the parent path as a dim suffix
 		// (e.g. "intro.md  ·  docs"). Match the full shape so a regression that
@@ -100,7 +97,7 @@ describe("Browser — sidebar", () => {
 				VIEWPORT,
 			)
 		})
-		await setup!.renderOnce()
+		await stepFrame(setup!.renderOnce)
 		expect(setup!.captureCharFrame()).toContain("no markdown files")
 	})
 })
@@ -565,6 +562,60 @@ describe("Browser — #22 layout v2", () => {
 		expect(readerTitleContains(setup!.captureCharFrame(), "a.md")).toBe(true)
 	})
 
+	test("startupFocus=filter opens the sidebar filter at launch", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={makeFiles(["a.md", "b.md"])}
+					readFile={makeReader({ "a.md": "x", "b.md": "y" })}
+					onQuit={() => {}}
+					startupFocus="filter"
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("> ▏")
+		expect(sidebarIsFocused(setup!.captureSpans(), frame)).toBe(true)
+	})
+
+	test("startupFocus=reader keeps sidebar hidden with --sidebar=off", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={makeFiles(["a.md", "b.md"])}
+					readFile={makeReader({ "a.md": "x", "b.md": "y" })}
+					onQuit={() => {}}
+					sidebarMode="off"
+					startupFocus="reader"
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(sidebarIsVisible(setup!.captureCharFrame())).toBe(false)
+		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(false)
+	})
+
+	test("startupFocus=sidebar focuses sidebar without opening filter", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={makeFiles(["a.md", "b.md"])}
+					readFile={makeReader({ "a.md": "x", "b.md": "y" })}
+					onQuit={() => {}}
+					startupFocus="sidebar"
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(sidebarIsFocused(setup!.captureSpans(), frame)).toBe(true)
+		expect(frame).not.toContain("> ▏")
+	})
+
 	test("--sidebar=auto consults the viewport bucket once", async () => {
 		// 60 cols < 80 → starts hidden.
 		await act(async () => {
@@ -975,7 +1026,7 @@ describe("Browser — quit", () => {
 				VIEWPORT,
 			)
 		})
-		await setup!.renderOnce()
+		await stepFrame(setup!.renderOnce)
 		await act(async () => {
 			setup!.mockInput.pressKey("q")
 		})
@@ -996,7 +1047,7 @@ describe("Browser — quit", () => {
 				VIEWPORT,
 			)
 		})
-		await setup!.renderOnce()
+		await stepFrame(setup!.renderOnce)
 		await act(async () => {
 			setup!.mockInput.pressCtrlC()
 		})
