@@ -1,0 +1,23 @@
+#!/bin/sh
+# Versioned pre-push safeguard. Activated by `bun install` (see the `prepare`
+# script in package.json), which runs `git config core.hooksPath .githooks`.
+#
+# This hook only blocks stale PR-branch pushes. It does not merge, rebase, run
+# tests, or otherwise fix the branch; humans and agents decide the next step.
+set -e
+
+remote="${HOUSE_BASE_REMOTE:-origin}"
+base="${HOUSE_BASE_BRANCH:-main}"
+branch="$(git rev-parse --abbrev-ref HEAD)"
+
+if [ "$branch" = "$base" ]; then
+  exit 0
+fi
+
+git fetch "$remote" "$base" --quiet
+
+if ! git merge-base --is-ancestor "$remote/$base" HEAD; then
+  echo "Push blocked: branch is not up to date with $remote/$base."
+  echo "Resolve this before pushing."
+  exit 1
+fi

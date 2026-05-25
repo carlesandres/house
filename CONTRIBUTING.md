@@ -24,7 +24,7 @@ npm pack --dry-run      # show exactly what would ship to npm
 
 Any PR has to pass `typecheck`, `lint`, `format:check`, `test`, and `npm pack --dry-run` — that's what `.github/workflows/ci.yml` enforces.
 
-A versioned pre-commit hook (`.githooks/pre-commit`) runs `format:check` and `lint` before each commit so the cheap CI gates don't bite you on PR review. `bun install` activates it (the `prepare` script in `package.json` sets `core.hooksPath`). If you ever need to bypass it, prefer fixing the underlying issue over `git commit --no-verify`.
+Versioned Git hooks live in `.githooks/`. `bun install` activates them (the `prepare` script in `package.json` sets `core.hooksPath`). The pre-commit hook runs `format:check` and `lint` so the cheap CI gates don't bite you on PR review. The pre-push hook fetches `origin/main` and blocks stale branch pushes; it is only a safeguard and does not merge, rebase, or run tests. If a hook blocks, prefer fixing the underlying issue over bypassing it.
 
 ## Project layout
 
