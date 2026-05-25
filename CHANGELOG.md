@@ -6,6 +6,12 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 
 ## [Unreleased]
 
+## [0.4.6] — 2026-05-25
+
+### Added
+
+- Reader empty states now show one tip at a time and rotate through a relevance-ordered set of workflow hints.
+
 ### Changed
 
 - Startup behavior now uses `--focus <sidebar|reader|filter>`, `HOUSE_FOCUS`, and TOML `focus = "..."`; the built-in startup default is now `filter`.
@@ -14,10 +20,19 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 - UI chrome no longer uses house-only aliases (`surface`, `selectedBg`, `selectedBgInactive`), and background/backgroundPanel are no longer reordered by luminance.
 - Sidebar filtering now ranks basename matches above folder-only matches and softly prefers current-folder files over deeper nested paths, while keeping empty-query tree order unchanged.
 
+### Fixed
+
+- Tabbing away from the sidebar filter now lands on the reader without dropping filter mode, and the next `Tab` restores focus to the filter input instead of the sidebar list.
+- Batched key input no longer clears active filter focus unexpectedly during tab cycling.
+
 ### Docs
 
 - Added semantic token usage guidance for supported theme tokens.
 - DESIGN now documents the sidebar filter's basename-first, pure-function ranking model.
+
+### Tests
+
+- Added headless and PTY regression coverage for filter tab-cycle focus restoration.
 
 ## [0.4.5] — 2026-05-24
 
@@ -215,7 +230,8 @@ The v1 MVP, published as `@carlesandres/openmdr` on npm.
 
 Search, stdin, URL fetching, cross-file link following, `$EDITOR` hand-off, syntax highlighting, persistent config, OS-appearance auto-detect, single-binary distribution (issue [#2](https://github.com/carlesandres/openmdr/issues/2)), Homebrew tap. All tracked.
 
-[Unreleased]: https://github.com/carlesandres/house/compare/v0.4.5...HEAD
+[Unreleased]: https://github.com/carlesandres/house/compare/v0.4.6...HEAD
+[0.4.6]: https://github.com/carlesandres/house/compare/v0.4.5...v0.4.6
 [0.4.5]: https://github.com/carlesandres/house/compare/v0.4.4...v0.4.5
 [0.4.4]: https://github.com/carlesandres/house/compare/v0.4.3...v0.4.4
 [0.4.3]: https://github.com/carlesandres/house/compare/v0.4.2...v0.4.3
