@@ -37,6 +37,7 @@ import {
 } from "./layout/resolve.ts"
 import { formatSidebarRow } from "./layout/sidebarRow.ts"
 import { PromptRow } from "./PromptRow.tsx"
+import { buildReaderEmptyStateTips, pickTipByRotation } from "./tips.ts"
 import { openInBrowser } from "./serve/openBrowser.ts"
 import { startServer, type ServerHandle } from "./serve/server.ts"
 import { colors, setActiveTheme } from "./theme/colors.ts"
@@ -93,6 +94,16 @@ const HELP_ALLOWED_IDS: ReadonlySet<string> = new Set([
 	"theme.toneToggle",
 	"palette.open",
 ])
+
+let nextReaderEmptyStateTipRotation = 0
+
+export const resetReaderEmptyStateTipRotationForTests = () => {
+	nextReaderEmptyStateTipRotation = 0
+}
+
+export const setReaderEmptyStateTipRotationForTests = (next: number) => {
+	nextReaderEmptyStateTipRotation = next
+}
 
 export const Browser = ({
 	files,
@@ -166,12 +177,18 @@ export const Browser = ({
 	const paletteOpenRef = useRef(false)
 	const paletteQueryRef = useRef("")
 	const paletteIndexRef = useRef(0)
+	const [readerEmptyStateTipRotation, setReaderEmptyStateTipRotation] = useState(
+		() => nextReaderEmptyStateTipRotation,
+	)
+	const readerEmptyStateVisibleRef = useRef(false)
 	// Mirror filter state into refs so the keyboard handler sees synchronous
 	// updates even when multiple keys arrive in a single React batch (the
 	// first key opens the filter; subsequent keys in the same tick would
 	// otherwise still observe filterOpen=false through closure).
 	const filterOpenRef = useRef(startInFilter)
 	const filterQueryRef = useRef("")
+	const focusRef = useRef<"sidebar" | "reader">(focus)
+	const restoreFilterOnSidebarFocusRef = useRef(startInFilter)
 	const [footerNotice, setFooterNoticeState] = useState<{
 		readonly text: string
 		readonly ttlMs: number
@@ -213,6 +230,10 @@ export const Browser = ({
 	// is the durable record they can copy from scrollback.
 	const updateNoticeSeenRef = useRef<string | null>(null)
 	useEffect(() => {
+		focusRef.current = focus
+	}, [focus])
+
+	useEffect(() => {
 		if (!updateNotice) return
 		if (updateNoticeSeenRef.current === updateNotice) return
 		updateNoticeSeenRef.current = updateNotice
@@ -237,6 +258,7 @@ export const Browser = ({
 	}
 
 	const displayedFiles = useMemo(() => filterFiles(files, filterQuery), [files, filterQuery])
+	const filterHasNoMatches = filterQuery.length > 0 && displayedFiles.length === 0
 	// When the filtered list shrinks, keep selectedIndex valid. The reset to 0
 	// on every query change happens in the keystroke handler, not here, so a
 	// no-op rerender doesn't snap the cursor back to the top.
@@ -317,6 +339,7 @@ export const Browser = ({
 		sidebarShown: shown,
 		helpVisible,
 		filterOpen,
+		restoreFilterOnSidebarFocus: restoreFilterOnSidebarFocusRef.current,
 		filterQuery,
 		paletteOpen,
 		setFocus,
@@ -360,7 +383,9 @@ export const Browser = ({
 			// the inline sidebar back on screen if it was hidden. In narrow,
 			// focusing the sidebar swaps to the sidebar screen. Either way
 			// no need to mutate `shown`.
+			focusRef.current = "sidebar"
 			if (focus !== "sidebar") setFocus("sidebar")
+			restoreFilterOnSidebarFocusRef.current = true
 			filterOpenRef.current = true
 			setFilterOpen(true)
 		},
@@ -371,7 +396,9 @@ export const Browser = ({
 			filterQueryRef.current = ""
 			setFilterQuery("")
 			setSelectedIndex(() => 0)
+			focusRef.current = "sidebar"
 			if (focus !== "sidebar") setFocus("sidebar")
+			restoreFilterOnSidebarFocusRef.current = true
 			filterOpenRef.current = true
 			setFilterOpen(true)
 		},
@@ -511,13 +538,14 @@ export const Browser = ({
 		// so normal bindings (j/k as nav, `s`, `t`, …) don't fire while
 		// the user is typing. This sits outside the data-driven keymap
 		// for the same reason the help branch does — see DESIGN.md §12.
-		if (filterOpenRef.current) {
+		if (filterOpenRef.current && focusRef.current === "sidebar") {
 			// One close path used by both Esc and Return. `commit=true` is
 			// the Return semantic (open the match in the reader); false is
 			// Esc (stop typing, keep the applied filter, stay in sidebar).
 			const closeFilter = (commit: boolean) => {
 				const picked = displayedFiles[selectedIndex] ?? null
 				const effectiveCommit = commit && picked !== null
+				restoreFilterOnSidebarFocusRef.current = false
 				filterOpenRef.current = false
 				setFilterOpen(false)
 				// Where focus lands after the filter closes:
@@ -526,9 +554,12 @@ export const Browser = ({
 				//   otherwise → sidebar if it's up so j/k keeps walking the
 				//     filtered list; reader if the sidebar was hidden.
 				if (effectiveCommit) {
+					focusRef.current = "reader"
 					setFocus("reader")
 				} else {
-					setFocus(shown ? "sidebar" : "reader")
+					const nextFocus = shown ? "sidebar" : "reader"
+					focusRef.current = nextFocus
+					setFocus(nextFocus)
 				}
 			}
 			if (key.name === "escape") {
@@ -537,6 +568,14 @@ export const Browser = ({
 			}
 			if (key.name === "return") {
 				closeFilter(true)
+				return
+			}
+			if (key.name === "tab" || (key.ctrl && key.name === "i" && !key.shift && !key.meta)) {
+				focusRef.current = "reader"
+				restoreFilterOnSidebarFocusRef.current = true
+				filterOpenRef.current = false
+				setFilterOpen(false)
+				setFocus("reader")
 				return
 			}
 			if (key.ctrl && key.name === "\\") {
@@ -693,6 +732,21 @@ export const Browser = ({
 	// per-pane border title that used to carry this information).
 	const currentFile = selected?.relativePath ?? null
 	const content = loaded?.path === renderedPath ? loaded.content : ""
+	const readerEmptyStateTitle = filterHasNoMatches
+		? `No files match: ${filterQuery}`
+		: `${BRAND} ${BRAND_NAME}`
+	const readerEmptyStateVisible = error == null && renderedPath == null
+
+	useEffect(() => {
+		if (readerEmptyStateVisible) {
+			if (!readerEmptyStateVisibleRef.current) {
+				readerEmptyStateVisibleRef.current = true
+				setReaderEmptyStateTipRotation(nextReaderEmptyStateTipRotation++)
+			}
+			return
+		}
+		readerEmptyStateVisibleRef.current = false
+	}, [readerEmptyStateVisible])
 
 	// Sidebar virtualization: render only the visible window. Without this,
 	// every keystroke re-renders all N file rows even though only the bg of
@@ -742,6 +796,11 @@ export const Browser = ({
 						.map((b) => (b.id === "help.toggle" ? { ...b, hint: "close" } : b))
 				: browserBindings,
 		[helpVisible],
+	)
+	const readerEmptyStateTips = useMemo(() => buildReaderEmptyStateTips(browserBindings, ctx), [ctx])
+	const readerEmptyStateTip = useMemo(
+		() => pickTipByRotation(readerEmptyStateTips, readerEmptyStateTipRotation),
+		[readerEmptyStateTipRotation, readerEmptyStateTips],
 	)
 
 	// One sidebar body for both wide-inline and narrow-stack rendering; only
@@ -888,7 +947,7 @@ export const Browser = ({
 								<text content={error} style={{ fg: colors.error }} />
 							) : !renderedPath ? (
 								// Reader empty state — no file selected. Brand mark centered as a
-								// welcome anchor; in-app tips (#47) will live here too.
+								// welcome anchor; reusable tips live here too.
 								<box
 									style={{
 										flexGrow: 1,
@@ -898,11 +957,21 @@ export const Browser = ({
 										backgroundColor: readerActive ? colors.background : colors.backgroundPanel,
 									}}
 								>
-									<text
-										content={`${BRAND} ${BRAND_NAME}`}
-										wrapMode="none"
-										style={{ fg: colors.textMuted }}
-									/>
+									<box style={{ flexDirection: "column", gap: 1, alignItems: "center" }}>
+										<text
+											content={readerEmptyStateTitle}
+											wrapMode="none"
+											style={{ fg: colors.textMuted }}
+										/>
+										{readerEmptyStateTip && (
+											<text
+												key={readerEmptyStateTip.id}
+												content={readerEmptyStateTip.text}
+												wrapMode="none"
+												style={{ fg: colors.textMuted }}
+											/>
+										)}
+									</box>
 								</box>
 							) : (
 								<scrollbox

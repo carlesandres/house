@@ -24,7 +24,7 @@ npm pack --dry-run      # show exactly what would ship to npm
 
 Any PR has to pass `typecheck`, `lint`, `format:check`, `test`, and `npm pack --dry-run` — that's what `.github/workflows/ci.yml` enforces.
 
-A versioned pre-commit hook (`.githooks/pre-commit`) runs `format:check` and `lint` before each commit so the cheap CI gates don't bite you on PR review. `bun install` activates it (the `prepare` script in `package.json` sets `core.hooksPath`). If you ever need to bypass it, prefer fixing the underlying issue over `git commit --no-verify`.
+Versioned Git hooks live in `.githooks/`. `bun install` activates them (the `prepare` script in `package.json` sets `core.hooksPath`). The pre-commit hook runs `format:check` and `lint` so the cheap CI gates don't bite you on PR review. The pre-push hook fetches `origin/main` and blocks stale branch pushes; it is only a safeguard and does not merge, rebase, or run tests. If a hook blocks, prefer fixing the underlying issue over bypassing it.
 
 ## Project layout
 
@@ -44,6 +44,8 @@ See `DESIGN.md` §9.1 for the module map. In short:
 The headless test pattern is documented in `test/spike.test.tsx`. Use `testRender` + `captureCharFrame` + `mockInput`. When asserting on `<markdown>` body content, prefer asserting on stable surfaces (border titles, sidebar rows) — the markdown body has first-frame quirks in headless render.
 
 Add tests alongside features. We don't enforce coverage, but every keymap binding should have at least one integration test (see §10.2 of DESIGN.md for the v2 gate).
+
+For reader empty-state guidance, test the product contract rather than the exact source shape: the footer should continue to reflect currently actionable controls, while the reader tips should read like short English guidance about features/workflows and usually mention the relevant key inside the sentence. Only one reader tip should appear at a time; tips are ordered by relevance and rotate each time the reader empty state appears. Prefer asserting on representative sentences in the generic empty state and the zero-match filtered state, plus at least one leave/re-enter rotation check.
 
 ### Validating rendered output deeper than text
 

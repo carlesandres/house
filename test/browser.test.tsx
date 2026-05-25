@@ -6,7 +6,11 @@ import { testRender } from "@opentui/react/test-utils"
 import { RegistryProvider } from "@effect/atom-react"
 import { RGBA } from "@opentui/core"
 import type { CapturedFrame } from "@opentui/core"
-import { Browser } from "../src/Browser.tsx"
+import {
+	Browser,
+	resetReaderEmptyStateTipRotationForTests,
+	setReaderEmptyStateTipRotationForTests,
+} from "../src/Browser.tsx"
 import type { FileEntry } from "../src/discovery/walk.ts"
 import { colors, setActiveTheme } from "../src/theme/colors.ts"
 import { themeAtom } from "../src/theme/atom.ts"
@@ -91,6 +95,7 @@ describe("Browser — sidebar", () => {
 	})
 
 	test("shows '(no markdown files)' when files is empty", async () => {
+		resetReaderEmptyStateTipRotationForTests()
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser files={[]} readFile={makeReader({})} onQuit={() => {}} />,
@@ -98,7 +103,75 @@ describe("Browser — sidebar", () => {
 			)
 		})
 		await stepFrame(setup!.renderOnce)
-		expect(setup!.captureCharFrame()).toContain("no markdown files")
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("no markdown files")
+		expect(frame).toContain("Press / to start filtering files by path.")
+		expect(frame).not.toContain(
+			"Press Enter in the filter to open the selected match in the reader.",
+		)
+		expect(frame).not.toContain("Press tab to switch between the sidebar and reader.")
+	})
+
+	test("rotates empty-state tips each time the reader empty state appears", async () => {
+		resetReaderEmptyStateTipRotationForTests()
+		const files = makeFiles(["README.md"])
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={files}
+					readFile={makeReader({ "README.md": "# Read me" })}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+
+		await act(async () => {
+			setup!.mockInput.pressKey("/")
+			setup!.mockInput.pressKey("z")
+			setup!.mockInput.pressEscape()
+			await new Promise<void>((resolve) => setTimeout(resolve, 60))
+		})
+		await waitForFrameContaining("No files match: z")
+		expect(setup!.captureCharFrame()).toContain(
+			"Press / to reopen the current filter and keep refining it.",
+		)
+
+		await act(async () => {
+			setup!.mockInput.pressKey("\\", { ctrl: true })
+			setup!.mockInput.pressEscape()
+			await new Promise<void>((resolve) => setTimeout(resolve, 60))
+		})
+		await waitForFrameContaining("Read me")
+
+		await act(async () => {
+			setup!.mockInput.pressKey("/")
+			setup!.mockInput.pressKey("z")
+			setup!.mockInput.pressEscape()
+			await new Promise<void>((resolve) => setTimeout(resolve, 60))
+		})
+		await waitForFrameContaining("No files match: z")
+		expect(setup!.captureCharFrame()).toContain(
+			"Press ctrl+\\ to clear the current filter and start over.",
+		)
+
+		await act(async () => {
+			setup!.mockInput.pressKey("\\", { ctrl: true })
+			setup!.mockInput.pressEscape()
+			await new Promise<void>((resolve) => setTimeout(resolve, 60))
+		})
+		await waitForFrameContaining("Read me")
+
+		await act(async () => {
+			setup!.mockInput.pressKey("/")
+			setup!.mockInput.pressKey("z")
+			setup!.mockInput.pressEscape()
+			await new Promise<void>((resolve) => setTimeout(resolve, 60))
+		})
+		await waitForFrameContaining("No files match: z")
+		expect(setup!.captureCharFrame()).toContain(
+			"Use [ and ] to move through files while the current filter stays applied.",
+		)
 	})
 })
 
@@ -580,6 +653,40 @@ describe("Browser — #22 layout v2", () => {
 		expect(sidebarIsFocused(setup!.captureSpans(), frame)).toBe(true)
 	})
 
+	test("tab from the startup filter returns to the filter on the next tab", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={makeFiles(["a.md", "b.md"])}
+					readFile={makeReader({ "a.md": "x", "b.md": "y" })}
+					onQuit={() => {}}
+					startupFocus="filter"
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		await act(async () => {
+			setup!.mockInput.pressTab()
+		})
+		await stepFrame(setup!.renderOnce)
+
+		const frame = setup!.captureCharFrame()
+		expect(frame).not.toContain("> ▏")
+		expect(sidebarIsFocused(setup!.captureSpans(), frame)).toBe(false)
+		expect(readerTitleContains(frame, "a.md")).toBe(true)
+
+		await act(async () => {
+			setup!.mockInput.pressTab()
+		})
+		await stepFrame(setup!.renderOnce)
+
+		const returnedFrame = setup!.captureCharFrame()
+		expect(returnedFrame).toContain("> ▏")
+		expect(sidebarIsFocused(setup!.captureSpans(), returnedFrame)).toBe(true)
+	})
+
 	test("startupFocus=reader keeps sidebar hidden with --sidebar=off", async () => {
 		await act(async () => {
 			setup = await renderBrowser(
@@ -880,7 +987,7 @@ describe("Browser — help overlay", () => {
 		await act(async () => {
 			setup!.mockInput.pressKey("?")
 		})
-		await stepFrame(setup!.renderOnce)
+		await settleBrowser()
 
 		const frame = setup!.captureCharFrame()
 		expect(frame).toContain("Help")
@@ -2367,6 +2474,41 @@ describe("Browser — filter modal", () => {
 		expect(frame).not.toContain("README.md")
 		expect(frame).not.toContain("notes.md")
 		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(true)
+	})
+
+	test("zero-match empty state explains how to recover from an applied filter", async () => {
+		setReaderEmptyStateTipRotationForTests(0)
+		const files = makeFiles(["README.md", "notes.md"])
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={files}
+					readFile={makeReader({ "README.md": "x", "notes.md": "y" })}
+					onQuit={() => {}}
+					sidebarMode="off"
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		await act(async () => {
+			setup!.mockInput.pressKey("/")
+			setup!.mockInput.pressKey("z")
+			setup!.mockInput.pressKey("z")
+			setup!.mockInput.pressKey("z")
+			setup!.mockInput.pressEscape()
+			await new Promise<void>((resolve) => setTimeout(resolve, 60))
+		})
+
+		const frame = await waitForFrameContaining("No files match: zzz")
+
+		expect(frame).toContain("No files match: zzz")
+		expect(frame).toContain("Press / to reopen the current filter and keep refining it.")
+		expect(frame).not.toContain("Press ctrl+\\ to clear the current filter and start over.")
+		expect(frame).not.toContain(
+			"Use [ and ] to move through files while the current filter stays applied.",
+		)
 	})
 
 	test("ctrl+\\ inside the filter modal clears the input but stays in filter mode", async () => {
