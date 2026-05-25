@@ -555,6 +555,10 @@ export const Browser = ({
 				closeFilter(true)
 				return
 			}
+			if (key.name === "tab" || (key.ctrl && key.name === "i" && !key.shift && !key.meta)) {
+				closeFilter(true)
+				return
+			}
 			if (key.ctrl && key.name === "\\") {
 				// Same action as the `filter.clearOrOpen` binding fires from
 				// outside the modal: clear the query, reset selection. The

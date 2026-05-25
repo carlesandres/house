@@ -62,6 +62,9 @@ const parseChord = (raw: string): ParsedChord => {
 }
 
 const chordMatches = (chord: ParsedChord, key: KeyMatch): boolean => {
+	if (chord.key === "tab" && key.name === "i" && key.ctrl && !key.shift && !key.meta) {
+		return true
+	}
 	if (chord.key !== key.name) return false
 	if (chord.shift !== Boolean(key.shift)) return false
 	if (chord.ctrl !== Boolean(key.ctrl)) return false

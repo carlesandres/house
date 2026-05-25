@@ -43,10 +43,10 @@ function makeFixture(): string {
 	return dir
 }
 
-async function launchHouse(cwd: string): Promise<Session> {
+async function launchHouse(cwd: string, extraArgs: readonly string[] = []): Promise<Session> {
 	const session = await launchTerminal({
 		command: process.execPath,
-		args: ["run", HOUSE_ENTRY, cwd],
+		args: ["run", HOUSE_ENTRY, ...extraArgs, cwd],
 		cols: 80,
 		rows: 24,
 		env: {
@@ -62,7 +62,7 @@ async function launchHouse(cwd: string): Promise<Session> {
 describe.skipIf(!RUN)("sidebar selection background (PTY)", () => {
 	test("selection bg covers both basename and dim parent on the selected row", async () => {
 		const dir = makeFixture()
-		const session = await launchHouse(dir)
+		const session = await launchHouse(dir, ["--focus=sidebar"])
 
 		await session.waitForText(/api\.md/, { timeout: 5_000 })
 		await session.waitIdle({ timeout: 500 }).catch(() => {})
@@ -80,5 +80,52 @@ describe.skipIf(!RUN)("sidebar selection background (PTY)", () => {
 		expect(collapsed).toContain("api.md")
 		expect(collapsed).toContain("docs")
 		expect(collapsed).toMatch(/api\.md\s+·\s+docs/)
+	})
+
+	test("tab focuses the reader so j no longer moves the sidebar selection", async () => {
+		const dir = mkdtempSync(join(tmpdir(), "house-pty-tab-"))
+		tempDirs.push(dir)
+		writeFileSync(join(dir, "a.md"), "# a\n")
+		writeFileSync(join(dir, "b.md"), "# b\n")
+
+		const session = await launchHouse(dir, ["--focus=sidebar"])
+		await session.waitForText(/b\.md/, { timeout: 5_000 })
+		await session.waitIdle({ timeout: 500 }).catch(() => {})
+
+		await session.press("tab")
+		await session.waitIdle({ timeout: 500 }).catch(() => {})
+		await session.press("j")
+		await session.waitIdle({ timeout: 500 }).catch(() => {})
+
+		const frame = await session.text({
+			immediate: true,
+			trimEnd: true,
+		})
+
+		expect(frame).toContain("⌂ house · a.md")
+		expect(frame).toContain("# a")
+		expect(frame).not.toContain("⌂ house · b.md")
+	})
+
+	test("tab from the startup filter closes it and focuses the reader", async () => {
+		const dir = mkdtempSync(join(tmpdir(), "house-pty-filter-tab-"))
+		tempDirs.push(dir)
+		writeFileSync(join(dir, "a.md"), "# a\n")
+		writeFileSync(join(dir, "b.md"), "# b\n")
+
+		const session = await launchHouse(dir)
+		await session.waitForText(/> ▏/, { timeout: 5_000 })
+		await session.waitIdle({ timeout: 500 }).catch(() => {})
+
+		await session.press("tab")
+		await session.waitIdle({ timeout: 500 }).catch(() => {})
+		await session.press("j")
+		await session.waitIdle({ timeout: 500 }).catch(() => {})
+
+		const frame = await session.text({ immediate: true, trimEnd: true })
+		expect(frame).not.toContain("> j▏")
+		expect(frame).toContain("⌂ house · a.md")
+		expect(frame).toContain("# a")
+		expect(frame).not.toContain("No files match: j")
 	})
 })

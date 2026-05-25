@@ -46,6 +46,16 @@ describe("dispatch — basic matching", () => {
 })
 
 describe("dispatch — modifiers", () => {
+	test("ctrl+i is normalized as tab", () => {
+		const calls: string[] = []
+		const bindings: KeyBinding<null>[] = [
+			{ id: "focus", description: "", keys: ["tab"], run: () => calls.push("focus") },
+		]
+		const fired = dispatch(bindings, null, k("i", { ctrl: true }))
+		expect(fired?.id).toBe("focus")
+		expect(calls).toEqual(["focus"])
+	})
+
 	test("shift+k matches only with shift", () => {
 		const calls: string[] = []
 		const bindings: KeyBinding<null>[] = [
