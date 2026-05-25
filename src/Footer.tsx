@@ -22,6 +22,7 @@
  */
 
 import type { KeyBinding } from "./keymap/keymap.ts"
+import { displayKey } from "./keymap/displayKey.ts"
 import { colors } from "./theme/colors.ts"
 
 /** Rows the Footer occupies. Importers use it for layout math so a future
@@ -45,31 +46,6 @@ export interface FooterProps<C> {
 }
 
 const HINT_SEPARATOR = "  "
-
-/** Display form for the first key of a binding. Picks the first chord and
- *  rewrites a few names to terminal-friendly shorthands.
- *
- *  Footer policy: only the first key is shown, even when a binding has
- *  aliases (e.g. `sidebar.open` accepts `return`/`right`/`l`). The footer
- *  is a narrow real-estate budget, and listing every alias would push out
- *  other bindings on tight viewports. The full alias list lives in the
- *  help overlay (`?`). */
-const displayKey = (raw: string): string => {
-	switch (raw) {
-		case "return":
-			return "↵"
-		case "escape":
-			return "esc"
-		case "space":
-			return "␣"
-		case "pageup":
-			return "pgup"
-		case "pagedown":
-			return "pgdn"
-		default:
-			return raw
-	}
-}
 
 /** Hint row entries. `key === null` is a standalone chip (e.g. the filter
  *  chip) and renders as muted text without the key/label split. */

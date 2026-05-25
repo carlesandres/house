@@ -37,6 +37,7 @@ import {
 } from "./layout/resolve.ts"
 import { formatSidebarRow } from "./layout/sidebarRow.ts"
 import { PromptRow } from "./PromptRow.tsx"
+import { buildTips, readerEmptyStateTipIds } from "./tips.ts"
 import { openInBrowser } from "./serve/openBrowser.ts"
 import { startServer, type ServerHandle } from "./serve/server.ts"
 import { colors, setActiveTheme } from "./theme/colors.ts"
@@ -112,6 +113,7 @@ export const Browser = ({
 	const theme = useAtomValue(themeAtom)
 	const setTheme = useAtomSet(themeAtom)
 	const syntaxStyle = useMemo(() => SyntaxStyle.fromStyles(colors.syntax), [theme])
+	const readerEmptyStateTips = useMemo(() => buildTips(browserBindings, readerEmptyStateTipIds), [])
 
 	const [selectedIndex, setSelectedIndex] = useState(() =>
 		clamp(initialIndex, 0, Math.max(0, files.length - 1)),
@@ -237,6 +239,7 @@ export const Browser = ({
 	}
 
 	const displayedFiles = useMemo(() => filterFiles(files, filterQuery), [files, filterQuery])
+	const filterHasNoMatches = filterQuery.length > 0 && displayedFiles.length === 0
 	// When the filtered list shrinks, keep selectedIndex valid. The reset to 0
 	// on every query change happens in the keystroke handler, not here, so a
 	// no-op rerender doesn't snap the cursor back to the top.
@@ -693,6 +696,9 @@ export const Browser = ({
 	// per-pane border title that used to carry this information).
 	const currentFile = selected?.relativePath ?? null
 	const content = loaded?.path === renderedPath ? loaded.content : ""
+	const readerEmptyStateTitle = filterHasNoMatches
+		? `No files match: ${filterQuery}`
+		: `${BRAND} ${BRAND_NAME}`
 
 	// Sidebar virtualization: render only the visible window. Without this,
 	// every keystroke re-renders all N file rows even though only the bg of
@@ -888,7 +894,7 @@ export const Browser = ({
 								<text content={error} style={{ fg: colors.error }} />
 							) : !renderedPath ? (
 								// Reader empty state — no file selected. Brand mark centered as a
-								// welcome anchor; in-app tips (#47) will live here too.
+								// welcome anchor; reusable tips live here too.
 								<box
 									style={{
 										flexGrow: 1,
@@ -898,11 +904,23 @@ export const Browser = ({
 										backgroundColor: readerActive ? colors.background : colors.backgroundPanel,
 									}}
 								>
-									<text
-										content={`${BRAND} ${BRAND_NAME}`}
-										wrapMode="none"
-										style={{ fg: colors.textMuted }}
-									/>
+									<box style={{ flexDirection: "column", gap: 1, alignItems: "center" }}>
+										<text
+											content={readerEmptyStateTitle}
+											wrapMode="none"
+											style={{ fg: colors.textMuted }}
+										/>
+										{readerEmptyStateTips.map((tip) => (
+											<box key={tip.id} style={{ flexDirection: "row", gap: 1 }}>
+												<text content={tip.key} wrapMode="none" style={{ fg: colors.text }} />
+												<text
+													content={tip.label}
+													wrapMode="none"
+													style={{ fg: colors.textMuted }}
+												/>
+											</box>
+										))}
+									</box>
 								</box>
 							) : (
 								<scrollbox
