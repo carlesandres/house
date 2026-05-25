@@ -123,6 +123,8 @@ Until persistent config (#13) lands, `preferred` is derived from viewport (`floo
 
 **Filter discoverability** — when a filter is applied (query non-empty) and the input is closed, the footer shows a `[filter: <query>]` chip in the hint row. Surfaces the otherwise-invisible invariant that `[`/`]` walks the filtered set even when the sidebar is hidden.
 
+**Footer vs. reader tips** — these surfaces do different jobs. The footer is operational chrome: compact, state-dependent reminders of controls the user can act on right now. The reader empty state is product guidance: one short natural-language sentence about a capability or workflow, usually naming the relevant key (`/`, `ctrl+\`, `tab`, `?`) but not trying to mirror the footer one-for-one. Tips are ordered by relevance and rotate one-at-a-time each time the reader empty state appears; clarity of feature guidance wins over strict derivation.
+
 ```
 wide, shown=true, inline           narrow, focus=sidebar
 ┌────┬─────────────────┐           ┌──────────────────────┐

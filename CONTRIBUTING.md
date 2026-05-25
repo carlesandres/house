@@ -45,6 +45,8 @@ The headless test pattern is documented in `test/spike.test.tsx`. Use `testRende
 
 Add tests alongside features. We don't enforce coverage, but every keymap binding should have at least one integration test (see §10.2 of DESIGN.md for the v2 gate).
 
+For reader empty-state guidance, test the product contract rather than the exact source shape: the footer should continue to reflect currently actionable controls, while the reader tips should read like short English guidance about features/workflows and usually mention the relevant key inside the sentence. Only one reader tip should appear at a time; tips are ordered by relevance and rotate each time the reader empty state appears. Prefer asserting on representative sentences in the generic empty state and the zero-match filtered state, plus at least one leave/re-enter rotation check.
+
 ### Validating rendered output deeper than text
 
 `captureCharFrame()` returns characters only. For bugs where the character is correct but the *style* isn't — code block rendered with `bg == fg` so it looks invisible, span dropped to zero width, wrong attribute applied — reach for `captureSpans()` instead. It returns `{ cols, rows, cursor, lines: [{ spans: [{ text, fg, bg, attributes, width }] }] }`, which lets you assert on colors and widths.

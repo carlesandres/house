@@ -37,7 +37,7 @@ import {
 } from "./layout/resolve.ts"
 import { formatSidebarRow } from "./layout/sidebarRow.ts"
 import { PromptRow } from "./PromptRow.tsx"
-import { buildTips, readerEmptyStateTipIds } from "./tips.ts"
+import { buildReaderEmptyStateTips, pickTipByRotation } from "./tips.ts"
 import { openInBrowser } from "./serve/openBrowser.ts"
 import { startServer, type ServerHandle } from "./serve/server.ts"
 import { colors, setActiveTheme } from "./theme/colors.ts"
@@ -95,6 +95,16 @@ const HELP_ALLOWED_IDS: ReadonlySet<string> = new Set([
 	"palette.open",
 ])
 
+let nextReaderEmptyStateTipRotation = 0
+
+export const resetReaderEmptyStateTipRotationForTests = () => {
+	nextReaderEmptyStateTipRotation = 0
+}
+
+export const setReaderEmptyStateTipRotationForTests = (next: number) => {
+	nextReaderEmptyStateTipRotation = next
+}
+
 export const Browser = ({
 	files,
 	initialIndex = 0,
@@ -113,7 +123,6 @@ export const Browser = ({
 	const theme = useAtomValue(themeAtom)
 	const setTheme = useAtomSet(themeAtom)
 	const syntaxStyle = useMemo(() => SyntaxStyle.fromStyles(colors.syntax), [theme])
-	const readerEmptyStateTips = useMemo(() => buildTips(browserBindings, readerEmptyStateTipIds), [])
 
 	const [selectedIndex, setSelectedIndex] = useState(() =>
 		clamp(initialIndex, 0, Math.max(0, files.length - 1)),
@@ -168,6 +177,10 @@ export const Browser = ({
 	const paletteOpenRef = useRef(false)
 	const paletteQueryRef = useRef("")
 	const paletteIndexRef = useRef(0)
+	const [readerEmptyStateTipRotation, setReaderEmptyStateTipRotation] = useState(
+		() => nextReaderEmptyStateTipRotation,
+	)
+	const readerEmptyStateVisibleRef = useRef(false)
 	// Mirror filter state into refs so the keyboard handler sees synchronous
 	// updates even when multiple keys arrive in a single React batch (the
 	// first key opens the filter; subsequent keys in the same tick would
@@ -699,6 +712,18 @@ export const Browser = ({
 	const readerEmptyStateTitle = filterHasNoMatches
 		? `No files match: ${filterQuery}`
 		: `${BRAND} ${BRAND_NAME}`
+	const readerEmptyStateVisible = error == null && renderedPath == null
+
+	useEffect(() => {
+		if (readerEmptyStateVisible) {
+			if (!readerEmptyStateVisibleRef.current) {
+				readerEmptyStateVisibleRef.current = true
+				setReaderEmptyStateTipRotation(nextReaderEmptyStateTipRotation++)
+			}
+			return
+		}
+		readerEmptyStateVisibleRef.current = false
+	}, [readerEmptyStateVisible])
 
 	// Sidebar virtualization: render only the visible window. Without this,
 	// every keystroke re-renders all N file rows even though only the bg of
@@ -748,6 +773,11 @@ export const Browser = ({
 						.map((b) => (b.id === "help.toggle" ? { ...b, hint: "close" } : b))
 				: browserBindings,
 		[helpVisible],
+	)
+	const readerEmptyStateTips = useMemo(() => buildReaderEmptyStateTips(browserBindings, ctx), [ctx])
+	const readerEmptyStateTip = useMemo(
+		() => pickTipByRotation(readerEmptyStateTips, readerEmptyStateTipRotation),
+		[readerEmptyStateTipRotation, readerEmptyStateTips],
 	)
 
 	// One sidebar body for both wide-inline and narrow-stack rendering; only
@@ -910,16 +940,14 @@ export const Browser = ({
 											wrapMode="none"
 											style={{ fg: colors.textMuted }}
 										/>
-										{readerEmptyStateTips.map((tip) => (
-											<box key={tip.id} style={{ flexDirection: "row", gap: 1 }}>
-												<text content={tip.key} wrapMode="none" style={{ fg: colors.text }} />
-												<text
-													content={tip.label}
-													wrapMode="none"
-													style={{ fg: colors.textMuted }}
-												/>
-											</box>
-										))}
+										{readerEmptyStateTip && (
+											<text
+												key={readerEmptyStateTip.id}
+												content={readerEmptyStateTip.text}
+												wrapMode="none"
+												style={{ fg: colors.textMuted }}
+											/>
+										)}
 									</box>
 								</box>
 							) : (
