@@ -187,6 +187,7 @@ export const Browser = ({
 	// otherwise still observe filterOpen=false through closure).
 	const filterOpenRef = useRef(startInFilter)
 	const filterQueryRef = useRef("")
+	const focusRef = useRef<"sidebar" | "reader">(focus)
 	const restoreFilterOnSidebarFocusRef = useRef(startInFilter)
 	const [footerNotice, setFooterNoticeState] = useState<{
 		readonly text: string
@@ -228,6 +229,10 @@ export const Browser = ({
 	// user time to read it before it auto-clears; the quit-time stderr print
 	// is the durable record they can copy from scrollback.
 	const updateNoticeSeenRef = useRef<string | null>(null)
+	useEffect(() => {
+		focusRef.current = focus
+	}, [focus])
+
 	useEffect(() => {
 		if (!updateNotice) return
 		if (updateNoticeSeenRef.current === updateNotice) return
@@ -378,6 +383,7 @@ export const Browser = ({
 			// the inline sidebar back on screen if it was hidden. In narrow,
 			// focusing the sidebar swaps to the sidebar screen. Either way
 			// no need to mutate `shown`.
+			focusRef.current = "sidebar"
 			if (focus !== "sidebar") setFocus("sidebar")
 			restoreFilterOnSidebarFocusRef.current = true
 			filterOpenRef.current = true
@@ -390,6 +396,7 @@ export const Browser = ({
 			filterQueryRef.current = ""
 			setFilterQuery("")
 			setSelectedIndex(() => 0)
+			focusRef.current = "sidebar"
 			if (focus !== "sidebar") setFocus("sidebar")
 			restoreFilterOnSidebarFocusRef.current = true
 			filterOpenRef.current = true
@@ -531,7 +538,7 @@ export const Browser = ({
 		// so normal bindings (j/k as nav, `s`, `t`, …) don't fire while
 		// the user is typing. This sits outside the data-driven keymap
 		// for the same reason the help branch does — see DESIGN.md §12.
-		if (filterOpenRef.current && focus === "sidebar") {
+		if (filterOpenRef.current && focusRef.current === "sidebar") {
 			// One close path used by both Esc and Return. `commit=true` is
 			// the Return semantic (open the match in the reader); false is
 			// Esc (stop typing, keep the applied filter, stay in sidebar).
@@ -547,9 +554,12 @@ export const Browser = ({
 				//   otherwise → sidebar if it's up so j/k keeps walking the
 				//     filtered list; reader if the sidebar was hidden.
 				if (effectiveCommit) {
+					focusRef.current = "reader"
 					setFocus("reader")
 				} else {
-					setFocus(shown ? "sidebar" : "reader")
+					const nextFocus = shown ? "sidebar" : "reader"
+					focusRef.current = nextFocus
+					setFocus(nextFocus)
 				}
 			}
 			if (key.name === "escape") {
@@ -561,6 +571,7 @@ export const Browser = ({
 				return
 			}
 			if (key.name === "tab" || (key.ctrl && key.name === "i" && !key.shift && !key.meta)) {
+				focusRef.current = "reader"
 				restoreFilterOnSidebarFocusRef.current = true
 				filterOpenRef.current = false
 				setFilterOpen(false)
