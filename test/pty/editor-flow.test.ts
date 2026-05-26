@@ -1,5 +1,5 @@
 /**
- * PTY-backed regression: pressing `e` suspends opentui, hands the TTY
+ * PTY-backed regression: pressing `E` suspends opentui, hands the TTY
  * to `$EDITOR`, and on exit re-reads the file so the reader reflects
  * the edit. A fake `$EDITOR` script does the mutation deterministically
  * (no real editor in CI) and also exercises the POSIX shell-split path
@@ -71,7 +71,7 @@ async function launchHouse(cwd: string, editorCmd: string): Promise<Session> {
 	return session
 }
 
-describe.skipIf(!RUN)("`e` suspends, edits, resumes, reloads (PTY)", () => {
+describe.skipIf(!RUN)("`E` suspends, edits, resumes, reloads (PTY)", () => {
 	test("the reader reflects an edit made by the fake $EDITOR", async () => {
 		const { vault, editorCmd, targetMarker } = makeFixture()
 		const session = await launchHouse(vault, editorCmd)
@@ -82,11 +82,11 @@ describe.skipIf(!RUN)("`e` suspends, edits, resumes, reloads (PTY)", () => {
 		await session.waitIdle({ timeout: 500 }).catch(() => {})
 
 		// Focus the reader so the user is looking at the rendered markdown,
-		// then press `e`. The fake editor runs synchronously and exits;
+		// then press `E`. The fake editor runs synchronously and exits;
 		// on resume the reader should re-read and surface the marker.
 		await session.press("tab")
 		await session.waitIdle({ timeout: 500 }).catch(() => {})
-		await session.press("e")
+		await session.press(["shift", "e"])
 
 		// Wait specifically for the marker to appear in the rendered
 		// content — proves both the editor ran *and* the post-edit reload

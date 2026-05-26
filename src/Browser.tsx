@@ -467,7 +467,7 @@ export const Browser = ({
 			if (!file) return
 			const editor = resolveEditor(process.env)
 			if (!editor) {
-				pushFooterNotice("set $EDITOR or $VISUAL to use e")
+				pushFooterNotice("set $EDITOR or $VISUAL to use E")
 				return
 			}
 			if (!renderer) {

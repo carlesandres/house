@@ -111,8 +111,8 @@ The file is optional — a missing file is fine. Invalid keys, unknown themes, o
 | `s` | Toggle sidebar visibility |
 | `?` | Show / dismiss help overlay |
 | `ctrl+p` | Command palette |
-| `o` | Open current file in browser as HTML |
-| `e` | Open current file in `$EDITOR` (`$VISUAL` takes precedence) |
+| `O` | Open current file in browser as HTML |
+| `E` | Open current file in `$EDITOR` (`$VISUAL` takes precedence) |
 | `t` | Next theme |
 | `T` | Previous theme |
 | `L` | Toggle dark / light tone |

@@ -87,7 +87,7 @@ Tagged fenced-code blocks are covered by `test/markdown-codeblock.test.tsx`. If 
 
 Bindings are data: `src/keymap/browser.ts` is the single source for `useKeyboard` *and* the `?` help overlay. To add a binding, append a `KeyBinding` to `browserBindings` with `id`, `description`, `keys`, an optional `group`, optional `when` predicate, and `run`. The help overlay picks it up automatically.
 
-Do not bind these keys — they are reserved for v2 (DESIGN.md §7.3): `/`, `e`, `o`, `r`.
+Do not bind these keys — they are reserved for v2 (DESIGN.md §7.3): `/`, `r`.
 
 ## Themes
 

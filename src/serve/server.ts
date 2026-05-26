@@ -2,7 +2,7 @@
  * Local HTML preview server for a single markdown file.
  *
  * One long-lived `Bun.serve` instance. The served file path is swappable
- * via `setTarget(path)` — used by the TUI's `o` binding so pressing it on a
+ * via `setTarget(path)` — used by the TUI's `O` binding so pressing it on a
  * new file retargets the existing server (live-reload fires) instead of
  * spawning a second one.
  *

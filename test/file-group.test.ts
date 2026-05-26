@@ -59,13 +59,19 @@ const makeCtx = (o: CtxOverrides = {}): BrowserCtx => ({
 	toggleAll: noop,
 })
 
-const k = (name: string): KeyMatch => ({ name, shift: false, ctrl: false, meta: false })
+const k = (name: string, mods: Partial<KeyMatch> = {}): KeyMatch => ({
+	name,
+	shift: false,
+	ctrl: false,
+	meta: false,
+	...mods,
+})
 
-describe("File group — `o` (open in browser as HTML)", () => {
+describe("File group — `O` (open in browser as HTML)", () => {
 	test("fires when hasSelected", () => {
 		let fired = false
 		const ctx = makeCtx({ hasSelected: true, onServe: () => (fired = true) })
-		const result = dispatch(browserBindings, ctx, k("o"))
+		const result = dispatch(browserBindings, ctx, k("o", { shift: true }))
 		expect(result?.id).toBe("serve.current")
 		expect(fired).toBe(true)
 	})
@@ -79,7 +85,7 @@ describe("File group — `o` (open in browser as HTML)", () => {
 			hasSelected: false,
 			onServe: () => (fired = true),
 		})
-		const result = dispatch(browserBindings, ctx, k("o"))
+		const result = dispatch(browserBindings, ctx, k("o", { shift: true }))
 		expect(result).toBeNull()
 		expect(fired).toBe(false)
 	})
@@ -91,7 +97,7 @@ describe("File group — `o` (open in browser as HTML)", () => {
 			hasSelected: true,
 			onServe: () => (fired = true),
 		})
-		expect(dispatch(browserBindings, ctx, k("o"))?.id).toBe("serve.current")
+		expect(dispatch(browserBindings, ctx, k("o", { shift: true }))?.id).toBe("serve.current")
 		expect(fired).toBe(true)
 	})
 })
@@ -146,18 +152,18 @@ describe("File group — `[` / `]` (prev/next file)", () => {
 	})
 })
 
-describe("File group — `e` (open in $EDITOR)", () => {
+describe("File group — `E` (open in $EDITOR)", () => {
 	test("fires when hasSelected", () => {
 		let fired = false
 		const ctx = makeCtx({ hasSelected: true, onEdit: () => (fired = true) })
-		expect(dispatch(browserBindings, ctx, k("e"))?.id).toBe("file.edit")
+		expect(dispatch(browserBindings, ctx, k("e", { shift: true }))?.id).toBe("file.edit")
 		expect(fired).toBe(true)
 	})
 
 	test("does not fire when !hasSelected", () => {
 		let fired = false
 		const ctx = makeCtx({ hasSelected: false, onEdit: () => (fired = true) })
-		expect(dispatch(browserBindings, ctx, k("e"))).toBeNull()
+		expect(dispatch(browserBindings, ctx, k("e", { shift: true }))).toBeNull()
 		expect(fired).toBe(false)
 	})
 
@@ -168,13 +174,13 @@ describe("File group — `e` (open in $EDITOR)", () => {
 			hasSelected: true,
 			onEdit: () => (fired = true),
 		})
-		expect(dispatch(browserBindings, ctx, k("e"))?.id).toBe("file.edit")
+		expect(dispatch(browserBindings, ctx, k("e", { shift: true }))?.id).toBe("file.edit")
 		expect(fired).toBe(true)
 	})
 })
 
 describe("File group — array layout", () => {
-	test('`o`, `e`, `[`, `]` all carry group="File"', () => {
+	test('`O`, `E`, `[`, `]` all carry group="File"', () => {
 		const ids = ["serve.current", "file.edit", "reader.prevFile", "reader.nextFile"] as const
 		for (const id of ids) {
 			const b = browserBindings.find((x) => x.id === id)
