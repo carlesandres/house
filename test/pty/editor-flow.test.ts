@@ -86,7 +86,7 @@ describe.skipIf(!RUN)("`E` suspends, edits, resumes, reloads (PTY)", () => {
 		// on resume the reader should re-read and surface the marker.
 		await session.press("tab")
 		await session.waitIdle({ timeout: 500 }).catch(() => {})
-		await session.press("E")
+		await session.press(["shift", "e"])
 
 		// Wait specifically for the marker to appear in the rendered
 		// content — proves both the editor ran *and* the post-edit reload
