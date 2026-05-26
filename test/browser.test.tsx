@@ -793,6 +793,27 @@ describe("Browser — #22 layout v2", () => {
 		expect(frame).toContain("[filter: al]")
 	})
 
+	test("shows a spinner next to indexing status while discovery is active", async () => {
+		let tick: (() => void) | null = null
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={makeFiles(["alpha.md"])}
+					readFile={makeReader({ "alpha.md": "a" })}
+					discoveryStatus="indexing… 1"
+					discoverySpinnerIntervalMs={5}
+					discoverySpinnerRegisterTick={(next) => (tick = next)}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("⠋ indexing… 1")
+		expect(typeof tick).toBe("function")
+	})
+
 	test("filter chip uses secondary token as active metadata", async () => {
 		await act(async () => {
 			setup = await renderBrowser(

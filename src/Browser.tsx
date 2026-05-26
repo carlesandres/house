@@ -55,6 +55,11 @@ export interface BrowserProps {
 	/** Persistent footer indicator (e.g. "indexing… 42"). Pass null/undefined
 	 *  when discovery has finished; the indicator clears. */
 	readonly discoveryStatus?: string | null
+	/** Test seam: override the footer discovery spinner speed. */
+	readonly discoverySpinnerIntervalMs?: number
+	readonly discoverySpinnerInitialFrameIndex?: number
+	/** Test seam: deterministic footer spinner driver. */
+	readonly discoverySpinnerRegisterTick?: ((tick: () => void) => void) | null
 	/** Initial sidebar visibility (`--sidebar` flag). `auto` consults the
 	 *  launch viewport bucket once; subsequent visibility goes through `s`. */
 	readonly sidebarMode?: SidebarMode
@@ -110,6 +115,9 @@ export const Browser = ({
 	initialIndex = 0,
 	maxWidth = null,
 	discoveryStatus = null,
+	discoverySpinnerIntervalMs,
+	discoverySpinnerInitialFrameIndex,
+	discoverySpinnerRegisterTick = null,
 	sidebarMode = "auto",
 	onQuit,
 	readFile = defaultReadFile,
@@ -1013,6 +1021,9 @@ export const Browser = ({
 				width={width}
 				notice={footerNotice?.text ?? null}
 				discoveryStatus={discoveryStatus}
+				discoverySpinnerIntervalMs={discoverySpinnerIntervalMs}
+				discoverySpinnerInitialFrameIndex={discoverySpinnerInitialFrameIndex}
+				discoverySpinnerRegisterTick={discoverySpinnerRegisterTick}
 				filterQuery={!filterOpen && filterQuery.length > 0 ? filterQuery : null}
 			/>
 			{helpVisible && (

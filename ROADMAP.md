@@ -113,6 +113,7 @@ No commitment to ship. Tracked to remember.
 | Item | Issue |
 |---|---|
 | Footer responsive behavior on tight viewports | [#37](https://github.com/carlesandres/house/issues/37) |
+| Investigate reusing the spinner for other in-progress states | [#170](https://github.com/carlesandres/house/issues/170) |
 
 ### Config
 
