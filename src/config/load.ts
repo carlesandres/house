@@ -20,6 +20,8 @@ export interface HouseConfig {
 	readonly theme: string
 	readonly tone: "dark" | "light"
 	readonly mdx: boolean
+	/** Default discovery-root strategy when no explicit `--root` flag is passed. */
+	readonly defaultRoot: "cwd" | "git"
 	/** Categories of normally-skipped entries to opt into. See
 	 *  `src/discovery/show.ts` for the vocabulary. Empty array (the
 	 *  default) yields the conservative discovery set. */
@@ -43,6 +45,7 @@ export interface CliOverrides {
 const DEFAULT_THEME = "opencode"
 const DEFAULT_TONE: "dark" | "light" = "dark"
 const DEFAULT_MDX = true
+const DEFAULT_ROOT: "cwd" | "git" = "cwd"
 const DEFAULT_SHOW = ""
 const DEFAULT_FOCUS: "sidebar" | "reader" | "filter" = "filter"
 
@@ -54,11 +57,19 @@ const themeIds = themeDefinitions.map((t) => t.id)
  * Used by `fileProvider` to warn about unrecognized keys (with a
  * did-you-mean hint when one is close) while still loading the rest.
  */
-const KNOWN_FILE_KEYS: ReadonlySet<string> = new Set(["theme", "tone", "mdx", "show", "focus"])
+const KNOWN_FILE_KEYS: ReadonlySet<string> = new Set([
+	"theme",
+	"tone",
+	"mdx",
+	"show",
+	"focus",
+	"defaultRoot",
+])
 
 const schema = Config.all({
 	theme: Config.schema(Schema.Literals(themeIds), "theme"),
 	tone: Config.schema(Schema.Literals(["dark", "light"] as const), "tone"),
+	defaultRoot: Config.schema(Schema.String, "defaultRoot"),
 	// Boolean stored as string literal because providers stringify values
 	// (TOML bools, env vars, CLI flags all flow through as text). Mapped to
 	// a real boolean in `loadConfig` below.
@@ -75,6 +86,7 @@ const defaultsProvider = (): ConfigProvider.ConfigProvider =>
 	ConfigProvider.fromUnknown({
 		theme: DEFAULT_THEME,
 		tone: DEFAULT_TONE,
+		defaultRoot: DEFAULT_ROOT,
 		mdx: String(DEFAULT_MDX),
 		show: DEFAULT_SHOW,
 		focus: DEFAULT_FOCUS,
@@ -192,11 +204,13 @@ const envProvider = (env: Record<string, string | undefined>): ConfigProvider.Co
 	const entries: Array<[string, string]> = []
 	const theme = env["HOUSE_THEME"]
 	const tone = env["HOUSE_TONE"]
+	const defaultRoot = env["HOUSE_DEFAULT_ROOT"]
 	const mdx = env["HOUSE_MDX"]
 	const show = env["HOUSE_SHOW"]
 	const focus = env["HOUSE_FOCUS"]
 	if (theme !== undefined) entries.push(["theme", theme])
 	if (tone !== undefined) entries.push(["tone", tone])
+	if (defaultRoot !== undefined) entries.push(["defaultRoot", defaultRoot])
 	if (mdx !== undefined) entries.push(["mdx", mdx])
 	if (show !== undefined) entries.push(["show", show])
 	if (focus !== undefined) entries.push(["focus", focus])
@@ -262,6 +276,13 @@ export const loadConfig = (
 	)
 	return schema.parse(provider).pipe(
 		Effect.flatMap((raw) => {
+			const defaultRoot =
+				raw.defaultRoot === "cwd" || raw.defaultRoot === "git" ? raw.defaultRoot : DEFAULT_ROOT
+			if (raw.defaultRoot !== defaultRoot) {
+				onWarning(
+					`house: ignoring invalid value ${JSON.stringify(raw.defaultRoot)} for defaultRoot in config/env; using "${DEFAULT_ROOT}"`,
+				)
+			}
 			const parsed = parseShowList(raw.show)
 			if (!parsed.ok) {
 				// Effect's `Config.ConfigError` requires a `SchemaError` or
@@ -278,6 +299,7 @@ export const loadConfig = (
 			return Effect.succeed({
 				theme: raw.theme,
 				tone: raw.tone,
+				defaultRoot,
 				mdx: raw.mdx === "true",
 				show: parsed.value,
 				focus: raw.focus,

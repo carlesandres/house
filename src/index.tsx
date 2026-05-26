@@ -9,6 +9,7 @@
  */
 
 import { stat } from "node:fs/promises"
+import { dirname, resolve } from "node:path"
 import { createCliRenderer, SyntaxStyle } from "@opentui/core"
 import type { BorderSides } from "@opentui/core"
 import { createRoot, useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react"
@@ -57,6 +58,39 @@ export interface AppProps {
  * naturally — the cleanup effect still fires before process.exit completes.
  */
 export type SidebarMode = "auto" | "on" | "off"
+
+const pathIsDirectory = async (path: string): Promise<boolean> => {
+	try {
+		return (await stat(path)).isDirectory()
+	} catch {
+		return false
+	}
+}
+
+const findGitRoot = async (cwd: string): Promise<string> => {
+	const start = resolve(cwd)
+	let current = start
+	for (;;) {
+		if (await pathIsDirectory(resolve(current, ".git"))) return current
+		const parent = dirname(current)
+		if (parent === current) return start
+		current = parent
+	}
+}
+
+export const resolveDiscoveryRoot = async ({
+	cliRoot,
+	defaultRoot,
+	cwd,
+}: {
+	readonly cliRoot: string | null
+	readonly defaultRoot: "cwd" | "git"
+	readonly cwd: string
+}): Promise<string> => {
+	if (cliRoot !== null) return cliRoot
+	if (defaultRoot === "git") return findGitRoot(cwd)
+	return cwd
+}
 
 interface DiscoverShellProps {
 	readonly target: string
@@ -277,7 +311,7 @@ if (import.meta.main) {
 		console.error(`house: ${formatConfigError(err)}`)
 		process.exit(2)
 	})
-	const { theme: themeId, tone, mdx, show, focus: startupFocus } = config
+	const { theme: themeId, tone, mdx, show, focus: startupFocus, defaultRoot } = config
 	const themeDef = getThemeDefinition(themeId)
 	if (themeDef === undefined) {
 		// Unreachable: Config.schema validated themeId against themeDefinitions.
@@ -296,7 +330,9 @@ if (import.meta.main) {
 		maxWidth = n
 	}
 
+	const cwd = process.cwd()
 	const target = args.path ?? "."
+	const discoveryRoot = await resolveDiscoveryRoot({ cliRoot: args.root, defaultRoot, cwd })
 
 	if (args.serve) {
 		let stats: Awaited<ReturnType<typeof stat>>
@@ -357,6 +393,7 @@ if (import.meta.main) {
 		}
 		await runTui({
 			target,
+			discoveryRoot,
 			themeId,
 			tone,
 			maxWidth,
@@ -372,6 +409,7 @@ if (import.meta.main) {
 
 interface TuiBootOptions {
 	readonly target: string
+	readonly discoveryRoot: string
 	readonly themeId: string
 	readonly tone: "dark" | "light"
 	readonly maxWidth: number | null
@@ -387,6 +425,7 @@ interface TuiBootOptions {
 
 async function runTui({
 	target,
+	discoveryRoot,
 	themeId,
 	tone,
 	maxWidth,
@@ -430,7 +469,7 @@ async function runTui({
 		createRoot(renderer).render(
 			<RegistryProvider initialValues={[[themeAtom, initialTheme]]}>
 				<DiscoverShell
-					target={target}
+					target={discoveryRoot}
 					initialShow={show}
 					sort={sort}
 					mdx={mdx}

@@ -3,6 +3,7 @@ import { parseArgv, type ParsedArgs } from "../src/cli/argv.ts"
 
 const empty: ParsedArgs = {
 	path: null,
+	root: null,
 	theme: null,
 	tone: null,
 	width: null,
@@ -29,6 +30,20 @@ describe("parseArgv — positional path", () => {
 	})
 	test("ignores extra positional args (for now)", () => {
 		expect(parseArgv(["foo.md", "bar.md"])).toEqual(args({ path: "foo.md" }))
+	})
+})
+
+describe("parseArgv — --root", () => {
+	test("captures the value after --root", () => {
+		expect(parseArgv(["--root", "docs"])).toEqual(args({ root: "docs" }))
+	})
+	test("--root with no value yields null", () => {
+		expect(parseArgv(["--root"])).toEqual(args({ root: null }))
+	})
+	test("--root does not swallow the positional path", () => {
+		expect(parseArgv(["--root", "docs", "README.md"])).toEqual(
+			args({ root: "docs", path: "README.md" }),
+		)
 	})
 })
 

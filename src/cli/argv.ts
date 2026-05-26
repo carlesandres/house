@@ -4,6 +4,8 @@ import { themeDefinitions } from "../theme/registry.ts"
 export interface ParsedArgs {
 	/** First positional argument, or null if none was given. */
 	readonly path: string | null
+	/** Value of `--root <dir>`, or null. */
+	readonly root: string | null
 	/** Value of `--theme <id>`, or null. Validated by the boot layer against the registry. */
 	readonly theme: string | null
 	/** Value of `--tone dark|light`, or null. Validated by the boot layer. */
@@ -58,6 +60,7 @@ const createProgram = () =>
 		.option("--no-mdx")
 		.option("--focus [mode]")
 		.option("--show [list]")
+		.option("--root [dir]")
 		.option("-h, --help")
 		.option("-v, --version")
 		.argument("[path]")
@@ -71,6 +74,7 @@ const VALUE_FLAGS: ReadonlySet<string> = new Set([
 	"--sidebar",
 	"--focus",
 	"--show",
+	"--root",
 ])
 
 const BOOLEAN_FLAGS: ReadonlySet<string> = new Set([
@@ -115,6 +119,7 @@ export const parseArgv = (argv: readonly string[]): ParsedArgs => {
 
 	return {
 		path: typeof pathArg === "string" ? pathArg : null,
+		root: stringOrNull(opts["root"]),
 		theme: stringOrNull(opts["theme"]),
 		tone: stringOrNull(opts["tone"]),
 		width: stringOrNull(opts["width"]),
@@ -144,6 +149,7 @@ options:
   --width <N>    cap rendered markdown width at N columns
   --show <list>  reveal normally-skipped entries; comma-separated subset of:
                    hidden, gitignored. Use --show "" to clear.
+  --root <dir>   discovery root to walk (overrides defaultRoot config)
   --sort <mode>  sidebar order: dirs-first (default) or files-first
   --sidebar <m>  initial sidebar visibility: auto (default), on, or off
   --focus <m>    startup focus: sidebar, reader, or filter (default: filter)
@@ -157,6 +163,6 @@ options:
 
 configuration:
   file: $XDG_CONFIG_HOME/house/config.toml  (default ~/.config/house/config.toml)
-  keys: theme, tone, mdx, show, focus
-  env:  HOUSE_THEME, HOUSE_TONE, HOUSE_MDX, HOUSE_SHOW, HOUSE_FOCUS
+  keys: theme, tone, mdx, show, focus, defaultRoot
+  env:  HOUSE_THEME, HOUSE_TONE, HOUSE_MDX, HOUSE_SHOW, HOUSE_FOCUS, HOUSE_DEFAULT_ROOT
   precedence (high → low): flags → env → file → defaults`

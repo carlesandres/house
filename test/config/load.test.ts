@@ -27,7 +27,14 @@ const run = <A, E>(eff: Effect.Effect<A, E>) => Effect.runPromise(eff as Effect.
 describe("loadConfig", () => {
 	test("returns built-in defaults when nothing is set", async () => {
 		const cfg = await run(loadConfig({ filePath: cfgPath, env: {} }))
-		expect(cfg).toEqual({ theme: "opencode", tone: "dark", mdx: true, show: [], focus: "filter" })
+		expect(cfg).toEqual({
+			theme: "opencode",
+			tone: "dark",
+			defaultRoot: "cwd",
+			mdx: true,
+			show: [],
+			focus: "filter",
+		})
 	})
 
 	test("mdx = false in file is honored", async () => {
@@ -62,7 +69,14 @@ describe("loadConfig", () => {
 	test("file overrides defaults; missing key falls through to default", async () => {
 		await writeFile(cfgPath, `theme = "${altTheme}"\n`)
 		const cfg = await run(loadConfig({ filePath: cfgPath, env: {} }))
-		expect(cfg).toEqual({ theme: altTheme, tone: "dark", mdx: true, show: [], focus: "filter" })
+		expect(cfg).toEqual({
+			theme: altTheme,
+			tone: "dark",
+			defaultRoot: "cwd",
+			mdx: true,
+			show: [],
+			focus: "filter",
+		})
 	})
 
 	test("env beats file (per-key)", async () => {
@@ -70,7 +84,14 @@ describe("loadConfig", () => {
 		const cfg = await run(
 			loadConfig({ filePath: cfgPath, env: { HOUSE_THEME: altTheme2, HOUSE_TONE: "light" } }),
 		)
-		expect(cfg).toEqual({ theme: altTheme2, tone: "light", mdx: true, show: [], focus: "filter" })
+		expect(cfg).toEqual({
+			theme: altTheme2,
+			tone: "light",
+			defaultRoot: "cwd",
+			mdx: true,
+			show: [],
+			focus: "filter",
+		})
 	})
 
 	test("CLI beats env (per-key)", async () => {
@@ -118,9 +139,40 @@ describe("loadConfig", () => {
 		const cfg = await run(
 			loadConfig({ filePath: cfgPath, env: {}, onWarning: (m) => warnings.push(m) }),
 		)
-		expect(cfg).toEqual({ theme: "opencode", tone: "dark", mdx: true, show: [], focus: "filter" })
+		expect(cfg).toEqual({
+			theme: "opencode",
+			tone: "dark",
+			defaultRoot: "cwd",
+			mdx: true,
+			show: [],
+			focus: "filter",
+		})
 		expect(warnings).toHaveLength(1)
 		expect(warnings[0]).toMatch(/"futureFeature"/)
+	})
+
+	test('defaultRoot = "git" in file is honored', async () => {
+		await writeFile(cfgPath, `defaultRoot = "git"\n`)
+		const cfg = await run(loadConfig({ filePath: cfgPath, env: {} }))
+		expect(cfg.defaultRoot).toBe("git")
+	})
+
+	test("HOUSE_DEFAULT_ROOT env beats file", async () => {
+		await writeFile(cfgPath, `defaultRoot = "cwd"\n`)
+		const cfg = await run(loadConfig({ filePath: cfgPath, env: { HOUSE_DEFAULT_ROOT: "git" } }))
+		expect(cfg.defaultRoot).toBe("git")
+	})
+
+	test("invalid defaultRoot value warns and falls back to cwd", async () => {
+		await writeFile(cfgPath, `defaultRoot = "moon"\n`)
+		const warnings: string[] = []
+		const cfg = await run(
+			loadConfig({ filePath: cfgPath, env: {}, onWarning: (m) => warnings.push(m) }),
+		)
+		expect(cfg.defaultRoot).toBe("cwd")
+		expect(warnings).toContain(
+			'house: ignoring invalid value "moon" for defaultRoot in config/env; using "cwd"',
+		)
 	})
 
 	test("typo'd key suggests the closest known key", async () => {
