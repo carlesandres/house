@@ -1184,6 +1184,64 @@ describe("Browser — quit", () => {
 })
 
 describe("Browser — footer", () => {
+	test("keeps the typed query live while applying the filter after debounce", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={makeFiles(["alpha.md", "beta.md"])}
+					readFile={makeReader({ "alpha.md": "a", "beta.md": "b" })}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		await act(async () => {
+			setup!.mockInput.pressKey("/")
+			setup!.mockInput.pressKey("z")
+		})
+		await stepFrame(setup!.renderOnce)
+		const immediate = setup!.captureCharFrame()
+		expect(immediate).toContain("z▏")
+		expect(immediate).not.toContain("No files match: z")
+
+		await act(async () => {
+			await new Promise<void>((resolve) => setTimeout(resolve, 60))
+		})
+		await waitForFrameContaining("No files match: z")
+	})
+
+	test("ctrl+\\ clears the applied filter immediately", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={makeFiles(["alpha.md", "beta.md"])}
+					readFile={makeReader({ "alpha.md": "a", "beta.md": "b" })}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		await act(async () => {
+			setup!.mockInput.pressKey("/")
+			setup!.mockInput.pressKey("z")
+			await new Promise<void>((resolve) => setTimeout(resolve, 60))
+		})
+		await waitForFrameContaining("No files match: z")
+
+		await act(async () => {
+			setup!.mockInput.pressKey("\\", { ctrl: true })
+		})
+		await stepFrame(setup!.renderOnce)
+		const cleared = setup!.captureCharFrame()
+		expect(cleared).not.toContain("No files match: z")
+		expect(cleared).toContain("▏")
+		expect(cleared).not.toContain("z▏")
+	})
+
 	test("renders global + sidebar hints when sidebar is focused", async () => {
 		await act(async () => {
 			setup = await renderBrowser(
@@ -1910,9 +1968,13 @@ describe("Browser — filter modal", () => {
 			setup!.mockInput.pressKey("a")
 		})
 		await stepFrame(setup!.renderOnce)
-		const frame = setup!.captureCharFrame()
+		let frame = setup!.captureCharFrame()
 		expect(frame).toContain("> rea")
 		expect(frame).toContain("README.md")
+		await act(async () => {
+			await new Promise<void>((resolve) => setTimeout(resolve, 60))
+		})
+		frame = await waitForFrameContaining("README.md")
 		// Non-matching paths are filtered out.
 		expect(frame).not.toContain("notes.md")
 		expect(frame).not.toContain("docs/intro.md")
@@ -1937,7 +1999,7 @@ describe("Browser — filter modal", () => {
 			setup!.mockInput.pressKey("r")
 		})
 		await stepFrame(setup!.renderOnce)
-		expect(setup!.captureCharFrame()).not.toContain("notes.md")
+		expect(setup!.captureCharFrame()).toContain("> r▏")
 
 		await act(async () => {
 			setup!.mockInput.pressEscape()
@@ -1977,8 +2039,14 @@ describe("Browser — filter modal", () => {
 			setup!.mockInput.pressKey("t")
 		})
 		await stepFrame(setup!.renderOnce)
-		// Filter narrowed to a single match (docs/intro.md).
-		expect(setup!.captureCharFrame()).toContain("docs/intro.md")
+		// Typed input is live immediately; applied filter catches up after debounce.
+		expect(setup!.captureCharFrame()).toContain("> int▏")
+		await act(async () => {
+			await new Promise<void>((resolve) => setTimeout(resolve, 60))
+		})
+		const narrowed = await waitForFrameContaining("intro.md  ·  docs")
+		// Filter narrowed to the intro match; unrelated rows are gone once applied.
+		expect(narrowed).not.toContain("notes.md")
 
 		await act(async () => {
 			setup!.mockInput.pressEnter()
@@ -2010,6 +2078,11 @@ describe("Browser — filter modal", () => {
 			setup!.mockInput.pressKey("e")
 		})
 		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).toContain("> re▏")
+		await act(async () => {
+			await new Promise<void>((resolve) => setTimeout(resolve, 60))
+		})
+		await waitForFrameContaining("README.md")
 		expect(setup!.captureCharFrame()).not.toContain("notes.md")
 
 		await act(async () => {
@@ -2017,7 +2090,10 @@ describe("Browser — filter modal", () => {
 			setup!.mockInput.pressBackspace()
 		})
 		await stepFrame(setup!.renderOnce)
-		const frame = setup!.captureCharFrame()
+		await act(async () => {
+			await new Promise<void>((resolve) => setTimeout(resolve, 60))
+		})
+		const frame = await waitForFrameContaining("notes.md")
 		// Query is empty; both files visible again.
 		expect(frame).toContain("README.md")
 		expect(frame).toContain("notes.md")
@@ -2057,8 +2133,16 @@ describe("Browser — filter modal", () => {
 			setup!.mockInput.pressKey("e")
 		})
 		await stepFrame(setup!.renderOnce)
-		// Sanity: filter narrowed to a single match.
-		expect(setup!.captureCharFrame()).toContain("docs/readme.md")
+		// Typed query is live immediately; applied narrowing happens after debounce.
+		expect(setup!.captureCharFrame()).toContain("> readme▏")
+		await act(async () => {
+			await new Promise<void>((resolve) => setTimeout(resolve, 60))
+		})
+		const narrowed = await waitForFrameContaining("readme.md  ·  docs")
+		// Sanity: filter narrowed to the docs/readme match.
+		expect(narrowed).not.toContain("alpha.md")
+		expect(narrowed).not.toContain("beta.md")
+		expect(narrowed).not.toContain("gamma.md")
 
 		await act(async () => {
 			setup!.mockInput.pressEnter()
@@ -2156,6 +2240,11 @@ describe("Browser — filter modal", () => {
 			setup!.mockInput.pressKey("c")
 		})
 		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).toContain("> doc▏")
+		await act(async () => {
+			await new Promise<void>((resolve) => setTimeout(resolve, 60))
+		})
+		await waitForFrameContaining("a.md  ·  docs")
 		expect(setup!.captureCharFrame()).not.toContain("unrelated.md")
 
 		await act(async () => {
@@ -2481,8 +2570,12 @@ describe("Browser — filter modal", () => {
 			setup!.mockInput.pressKey("z")
 		})
 		await stepFrame(setup!.renderOnce)
-		// No matches.
-		expect(setup!.captureCharFrame()).toContain("no matches")
+		// Typed input is live immediately; zero-match state appears after debounce.
+		expect(setup!.captureCharFrame()).toContain("> zzz▏")
+		await act(async () => {
+			await new Promise<void>((resolve) => setTimeout(resolve, 60))
+		})
+		await waitForFrameContaining("No files match: zzz")
 
 		await act(async () => {
 			setup!.mockInput.pressEnter()
@@ -2863,11 +2956,9 @@ describe("Browser — filter modal", () => {
 		const frame = setup!.captureCharFrame()
 		// Sidebar still visible; `s` went into the query.
 		expect(frame).toContain("> s▏")
-		expect(frame).toContain("scripts/build.md")
-		// README.md doesn't fuzzy-match 's' as a subsequence? It contains an
-		// 's' in some terminal fonts — actually README.md has no 's', so it
-		// drops out.
-		expect(frame).not.toContain("README.md")
+		expect(frame).toContain("build.md  ·  scripts")
+		// The filter hasn't applied yet; this test only asserts that `s` was
+		// captured as input and did not toggle the sidebar binding.
 	})
 })
 

@@ -110,6 +110,8 @@ export const setReaderEmptyStateTipRotationForTests = (next: number) => {
 	nextReaderEmptyStateTipRotation = next
 }
 
+const FILTER_DEBOUNCE_MS = 50
+
 export const Browser = ({
 	files,
 	initialIndex = 0,
@@ -174,7 +176,8 @@ export const Browser = ({
 	const [sidebarScroll, setSidebarScroll] = useState<number>(0)
 	const [helpVisible, setHelpVisible] = useState<boolean>(false)
 	const [filterOpen, setFilterOpen] = useState<boolean>(startInFilter)
-	const [filterQuery, setFilterQuery] = useState<string>("")
+	const [filterInput, setFilterInput] = useState<string>("")
+	const [filterApplied, setFilterApplied] = useState<string>("")
 	const [paletteOpen, setPaletteOpen] = useState<boolean>(false)
 	const [paletteQuery, setPaletteQuery] = useState<string>("")
 	const [paletteIndex, setPaletteIndex] = useState<number>(0)
@@ -194,7 +197,8 @@ export const Browser = ({
 	// first key opens the filter; subsequent keys in the same tick would
 	// otherwise still observe filterOpen=false through closure).
 	const filterOpenRef = useRef(startInFilter)
-	const filterQueryRef = useRef("")
+	const filterInputRef = useRef("")
+	const filterAppliedRef = useRef("")
 	const focusRef = useRef<"sidebar" | "reader">(focus)
 	const restoreFilterOnSidebarFocusRef = useRef(startInFilter)
 	const [footerNotice, setFooterNoticeState] = useState<{
@@ -265,8 +269,17 @@ export const Browser = ({
 		pushFooterNotice(`tone: ${nextTone}`)
 	}
 
-	const displayedFiles = useMemo(() => filterFiles(files, filterQuery), [files, filterQuery])
-	const filterHasNoMatches = filterQuery.length > 0 && displayedFiles.length === 0
+	useEffect(() => {
+		if (filterInput === filterApplied) return
+		const timer = setTimeout(() => {
+			filterAppliedRef.current = filterInput
+			setFilterApplied(filterInput)
+		}, FILTER_DEBOUNCE_MS)
+		return () => clearTimeout(timer)
+	}, [filterApplied, filterInput])
+
+	const displayedFiles = useMemo(() => filterFiles(files, filterApplied), [files, filterApplied])
+	const filterHasNoMatches = filterInput.length > 0 && displayedFiles.length === 0
 	// When the filtered list shrinks, keep selectedIndex valid. The reset to 0
 	// on every query change happens in the keystroke handler, not here, so a
 	// no-op rerender doesn't snap the cursor back to the top.
@@ -348,7 +361,7 @@ export const Browser = ({
 		helpVisible,
 		filterOpen,
 		restoreFilterOnSidebarFocus: restoreFilterOnSidebarFocusRef.current,
-		filterQuery,
+		filterQuery: filterInput,
 		paletteOpen,
 		setFocus,
 		// Wrapped so any keymap-driven selection move (j/k/g/G/[/], reader
@@ -401,8 +414,10 @@ export const Browser = ({
 			// Reset both the ref and the state so the freshly-opened modal
 			// shows an empty input and selection lands on the first file in
 			// the (now unfiltered) list.
-			filterQueryRef.current = ""
-			setFilterQuery("")
+			filterInputRef.current = ""
+			filterAppliedRef.current = ""
+			setFilterInput("")
+			setFilterApplied("")
 			setSelectedIndex(() => 0)
 			focusRef.current = "sidebar"
 			if (focus !== "sidebar") setFocus("sidebar")
@@ -551,6 +566,8 @@ export const Browser = ({
 			// the Return semantic (open the match in the reader); false is
 			// Esc (stop typing, keep the applied filter, stay in sidebar).
 			const closeFilter = (commit: boolean) => {
+				filterAppliedRef.current = filterInputRef.current
+				setFilterApplied(filterInputRef.current)
 				const picked = displayedFiles[selectedIndex] ?? null
 				const effectiveCommit = commit && picked !== null
 				restoreFilterOnSidebarFocusRef.current = false
@@ -591,20 +608,22 @@ export const Browser = ({
 				// outside the modal: clear the query, reset selection. The
 				// keymap doesn't see keys in filter mode, so this branch is
 				// the in-modal half of that single chord.
-				filterQueryRef.current = ""
-				setFilterQuery("")
+				filterInputRef.current = ""
+				filterAppliedRef.current = ""
+				setFilterInput("")
+				setFilterApplied("")
 				setSelectedIndex(() => 0)
 				return
 			}
 			if (key.name === "backspace" || key.name === "delete") {
 				// Backspace on empty input closes the modal — the leading `/`
 				// chevron is the last thing left to "delete."
-				if (filterQueryRef.current.length === 0) {
+				if (filterInputRef.current.length === 0) {
 					closeFilter(false)
 					return
 				}
-				filterQueryRef.current = filterQueryRef.current.slice(0, -1)
-				setFilterQuery(filterQueryRef.current)
+				filterInputRef.current = filterInputRef.current.slice(0, -1)
+				setFilterInput(filterInputRef.current)
 				setSelectedIndex(() => 0)
 				return
 			}
@@ -623,8 +642,8 @@ export const Browser = ({
 				char = key.shift ? key.name.toUpperCase() : key.name
 			}
 			if (char !== null) {
-				filterQueryRef.current = filterQueryRef.current + char
-				setFilterQuery(filterQueryRef.current)
+				filterInputRef.current = filterInputRef.current + char
+				setFilterInput(filterInputRef.current)
 				setSelectedIndex(() => 0)
 			}
 			return
@@ -741,7 +760,7 @@ export const Browser = ({
 	const currentFile = selected?.relativePath ?? null
 	const content = loaded?.path === renderedPath ? loaded.content : ""
 	const readerEmptyStateTitle = filterHasNoMatches
-		? `No files match: ${filterQuery}`
+		? `No files match: ${filterInput}`
 		: `${BRAND} ${BRAND_NAME}`
 	const readerEmptyStateVisible = error == null && renderedPath == null
 
@@ -817,7 +836,7 @@ export const Browser = ({
 		<>
 			{filterRowVisible && (
 				<PromptRow
-					query={filterQuery}
+					query={filterInput}
 					editing={filterOpen}
 					placeholder="/ to filter…"
 					width={sidebarTextWidth}
@@ -1024,7 +1043,7 @@ export const Browser = ({
 				discoverySpinnerIntervalMs={discoverySpinnerIntervalMs}
 				discoverySpinnerInitialFrameIndex={discoverySpinnerInitialFrameIndex}
 				discoverySpinnerRegisterTick={discoverySpinnerRegisterTick}
-				filterQuery={!filterOpen && filterQuery.length > 0 ? filterQuery : null}
+				filterQuery={!filterOpen && filterInput.length > 0 ? filterInput : null}
 			/>
 			{helpVisible && (
 				<HelpOverlay bindings={browserBindings} viewportWidth={width} viewportHeight={height} />
