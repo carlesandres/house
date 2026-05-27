@@ -225,9 +225,9 @@ Recorded so future-me doesn't re-derive these.
 - §7.3 reserved keys are unaffected — no new bindings beyond `s` which
   already exists.
 
-## Glossary terms (candidates for CONTEXT.md, once finalized)
+## Glossary terms (candidates for DESIGN.md)
 
-Not added to CONTEXT.md yet — these depend on Q1 and Q2 being resolved.
+Not yet documented — these depend on Q1 and Q2 being resolved.
 
 - **sidebar visibility** — `shown || focus === "sidebar"`.
 - **`--sidebar`** (launch flag) — `auto | on | off`.

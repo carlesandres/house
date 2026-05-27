@@ -2,7 +2,7 @@
 
 Planned work for house is tracked in GitHub milestones — see [milestones](https://github.com/carlesandres/house/milestones) for the authoritative list. This file groups items by theme for orientation; the milestone column is the source of truth for *when*.
 
-Architectural rationale, UX rules, and key reservations live in `DESIGN.md`. Glossary terms (e.g. `beta`) live in `CONTEXT.md`.
+Architectural rationale, UX rules, and key reservations live in `DESIGN.md`. Project terminology (such as the meaning of the `beta` release state) is defined where it is introduced.
 
 ★ marks a confirmed competitive gap (mdcat / frogmouth / mdr — see issue #16).
 
@@ -10,7 +10,7 @@ Beta shipped with v0.4.0. The remaining work below is split across the `1.0` and
 
 ## 1.0 — daily-driver release
 
-An item belongs here if its absence is a visible papercut or a table-stakes capability a daily driver expects. See `CONTEXT.md` §1.0 for the bar.
+An item belongs here if its absence is a visible papercut or a table-stakes capability a daily driver expects. See the 1.0 milestone description and the table below for the bar.
 
 | Theme | Item | Issue |
 |---|---|---|
@@ -18,6 +18,10 @@ An item belongs here if its absence is a visible papercut or a table-stakes capa
 | Bugs | Relative assets (images, etc.) don't load in browser preview | [#75](https://github.com/carlesandres/house/issues/75) |
 | Bugs | Filter chip can crowd out key hints when query is long | [#86](https://github.com/carlesandres/house/issues/86) |
 | Bugs | Reader keys act on content occluded by the persistent drawer | [#87](https://github.com/carlesandres/house/issues/87) |
+| Bugs | Discovery aborts entirely when any subdirectory is unreadable (EACCES, etc.) | [#171](https://github.com/carlesandres/house/issues/171) |
+| Bugs | Raw multi-line `Cause.pretty` from scan errors corrupts footer + reader | [#172](https://github.com/carlesandres/house/issues/172) |
+| Bugs | `--root` flag is not validated before launching directory-mode TUI | [#173](https://github.com/carlesandres/house/issues/173) |
+| Bugs | No coherent UX or tests for partial discovery failures | [#174](https://github.com/carlesandres/house/issues/174) |
 | Architecture | Unify single-file and directory modes (epic) | [#118](https://github.com/carlesandres/house/issues/118) |
 | Architecture | `defaultRoot` config + `--root` flag | [#109](https://github.com/carlesandres/house/issues/109) |
 | Architecture | Spinner component + indexing-status integration | [#110](https://github.com/carlesandres/house/issues/110) |
