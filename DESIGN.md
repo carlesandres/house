@@ -60,7 +60,7 @@ There is no performance gate, no coverage gate, and no public release in v1.
 
 ### 5.2 beta — Public release gates
 
-`beta` is when we put the project in front of strangers. The gates are in §10. See `CONTEXT.md` for the glossary entry distinguishing `beta` (a release milestone) from any semver version.
+`beta` is when we put the project in front of strangers. The gates are in §10. Note that `beta` here describes a release *state* (the first public announcement), not a semver version. The release itself may ship as `0.x` or `1.0`.
 
 ### 5.3 Deferred / future
 

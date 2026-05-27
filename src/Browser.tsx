@@ -22,7 +22,7 @@ import { CommandPalette } from "./CommandPalette.tsx"
 import { filterFiles } from "./discovery/filter.ts"
 import { type FileEntry } from "./discovery/walk.ts"
 import { BRAND, BRAND_NAME } from "./brand.ts"
-import { Footer, FOOTER_HEIGHT } from "./Footer.tsx"
+import { Footer, FOOTER_HEIGHT, type FooterProps } from "./Footer.tsx"
 import { Header, HEADER_HEIGHT } from "./Header.tsx"
 import { HelpOverlay } from "./HelpOverlay.tsx"
 import { openInEditor, resolveEditor } from "./io/editor.ts"
@@ -55,6 +55,17 @@ export interface BrowserProps {
 	/** Persistent footer indicator (e.g. "indexing… 42"). Pass null/undefined
 	 *  when discovery has finished; the indicator clears. */
 	readonly discoveryStatus?: string | null
+	/** Test seam: override the footer discovery spinner speed. */
+	readonly discoverySpinnerIntervalMs?: number
+	readonly discoverySpinnerInitialFrameIndex?: number
+	/** Test seam: deterministic footer spinner driver. */
+	readonly discoverySpinnerRegisterTick?: ((tick: () => void) => void) | null
+	/** Test seam: override filter debounce timing. */
+	readonly filterDebounceMs?: number
+	/** Test seam: override rendered-path debounce timing. */
+	readonly renderedPathDebounceMs?: number
+	/** Test seam: disable reader-empty-state tip rotation effect. */
+	readonly disableReaderEmptyStateRotation?: boolean
 	/** Initial sidebar visibility (`--sidebar` flag). `auto` consults the
 	 *  launch viewport bucket once; subsequent visibility goes through `s`. */
 	readonly sidebarMode?: SidebarMode
@@ -69,6 +80,8 @@ export interface BrowserProps {
 	/** TTL (ms) for the update-notice toast. Exposed so tests can use a small
 	 *  value instead of sleeping for the production 10s window. */
 	readonly updateNoticeTtlMs?: number
+	/** Test seam: disable footer-notice auto-clear timers. */
+	readonly disableFooterNoticeAutoClear?: boolean
 	/** Flip the parent's discovery vocabulary (#145). Browser doesn't need
 	 *  to know which categories are currently on — the toggle is opaque
 	 *  from this side; we just snapshot the selected path so it can be
@@ -105,16 +118,26 @@ export const setReaderEmptyStateTipRotationForTests = (next: number) => {
 	nextReaderEmptyStateTipRotation = next
 }
 
+const FILTER_DEBOUNCE_MS = 50
+const RENDERED_PATH_DEBOUNCE_MS = 80
+
 export const Browser = ({
 	files,
 	initialIndex = 0,
 	maxWidth = null,
 	discoveryStatus = null,
+	discoverySpinnerIntervalMs,
+	discoverySpinnerInitialFrameIndex,
+	discoverySpinnerRegisterTick = null,
+	filterDebounceMs = FILTER_DEBOUNCE_MS,
+	renderedPathDebounceMs = RENDERED_PATH_DEBOUNCE_MS,
+	disableReaderEmptyStateRotation = false,
 	sidebarMode = "auto",
 	onQuit,
 	readFile = defaultReadFile,
 	updateNotice = null,
 	updateNoticeTtlMs = 10000,
+	disableFooterNoticeAutoClear = false,
 	onToggleAll,
 	startupFocus = null,
 }: BrowserProps) => {
@@ -166,7 +189,8 @@ export const Browser = ({
 	const [sidebarScroll, setSidebarScroll] = useState<number>(0)
 	const [helpVisible, setHelpVisible] = useState<boolean>(false)
 	const [filterOpen, setFilterOpen] = useState<boolean>(startInFilter)
-	const [filterQuery, setFilterQuery] = useState<string>("")
+	const [filterInput, setFilterInput] = useState<string>("")
+	const [filterApplied, setFilterApplied] = useState<string>("")
 	const [paletteOpen, setPaletteOpen] = useState<boolean>(false)
 	const [paletteQuery, setPaletteQuery] = useState<string>("")
 	const [paletteIndex, setPaletteIndex] = useState<number>(0)
@@ -186,7 +210,9 @@ export const Browser = ({
 	// first key opens the filter; subsequent keys in the same tick would
 	// otherwise still observe filterOpen=false through closure).
 	const filterOpenRef = useRef(startInFilter)
-	const filterQueryRef = useRef("")
+	const filterInputRef = useRef("")
+	const filterAppliedRef = useRef("")
+	const autoSelectForAppliedFilterRef = useRef(true)
 	const focusRef = useRef<"sidebar" | "reader">(focus)
 	const restoreFilterOnSidebarFocusRef = useRef(startInFilter)
 	const [footerNotice, setFooterNoticeState] = useState<{
@@ -220,9 +246,10 @@ export const Browser = ({
 	// the other's display window.
 	useEffect(() => {
 		if (footerNotice === null) return
+		if (disableFooterNoticeAutoClear) return
 		const timer = setTimeout(() => setFooterNoticeState(null), footerNotice.ttlMs)
 		return () => clearTimeout(timer)
-	}, [footerNotice])
+	}, [disableFooterNoticeAutoClear, footerNotice])
 
 	// Push the update-available nudge once, when it arrives from the parent
 	// (the registry probe resolves asynchronously after boot). 10s gives the
@@ -257,8 +284,29 @@ export const Browser = ({
 		pushFooterNotice(`tone: ${nextTone}`)
 	}
 
-	const displayedFiles = useMemo(() => filterFiles(files, filterQuery), [files, filterQuery])
-	const filterHasNoMatches = filterQuery.length > 0 && displayedFiles.length === 0
+	useEffect(() => {
+		if (filterInput === filterApplied) return
+		const timer = setTimeout(() => {
+			filterAppliedRef.current = filterInput
+			setFilterApplied(filterInput)
+		}, filterDebounceMs)
+		return () => clearTimeout(timer)
+	}, [filterApplied, filterDebounceMs, filterInput])
+
+	useEffect(() => {
+		autoSelectForAppliedFilterRef.current = true
+	}, [filterApplied])
+
+	const displayedFiles = useMemo(() => filterFiles(files, filterApplied), [files, filterApplied])
+	const filterHasNoMatches = filterInput.length > 0 && displayedFiles.length === 0
+
+	useEffect(() => {
+		if (filterApplied.length === 0) return
+		if (!autoSelectForAppliedFilterRef.current) return
+		if (displayedFiles.length === 0) return
+		setSelectedIndex(0)
+		autoSelectForAppliedFilterRef.current = false
+	}, [displayedFiles, filterApplied])
 	// When the filtered list shrinks, keep selectedIndex valid. The reset to 0
 	// on every query change happens in the keystroke handler, not here, so a
 	// no-op rerender doesn't snap the cursor back to the top.
@@ -296,9 +344,9 @@ export const Browser = ({
 	useEffect(() => {
 		const target = selected?.path ?? null
 		if (target === renderedPath) return
-		const timer = setTimeout(() => setRenderedPath(target), 80)
+		const timer = setTimeout(() => setRenderedPath(target), renderedPathDebounceMs)
 		return () => clearTimeout(timer)
-	}, [selected?.path, renderedPath])
+	}, [selected?.path, renderedPath, renderedPathDebounceMs])
 
 	useEffect(() => {
 		if (!renderedPath) {
@@ -340,7 +388,7 @@ export const Browser = ({
 		helpVisible,
 		filterOpen,
 		restoreFilterOnSidebarFocus: restoreFilterOnSidebarFocusRef.current,
-		filterQuery,
+		filterQuery: filterInput,
 		paletteOpen,
 		setFocus,
 		// Wrapped so any keymap-driven selection move (j/k/g/G/[/], reader
@@ -350,6 +398,7 @@ export const Browser = ({
 		// itself) deliberately use the raw `setSelectedIndex` setter.
 		setSelectedIndex: (updater) => {
 			pendingSelectionPathRef.current = null
+			autoSelectForAppliedFilterRef.current = false
 			setSelectedIndex(updater)
 		},
 		toggleShown: () => {
@@ -393,8 +442,10 @@ export const Browser = ({
 			// Reset both the ref and the state so the freshly-opened modal
 			// shows an empty input and selection lands on the first file in
 			// the (now unfiltered) list.
-			filterQueryRef.current = ""
-			setFilterQuery("")
+			filterInputRef.current = ""
+			filterAppliedRef.current = ""
+			setFilterInput("")
+			setFilterApplied("")
 			setSelectedIndex(() => 0)
 			focusRef.current = "sidebar"
 			if (focus !== "sidebar") setFocus("sidebar")
@@ -543,6 +594,8 @@ export const Browser = ({
 			// the Return semantic (open the match in the reader); false is
 			// Esc (stop typing, keep the applied filter, stay in sidebar).
 			const closeFilter = (commit: boolean) => {
+				filterAppliedRef.current = filterInputRef.current
+				setFilterApplied(filterInputRef.current)
 				const picked = displayedFiles[selectedIndex] ?? null
 				const effectiveCommit = commit && picked !== null
 				restoreFilterOnSidebarFocusRef.current = false
@@ -583,20 +636,22 @@ export const Browser = ({
 				// outside the modal: clear the query, reset selection. The
 				// keymap doesn't see keys in filter mode, so this branch is
 				// the in-modal half of that single chord.
-				filterQueryRef.current = ""
-				setFilterQuery("")
+				filterInputRef.current = ""
+				filterAppliedRef.current = ""
+				setFilterInput("")
+				setFilterApplied("")
 				setSelectedIndex(() => 0)
 				return
 			}
 			if (key.name === "backspace" || key.name === "delete") {
 				// Backspace on empty input closes the modal — the leading `/`
 				// chevron is the last thing left to "delete."
-				if (filterQueryRef.current.length === 0) {
+				if (filterInputRef.current.length === 0) {
 					closeFilter(false)
 					return
 				}
-				filterQueryRef.current = filterQueryRef.current.slice(0, -1)
-				setFilterQuery(filterQueryRef.current)
+				filterInputRef.current = filterInputRef.current.slice(0, -1)
+				setFilterInput(filterInputRef.current)
 				setSelectedIndex(() => 0)
 				return
 			}
@@ -615,8 +670,8 @@ export const Browser = ({
 				char = key.shift ? key.name.toUpperCase() : key.name
 			}
 			if (char !== null) {
-				filterQueryRef.current = filterQueryRef.current + char
-				setFilterQuery(filterQueryRef.current)
+				filterInputRef.current = filterInputRef.current + char
+				setFilterInput(filterInputRef.current)
 				setSelectedIndex(() => 0)
 			}
 			return
@@ -733,11 +788,12 @@ export const Browser = ({
 	const currentFile = selected?.relativePath ?? null
 	const content = loaded?.path === renderedPath ? loaded.content : ""
 	const readerEmptyStateTitle = filterHasNoMatches
-		? `No files match: ${filterQuery}`
+		? `No files match: ${filterInput}`
 		: `${BRAND} ${BRAND_NAME}`
 	const readerEmptyStateVisible = error == null && renderedPath == null
 
 	useEffect(() => {
+		if (disableReaderEmptyStateRotation) return
 		if (readerEmptyStateVisible) {
 			if (!readerEmptyStateVisibleRef.current) {
 				readerEmptyStateVisibleRef.current = true
@@ -746,7 +802,7 @@ export const Browser = ({
 			return
 		}
 		readerEmptyStateVisibleRef.current = false
-	}, [readerEmptyStateVisible])
+	}, [disableReaderEmptyStateRotation, readerEmptyStateVisible])
 
 	// Sidebar virtualization: render only the visible window. Without this,
 	// every keystroke re-renders all N file rows even though only the bg of
@@ -797,6 +853,19 @@ export const Browser = ({
 				: browserBindings,
 		[helpVisible],
 	)
+	const footerProps = {
+		bindings: footerBindings,
+		ctx,
+		width,
+		notice: footerNotice?.text ?? null,
+		discoveryStatus,
+		filterQuery: !filterOpen && filterInput.length > 0 ? filterInput : null,
+		...(discoverySpinnerIntervalMs === undefined ? {} : { discoverySpinnerIntervalMs }),
+		...(discoverySpinnerInitialFrameIndex === undefined
+			? {}
+			: { discoverySpinnerInitialFrameIndex }),
+		...(discoverySpinnerRegisterTick === undefined ? {} : { discoverySpinnerRegisterTick }),
+	} satisfies FooterProps<BrowserCtx>
 	const readerEmptyStateTips = useMemo(() => buildReaderEmptyStateTips(browserBindings, ctx), [ctx])
 	const readerEmptyStateTip = useMemo(
 		() => pickTipByRotation(readerEmptyStateTips, readerEmptyStateTipRotation),
@@ -809,7 +878,7 @@ export const Browser = ({
 		<>
 			{filterRowVisible && (
 				<PromptRow
-					query={filterQuery}
+					query={filterInput}
 					editing={filterOpen}
 					placeholder="/ to filter…"
 					width={sidebarTextWidth}
@@ -1007,14 +1076,7 @@ export const Browser = ({
 					</box>
 				)}
 			</box>
-			<Footer
-				bindings={footerBindings}
-				ctx={ctx}
-				width={width}
-				notice={footerNotice?.text ?? null}
-				discoveryStatus={discoveryStatus}
-				filterQuery={!filterOpen && filterQuery.length > 0 ? filterQuery : null}
-			/>
+			<Footer {...footerProps} />
 			{helpVisible && (
 				<HelpOverlay bindings={browserBindings} viewportWidth={width} viewportHeight={height} />
 			)}

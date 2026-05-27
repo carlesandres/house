@@ -1,34 +1,27 @@
 # Roadmap
 
-Planned work for house is tracked in GitHub milestones (`beta`, `beta — stretch`, `1.0`, `backlog`) — see [milestones](https://github.com/carlesandres/house/milestones) for the authoritative list. This file groups items by theme for orientation; the milestone column is the source of truth for *when*.
+Planned work for house is tracked in GitHub milestones — see [milestones](https://github.com/carlesandres/house/milestones) for the authoritative list. This file groups items by theme for orientation; the milestone column is the source of truth for *when*.
 
-Architectural rationale, UX rules, and key reservations live in `DESIGN.md`. Glossary terms (e.g. `beta`) live in `CONTEXT.md`.
+Architectural rationale, UX rules, and key reservations live in `DESIGN.md`. Project terminology (such as the meaning of the `beta` release state) is defined where it is introduced.
 
 ★ marks a confirmed competitive gap (mdcat / frogmouth / mdr — see issue #16).
 
-Beta shipped with v0.4.0. The remaining work below is split across the `beta — stretch`, `1.0`, and `backlog` milestones.
-
-## Beta — stretch
-
-Nice for the beta announcement; can slip without blocking.
-
-| Theme | Item | Issue |
-|---|---|---|
-| Onboarding | Add usage tips in the app | [#47](https://github.com/carlesandres/house/issues/47) |
-| Docs | DESIGN.md §7.1 drawer-dismiss rule overstates its scope | [#88](https://github.com/carlesandres/house/issues/88) |
+Beta shipped with v0.4.0. The remaining work below is split across the `1.0` and `backlog` milestones.
 
 ## 1.0 — daily-driver release
 
-An item belongs here if its absence is a visible papercut or a table-stakes capability a daily driver expects. See `CONTEXT.md` §1.0 for the bar.
+An item belongs here if its absence is a visible papercut or a table-stakes capability a daily driver expects. See the 1.0 milestone description and the table below for the bar.
 
 | Theme | Item | Issue |
 |---|---|---|
 | Bugs | Pane focus and selected sidebar row are hard to distinguish in many themes | [#71](https://github.com/carlesandres/house/issues/71) |
-| Bugs | `npm i -g` emits ERESOLVE peer-dependency warnings (effect ↔ @effect/atom-react) | [#143](https://github.com/carlesandres/house/issues/143) |
 | Bugs | Relative assets (images, etc.) don't load in browser preview | [#75](https://github.com/carlesandres/house/issues/75) |
-| Bugs | Applied filter has no one-key clear path | [#84](https://github.com/carlesandres/house/issues/84) |
 | Bugs | Filter chip can crowd out key hints when query is long | [#86](https://github.com/carlesandres/house/issues/86) |
 | Bugs | Reader keys act on content occluded by the persistent drawer | [#87](https://github.com/carlesandres/house/issues/87) |
+| Bugs | Discovery aborts entirely when any subdirectory is unreadable (EACCES, etc.) | [#171](https://github.com/carlesandres/house/issues/171) |
+| Bugs | Raw multi-line `Cause.pretty` from scan errors corrupts footer + reader | [#172](https://github.com/carlesandres/house/issues/172) |
+| Bugs | `--root` flag is not validated before launching directory-mode TUI | [#173](https://github.com/carlesandres/house/issues/173) |
+| Bugs | No coherent UX or tests for partial discovery failures | [#174](https://github.com/carlesandres/house/issues/174) |
 | Architecture | Unify single-file and directory modes (epic) | [#118](https://github.com/carlesandres/house/issues/118) |
 | Architecture | `defaultRoot` config + `--root` flag | [#109](https://github.com/carlesandres/house/issues/109) |
 | Architecture | Spinner component + indexing-status integration | [#110](https://github.com/carlesandres/house/issues/110) |
@@ -36,7 +29,6 @@ An item belongs here if its absence is a visible papercut or a table-stakes capa
 | Architecture | Sticky first-match auto-select | [#112](https://github.com/carlesandres/house/issues/112) |
 | Architecture | Browser accepts `initialQuery` prop | [#113](https://github.com/carlesandres/house/issues/113) |
 | Architecture | CLI positional → filter query; delete `App` (breaking) | [#114](https://github.com/carlesandres/house/issues/114) |
-| Architecture | File action group gated on `hasSelected` | [#115](https://github.com/carlesandres/house/issues/115) |
 | Architecture | Sidebar empty-state copy | [#116](https://github.com/carlesandres/house/issues/116) |
 | Architecture | Docs sweep for unified model | [#117](https://github.com/carlesandres/house/issues/117) |
 | File-level | Delete current file with confirmation | [#20](https://github.com/carlesandres/house/issues/20) |
@@ -55,7 +47,6 @@ An item belongs here if its absence is a visible papercut or a table-stakes capa
 | Distribution | `dev/build-standalone.ts` (`bun build --compile --bytecode`, per-platform) | [#133](https://github.com/carlesandres/house/issues/133) |
 | Distribution | Per-platform binary npm packages via `dev/build-npm-packages.ts` | [#134](https://github.com/carlesandres/house/issues/134) |
 | Distribution | `bin/house.js` Node shim with binary-package resolver + Bun fallback | [#135](https://github.com/carlesandres/house/issues/135) |
-| Distribution | Notify when a newer version is available (passive, manual upgrade tip) | [#100](https://github.com/carlesandres/house/issues/100) |
 | Tooling | One-command release flow (`bun run release`) | [#121](https://github.com/carlesandres/house/issues/121) |
 
 ## Backlog
@@ -112,7 +103,6 @@ No commitment to ship. Tracked to remember.
 | Filter-row behaviour in the tight viewport bucket | [#68](https://github.com/carlesandres/house/issues/68) |
 | Runtime toggle + config option for hidden/gitignored files | [#69](https://github.com/carlesandres/house/issues/69) |
 | Enter from reader returns to sidebar (extra key on `reader.back`) | [#78](https://github.com/carlesandres/house/issues/78) |
-| Reconcile `TIGHT_VIEWPORT_THRESHOLD` (80) with `canFitInline` (69) | [#85](https://github.com/carlesandres/house/issues/85) |
 
 ### Discovery
 
@@ -127,7 +117,7 @@ No commitment to ship. Tracked to remember.
 | Item | Issue |
 |---|---|
 | Footer responsive behavior on tight viewports | [#37](https://github.com/carlesandres/house/issues/37) |
-| Evaluate adding a header chrome (breadcrumb / heading / mode chips) | [#38](https://github.com/carlesandres/house/issues/38) |
+| Investigate reusing the spinner for other in-progress states | [#170](https://github.com/carlesandres/house/issues/170) |
 
 ### Config
 

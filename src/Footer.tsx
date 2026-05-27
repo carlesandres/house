@@ -21,8 +21,10 @@
  * require a real cell-width counter (e.g. East Asian Width).
  */
 
+import type React from "react"
 import type { KeyBinding } from "./keymap/keymap.ts"
 import { displayKey } from "./keymap/displayKey.ts"
+import { Spinner } from "./Spinner.tsx"
 import { colors } from "./theme/colors.ts"
 
 /** Rows the Footer occupies. Importers use it for layout math so a future
@@ -43,6 +45,12 @@ export interface FooterProps<C> {
 	 *  while the filter input is open (the sidebar already shows the query) or
 	 *  when no filter is applied. */
 	readonly filterQuery?: string | null
+	/** Test seam: override spinner tick speed so tests don't sleep on the full
+	 *  production interval. Ignored when discoveryStatus is null. */
+	readonly discoverySpinnerIntervalMs?: number
+	readonly discoverySpinnerInitialFrameIndex?: number
+	/** Test seam: deterministic footer spinner driver. */
+	readonly discoverySpinnerRegisterTick?: ((tick: () => void) => void) | null
 }
 
 const HINT_SEPARATOR = "  "
@@ -92,6 +100,9 @@ export const Footer = <C,>({
 	notice,
 	discoveryStatus,
 	filterQuery,
+	discoverySpinnerIntervalMs,
+	discoverySpinnerInitialFrameIndex,
+	discoverySpinnerRegisterTick,
 }: FooterProps<C>) => {
 	const usableWidth = Math.max(0, width - 2) // 1-cell horizontal padding each side
 
@@ -185,8 +196,23 @@ export const Footer = <C,>({
 	}
 
 	if (status !== null) {
+		const spinnerProps = {
+			fg: colors.secondary,
+			...(discoverySpinnerIntervalMs === undefined
+				? {}
+				: { intervalMs: discoverySpinnerIntervalMs }),
+			...(discoverySpinnerInitialFrameIndex === undefined
+				? {}
+				: { initialFrameIndex: discoverySpinnerInitialFrameIndex }),
+			...(discoverySpinnerRegisterTick === undefined
+				? {}
+				: { registerTick: discoverySpinnerRegisterTick }),
+		} satisfies React.ComponentProps<typeof Spinner>
+
 		return (
 			<box style={rowStyle}>
+				<Spinner {...spinnerProps} />
+				<text content=" " wrapMode="none" style={{ fg: colors.textMuted }} />
 				<text content={statusContent} wrapMode="none" style={{ fg: colors.secondary }} />
 				<text content={STATUS_SEPARATOR} wrapMode="none" style={{ fg: colors.textMuted }} />
 				{renderHints()}
