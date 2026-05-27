@@ -844,6 +844,49 @@ describe("Browser — #22 layout v2", () => {
 		expect(frame).toContain("scan failed: boom second line third line")
 	})
 
+	test("renders leading YAML frontmatter as metadata instead of raw markdown", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={makeFiles(["alpha.md"])}
+					readFile={makeReader({
+						"alpha.md": [
+							"---",
+							'title: "Frontmatter title"',
+							"published: 2026-02-17",
+							"---",
+							"# Hello",
+						].join("\n"),
+					})}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		const frame = await waitForFrameContaining("published: 2026-02-17")
+		expect(frame).toContain("title: Frontmatter title")
+		expect(frame).toContain("published: 2026-02-17")
+		expect(frame).not.toContain('title: "Frontmatter title"')
+		expect(frame).not.toContain("tags: [")
+	})
+
+	test("falls back to raw markdown when frontmatter is malformed", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={makeFiles(["alpha.md"])}
+					readFile={makeReader({
+						"alpha.md": ["---", "not valid", "---", "Body"].join("\n"),
+					})}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		const frame = await waitForFrameContaining("────────────────")
+		expect(frame).toContain("────────────────")
+	})
+
 	test("filter chip uses secondary token as active metadata", async () => {
 		await act(async () => {
 			setup = await renderBrowserFast(

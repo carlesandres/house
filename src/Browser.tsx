@@ -21,6 +21,7 @@ import { clampSelectedIndex, filterCommands } from "./commands/score.ts"
 import { CommandPalette } from "./CommandPalette.tsx"
 import { filterFiles } from "./discovery/filter.ts"
 import { type FileEntry } from "./discovery/walk.ts"
+import { parseFrontmatter } from "./markdown/frontmatter.ts"
 import { BRAND, BRAND_NAME } from "./brand.ts"
 import { Footer, FOOTER_HEIGHT, type FooterProps } from "./Footer.tsx"
 import { Header, HEADER_HEIGHT } from "./Header.tsx"
@@ -787,6 +788,7 @@ export const Browser = ({
 	// per-pane border title that used to carry this information).
 	const currentFile = selected?.relativePath ?? null
 	const content = loaded?.path === renderedPath ? loaded.content : ""
+	const parsedContent = useMemo(() => parseFrontmatter(content), [content])
 	const readerEmptyStateTitle = filterHasNoMatches
 		? `No files match: ${filterInput}`
 		: `${BRAND} ${BRAND_NAME}`
@@ -1061,9 +1063,30 @@ export const Browser = ({
 									// is already false).
 									focused={readerActive && !paletteOpen && !helpVisible}
 								>
+									{parsedContent.fields.length > 0 && (
+										<box style={{ flexDirection: "column", marginBottom: 1 }}>
+											{parsedContent.fields.map((field) => (
+												<box
+													key={field.key}
+													style={{ flexDirection: "row", gap: 1, flexWrap: "wrap" }}
+												>
+													<text
+														content={`${field.key}:`}
+														wrapMode="word"
+														style={{ fg: colors.secondary }}
+													/>
+													<text
+														content={field.value}
+														wrapMode="word"
+														style={{ fg: colors.textMuted }}
+													/>
+												</box>
+											))}
+										</box>
+									)}
 									<markdown
 										key={renderedPath ?? "empty"}
-										content={content}
+										content={parsedContent.body}
 										syntaxStyle={syntaxStyle}
 										fg={colors.text}
 										bg={readerActive ? colors.background : colors.backgroundPanel}

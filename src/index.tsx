@@ -24,6 +24,7 @@ import { parseShowList, SHOW_CATEGORIES, type ShowCategory } from "./discovery/s
 import { walk, type FileEntry, type SortOrder } from "./discovery/walk.ts"
 import { Header } from "./Header.tsx"
 import { readFileText } from "./io/readFile.ts"
+import { parseFrontmatter } from "./markdown/frontmatter.ts"
 import { openInBrowser } from "./serve/openBrowser.ts"
 import { startServer } from "./serve/server.ts"
 import { colors, setActiveTheme } from "./theme/colors.ts"
@@ -263,6 +264,7 @@ export const App = ({ content, title = "house", maxWidth = null, onQuit }: AppPr
 	})
 
 	const paneBorderSides: BorderSides[] = ["top", "bottom"]
+	const parsedContent = useMemo(() => parseFrontmatter(content), [content])
 
 	return (
 		<box style={{ width, height, flexDirection: "column", backgroundColor: colors.background }}>
@@ -287,8 +289,22 @@ export const App = ({ content, title = "house", maxWidth = null, onQuit }: AppPr
 					}}
 					focused
 				>
+					{parsedContent.fields.length > 0 && (
+						<box style={{ flexDirection: "column", marginBottom: 1 }}>
+							{parsedContent.fields.map((field) => (
+								<box key={field.key} style={{ flexDirection: "row", gap: 1, flexWrap: "wrap" }}>
+									<text
+										content={`${field.key}:`}
+										wrapMode="word"
+										style={{ fg: colors.secondary }}
+									/>
+									<text content={field.value} wrapMode="word" style={{ fg: colors.textMuted }} />
+								</box>
+							))}
+						</box>
+					)}
 					<markdown
-						content={content}
+						content={parsedContent.body}
 						syntaxStyle={syntaxStyle}
 						fg={colors.text}
 						bg={colors.background}
