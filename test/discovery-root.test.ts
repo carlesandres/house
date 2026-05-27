@@ -2,7 +2,11 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { resolveDiscoveryRoot, validateDiscoveryRoot } from "../src/index.tsx"
+import {
+	formatPartialDiscoveryStatus,
+	resolveDiscoveryRoot,
+	validateDiscoveryRoot,
+} from "../src/index.tsx"
 
 let dir: string
 
@@ -56,5 +60,23 @@ describe("validateDiscoveryRoot", () => {
 		const file = join(dir, "README.md")
 		await writeFile(file, "x", "utf8")
 		await expect(validateDiscoveryRoot(file)).rejects.toThrow(/discovery root must be a directory/)
+	})
+})
+
+describe("formatPartialDiscoveryStatus", () => {
+	test("returns null when nothing was skipped", () => {
+		expect(formatPartialDiscoveryStatus({ skippedCount: 0, lastSkippedPath: null })).toBeNull()
+	})
+
+	test("includes the path when exactly one directory was skipped", () => {
+		expect(formatPartialDiscoveryStatus({ skippedCount: 1, lastSkippedPath: "/tmp/locked" })).toBe(
+			"scan incomplete: skipped 1 directory: /tmp/locked",
+		)
+	})
+
+	test("uses a plural summary for multiple skipped directories", () => {
+		expect(formatPartialDiscoveryStatus({ skippedCount: 2, lastSkippedPath: "/tmp/locked" })).toBe(
+			"scan incomplete: skipped 2 directories",
+		)
 	})
 })

@@ -104,6 +104,19 @@ export const validateDiscoveryRoot = async (root: string): Promise<void> => {
 	}
 }
 
+export const formatPartialDiscoveryStatus = ({
+	skippedCount,
+	lastSkippedPath,
+}: {
+	readonly skippedCount: number
+	readonly lastSkippedPath: string | null
+}): string | null => {
+	if (skippedCount <= 0) return null
+	const noun = skippedCount === 1 ? "directory" : "directories"
+	const suffix = lastSkippedPath && skippedCount === 1 ? `: ${lastSkippedPath}` : ""
+	return `scan incomplete: skipped ${skippedCount} ${noun}${suffix}`
+}
+
 interface DiscoverShellProps {
 	readonly target: string
 	/** Resolved discovery vocabulary from the config layer. The shift+a
@@ -132,6 +145,8 @@ const DiscoverShell = ({
 	const [files, setFiles] = useState<readonly FileEntry[]>([])
 	const [scanning, setScanning] = useState<boolean>(true)
 	const [scanError, setScanError] = useState<string | null>(null)
+	const [skippedDirCount, setSkippedDirCount] = useState<number>(0)
+	const [lastSkippedDir, setLastSkippedDir] = useState<string | null>(null)
 	// Files arrive in a ref-tracked count so the status string can show
 	// "indexing… N" even when React hasn't yet flushed the latest setFiles.
 	const countRef = useRef(0)
@@ -144,8 +159,18 @@ const DiscoverShell = ({
 		setFiles([])
 		setScanning(true)
 		setScanError(null)
+		setSkippedDirCount(0)
+		setLastSkippedDir(null)
 		countRef.current = 0
-		const program = walk(target, { show, sort, mdx }).pipe(
+		const warnedProgram = walk(target, {
+			show,
+			sort,
+			mdx,
+			onWarning: ({ path }) => {
+				setSkippedDirCount((prev) => prev + 1)
+				setLastSkippedDir(path)
+			},
+		}).pipe(
 			Stream.groupedWithin(64, Duration.millis(60)),
 			Stream.runForEach((chunk) =>
 				Effect.sync(() => {
@@ -159,20 +184,26 @@ const DiscoverShell = ({
 				onSuccess: () => Effect.sync(() => setScanning(false)),
 				onFailure: (cause) =>
 					Effect.sync(() => {
-						// Interruption is the normal teardown path — don't surface it.
 						if (Cause.hasInterrupts(cause)) return
 						setScanError(`scan failed: ${Cause.pretty(cause)}`)
 						setScanning(false)
 					}),
 			}),
 		)
-		const fiber = Effect.runFork(program)
+		const fiber = Effect.runFork(warnedProgram)
 		return () => {
 			Effect.runFork(Fiber.interrupt(fiber))
 		}
 	}, [target, show, sort, mdx])
 
-	const discoveryStatus = scanError ?? (scanning ? `indexing… ${countRef.current}` : null)
+	const discoveryStatus =
+		scanError ??
+		(scanning
+			? `indexing… ${countRef.current}`
+			: formatPartialDiscoveryStatus({
+					skippedCount: skippedDirCount,
+					lastSkippedPath: lastSkippedDir,
+				}))
 
 	return (
 		<Browser

@@ -306,8 +306,31 @@ describe("walk — errors", () => {
 		const locked = join(root, "locked")
 		await chmod(locked, 0o000)
 		try {
+			const warnings: string[] = []
 			const result = await run(walkToArray(root))
 			expect(names(result).sort()).toEqual(["nested/visible.md", "readable.md"])
+			expect(warnings).toEqual([])
+		} finally {
+			await chmod(locked, 0o755)
+		}
+	})
+
+	test("reports unreadable subdirectories through onWarning", async () => {
+		const root = await fixture({
+			"readable.md": "x",
+			"locked/secret.md": "x",
+		})
+		const locked = join(root, "locked")
+		await chmod(locked, 0o000)
+		try {
+			const warnings: string[] = []
+			const result = await run(
+				walkToArray(root, {
+					onWarning: ({ path }) => warnings.push(path),
+				}),
+			)
+			expect(names(result)).toEqual(["readable.md"])
+			expect(warnings).toEqual([locked])
 		} finally {
 			await chmod(locked, 0o755)
 		}
