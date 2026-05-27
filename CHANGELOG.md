@@ -6,9 +6,32 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 
 ## [Unreleased]
 
+## [0.4.7] — 2026-05-27
+
+### Added
+
+- `--root <path>` and TOML `defaultRoot` let launches default to a configured browsing root while preserving explicit path arguments.
+- Discovery/indexing status now shows a spinner in the chrome instead of only static text.
+
 ### Changed
 
 - File actions now use uppercase `E` / `O` instead of lowercase `e` / `o`, adding a small amount of friction to edit and open-in-browser actions.
+- Sidebar filtering now applies after a short debounce to reduce churn while typing.
+- Filtered browsing now keeps the first match sticky/selected as results update.
+
+### Fixed
+
+- PTY typing coverage and footer hint tests now match the shifted file-action bindings.
+- CI typechecking now satisfies exact optional prop typing in the release branch.
+
+### Docs
+
+- Removed the obsolete `CONTEXT.md` glossary and inlined the beta-term explanation into `DESIGN.md` with cleaned-up cross-references.
+- ROADMAP shipped items were pruned after the covered work landed.
+
+### Tests
+
+- Browser test noise from React act warnings was reduced around the new filter behavior coverage.
 
 ## [0.4.6] — 2026-05-25
 
@@ -234,7 +257,8 @@ The v1 MVP, published as `@carlesandres/openmdr` on npm.
 
 Search, stdin, URL fetching, cross-file link following, `$EDITOR` hand-off, syntax highlighting, persistent config, OS-appearance auto-detect, single-binary distribution (issue [#2](https://github.com/carlesandres/openmdr/issues/2)), Homebrew tap. All tracked.
 
-[Unreleased]: https://github.com/carlesandres/house/compare/v0.4.6...HEAD
+[Unreleased]: https://github.com/carlesandres/house/compare/v0.4.7...HEAD
+[0.4.7]: https://github.com/carlesandres/house/compare/v0.4.6...v0.4.7
 [0.4.6]: https://github.com/carlesandres/house/compare/v0.4.5...v0.4.6
 [0.4.5]: https://github.com/carlesandres/house/compare/v0.4.4...v0.4.5
 [0.4.4]: https://github.com/carlesandres/house/compare/v0.4.3...v0.4.4
