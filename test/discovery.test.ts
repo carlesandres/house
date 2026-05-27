@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises"
+import { chmod, mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { afterEach, describe, expect, test } from "bun:test"
@@ -297,6 +297,22 @@ describe("walk — sort order", () => {
 })
 
 describe("walk — errors", () => {
+	test("skips unreadable subdirectories instead of aborting the whole walk", async () => {
+		const root = await fixture({
+			"readable.md": "x",
+			"locked/secret.md": "x",
+			"nested/visible.md": "x",
+		})
+		const locked = join(root, "locked")
+		await chmod(locked, 0o000)
+		try {
+			const result = await run(walkToArray(root))
+			expect(names(result).sort()).toEqual(["nested/visible.md", "readable.md"])
+		} finally {
+			await chmod(locked, 0o755)
+		}
+	})
+
 	test("returns DiscoveryError when root does not exist", async () => {
 		const result = await run(Effect.result(walkToArray("/no/such/path/__missing__")))
 		expect(Result.isFailure(result)).toBe(true)

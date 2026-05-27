@@ -96,6 +96,7 @@ async function* walkDirGen(
 	signal: AbortSignal,
 ): AsyncGenerator<FileEntry, void, void> {
 	if (signal.aborted) return
+	const isRoot = dirPath === rootPath
 
 	let levels = parentLevels
 	if (!opts.showGitignored) {
@@ -104,7 +105,13 @@ async function* walkDirGen(
 		if (ig) levels = [...parentLevels, { dir: dirPath, ig }]
 	}
 
-	const raw = await readdir(dirPath, { withFileTypes: true })
+	let raw
+	try {
+		raw = await readdir(dirPath, { withFileTypes: true })
+	} catch (error) {
+		if (isRoot) throw error
+		return
+	}
 	if (signal.aborted) return
 
 	for (const entry of sortEntries(raw, opts.sort)) {
