@@ -74,14 +74,19 @@ const renderBrowser = (
 	return testRender(wrapped, viewport)
 }
 
-const renderBrowserFast = (element: React.ReactElement) =>
-	renderBrowser(
+const renderBrowserFast = (element: React.ReactNode) => {
+	if (!React.isValidElement<React.ComponentProps<typeof Browser>>(element)) {
+		throw new Error("renderBrowserFast expects a <Browser /> element")
+	}
+
+	return renderBrowser(
 		React.cloneElement(element, {
 			disableFooterNoticeAutoClear: true,
 			disableReaderEmptyStateRotation: true,
-		} as Partial<React.ComponentProps<typeof Browser>>),
+		}),
 		VIEWPORT,
 	)
+}
 
 describe("Browser — sidebar", () => {
 	test("renders all file relative paths", async () => {

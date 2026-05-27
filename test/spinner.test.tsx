@@ -21,7 +21,7 @@ afterEach(() => {
 beforeAll(() => {
 	originalSetInterval = globalThis.setInterval
 	originalClearInterval = globalThis.clearInterval
-	globalThis.setInterval = ((handler: TimerHandler, _timeout?: number) => {
+	globalThis.setInterval = ((handler: Parameters<typeof setInterval>[0], _timeout?: number) => {
 		return originalSetInterval(() => {
 			if (typeof handler === "function") return handler()
 		}, 60_000)

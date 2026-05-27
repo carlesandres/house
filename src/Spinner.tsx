@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react"
 import { colors } from "./theme/colors.ts"
 
 const FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"] as const
+const FRAME_COUNT = FRAMES.length
+const normalizeFrameIndex = (index: number) => ((index % FRAME_COUNT) + FRAME_COUNT) % FRAME_COUNT
 
 export interface SpinnerProps {
 	readonly fg?: string
@@ -18,9 +20,9 @@ export const Spinner = ({
 	initialFrameIndex = 0,
 	registerTick = null,
 }: SpinnerProps) => {
-	const [index, setIndex] = useState(initialFrameIndex)
+	const [index, setIndex] = useState(() => normalizeFrameIndex(initialFrameIndex))
 	const tickRef = useRef<() => void>(() => undefined)
-	tickRef.current = () => setIndex((prev) => (prev + 1) % FRAMES.length)
+	tickRef.current = () => setIndex((prev) => (prev + 1) % FRAME_COUNT)
 
 	useEffect(() => {
 		if (registerTick) {
@@ -33,5 +35,5 @@ export const Spinner = ({
 		return () => clearInterval(id)
 	}, [intervalMs, registerTick])
 
-	return <text content={FRAMES[index]} wrapMode="none" style={{ fg }} />
+	return <text content={FRAMES[index] ?? FRAMES[0]} wrapMode="none" style={{ fg }} />
 }

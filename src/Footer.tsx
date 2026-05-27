@@ -21,6 +21,7 @@
  * require a real cell-width counter (e.g. East Asian Width).
  */
 
+import type React from "react"
 import type { KeyBinding } from "./keymap/keymap.ts"
 import { displayKey } from "./keymap/displayKey.ts"
 import { Spinner } from "./Spinner.tsx"
@@ -195,14 +196,22 @@ export const Footer = <C,>({
 	}
 
 	if (status !== null) {
+		const spinnerProps = {
+			fg: colors.secondary,
+			...(discoverySpinnerIntervalMs === undefined
+				? {}
+				: { intervalMs: discoverySpinnerIntervalMs }),
+			...(discoverySpinnerInitialFrameIndex === undefined
+				? {}
+				: { initialFrameIndex: discoverySpinnerInitialFrameIndex }),
+			...(discoverySpinnerRegisterTick === undefined
+				? {}
+				: { registerTick: discoverySpinnerRegisterTick }),
+		} satisfies React.ComponentProps<typeof Spinner>
+
 		return (
 			<box style={rowStyle}>
-				<Spinner
-					fg={colors.secondary}
-					intervalMs={discoverySpinnerIntervalMs}
-					initialFrameIndex={discoverySpinnerInitialFrameIndex}
-					registerTick={discoverySpinnerRegisterTick}
-				/>
+				<Spinner {...spinnerProps} />
 				<text content=" " wrapMode="none" style={{ fg: colors.textMuted }} />
 				<text content={statusContent} wrapMode="none" style={{ fg: colors.secondary }} />
 				<text content={STATUS_SEPARATOR} wrapMode="none" style={{ fg: colors.textMuted }} />

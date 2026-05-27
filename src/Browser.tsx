@@ -22,7 +22,7 @@ import { CommandPalette } from "./CommandPalette.tsx"
 import { filterFiles } from "./discovery/filter.ts"
 import { type FileEntry } from "./discovery/walk.ts"
 import { BRAND, BRAND_NAME } from "./brand.ts"
-import { Footer, FOOTER_HEIGHT } from "./Footer.tsx"
+import { Footer, FOOTER_HEIGHT, type FooterProps } from "./Footer.tsx"
 import { Header, HEADER_HEIGHT } from "./Header.tsx"
 import { HelpOverlay } from "./HelpOverlay.tsx"
 import { openInEditor, resolveEditor } from "./io/editor.ts"
@@ -853,6 +853,19 @@ export const Browser = ({
 				: browserBindings,
 		[helpVisible],
 	)
+	const footerProps = {
+		bindings: footerBindings,
+		ctx,
+		width,
+		notice: footerNotice?.text ?? null,
+		discoveryStatus,
+		filterQuery: !filterOpen && filterInput.length > 0 ? filterInput : null,
+		...(discoverySpinnerIntervalMs === undefined ? {} : { discoverySpinnerIntervalMs }),
+		...(discoverySpinnerInitialFrameIndex === undefined
+			? {}
+			: { discoverySpinnerInitialFrameIndex }),
+		...(discoverySpinnerRegisterTick === undefined ? {} : { discoverySpinnerRegisterTick }),
+	} satisfies FooterProps<BrowserCtx>
 	const readerEmptyStateTips = useMemo(() => buildReaderEmptyStateTips(browserBindings, ctx), [ctx])
 	const readerEmptyStateTip = useMemo(
 		() => pickTipByRotation(readerEmptyStateTips, readerEmptyStateTipRotation),
@@ -1063,17 +1076,7 @@ export const Browser = ({
 					</box>
 				)}
 			</box>
-			<Footer
-				bindings={footerBindings}
-				ctx={ctx}
-				width={width}
-				notice={footerNotice?.text ?? null}
-				discoveryStatus={discoveryStatus}
-				discoverySpinnerIntervalMs={discoverySpinnerIntervalMs}
-				discoverySpinnerInitialFrameIndex={discoverySpinnerInitialFrameIndex}
-				discoverySpinnerRegisterTick={discoverySpinnerRegisterTick}
-				filterQuery={!filterOpen && filterInput.length > 0 ? filterInput : null}
-			/>
+			<Footer {...footerProps} />
 			{helpVisible && (
 				<HelpOverlay bindings={browserBindings} viewportWidth={width} viewportHeight={height} />
 			)}
