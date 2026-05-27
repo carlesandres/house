@@ -1761,6 +1761,45 @@ describe("Browser — sidebar virtualization", () => {
 		await stepFrame(setup!.renderOnce)
 		expect(readerTitleContains(setup!.captureCharFrame(), "f03.md")).toBe(true)
 	})
+
+	test("user-driven selection is preserved when the filtered list expands", async () => {
+		const reader = makeReader({ "readme-1.md": "1", "readme-2.md": "2", "readme-extra.md": "3" })
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={makeFiles(["readme-1.md", "readme-2.md", "readme-extra.md"])}
+					readFile={reader}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		await act(async () => {
+			setup!.mockInput.pressKey("/")
+			setup!.mockInput.pressKey("r")
+			setup!.mockInput.pressKey("e")
+			setup!.mockInput.pressKey("a")
+			setup!.mockInput.pressKey("d")
+			setup!.mockInput.pressKey("m")
+			setup!.mockInput.pressKey("e")
+			await new Promise<void>((resolve) => setTimeout(resolve, 60))
+		})
+		await waitForFrameContaining("readme-1.md")
+		expect(setup!.captureCharFrame()).toContain("readme-extra.md")
+
+		await act(async () => {
+			setup!.mockInput.pressArrow("down")
+		})
+		await stepFrame(setup!.renderOnce)
+
+		await act(async () => {
+			setup!.mockInput.pressEnter()
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(readerTitleContains(setup!.captureCharFrame(), "readme-2.md")).toBe(true)
+	})
 })
 
 describe("Browser — sidebar filter row", () => {

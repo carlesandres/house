@@ -212,6 +212,7 @@ export const Browser = ({
 	const filterOpenRef = useRef(startInFilter)
 	const filterInputRef = useRef("")
 	const filterAppliedRef = useRef("")
+	const autoSelectForAppliedFilterRef = useRef(true)
 	const focusRef = useRef<"sidebar" | "reader">(focus)
 	const restoreFilterOnSidebarFocusRef = useRef(startInFilter)
 	const [footerNotice, setFooterNoticeState] = useState<{
@@ -292,8 +293,20 @@ export const Browser = ({
 		return () => clearTimeout(timer)
 	}, [filterApplied, filterDebounceMs, filterInput])
 
+	useEffect(() => {
+		autoSelectForAppliedFilterRef.current = true
+	}, [filterApplied])
+
 	const displayedFiles = useMemo(() => filterFiles(files, filterApplied), [files, filterApplied])
 	const filterHasNoMatches = filterInput.length > 0 && displayedFiles.length === 0
+
+	useEffect(() => {
+		if (filterApplied.length === 0) return
+		if (!autoSelectForAppliedFilterRef.current) return
+		if (displayedFiles.length === 0) return
+		setSelectedIndex(0)
+		autoSelectForAppliedFilterRef.current = false
+	}, [displayedFiles, filterApplied])
 	// When the filtered list shrinks, keep selectedIndex valid. The reset to 0
 	// on every query change happens in the keystroke handler, not here, so a
 	// no-op rerender doesn't snap the cursor back to the top.
@@ -385,6 +398,7 @@ export const Browser = ({
 		// itself) deliberately use the raw `setSelectedIndex` setter.
 		setSelectedIndex: (updater) => {
 			pendingSelectionPathRef.current = null
+			autoSelectForAppliedFilterRef.current = false
 			setSelectedIndex(updater)
 		},
 		toggleShown: () => {
