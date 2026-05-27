@@ -1,4 +1,4 @@
-import { afterEach, beforeAll, describe, expect, test } from "bun:test"
+import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test"
 import { act } from "react"
 import { testRender } from "@opentui/react/test-utils"
 import { Spinner } from "../src/Spinner.tsx"
@@ -10,10 +10,27 @@ beforeAll(() => {
 })
 
 let setup: Awaited<ReturnType<typeof testRender>> | null = null
+let originalSetInterval: typeof globalThis.setInterval
+let originalClearInterval: typeof globalThis.clearInterval
 
 afterEach(() => {
 	destroyTestRenderer(setup)
 	setup = null
+})
+
+beforeAll(() => {
+	originalSetInterval = globalThis.setInterval
+	originalClearInterval = globalThis.clearInterval
+	globalThis.setInterval = ((handler: TimerHandler, _timeout?: number) => {
+		return originalSetInterval(() => {
+			if (typeof handler === "function") return handler()
+		}, 60_000)
+	}) as typeof setInterval
+})
+
+afterAll(() => {
+	globalThis.setInterval = originalSetInterval
+	globalThis.clearInterval = originalClearInterval
 })
 
 describe("Spinner", () => {

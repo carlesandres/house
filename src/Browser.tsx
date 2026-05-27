@@ -60,6 +60,12 @@ export interface BrowserProps {
 	readonly discoverySpinnerInitialFrameIndex?: number
 	/** Test seam: deterministic footer spinner driver. */
 	readonly discoverySpinnerRegisterTick?: ((tick: () => void) => void) | null
+	/** Test seam: override filter debounce timing. */
+	readonly filterDebounceMs?: number
+	/** Test seam: override rendered-path debounce timing. */
+	readonly renderedPathDebounceMs?: number
+	/** Test seam: disable reader-empty-state tip rotation effect. */
+	readonly disableReaderEmptyStateRotation?: boolean
 	/** Initial sidebar visibility (`--sidebar` flag). `auto` consults the
 	 *  launch viewport bucket once; subsequent visibility goes through `s`. */
 	readonly sidebarMode?: SidebarMode
@@ -74,6 +80,8 @@ export interface BrowserProps {
 	/** TTL (ms) for the update-notice toast. Exposed so tests can use a small
 	 *  value instead of sleeping for the production 10s window. */
 	readonly updateNoticeTtlMs?: number
+	/** Test seam: disable footer-notice auto-clear timers. */
+	readonly disableFooterNoticeAutoClear?: boolean
 	/** Flip the parent's discovery vocabulary (#145). Browser doesn't need
 	 *  to know which categories are currently on — the toggle is opaque
 	 *  from this side; we just snapshot the selected path so it can be
@@ -111,6 +119,7 @@ export const setReaderEmptyStateTipRotationForTests = (next: number) => {
 }
 
 const FILTER_DEBOUNCE_MS = 50
+const RENDERED_PATH_DEBOUNCE_MS = 80
 
 export const Browser = ({
 	files,
@@ -120,11 +129,15 @@ export const Browser = ({
 	discoverySpinnerIntervalMs,
 	discoverySpinnerInitialFrameIndex,
 	discoverySpinnerRegisterTick = null,
+	filterDebounceMs = FILTER_DEBOUNCE_MS,
+	renderedPathDebounceMs = RENDERED_PATH_DEBOUNCE_MS,
+	disableReaderEmptyStateRotation = false,
 	sidebarMode = "auto",
 	onQuit,
 	readFile = defaultReadFile,
 	updateNotice = null,
 	updateNoticeTtlMs = 10000,
+	disableFooterNoticeAutoClear = false,
 	onToggleAll,
 	startupFocus = null,
 }: BrowserProps) => {
@@ -232,9 +245,10 @@ export const Browser = ({
 	// the other's display window.
 	useEffect(() => {
 		if (footerNotice === null) return
+		if (disableFooterNoticeAutoClear) return
 		const timer = setTimeout(() => setFooterNoticeState(null), footerNotice.ttlMs)
 		return () => clearTimeout(timer)
-	}, [footerNotice])
+	}, [disableFooterNoticeAutoClear, footerNotice])
 
 	// Push the update-available nudge once, when it arrives from the parent
 	// (the registry probe resolves asynchronously after boot). 10s gives the
@@ -274,9 +288,9 @@ export const Browser = ({
 		const timer = setTimeout(() => {
 			filterAppliedRef.current = filterInput
 			setFilterApplied(filterInput)
-		}, FILTER_DEBOUNCE_MS)
+		}, filterDebounceMs)
 		return () => clearTimeout(timer)
-	}, [filterApplied, filterInput])
+	}, [filterApplied, filterDebounceMs, filterInput])
 
 	const displayedFiles = useMemo(() => filterFiles(files, filterApplied), [files, filterApplied])
 	const filterHasNoMatches = filterInput.length > 0 && displayedFiles.length === 0
@@ -317,9 +331,9 @@ export const Browser = ({
 	useEffect(() => {
 		const target = selected?.path ?? null
 		if (target === renderedPath) return
-		const timer = setTimeout(() => setRenderedPath(target), 80)
+		const timer = setTimeout(() => setRenderedPath(target), renderedPathDebounceMs)
 		return () => clearTimeout(timer)
-	}, [selected?.path, renderedPath])
+	}, [selected?.path, renderedPath, renderedPathDebounceMs])
 
 	useEffect(() => {
 		if (!renderedPath) {
@@ -765,6 +779,7 @@ export const Browser = ({
 	const readerEmptyStateVisible = error == null && renderedPath == null
 
 	useEffect(() => {
+		if (disableReaderEmptyStateRotation) return
 		if (readerEmptyStateVisible) {
 			if (!readerEmptyStateVisibleRef.current) {
 				readerEmptyStateVisibleRef.current = true
@@ -773,7 +788,7 @@ export const Browser = ({
 			return
 		}
 		readerEmptyStateVisibleRef.current = false
-	}, [readerEmptyStateVisible])
+	}, [disableReaderEmptyStateRotation, readerEmptyStateVisible])
 
 	// Sidebar virtualization: render only the visible window. Without this,
 	// every keystroke re-renders all N file rows even though only the bg of

@@ -74,6 +74,15 @@ const renderBrowser = (
 	return testRender(wrapped, viewport)
 }
 
+const renderBrowserFast = (element: React.ReactElement) =>
+	renderBrowser(
+		React.cloneElement(element, {
+			disableFooterNoticeAutoClear: true,
+			disableReaderEmptyStateRotation: true,
+		} as Partial<React.ComponentProps<typeof Browser>>),
+		VIEWPORT,
+	)
+
 describe("Browser — sidebar", () => {
 	test("renders all file relative paths", async () => {
 		const files = makeFiles(["README.md", "docs/intro.md", "docs/api.md"])
@@ -770,13 +779,12 @@ describe("Browser — #22 layout v2", () => {
 
 	test("filter chip surfaces in the footer when a filter is applied and the input is closed", async () => {
 		await act(async () => {
-			setup = await renderBrowser(
+			setup = await renderBrowserFast(
 				<Browser
 					files={makeFiles(["alpha.md", "beta.md"])}
 					readFile={makeReader({ "alpha.md": "a", "beta.md": "b" })}
 					onQuit={() => {}}
 				/>,
-				VIEWPORT,
 			)
 		})
 		await stepFrame(setup!.renderOnce)
@@ -816,13 +824,12 @@ describe("Browser — #22 layout v2", () => {
 
 	test("filter chip uses secondary token as active metadata", async () => {
 		await act(async () => {
-			setup = await renderBrowser(
+			setup = await renderBrowserFast(
 				<Browser
 					files={makeFiles(["alpha.md", "beta.md"])}
 					readFile={makeReader({ "alpha.md": "a", "beta.md": "b" })}
 					onQuit={() => {}}
 				/>,
-				VIEWPORT,
 			)
 		})
 		await stepFrame(setup!.renderOnce)
@@ -3302,6 +3309,7 @@ describe("Browser — updateNotice", () => {
 
 		await act(async () => {
 			await new Promise<void>((resolve) => setTimeout(resolve, ttlMs + 20))
+			await setup!.renderOnce()
 		})
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
