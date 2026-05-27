@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
-import { mkdir, mkdtemp, rm } from "node:fs/promises"
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { resolveDiscoveryRoot } from "../src/index.tsx"
+import { resolveDiscoveryRoot, validateDiscoveryRoot } from "../src/index.tsx"
 
 let dir: string
 
@@ -38,5 +38,23 @@ describe("resolveDiscoveryRoot", () => {
 		await mkdir(nested, { recursive: true })
 		const resolved = await resolveDiscoveryRoot({ cliRoot: null, defaultRoot: "git", cwd: nested })
 		expect(resolved).toBe(nested)
+	})
+})
+
+describe("validateDiscoveryRoot", () => {
+	test("accepts an existing directory", async () => {
+		await expect(validateDiscoveryRoot(dir)).resolves.toBeUndefined()
+	})
+
+	test("rejects a missing path", async () => {
+		await expect(validateDiscoveryRoot(join(dir, "missing"))).rejects.toThrow(
+			/cannot access discovery root/,
+		)
+	})
+
+	test("rejects a file path", async () => {
+		const file = join(dir, "README.md")
+		await writeFile(file, "x", "utf8")
+		await expect(validateDiscoveryRoot(file)).rejects.toThrow(/discovery root must be a directory/)
 	})
 })

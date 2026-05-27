@@ -92,6 +92,18 @@ export const resolveDiscoveryRoot = async ({
 	return cwd
 }
 
+export const validateDiscoveryRoot = async (root: string): Promise<void> => {
+	let stats: Awaited<ReturnType<typeof stat>>
+	try {
+		stats = await stat(root)
+	} catch (err) {
+		throw new Error(`cannot access discovery root ${root}: ${String(err)}`)
+	}
+	if (!stats.isDirectory()) {
+		throw new Error(`discovery root must be a directory, got file ${root}`)
+	}
+}
+
 interface DiscoverShellProps {
 	readonly target: string
 	/** Resolved discovery vocabulary from the config layer. The shift+a
@@ -466,6 +478,12 @@ async function runTui({
 	const initialTheme: ThemeState = { id: themeId, tone }
 
 	if (stats.isDirectory()) {
+		try {
+			await validateDiscoveryRoot(discoveryRoot)
+		} catch (err) {
+			console.error(`house: ${err instanceof Error ? err.message : String(err)}`)
+			process.exit(1)
+		}
 		createRoot(renderer).render(
 			<RegistryProvider initialValues={[[themeAtom, initialTheme]]}>
 				<DiscoverShell
