@@ -827,6 +827,23 @@ describe("Browser — #22 layout v2", () => {
 		expect(typeof tick).toBe("function")
 	})
 
+	test("normalizes multi-line discovery status into a single footer line", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={makeFiles(["alpha.md"])}
+					readFile={makeReader({ "alpha.md": "a" })}
+					discoveryStatus={"scan failed: boom\nsecond line\n  third line"}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("scan failed: boom second line third line")
+	})
+
 	test("filter chip uses secondary token as active metadata", async () => {
 		await act(async () => {
 			setup = await renderBrowserFast(

@@ -53,6 +53,8 @@ export interface FooterProps<C> {
 	readonly discoverySpinnerRegisterTick?: ((tick: () => void) => void) | null
 }
 
+const normalizeStatusLine = (status: string): string => status.replace(/\s+/g, " ").trim()
+
 const HINT_SEPARATOR = "  "
 
 /** Hint row entries. `key === null` is a standalone chip (e.g. the filter
@@ -137,7 +139,8 @@ export const Footer = <C,>({
 	// Discovery status sits left of the hints, separated by " · ". On tight
 	// viewports it claims its budget first; hints fit into the remainder so
 	// the indicator stays visible while less-essential hints drop off.
-	const status = discoveryStatus && discoveryStatus.length > 0 ? discoveryStatus : null
+	const status =
+		discoveryStatus && discoveryStatus.length > 0 ? normalizeStatusLine(discoveryStatus) : null
 	const statusBudget = status ? Math.min(status.length + STATUS_SEPARATOR.length, usableWidth) : 0
 	const hintsWidth = Math.max(0, usableWidth - statusBudget)
 	const visibleHints = fitHints(hints, hintsWidth)
