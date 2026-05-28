@@ -41,7 +41,7 @@ type PaletteRow =
 			readonly commandIndex: number
 	  }
 
-const buildRows = (commands: readonly AppCommand[], query: string): readonly PaletteRow[] => {
+const buildRows = (commands: readonly AppCommand[]): readonly PaletteRow[] => {
 	const grouped = new Map<string, AppCommand[]>()
 	for (const command of commands) {
 		const category = command.category ?? "Other"
@@ -92,7 +92,7 @@ export const CommandPalette = ({
 	// Window the visible slice around the selection. With 9 commands in v1
 	// this is usually a no-op (list fits), but the math is in place for the
 	// inevitable backlog growth.
-	const rows = buildRows(commands, query)
+	const rows = buildRows(commands)
 	const scrollTop = (() => {
 		if (rows.length <= bodyHeight) return 0
 		const maxScroll = rows.length - bodyHeight
