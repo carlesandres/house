@@ -34,7 +34,7 @@ const fuzzyIncludes = (text: string, query: string): boolean => {
 
 const searchText = (command: AppCommand): string =>
 	normalize(
-		[command.title, command.category, command.shortcut, ...(command.keywords ?? [])]
+		[command.title, command.category, ...(command.keywords ?? [])]
 			.filter((s): s is string => Boolean(s))
 			.join(" "),
 	)
