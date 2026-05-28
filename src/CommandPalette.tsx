@@ -41,7 +41,7 @@ type PaletteRow =
 			readonly commandIndex: number
 	  }
 
-const buildRows = (commands: readonly AppCommand[]): readonly PaletteRow[] => {
+export const orderCommandsForPalette = (commands: readonly AppCommand[]): readonly AppCommand[] => {
 	const grouped = new Map<string, AppCommand[]>()
 	for (const command of commands) {
 		const category = command.category ?? "Other"
@@ -55,15 +55,23 @@ const buildRows = (commands: readonly AppCommand[]): readonly PaletteRow[] => {
 		...Array.from(grouped.keys()).filter((category) => !CATEGORY_ORDER.includes(category as never)),
 	]
 
+	return orderedCategories.flatMap((category) => grouped.get(category) ?? [])
+}
+
+const buildRows = (commands: readonly AppCommand[]): readonly PaletteRow[] => {
+	const orderedCommands = orderCommandsForPalette(commands)
 	const rows: PaletteRow[] = []
+	let previousCategory: string | null = null
 	let commandIndex = 0
-	for (const [index, category] of orderedCategories.entries()) {
-		if (index > 0) rows.push({ kind: "spacer", key: `spacer-${category}` })
-		rows.push({ kind: "header", key: `header-${category}`, text: category })
-		for (const command of grouped.get(category) ?? []) {
-			rows.push({ kind: "command", key: command.id, command, commandIndex })
-			commandIndex += 1
+	for (const command of orderedCommands) {
+		const category = command.category ?? "Other"
+		if (category !== previousCategory) {
+			if (previousCategory !== null) rows.push({ kind: "spacer", key: `spacer-${category}` })
+			rows.push({ kind: "header", key: `header-${category}`, text: category })
+			previousCategory = category
 		}
+		rows.push({ kind: "command", key: command.id, command, commandIndex })
+		commandIndex += 1
 	}
 	return rows
 }
