@@ -42,15 +42,6 @@ type PaletteRow =
 	  }
 
 const buildRows = (commands: readonly AppCommand[], query: string): readonly PaletteRow[] => {
-	if (query.length > 0) {
-		return commands.map((command, commandIndex) => ({
-			kind: "command",
-			key: command.id,
-			command,
-			commandIndex,
-		}))
-	}
-
 	const grouped = new Map<string, AppCommand[]>()
 	for (const command of commands) {
 		const category = command.category ?? "Other"

@@ -2830,7 +2830,7 @@ describe("Browser — command palette", () => {
 		expect(frame).toContain("Filter files…")
 	})
 
-	test("typing collapses category headers into a flat ranked list", async () => {
+	test("typing keeps headers only for categories with matching commands", async () => {
 		const files = makeFiles(["README.md"])
 		await act(async () => {
 			setup = await renderBrowser(
@@ -2849,13 +2849,15 @@ describe("Browser — command palette", () => {
 		await act(async () => {
 			setup!.mockInput.pressKey("t")
 			setup!.mockInput.pressKey("h")
+			setup!.mockInput.pressKey("e")
+			setup!.mockInput.pressKey("m")
+			setup!.mockInput.pressKey("e")
 		})
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
 		expect(frame).toContain("Next theme")
-		expect(frame).toContain("Previous theme")
+		expect(frame).toContain("Appearance")
 		expect(frame).not.toContain("Navigation")
-		expect(frame).not.toContain("Appearance")
 	})
 
 	test("Esc closes the palette", async () => {
@@ -2904,7 +2906,7 @@ describe("Browser — command palette", () => {
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
 		expect(frame).toContain("Next theme")
-		expect(frame).toContain("Previous theme")
+		expect(frame).toContain("Appearance")
 		// Non-matching commands drop out.
 		expect(frame).not.toContain("Quit")
 		expect(frame).not.toContain("Toggle sidebar")
