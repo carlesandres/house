@@ -6,6 +6,14 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 
 ## [Unreleased]
 
+### Docs
+
+- Corrected usage docs and `--help` text: directory browsing is controlled by `--root` / `defaultRoot`; the positional path now seeds the initial browser filter query.
+
+### Changed
+
+- Removed TUI single-file mode: non-serve launches always open the browser over the discovery root, with any positional path applied as the initial sidebar filter.
+
 ## [0.4.7] — 2026-05-27
 
 ### Added

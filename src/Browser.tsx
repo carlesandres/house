@@ -51,6 +51,8 @@ export type StartupFocus = "sidebar" | "reader" | "filter"
 export interface BrowserProps {
 	readonly files: readonly FileEntry[]
 	readonly initialIndex?: number
+	/** Initial applied filter query seeded from the CLI positional. */
+	readonly initialQuery?: string
 	/** Cap the rendered markdown's width at N columns. Null = fill the pane. */
 	readonly maxWidth?: number | null
 	/** Persistent footer indicator (e.g. "indexing… 42"). Pass null/undefined
@@ -125,6 +127,7 @@ const RENDERED_PATH_DEBOUNCE_MS = 80
 export const Browser = ({
 	files,
 	initialIndex = 0,
+	initialQuery = "",
 	maxWidth = null,
 	discoveryStatus = null,
 	discoverySpinnerIntervalMs,
@@ -190,8 +193,8 @@ export const Browser = ({
 	const [sidebarScroll, setSidebarScroll] = useState<number>(0)
 	const [helpVisible, setHelpVisible] = useState<boolean>(false)
 	const [filterOpen, setFilterOpen] = useState<boolean>(startInFilter)
-	const [filterInput, setFilterInput] = useState<string>("")
-	const [filterApplied, setFilterApplied] = useState<string>("")
+	const [filterInput, setFilterInput] = useState<string>(initialQuery)
+	const [filterApplied, setFilterApplied] = useState<string>(initialQuery)
 	const [paletteOpen, setPaletteOpen] = useState<boolean>(false)
 	const [paletteQuery, setPaletteQuery] = useState<string>("")
 	const [paletteIndex, setPaletteIndex] = useState<number>(0)
@@ -211,8 +214,8 @@ export const Browser = ({
 	// first key opens the filter; subsequent keys in the same tick would
 	// otherwise still observe filterOpen=false through closure).
 	const filterOpenRef = useRef(startInFilter)
-	const filterInputRef = useRef("")
-	const filterAppliedRef = useRef("")
+	const filterInputRef = useRef(initialQuery)
+	const filterAppliedRef = useRef(initialQuery)
 	const autoSelectForAppliedFilterRef = useRef(true)
 	const focusRef = useRef<"sidebar" | "reader">(focus)
 	const restoreFilterOnSidebarFocusRef = useRef(startInFilter)

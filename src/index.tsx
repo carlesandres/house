@@ -1,15 +1,8 @@
 #!/usr/bin/env bun
-/**
- * house — entry point.
- *
- * Reads a markdown file path from argv and renders it via opentui's built-in
- * <markdown> component inside a scrollbox. q / ctrl+c to quit.
- *
- * Discovery, sidebar, theming, and richer Effect wiring all land after this.
- */
+/** house — entry point. Boots the browser TUI or `--serve` preview. */
 
 import { stat } from "node:fs/promises"
-import { dirname, resolve } from "node:path"
+import { dirname, isAbsolute, relative, resolve } from "node:path"
 import { createCliRenderer, SyntaxStyle } from "@opentui/core"
 import type { BorderSides } from "@opentui/core"
 import { createRoot, useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react"
@@ -23,7 +16,6 @@ import { defaultConfigPath, formatConfigError, loadConfig } from "./config/load.
 import { parseShowList, SHOW_CATEGORIES, type ShowCategory } from "./discovery/show.ts"
 import { walk, type FileEntry, type SortOrder } from "./discovery/walk.ts"
 import { Header } from "./Header.tsx"
-import { readFileText } from "./io/readFile.ts"
 import { parseFrontmatter } from "./markdown/frontmatter.ts"
 import { openInBrowser } from "./serve/openBrowser.ts"
 import { startServer } from "./serve/server.ts"
@@ -120,6 +112,7 @@ export const formatPartialDiscoveryStatus = ({
 
 interface DiscoverShellProps {
 	readonly target: string
+	readonly initialQuery: string
 	/** Resolved discovery vocabulary from the config layer. The shift+a
 	 *  toggle (#145) is session-only sugar that flips between this set
 	 *  and the full vocabulary; the underlying categories remain
@@ -134,6 +127,7 @@ interface DiscoverShellProps {
 
 const DiscoverShell = ({
 	target,
+	initialQuery,
 	initialShow,
 	sort,
 	mdx,
@@ -209,6 +203,7 @@ const DiscoverShell = ({
 	return (
 		<Browser
 			files={files}
+			initialQuery={initialQuery}
 			maxWidth={maxWidth}
 			discoveryStatus={discoveryStatus}
 			sidebarMode={sidebarMode}
@@ -317,6 +312,24 @@ export const App = ({ content, title = "house", maxWidth = null, onQuit }: AppPr
 	)
 }
 
+export const resolveInitialQuery = ({
+	pathArg,
+	discoveryRoot,
+	cwd,
+}: {
+	readonly pathArg: string | null
+	readonly discoveryRoot: string
+	readonly cwd: string
+}): string => {
+	if (pathArg === null) return ""
+	const resolvedPath = resolve(cwd, pathArg)
+	const rel = relative(discoveryRoot, resolvedPath)
+	if (rel.length === 0) return ""
+	if (!rel.startsWith("..") && !isAbsolute(rel)) return rel
+	if (pathArg.startsWith("./")) return pathArg.slice(2)
+	return pathArg
+}
+
 let updateExitHookRegistered = false
 
 if (import.meta.main) {
@@ -390,10 +403,15 @@ if (import.meta.main) {
 	}
 
 	const cwd = process.cwd()
-	const target = args.path ?? "."
 	const discoveryRoot = await resolveDiscoveryRoot({ cliRoot: args.root, defaultRoot, cwd })
+	const initialQuery = resolveInitialQuery({ pathArg: args.path, discoveryRoot, cwd })
 
 	if (args.serve) {
+		const target = args.path
+		if (target === null) {
+			console.error("house: --serve requires a file path")
+			process.exit(2)
+		}
 		let stats: Awaited<ReturnType<typeof stat>>
 		try {
 			stats = await stat(target)
@@ -451,8 +469,8 @@ if (import.meta.main) {
 			}
 		}
 		await runTui({
-			target,
 			discoveryRoot,
+			initialQuery,
 			themeId,
 			tone,
 			maxWidth,
@@ -467,8 +485,8 @@ if (import.meta.main) {
 }
 
 interface TuiBootOptions {
-	readonly target: string
 	readonly discoveryRoot: string
+	readonly initialQuery: string
 	readonly themeId: string
 	readonly tone: "dark" | "light"
 	readonly maxWidth: number | null
@@ -483,8 +501,8 @@ interface TuiBootOptions {
 }
 
 async function runTui({
-	target,
 	discoveryRoot,
+	initialQuery,
 	themeId,
 	tone,
 	maxWidth,
@@ -495,14 +513,6 @@ async function runTui({
 	startupFocus,
 	updateCheck,
 }: TuiBootOptions): Promise<void> {
-	let stats: Awaited<ReturnType<typeof stat>>
-	try {
-		stats = await stat(target)
-	} catch (err) {
-		console.error(`house: cannot access ${target}: ${String(err)}`)
-		process.exit(1)
-	}
-
 	if (updateCheck) {
 		// Fire the npm-registry probe in the background. Result lands in a
 		// module singleton; the React tree picks it up via `useUpdateNotice`
@@ -523,44 +533,24 @@ async function runTui({
 
 	const renderer = await createCliRenderer({ exitOnCtrlC: false })
 	const initialTheme: ThemeState = { id: themeId, tone }
-
-	if (stats.isDirectory()) {
-		try {
-			await validateDiscoveryRoot(discoveryRoot)
-		} catch (err) {
-			console.error(`house: ${err instanceof Error ? err.message : String(err)}`)
-			process.exit(1)
-		}
-		createRoot(renderer).render(
-			<RegistryProvider initialValues={[[themeAtom, initialTheme]]}>
-				<DiscoverShell
-					target={discoveryRoot}
-					initialShow={show}
-					sort={sort}
-					mdx={mdx}
-					maxWidth={maxWidth}
-					sidebarMode={sidebarMode}
-					startupFocus={startupFocus}
-				/>
-			</RegistryProvider>,
-		)
-	} else {
-		const content = await Effect.runPromise(
-			readFileText(target).pipe(
-				Effect.tapError((err) =>
-					Effect.sync(() => {
-						console.error(`house: cannot read ${err.path}: ${String(err.cause)}`)
-					}),
-				),
-			),
-		).catch(() => {
-			process.exit(1)
-		})
-		if (typeof content !== "string") process.exit(1)
-		createRoot(renderer).render(
-			<RegistryProvider initialValues={[[themeAtom, initialTheme]]}>
-				<App content={content} title={target} maxWidth={maxWidth} />
-			</RegistryProvider>,
-		)
+	try {
+		await validateDiscoveryRoot(discoveryRoot)
+	} catch (err) {
+		console.error(`house: ${err instanceof Error ? err.message : String(err)}`)
+		process.exit(1)
 	}
+	createRoot(renderer).render(
+		<RegistryProvider initialValues={[[themeAtom, initialTheme]]}>
+			<DiscoverShell
+				target={discoveryRoot}
+				initialQuery={initialQuery}
+				initialShow={show}
+				sort={sort}
+				mdx={mdx}
+				maxWidth={maxWidth}
+				sidebarMode={sidebarMode}
+				startupFocus={startupFocus}
+			/>
+		</RegistryProvider>,
+	)
 }

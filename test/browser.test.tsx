@@ -1989,6 +1989,30 @@ describe("Browser — sidebar filter row", () => {
 		expect(frame).toContain("> int▏")
 	})
 
+	test("initialQuery seeds the applied filter on launch", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={makeFiles(["README.md", "docs/intro.md", "notes.md"])}
+					initialQuery="intro"
+					readFile={makeReader({
+						"README.md": "x",
+						"docs/intro.md": "y",
+						"notes.md": "z",
+					})}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("> intro")
+		expect(frame).not.toContain("README.md")
+		expect(frame).not.toContain("notes.md")
+		expect(readerTitleContains(frame, "docs/intro.md")).toBe(true)
+	})
+
 	test("Esc keeps the typed query applied (close-without-revert)", async () => {
 		await act(async () => {
 			setup = await renderBrowser(

@@ -14,7 +14,7 @@ export interface ParsedArgs {
 	readonly width: string | null
 	/** Value of `--sort <mode>` (`dirs-first` or `files-first`), or null. Validated by the boot layer. */
 	readonly sort: string | null
-	/** True when `--serve` was passed: serve the given file as HTML, skip TUI. */
+	/** True when `--serve` was passed: serve the given path as HTML, skip TUI. */
 	readonly serve: boolean
 	/** Value of `--port <N>`, or null. Validated by the boot layer. */
 	readonly port: string | null
@@ -141,7 +141,7 @@ const themeList = themeDefinitions.map((t) => t.id).join(", ")
 
 export const usage = `usage: house [path] [options]
 
-  path           file or directory; defaults to the current directory
+  path           initial filter query; omit to browse the full discovery root
 
 options:
   --theme <id>   color theme: ${themeList} (default: opencode)
@@ -149,11 +149,11 @@ options:
   --width <N>    cap rendered markdown width at N columns
   --show <list>  reveal normally-skipped entries; comma-separated subset of:
                    hidden, gitignored. Use --show "" to clear.
-  --root <dir>   discovery root to walk (overrides defaultRoot config)
+  --root <dir>   discovery root to walk (overrides defaultRoot config/env)
   --sort <mode>  sidebar order: dirs-first (default) or files-first
   --sidebar <m>  initial sidebar visibility: auto (default), on, or off
   --focus <m>    startup focus: sidebar, reader, or filter (default: filter)
-  --serve        serve the given file as HTML in the browser (skips TUI)
+  --serve        serve the given path as HTML in the browser (skips TUI)
   --port <N>     port for --serve (default: OS-assigned)
   -h, --help     show this help and exit
   -v, --version  print version and exit

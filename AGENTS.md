@@ -35,7 +35,7 @@ For fenced code blocks, rely on opentui's built-in `<markdown>` renderer and kee
 ## Local commands
 
 ```bash
-bun run dev <path>      # watch + run from source
+bun run dev [path]      # watch + run from source; positional seeds filter, use --root <dir> to browse a directory
 bun test                # 75 tests, all headless
 bun run typecheck
 bun run lint

@@ -4,6 +4,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import {
 	formatPartialDiscoveryStatus,
+	resolveInitialQuery,
 	resolveDiscoveryRoot,
 	validateDiscoveryRoot,
 } from "../src/index.tsx"
@@ -42,6 +43,35 @@ describe("resolveDiscoveryRoot", () => {
 		await mkdir(nested, { recursive: true })
 		const resolved = await resolveDiscoveryRoot({ cliRoot: null, defaultRoot: "git", cwd: nested })
 		expect(resolved).toBe(nested)
+	})
+})
+
+describe("resolveInitialQuery", () => {
+	test("returns empty query when no positional was given", () => {
+		expect(resolveInitialQuery({ pathArg: null, discoveryRoot: dir, cwd: dir })).toBe("")
+	})
+
+	test("converts a relative file inside the root into a relative query", async () => {
+		const nested = join(dir, "docs")
+		await mkdir(nested, { recursive: true })
+		expect(resolveInitialQuery({ pathArg: "./docs/intro.md", discoveryRoot: dir, cwd: dir })).toBe(
+			"docs/intro.md",
+		)
+	})
+
+	test("converts an absolute path inside the root into a relative query", async () => {
+		const file = join(dir, "docs", "intro.md")
+		await mkdir(join(dir, "docs"), { recursive: true })
+		await writeFile(file, "x", "utf8")
+		expect(resolveInitialQuery({ pathArg: file, discoveryRoot: dir, cwd: dir })).toBe(
+			"docs/intro.md",
+		)
+	})
+
+	test("preserves a path outside the discovery root", () => {
+		expect(resolveInitialQuery({ pathArg: "../elsewhere.md", discoveryRoot: dir, cwd: dir })).toBe(
+			"../elsewhere.md",
+		)
 	})
 })
 
