@@ -13,7 +13,6 @@ import { dispatch, type KeyMatch } from "../src/keymap/keymap.ts"
 const noop = () => {}
 const noopSetIndex = (_: (prev: number) => number) => {}
 const noopSetFocus = (_: BrowserFocus | ((prev: BrowserFocus) => BrowserFocus)) => {}
-const noopSetHelp = (_: (prev: boolean) => boolean) => {}
 
 const makeFiles = (n: number): readonly FileEntry[] =>
 	Array.from({ length: n }, (_, i) => ({
@@ -39,7 +38,6 @@ const makeCtx = (o: CtxOverrides = {}): BrowserCtx => ({
 	hasSelected: o.hasSelected ?? true,
 	focus: o.focus ?? "sidebar",
 	sidebarShown: true,
-	helpVisible: false,
 	filterOpen: o.filterOpen ?? false,
 	restoreFilterOnSidebarFocus: false,
 	filterQuery: o.filterQuery ?? "",
@@ -47,7 +45,6 @@ const makeCtx = (o: CtxOverrides = {}): BrowserCtx => ({
 	setFocus: noopSetFocus,
 	setSelectedIndex: o.setSelectedIndex ?? noopSetIndex,
 	toggleShown: noop,
-	setHelpVisible: noopSetHelp,
 	openFilter: noop,
 	clearAndOpenFilter: noop,
 	openPalette: noop,

@@ -1,7 +1,7 @@
 /**
  * CommandPalette — modal overlay for searching and running commands.
  *
- * Render-only: state lives in Browser.tsx alongside helpVisible / filterOpen
+ * Render-only: state lives in Browser.tsx alongside filterOpen
  * (#70 design log §state location). Key handling sits in Browser.tsx's
  * `useKeyboard` palette-branch, mirroring the filterOpen pattern.
  *

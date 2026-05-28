@@ -2,9 +2,8 @@
  * Derive palette commands from `browserBindings` plus the annotation map.
  *
  * The annotation map is the *only* hand-written list keyed by binding id:
- * it carries (a) hide flags for bindings that are pure keystroke nav, and
- * (b) title rewrites for bindings whose `description` reads as a help-row
- * entry rather than a palette command. Every other binding is exposed
+ * it carries title rewrites and metadata for bindings whose raw
+ * `description` reads awkwardly as a palette command. Every enabled binding is exposed
  * verbatim — its `description` becomes the palette `title`, its first key
  * becomes the `shortcut`.
  *
@@ -30,19 +29,15 @@ interface Annotation {
 }
 
 /**
- * Pure-keystroke nav (j/k/space/b/[/]…) is intentionally hidden — those
- * bindings have no command-shaped meaning. Reader prev/next file (`[`/`]`)
- * and sidebar `open` (Return/l) are the borderline cases from #70 Q6a;
- * hidden in v1, reconsider if users ask. Title rewrites convert
- * help-overlay phrasing ("Toggle sidebar visibility") into imperative
- * palette phrasing ("Toggle sidebar"). See #70 design log §6.
+ * Title rewrites convert keymap phrasing into imperative palette phrasing.
+ * With the help overlay removed (#139), the palette is the only in-app full
+ * action index, so all currently-enabled actions stay discoverable here.
  */
 const annotations: Record<string, Annotation> = {
 	// --- Keep, with title rewrites where the binding description reads awkwardly as a command ---
 	quit: { category: "App" },
 	"focus.toggle": { title: "Toggle focus", category: "View" },
 	"sidebar.toggle": { title: "Toggle sidebar", category: "View" },
-	"help.toggle": { title: "Show help", category: "App" },
 	"filter.open": { title: "Filter files…", category: "Navigation" },
 	"discovery.toggleAll": {
 		title: "Toggle hidden / gitignored files",
@@ -55,24 +50,6 @@ const annotations: Record<string, Annotation> = {
 	"theme.prev": { category: "Appearance" },
 	"theme.toneToggle": { title: "Toggle dark/light tone", category: "Appearance" },
 
-	// --- Hide: pure keystroke navigation (j/k/space/b/g/G…) ---
-	"sidebar.down": { hidden: true },
-	"sidebar.up": { hidden: true },
-	"sidebar.jumpDown": { hidden: true },
-	"sidebar.jumpUp": { hidden: true },
-	"sidebar.pageDown": { hidden: true },
-	"sidebar.pageUp": { hidden: true },
-	"sidebar.top": { hidden: true },
-	"sidebar.bottom": { hidden: true },
-
-	// --- Hide: borderline reader nav. `[`/`]` and Return-to-open feel command-shaped
-	//     but are pure keystroke navigation under the hood. #70 Q6a — reconsider
-	//     if user feedback expects them in the palette.
-	"sidebar.open": { hidden: true },
-	"reader.back": { hidden: true },
-	"reader.prevFile": { hidden: true },
-	"reader.nextFile": { hidden: true },
-
 	// --- Hide: the palette opener itself shouldn't appear in the palette ---
 	"palette.open": { hidden: true },
 }
@@ -80,8 +57,8 @@ const annotations: Record<string, Annotation> = {
 /**
  * Build the AppCommand list for a given render. Iterates `browserBindings`
  * in array order (the empty-query palette renders in this order, by design
- * — see #70 design log §empty-state ordering), drops hidden entries and
- * those whose `when` predicate currently returns false, and resolves
+ * — see #70 design log §empty-state ordering), drops explicitly-hidden entries
+ * and those whose `when` predicate currently returns false, and resolves
  * annotations to populate title / category / keywords.
  */
 export const buildCommands = (ctx: BrowserCtx): readonly AppCommand[] => {
@@ -89,9 +66,8 @@ export const buildCommands = (ctx: BrowserCtx): readonly AppCommand[] => {
 	for (const binding of browserBindings) {
 		const ann = annotations[binding.id]
 		if (ann?.hidden) continue
-		// Same gating the keymap dispatcher uses. Disabled bindings get
-		// hidden from the palette (per #70 Q5b — see #96 for the show-with-
-		// reason follow-up after the atom-driven migration).
+		// Same gating the keymap dispatcher uses. Disabled bindings stay out of
+		// the palette; #96 tracks a future show-with-reason mode.
 		if (binding.when && !binding.when(ctx)) continue
 		const cmd: AppCommand = {
 			id: binding.id,

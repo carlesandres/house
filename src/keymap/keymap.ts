@@ -3,8 +3,8 @@
  *
  * Bindings are values: `{ id, description, keys, when?, run }`. A pure
  * `dispatch` looks up the first matching, enabled binding for a key event
- * and runs it. The same array drives the help overlay, so there is one
- * source of truth.
+ * and runs it. The same array also drives footer hints and command-palette
+ * derivation, so there is one source of truth.
  *
  * Deliberately *not* a port of ghui's `@ghui/keymap`: no chord sequences,
  * no count prefixes, no scope contramaps. See DESIGN.md §12 for the full
@@ -22,11 +22,11 @@ export interface KeyMatch {
 export interface KeyBinding<C> {
 	/** Stable id; used for tests and (later) command-palette routing. */
 	readonly id: string
-	/** Human-readable summary, shown in the help overlay. */
+	/** Human-readable summary used by docs and palette command titles. */
 	readonly description: string
 	/** Key chords that trigger this binding, e.g. ["j", "down"], ["shift+k"], ["ctrl+c"]. */
 	readonly keys: readonly string[]
-	/** Optional grouping label for the help overlay. Bindings without a group are excluded from help. */
+	/** Optional grouping label for derived UI/documentation surfaces. */
 	readonly group?: string
 	/** Optional compact label for the footer hint row, e.g. "help" for `?:help`.
 	 *  Bindings without a hint are excluded from the footer. Order in the bindings

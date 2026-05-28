@@ -55,11 +55,6 @@ const tipDefinitions: readonly TipDefinition[] = [
 		render: ({ key }) =>
 			`Press ${key ?? "s"} to hide or show the sidebar without losing your place.`,
 	},
-	{
-		id: "help.open",
-		bindingId: "help.toggle",
-		render: ({ key }) => `Press ${key ?? "?"} to open the full keyboard help at any time.`,
-	},
 ]
 
 const firstKeyByBindingId = <C>(bindings: readonly KeyBinding<C>[]): ReadonlyMap<string, string> =>
