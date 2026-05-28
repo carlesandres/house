@@ -2823,9 +2823,39 @@ describe("Browser — command palette", () => {
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
 		expect(frame).toContain("Commands")
+		expect(frame).toContain("Navigation")
+		expect(frame).toContain("View")
 		// Default-visible command titles from the annotation map are shown.
 		expect(frame).toContain("Toggle sidebar")
-		expect(frame).toContain("Quit")
+		expect(frame).toContain("Filter files…")
+	})
+
+	test("typing collapses category headers into a flat ranked list", async () => {
+		const files = makeFiles(["README.md"])
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser files={files} readFile={makeReader({ "README.md": "x" })} onQuit={() => {}} />,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		await act(async () => {
+			setup!.mockInput.pressKey("p", { ctrl: true })
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).toContain("Navigation")
+
+		await act(async () => {
+			setup!.mockInput.pressKey("t")
+			setup!.mockInput.pressKey("h")
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("Next theme")
+		expect(frame).toContain("Previous theme")
+		expect(frame).not.toContain("Navigation")
+		expect(frame).not.toContain("Appearance")
 	})
 
 	test("Esc closes the palette", async () => {
