@@ -861,7 +861,6 @@ export const Browser = ({
 		width,
 		notice: footerNotice?.text ?? null,
 		discoveryStatus,
-		filterQuery: !filterOpen && filterInput.length > 0 ? filterInput : null,
 		...(discoverySpinnerIntervalMs === undefined ? {} : { discoverySpinnerIntervalMs }),
 		...(discoverySpinnerInitialFrameIndex === undefined
 			? {}
