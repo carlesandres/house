@@ -13,6 +13,11 @@ export interface FileEntry {
 	readonly name: string
 }
 
+export interface DiscoveryWarning {
+	readonly path: string
+	readonly cause: unknown
+}
+
 export type SortOrder = "dirs-first" | "files-first"
 
 export interface WalkOptions {
@@ -25,6 +30,8 @@ export interface WalkOptions {
 	readonly sort?: SortOrder
 	/** Include `.mdx` files alongside `.md`/`.markdown`. Default `true`. */
 	readonly mdx?: boolean
+	/** Non-fatal subtree read errors. Root-level failures still error the walk. */
+	readonly onWarning?: ((warning: DiscoveryWarning) => void) | null
 }
 
 export class DiscoveryError extends Data.TaggedError("DiscoveryError")<{
@@ -93,9 +100,11 @@ async function* walkDirGen(
 	rootPath: string,
 	parentLevels: readonly IgnoreLevel[],
 	opts: { showHidden: boolean; showGitignored: boolean; sort: SortOrder; mdx: boolean },
+	onWarning: ((warning: DiscoveryWarning) => void) | null,
 	signal: AbortSignal,
 ): AsyncGenerator<FileEntry, void, void> {
 	if (signal.aborted) return
+	const isRoot = dirPath === rootPath
 
 	let levels = parentLevels
 	if (!opts.showGitignored) {
@@ -104,7 +113,14 @@ async function* walkDirGen(
 		if (ig) levels = [...parentLevels, { dir: dirPath, ig }]
 	}
 
-	const raw = await readdir(dirPath, { withFileTypes: true })
+	let raw
+	try {
+		raw = await readdir(dirPath, { withFileTypes: true })
+	} catch (error) {
+		if (isRoot) throw error
+		onWarning?.({ path: dirPath, cause: error })
+		return
+	}
 	if (signal.aborted) return
 
 	for (const entry of sortEntries(raw, opts.sort)) {
@@ -120,7 +136,7 @@ async function* walkDirGen(
 			if (HARD_SKIP_DIRS.has(entry.name)) continue
 			if (!opts.showHidden && entry.name.startsWith(".")) continue
 			if (!opts.showGitignored && isIgnored(entryPath, true, levels)) continue
-			yield* walkDirGen(entryPath, rootPath, levels, opts, signal)
+			yield* walkDirGen(entryPath, rootPath, levels, opts, onWarning, signal)
 			continue
 		}
 
@@ -165,10 +181,11 @@ export const walk = (
 		sort: options.sort ?? ("dirs-first" as SortOrder),
 		mdx: options.mdx ?? true,
 	}
+	const onWarning = options.onWarning ?? null
 	const controller = new AbortController()
 	const iterable: AsyncIterable<FileEntry> = {
 		[Symbol.asyncIterator]() {
-			const gen = walkDirGen(absRoot, absRoot, [], opts, controller.signal)
+			const gen = walkDirGen(absRoot, absRoot, [], opts, onWarning, controller.signal)
 			return {
 				next: () => gen.next(),
 				return: async (value?: void) => {

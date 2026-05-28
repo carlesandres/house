@@ -22,15 +22,11 @@ An item belongs here if its absence is a visible papercut or a table-stakes capa
 | Bugs | Raw multi-line `Cause.pretty` from scan errors corrupts footer + reader | [#172](https://github.com/carlesandres/house/issues/172) |
 | Bugs | `--root` flag is not validated before launching directory-mode TUI | [#173](https://github.com/carlesandres/house/issues/173) |
 | Bugs | No coherent UX or tests for partial discovery failures | [#174](https://github.com/carlesandres/house/issues/174) |
-| Architecture | Unify single-file and directory modes (epic) | [#118](https://github.com/carlesandres/house/issues/118) |
 | Architecture | `defaultRoot` config + `--root` flag | [#109](https://github.com/carlesandres/house/issues/109) |
 | Architecture | Spinner component + indexing-status integration | [#110](https://github.com/carlesandres/house/issues/110) |
 | Architecture | Debounced filter (50ms) with flush points | [#111](https://github.com/carlesandres/house/issues/111) |
 | Architecture | Sticky first-match auto-select | [#112](https://github.com/carlesandres/house/issues/112) |
-| Architecture | Browser accepts `initialQuery` prop | [#113](https://github.com/carlesandres/house/issues/113) |
-| Architecture | CLI positional → filter query; delete `App` (breaking) | [#114](https://github.com/carlesandres/house/issues/114) |
 | Architecture | Sidebar empty-state copy | [#116](https://github.com/carlesandres/house/issues/116) |
-| Architecture | Docs sweep for unified model | [#117](https://github.com/carlesandres/house/issues/117) |
 | File-level | Delete current file with confirmation | [#20](https://github.com/carlesandres/house/issues/20) |
 | Navigation | Search — filename, full-text, fuzzy | [#25](https://github.com/carlesandres/house/issues/25) |
 | Navigation | Navigation history stack (back/forward) ★ | [#29](https://github.com/carlesandres/house/issues/29) |

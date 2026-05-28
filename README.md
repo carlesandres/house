@@ -1,6 +1,6 @@
 # ⌂ house
 
-A terminal markdown reader and navigator — themable and configurable, with a keyboard-driven modern UI. Point it at a directory and browse its `.md` files without leaving the terminal.
+A terminal markdown reader and navigator — themable and configurable, with a keyboard-driven modern UI. Browse a directory of `.md` files without leaving the terminal.
 
 ![house demo](tape/house.gif)
 
@@ -42,10 +42,12 @@ bun add -g @carlesandres/house
 ## Usage
 
 ```
-house [options] <path>
+house [path] [options]
 ```
 
-`<path>` can be a directory (walks for `.md`, `.markdown`, and `.mdx` files) or a single markdown file. Defaults to the current directory if omitted.
+By default, `house` opens the browser over the configured discovery root: the current directory, or the git root when `defaultRoot = "git"` is configured. Use `--root <dir>` to browse a specific directory.
+
+`[path]` seeds the initial sidebar filter query. It does **not** set the discovery root; use `--root <dir>` for that.
 
 ### Options
 
@@ -55,10 +57,11 @@ house [options] <path>
 | `--tone dark\|light` | `dark` | Starting tone |
 | `--width <N>` | — | Cap rendered markdown width at N columns |
 | `--show <list>` | `""` | Reveal normally-skipped entries; comma-separated subset of `hidden`, `gitignored`. Use `--show ""` to clear. |
+| `--root <dir>` | current directory | Discovery root to walk; overrides `defaultRoot` config/env |
 | `--sort <mode>` | `dirs-first` | Sidebar order: `dirs-first` or `files-first` |
 | `--sidebar <mode>` | `auto` | Initial sidebar visibility: `auto`, `on`, or `off` |
 | `--focus <mode>` | `filter` | Startup focus: `sidebar`, `reader`, or `filter`. `filter` opens the sidebar filter prompt immediately. |
-| `--serve` | off | Serve the given file as HTML in the browser (skips TUI) |
+| `--serve` | off | Serve the given path as HTML in the browser (skips TUI) |
 | `--port <N>` | OS-assigned | Port for `--serve` |
 | `--no-mdx` | off | Exclude `.mdx` files from discovery |
 | `--no-update-check` | off | Suppress the "newer version available" check (also via `NO_UPDATE_NOTIFIER=1`) |
@@ -83,18 +86,19 @@ tone  = "dark"
 mdx   = true
 show  = ["hidden", "gitignored"]
 focus = "filter"
+defaultRoot = "cwd" # or "git"
 ```
 
-Supported keys: `theme`, `tone`, `mdx`, `show`, `focus`.
+Supported keys: `theme`, `tone`, `mdx`, `show`, `focus`, `defaultRoot`.
 
 `show` is a list of normally-skipped categories to opt into. Known categories: `hidden` (dot-prefixed entries), `gitignored` (entries matched by a `.gitignore`). Default is the empty list. Hard skips (`node_modules`, `.git`, `.venv`) always apply.
 
 Precedence, highest to lowest:
 
-1. CLI flags (`--theme`, `--tone`, `--no-mdx`, `--show`, `--focus`)
-2. Env vars (`HOUSE_THEME`, `HOUSE_TONE`, `HOUSE_MDX`, `HOUSE_SHOW`, `HOUSE_FOCUS`)
+1. CLI flags (`--theme`, `--tone`, `--no-mdx`, `--show`, `--focus`, `--root`)
+2. Env vars (`HOUSE_THEME`, `HOUSE_TONE`, `HOUSE_MDX`, `HOUSE_SHOW`, `HOUSE_FOCUS`, `HOUSE_DEFAULT_ROOT`)
 3. Config file
-4. Built-in defaults (`opencode` / `dark` / `mdx = true` / `show = []` / `focus = "filter"`)
+4. Built-in defaults (`opencode` / `dark` / `mdx = true` / `show = []` / `focus = "filter"` / `defaultRoot = "cwd"`)
 
 `HOUSE_SHOW` takes a comma-separated list (`HOUSE_SHOW=hidden,gitignored`). For `show` specifically, each source completely replaces the next — categories don't merge across layers. Press `shift+a` in the TUI to round-trip between the configured set and the full vocabulary without editing config.
 

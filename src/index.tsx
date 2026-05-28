@@ -1,15 +1,8 @@
 #!/usr/bin/env bun
-/**
- * house — entry point.
- *
- * Reads a markdown file path from argv and renders it via opentui's built-in
- * <markdown> component inside a scrollbox. q / ctrl+c to quit.
- *
- * Discovery, sidebar, theming, and richer Effect wiring all land after this.
- */
+/** house — entry point. Boots the browser TUI or `--serve` preview. */
 
 import { stat } from "node:fs/promises"
-import { dirname, resolve } from "node:path"
+import { dirname, isAbsolute, relative, resolve } from "node:path"
 import { createCliRenderer, SyntaxStyle } from "@opentui/core"
 import type { BorderSides } from "@opentui/core"
 import { createRoot, useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react"
@@ -23,7 +16,7 @@ import { defaultConfigPath, formatConfigError, loadConfig } from "./config/load.
 import { parseShowList, SHOW_CATEGORIES, type ShowCategory } from "./discovery/show.ts"
 import { walk, type FileEntry, type SortOrder } from "./discovery/walk.ts"
 import { Header } from "./Header.tsx"
-import { readFileText } from "./io/readFile.ts"
+import { parseFrontmatter } from "./markdown/frontmatter.ts"
 import { openInBrowser } from "./serve/openBrowser.ts"
 import { startServer } from "./serve/server.ts"
 import { colors, setActiveTheme } from "./theme/colors.ts"
@@ -92,8 +85,34 @@ export const resolveDiscoveryRoot = async ({
 	return cwd
 }
 
+export const validateDiscoveryRoot = async (root: string): Promise<void> => {
+	let stats: Awaited<ReturnType<typeof stat>>
+	try {
+		stats = await stat(root)
+	} catch (err) {
+		throw new Error(`cannot access discovery root ${root}: ${String(err)}`)
+	}
+	if (!stats.isDirectory()) {
+		throw new Error(`discovery root must be a directory, got file ${root}`)
+	}
+}
+
+export const formatPartialDiscoveryStatus = ({
+	skippedCount,
+	lastSkippedPath,
+}: {
+	readonly skippedCount: number
+	readonly lastSkippedPath: string | null
+}): string | null => {
+	if (skippedCount <= 0) return null
+	const noun = skippedCount === 1 ? "directory" : "directories"
+	const suffix = lastSkippedPath && skippedCount === 1 ? `: ${lastSkippedPath}` : ""
+	return `scan incomplete: skipped ${skippedCount} ${noun}${suffix}`
+}
+
 interface DiscoverShellProps {
 	readonly target: string
+	readonly initialQuery: string
 	/** Resolved discovery vocabulary from the config layer. The shift+a
 	 *  toggle (#145) is session-only sugar that flips between this set
 	 *  and the full vocabulary; the underlying categories remain
@@ -108,6 +127,7 @@ interface DiscoverShellProps {
 
 const DiscoverShell = ({
 	target,
+	initialQuery,
 	initialShow,
 	sort,
 	mdx,
@@ -120,6 +140,8 @@ const DiscoverShell = ({
 	const [files, setFiles] = useState<readonly FileEntry[]>([])
 	const [scanning, setScanning] = useState<boolean>(true)
 	const [scanError, setScanError] = useState<string | null>(null)
+	const [skippedDirCount, setSkippedDirCount] = useState<number>(0)
+	const [lastSkippedDir, setLastSkippedDir] = useState<string | null>(null)
 	// Files arrive in a ref-tracked count so the status string can show
 	// "indexing… N" even when React hasn't yet flushed the latest setFiles.
 	const countRef = useRef(0)
@@ -132,8 +154,18 @@ const DiscoverShell = ({
 		setFiles([])
 		setScanning(true)
 		setScanError(null)
+		setSkippedDirCount(0)
+		setLastSkippedDir(null)
 		countRef.current = 0
-		const program = walk(target, { show, sort, mdx }).pipe(
+		const warnedProgram = walk(target, {
+			show,
+			sort,
+			mdx,
+			onWarning: ({ path }) => {
+				setSkippedDirCount((prev) => prev + 1)
+				setLastSkippedDir(path)
+			},
+		}).pipe(
 			Stream.groupedWithin(64, Duration.millis(60)),
 			Stream.runForEach((chunk) =>
 				Effect.sync(() => {
@@ -147,24 +179,31 @@ const DiscoverShell = ({
 				onSuccess: () => Effect.sync(() => setScanning(false)),
 				onFailure: (cause) =>
 					Effect.sync(() => {
-						// Interruption is the normal teardown path — don't surface it.
 						if (Cause.hasInterrupts(cause)) return
 						setScanError(`scan failed: ${Cause.pretty(cause)}`)
 						setScanning(false)
 					}),
 			}),
 		)
-		const fiber = Effect.runFork(program)
+		const fiber = Effect.runFork(warnedProgram)
 		return () => {
 			Effect.runFork(Fiber.interrupt(fiber))
 		}
 	}, [target, show, sort, mdx])
 
-	const discoveryStatus = scanError ?? (scanning ? `indexing… ${countRef.current}` : null)
+	const discoveryStatus =
+		scanError ??
+		(scanning
+			? `indexing… ${countRef.current}`
+			: formatPartialDiscoveryStatus({
+					skippedCount: skippedDirCount,
+					lastSkippedPath: lastSkippedDir,
+				}))
 
 	return (
 		<Browser
 			files={files}
+			initialQuery={initialQuery}
 			maxWidth={maxWidth}
 			discoveryStatus={discoveryStatus}
 			sidebarMode={sidebarMode}
@@ -220,6 +259,7 @@ export const App = ({ content, title = "house", maxWidth = null, onQuit }: AppPr
 	})
 
 	const paneBorderSides: BorderSides[] = ["top", "bottom"]
+	const parsedContent = useMemo(() => parseFrontmatter(content), [content])
 
 	return (
 		<box style={{ width, height, flexDirection: "column", backgroundColor: colors.background }}>
@@ -244,8 +284,22 @@ export const App = ({ content, title = "house", maxWidth = null, onQuit }: AppPr
 					}}
 					focused
 				>
+					{parsedContent.fields.length > 0 && (
+						<box style={{ flexDirection: "column", marginBottom: 1 }}>
+							{parsedContent.fields.map((field) => (
+								<box key={field.key} style={{ flexDirection: "row", gap: 1, flexWrap: "wrap" }}>
+									<text
+										content={`${field.key}:`}
+										wrapMode="word"
+										style={{ fg: colors.secondary }}
+									/>
+									<text content={field.value} wrapMode="word" style={{ fg: colors.textMuted }} />
+								</box>
+							))}
+						</box>
+					)}
 					<markdown
-						content={content}
+						content={parsedContent.body}
 						syntaxStyle={syntaxStyle}
 						fg={colors.text}
 						bg={colors.background}
@@ -256,6 +310,24 @@ export const App = ({ content, title = "house", maxWidth = null, onQuit }: AppPr
 			</box>
 		</box>
 	)
+}
+
+export const resolveInitialQuery = ({
+	pathArg,
+	discoveryRoot,
+	cwd,
+}: {
+	readonly pathArg: string | null
+	readonly discoveryRoot: string
+	readonly cwd: string
+}): string => {
+	if (pathArg === null) return ""
+	const resolvedPath = resolve(cwd, pathArg)
+	const rel = relative(discoveryRoot, resolvedPath)
+	if (rel.length === 0) return ""
+	if (!rel.startsWith("..") && !isAbsolute(rel)) return rel
+	if (pathArg.startsWith("./")) return pathArg.slice(2)
+	return pathArg
 }
 
 let updateExitHookRegistered = false
@@ -331,10 +403,15 @@ if (import.meta.main) {
 	}
 
 	const cwd = process.cwd()
-	const target = args.path ?? "."
 	const discoveryRoot = await resolveDiscoveryRoot({ cliRoot: args.root, defaultRoot, cwd })
+	const initialQuery = resolveInitialQuery({ pathArg: args.path, discoveryRoot, cwd })
 
 	if (args.serve) {
+		const target = args.path
+		if (target === null) {
+			console.error("house: --serve requires a file path")
+			process.exit(2)
+		}
 		let stats: Awaited<ReturnType<typeof stat>>
 		try {
 			stats = await stat(target)
@@ -392,8 +469,8 @@ if (import.meta.main) {
 			}
 		}
 		await runTui({
-			target,
 			discoveryRoot,
+			initialQuery,
 			themeId,
 			tone,
 			maxWidth,
@@ -408,8 +485,8 @@ if (import.meta.main) {
 }
 
 interface TuiBootOptions {
-	readonly target: string
 	readonly discoveryRoot: string
+	readonly initialQuery: string
 	readonly themeId: string
 	readonly tone: "dark" | "light"
 	readonly maxWidth: number | null
@@ -424,8 +501,8 @@ interface TuiBootOptions {
 }
 
 async function runTui({
-	target,
 	discoveryRoot,
+	initialQuery,
 	themeId,
 	tone,
 	maxWidth,
@@ -436,14 +513,6 @@ async function runTui({
 	startupFocus,
 	updateCheck,
 }: TuiBootOptions): Promise<void> {
-	let stats: Awaited<ReturnType<typeof stat>>
-	try {
-		stats = await stat(target)
-	} catch (err) {
-		console.error(`house: cannot access ${target}: ${String(err)}`)
-		process.exit(1)
-	}
-
 	if (updateCheck) {
 		// Fire the npm-registry probe in the background. Result lands in a
 		// module singleton; the React tree picks it up via `useUpdateNotice`
@@ -464,38 +533,24 @@ async function runTui({
 
 	const renderer = await createCliRenderer({ exitOnCtrlC: false })
 	const initialTheme: ThemeState = { id: themeId, tone }
-
-	if (stats.isDirectory()) {
-		createRoot(renderer).render(
-			<RegistryProvider initialValues={[[themeAtom, initialTheme]]}>
-				<DiscoverShell
-					target={discoveryRoot}
-					initialShow={show}
-					sort={sort}
-					mdx={mdx}
-					maxWidth={maxWidth}
-					sidebarMode={sidebarMode}
-					startupFocus={startupFocus}
-				/>
-			</RegistryProvider>,
-		)
-	} else {
-		const content = await Effect.runPromise(
-			readFileText(target).pipe(
-				Effect.tapError((err) =>
-					Effect.sync(() => {
-						console.error(`house: cannot read ${err.path}: ${String(err.cause)}`)
-					}),
-				),
-			),
-		).catch(() => {
-			process.exit(1)
-		})
-		if (typeof content !== "string") process.exit(1)
-		createRoot(renderer).render(
-			<RegistryProvider initialValues={[[themeAtom, initialTheme]]}>
-				<App content={content} title={target} maxWidth={maxWidth} />
-			</RegistryProvider>,
-		)
+	try {
+		await validateDiscoveryRoot(discoveryRoot)
+	} catch (err) {
+		console.error(`house: ${err instanceof Error ? err.message : String(err)}`)
+		process.exit(1)
 	}
+	createRoot(renderer).render(
+		<RegistryProvider initialValues={[[themeAtom, initialTheme]]}>
+			<DiscoverShell
+				target={discoveryRoot}
+				initialQuery={initialQuery}
+				initialShow={show}
+				sort={sort}
+				mdx={mdx}
+				maxWidth={maxWidth}
+				sidebarMode={sidebarMode}
+				startupFocus={startupFocus}
+			/>
+		</RegistryProvider>,
+	)
 }

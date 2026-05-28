@@ -15,7 +15,7 @@
 import { isNewer } from "./compare.ts"
 import { readCache, writeCache, type UpdateCacheRecord } from "./cache.ts"
 
-export const TTL_MS = 24 * 60 * 60 * 1000
+export const TTL_MS = 60 * 60 * 1000
 const FETCH_TIMEOUT_MS = 3000
 const REGISTRY_URL = (pkgName: string) => `https://registry.npmjs.org/${pkgName}/latest`
 

@@ -6,7 +6,7 @@
 
 ## 1. Overview
 
-`house` is a TUI-first markdown reader for the terminal. It opens in the current directory (or a path argument), shows a sidebar of markdown files, and renders the selected file in an adjacent reader pane. It is meant to be a great daily-driver for reading local project docs, and a showcase for what `opentui` can do in a real app.
+`house` is a TUI-first markdown reader for the terminal. It opens in a discovery root (the current directory by default, configurable with `--root` or `defaultRoot`), shows a sidebar of markdown files, and renders the selected file in an adjacent reader pane. It is meant to be a great daily-driver for reading local project docs, and a showcase for what `opentui` can do in a real app.
 
 It is explicitly **not** glow rewritten in TypeScript: glow's center of gravity is a CLI formatter that also happens to have a TUI; ours is a TUI that also happens to have a minimal CLI.
 
@@ -45,7 +45,7 @@ v1 is a personal-use MVP. It may never be published to npm, GitHub, or Homebrew.
 
 v1 ships when:
 
-1. `house` and `house <path>` open a TUI with a sidebar of `.md` / `.markdown` / `.mdx` files discovered recursively from the path (default cwd).
+1. `house` opens a TUI with a sidebar of `.md` / `.markdown` / `.mdx` files discovered recursively from the configured discovery root (default cwd). `house <path>` seeds the initial sidebar filter query; all non-serve launches use the Browser model from §7.4.
 2. Discovery respects `.gitignore`, skips `node_modules` / `.git` / `.venv` unconditionally, and does not follow symlinks.
 3. Selecting a file renders it in the reader pane with support for: headings, paragraphs, lists (ordered, unordered, nested), blockquotes, GFM tables, inline emphasis (bold, italic, and strike — strike rendered as dim/muted because opentui's syntax-style API has no strikethrough attribute), inline code, links (rendered, not followed), images-as-alt-text, horizontal rules, fenced code blocks, including language-tagged fences.
 4. The keymap in §7.2 works end-to-end, including the help overlay.
@@ -72,12 +72,12 @@ Key reservations for deferred features (search, navigation history, bookmarks, e
 
 | Rule | v1 behavior |
 |---|---|
-| Root | Path argument if given, else `cwd`. |
+| Root | `--root <dir>` if given, else `defaultRoot` config/env (`cwd` or `git`), else `cwd`. The positional path does not set the discovery root. |
 | Recursion | Unbounded depth from root. |
 | Extensions | `.md`, `.markdown`, `.mdx` (mdx rendered as plain markdown — no JSX evaluation). `.mdx` is opt-out via `--no-mdx` or `mdx = false` in `config.toml` (or `HOUSE_MDX=false`). |
 | Ignore files | `.gitignore` honored. Nested `.gitignore` files honored. |
-| Hard skips | `node_modules`, `.git`, `.venv` (always, even with `--all`). |
-| Hidden files | Skipped by default; `--all` to include. |
+| Hard skips | `node_modules`, `.git`, `.venv` (always, even with `--show`). |
+| Hidden files | Skipped by default; `--show hidden` to include. |
 | Symlinks | Not followed (loop hazard). |
 | Sort | Alphabetical within each group. Group order is controlled by `--sort`: `dirs-first` (default) puts directories above files; `files-first` flips it so the current directory's files appear before nested subtrees. |
 
@@ -263,10 +263,10 @@ src/
 ├── theme/colors.ts        mutable singleton `colors` + setActiveTheme
 ├── Browser.tsx            two-pane component (sidebar + reader, focus, help overlay)
 ├── HelpOverlay.tsx        renders KeyBinding[] grouped by group field
-└── index.tsx              entry: parseArgv → stat path → <Browser> or single-file <App>
+└── index.tsx              entry: parseArgv → resolve root/query → <Browser> or `--serve`
 ```
 
-A separate `reader/` module did not justify itself in v1: opentui's `<markdown>` plus a `<scrollbox>` wrapper is small enough to live inline in `Browser.tsx` and the single-file `App` in `index.tsx`. Extracting it is a follow-up once a second consumer (e.g., URL-fetched markdown, search-result preview) appears.
+A separate `reader/` module did not justify itself in v1: opentui's `<markdown>` plus a `<scrollbox>` wrapper is small enough to live inline in `Browser.tsx`. Extracting it is a follow-up once a second consumer (e.g., URL-fetched markdown, search-result preview) appears.
 
 ### 9.2 Data flow
 

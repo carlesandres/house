@@ -13,8 +13,8 @@ let setup: Awaited<ReturnType<typeof testRender>> | null = null
 let originalSetInterval: typeof globalThis.setInterval
 let originalClearInterval: typeof globalThis.clearInterval
 
-afterEach(() => {
-	destroyTestRenderer(setup)
+afterEach(async () => {
+	await destroyTestRenderer(setup)
 	setup = null
 })
 
@@ -59,7 +59,7 @@ describe("Spinner", () => {
 			await act(async () => {
 				setup = await testRender(<Spinner intervalMs={5} />, { width: 10, height: 1 })
 			})
-			destroyTestRenderer(setup)
+			await destroyTestRenderer(setup)
 			setup = null
 			expect(clears).toBeGreaterThan(0)
 		} finally {

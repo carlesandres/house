@@ -26,10 +26,11 @@ export const resetOpenTuiSingletons = () => {
 	}
 }
 
-export const destroyTestRenderer = (setup: { renderer: { destroy: () => void } } | null) => {
+export const destroyTestRenderer = async (setup: { renderer: { destroy: () => void } } | null) => {
 	if (setup) {
-		act(() => {
+		await act(async () => {
 			setup.renderer.destroy()
+			await Promise.resolve()
 		})
 	}
 	resetOpenTuiSingletons()

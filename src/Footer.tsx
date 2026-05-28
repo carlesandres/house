@@ -40,11 +40,6 @@ export interface FooterProps<C> {
 	 *  no TTL, cleared by the caller when the underlying activity finishes.
 	 *  Loses to `notice` when both are set so transient toasts still surface. */
 	readonly discoveryStatus?: string | null
-	/** When a filter is applied but the input is closed, surface a chip in the
-	 *  hint row so the user remembers `[`/`]` walks the filtered set. Pass null
-	 *  while the filter input is open (the sidebar already shows the query) or
-	 *  when no filter is applied. */
-	readonly filterQuery?: string | null
 	/** Test seam: override spinner tick speed so tests don't sleep on the full
 	 *  production interval. Ignored when discoveryStatus is null. */
 	readonly discoverySpinnerIntervalMs?: number
@@ -53,17 +48,16 @@ export interface FooterProps<C> {
 	readonly discoverySpinnerRegisterTick?: ((tick: () => void) => void) | null
 }
 
+const normalizeStatusLine = (status: string): string => status.replace(/\s+/g, " ").trim()
+
 const HINT_SEPARATOR = "  "
 
-/** Hint row entries. `key === null` is a standalone chip (e.g. the filter
- *  chip) and renders as muted text without the key/label split. */
 interface Hint {
-	readonly key: string | null
+	readonly key: string
 	readonly label: string
 }
 
-const hintWidth = (h: Hint): number =>
-	h.key === null ? h.label.length : h.key.length + 1 + h.label.length // key + " " + label
+const hintWidth = (h: Hint): number => h.key.length + 1 + h.label.length // key + " " + label
 
 const formatHint = <C,>(b: KeyBinding<C>): Hint | null => {
 	if (!b.hint) return null
@@ -73,8 +67,8 @@ const formatHint = <C,>(b: KeyBinding<C>): Hint | null => {
 }
 
 /** Drop hints from the end until they fit within `width`. If not even the
- *  first hint fits, fall back to the bare key (or label chip) truncated to
- *  width, so the row is never silently blank on tight viewports. */
+ *  first hint fits, fall back to the bare key truncated to width, so the row
+ *  is never silently blank on tight viewports. */
 const fitHints = (hints: readonly Hint[], width: number): Hint[] => {
 	if (width <= 0 || hints.length === 0) return []
 	const acc: Hint[] = []
@@ -87,7 +81,6 @@ const fitHints = (hints: readonly Hint[], width: number): Hint[] => {
 	}
 	if (acc.length > 0) return acc
 	const first = hints[0]!
-	if (first.key === null) return [{ key: null, label: first.label.slice(0, width) }]
 	return [{ key: first.key.slice(0, width), label: "" }]
 }
 
@@ -99,7 +92,6 @@ export const Footer = <C,>({
 	width,
 	notice,
 	discoveryStatus,
-	filterQuery,
 	discoverySpinnerIntervalMs,
 	discoverySpinnerInitialFrameIndex,
 	discoverySpinnerRegisterTick,
@@ -117,13 +109,6 @@ export const Footer = <C,>({
 	} as const
 
 	const hints: Hint[] = []
-	// The filter chip prepends to the hint row when a filter is applied and the
-	// input is closed. Bracketed to avoid looking like a `key:hint` binding —
-	// "filter" is not a key. Surfaces the otherwise-invisible invariant that
-	// `[`/`]` walks the filtered set. See DESIGN.md §7.1 Q1.
-	if (filterQuery && filterQuery.length > 0) {
-		hints.push({ key: null, label: `[filter: ${filterQuery}]` })
-	}
 	for (const b of bindings) {
 		// Hint visibility prefers `hintWhen` (binding-specific) over `when`
 		// (dispatch gate). Falling back to `when` keeps the original
@@ -137,7 +122,8 @@ export const Footer = <C,>({
 	// Discovery status sits left of the hints, separated by " · ". On tight
 	// viewports it claims its budget first; hints fit into the remainder so
 	// the indicator stays visible while less-essential hints drop off.
-	const status = discoveryStatus && discoveryStatus.length > 0 ? discoveryStatus : null
+	const status =
+		discoveryStatus && discoveryStatus.length > 0 ? normalizeStatusLine(discoveryStatus) : null
 	const statusBudget = status ? Math.min(status.length + STATUS_SEPARATOR.length, usableWidth) : 0
 	const hintsWidth = Math.max(0, usableWidth - statusBudget)
 	const visibleHints = fitHints(hints, hintsWidth)
@@ -167,12 +153,6 @@ export const Footer = <C,>({
 							/>,
 						]
 					: []
-			if (h.key === null) {
-				return [
-					...sep,
-					<text key={`l${i}`} content={h.label} wrapMode="none" style={{ fg: colors.secondary }} />,
-				]
-			}
 			return [
 				...sep,
 				<text key={`k${i}`} content={h.key} wrapMode="none" style={{ fg: colors.text }} />,

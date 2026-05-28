@@ -12,7 +12,7 @@ If you're an AI assistant pairing on this repo, also read [`AGENTS.md`](./AGENTS
 
 ```bash
 bun install
-bun run dev <path>      # watch + run from source
+bun run dev [path]      # watch + run from source; positional seeds filter, use --root <dir> to browse a directory
 bun test                # full test suite
 bun run typecheck
 bun run lint

@@ -25,8 +25,8 @@ beforeAll(() => {
 
 let setup: Awaited<ReturnType<typeof testRender>> | null = null
 
-afterEach(() => {
-	destroyTestRenderer(setup)
+afterEach(async () => {
+	await destroyTestRenderer(setup)
 	setup = null
 })
 
@@ -66,10 +66,16 @@ const renderBrowser = (
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	initialValues?: Iterable<readonly [any, any]>,
 ) => {
+	const normalizedElement = React.isValidElement<React.ComponentProps<typeof Browser>>(element)
+		? React.cloneElement(element, {
+				filterDebounceMs: 0,
+				renderedPathDebounceMs: 0,
+			})
+		: element
 	const wrapped = React.createElement(
 		RegistryProvider,
 		{ initialValues } as Parameters<typeof RegistryProvider>[0],
-		element,
+		normalizedElement,
 	)
 	return testRender(wrapped, viewport)
 }
@@ -203,14 +209,6 @@ const readerTitleContains = (frame: string, name: string): boolean => {
 	return first.includes(`· ${name}`)
 }
 
-const fgOfSpanContaining = (frame: CapturedFrame, text: string): RGBA | null => {
-	for (const line of frame.lines) {
-		const hit = line.spans.find((s) => s.text.includes(text))
-		if (hit) return hit.fg
-	}
-	return null
-}
-
 /** Bg color at (row, col) in a captured frame. Used for focus assertions:
  *  the sidebar tints to colors.background when focused, colors.backgroundPanel
  *  otherwise. */
@@ -262,8 +260,8 @@ const sidebarIsVisible = (frame: string, files?: readonly string[]): boolean => 
 const settleBrowser = async () => {
 	await act(async () => {
 		await new Promise<void>((resolve) => setTimeout(resolve, 120))
+		await setup!.renderer.idle()
 	})
-	await setup!.renderer.idle()
 	await stepFrame(setup!.renderOnce)
 }
 
@@ -782,7 +780,7 @@ describe("Browser — #22 layout v2", () => {
 		expect(sidebarIsVisible(setup!.captureCharFrame())).toBe(false)
 	})
 
-	test("filter chip surfaces in the footer when a filter is applied and the input is closed", async () => {
+	test("footer keeps key hints when a filter is applied and the input is closed", async () => {
 		await act(async () => {
 			setup = await renderBrowserFast(
 				<Browser
@@ -801,9 +799,7 @@ describe("Browser — #22 layout v2", () => {
 			setup!.mockInput.pressEnter()
 		})
 		await stepFrame(setup!.renderOnce)
-		const frame = setup!.captureCharFrame()
-		// The chip appears in the footer row, alongside the regular hints.
-		expect(frame).toContain("[filter: al]")
+		expect(setup!.captureCharFrame()).toContain("q quit")
 	})
 
 	test("shows a spinner next to indexing status while discovery is active", async () => {
@@ -827,33 +823,67 @@ describe("Browser — #22 layout v2", () => {
 		expect(typeof tick).toBe("function")
 	})
 
-	test("filter chip uses secondary token as active metadata", async () => {
+	test("normalizes multi-line discovery status into a single footer line", async () => {
 		await act(async () => {
-			setup = await renderBrowserFast(
+			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["alpha.md", "beta.md"])}
-					readFile={makeReader({ "alpha.md": "a", "beta.md": "b" })}
+					files={makeFiles(["alpha.md"])}
+					readFile={makeReader({ "alpha.md": "a" })}
+					discoveryStatus={"scan failed: boom\nsecond line\n  third line"}
 					onQuit={() => {}}
 				/>,
+				VIEWPORT,
 			)
 		})
 		await stepFrame(setup!.renderOnce)
-		await act(async () => {
-			setup!.mockInput.pressKey("/")
-			setup!.mockInput.pressKey("a")
-			setup!.mockInput.pressKey("l")
-			setup!.mockInput.pressEnter()
-		})
-		await stepFrame(setup!.renderOnce)
-		expect(
-			fgOfSpanContaining(setup!.captureSpans(), "[filter: al]")?.equals(
-				RGBA.fromHex(colors.secondary),
-			),
-		).toBe(true)
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("scan failed: boom second line third line")
 	})
 
-	test("filter chip does NOT appear while the filter input is open", async () => {
-		// The sidebar already shows the live query; a chip would duplicate.
+	test("renders leading YAML frontmatter as metadata instead of raw markdown", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={makeFiles(["alpha.md"])}
+					readFile={makeReader({
+						"alpha.md": [
+							"---",
+							'title: "Frontmatter title"',
+							"published: 2026-02-17",
+							"---",
+							"# Hello",
+						].join("\n"),
+					})}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		const frame = await waitForFrameContaining("published: 2026-02-17")
+		expect(frame).toContain("title: Frontmatter title")
+		expect(frame).toContain("published: 2026-02-17")
+		expect(frame).not.toContain('title: "Frontmatter title"')
+		expect(frame).not.toContain("tags: [")
+	})
+
+	test("falls back to raw markdown when frontmatter is malformed", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={makeFiles(["alpha.md"])}
+					readFile={makeReader({
+						"alpha.md": ["---", "not valid", "---", "Body"].join("\n"),
+					})}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		const frame = await waitForFrameContaining("────────────────")
+		expect(frame).toContain("────────────────")
+	})
+
+	test("footer does not show persistent filter state while the filter input is open", async () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
@@ -871,6 +901,29 @@ describe("Browser — #22 layout v2", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		expect(setup!.captureCharFrame()).not.toContain("[filter:")
+	})
+
+	test("long applied filters do not consume footer hint space", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={makeFiles(["alpha.md", "beta.md"])}
+					readFile={makeReader({ "alpha.md": "a", "beta.md": "b" })}
+					onQuit={() => {}}
+				/>,
+				{ width: 70, height: 30 },
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		await act(async () => {
+			setup!.mockInput.pressKey("/")
+			for (const ch of "integration-test-helper") setup!.mockInput.pressKey(ch)
+			setup!.mockInput.pressEnter()
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("q quit")
+		expect(frame).not.toContain("[filter:")
 	})
 })
 
@@ -1934,6 +1987,30 @@ describe("Browser — sidebar filter row", () => {
 		const frame = setup!.captureCharFrame()
 		// Query carried into editing state with cursor.
 		expect(frame).toContain("> int▏")
+	})
+
+	test("initialQuery seeds the applied filter on launch", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={makeFiles(["README.md", "docs/intro.md", "notes.md"])}
+					initialQuery="intro"
+					readFile={makeReader({
+						"README.md": "x",
+						"docs/intro.md": "y",
+						"notes.md": "z",
+					})}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("> intro")
+		expect(frame).not.toContain("README.md")
+		expect(frame).not.toContain("notes.md")
+		expect(readerTitleContains(frame, "docs/intro.md")).toBe(true)
 	})
 
 	test("Esc keeps the typed query applied (close-without-revert)", async () => {
