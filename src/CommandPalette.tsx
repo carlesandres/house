@@ -5,8 +5,10 @@
  * (#70 design log §state location). Key handling sits in Browser.tsx's
  * `useKeyboard` palette-branch, mirroring the filterOpen pattern.
  *
- * V1 ships a flat list in `browserBindings` order — no category headers,
- * no mouse, no recency. See #91/#93/#94/#95/#96 for the follow-ups.
+ * Commands are grouped by semantic category while preserving command order
+ * inside each group. Browser.tsx owns the query and selected command index;
+ * this component turns those commands into render rows and keeps the selected
+ * row visible when the list is taller than the modal body.
  */
 
 import { RGBA } from "@opentui/core"
@@ -84,11 +86,12 @@ export const CommandPalette = ({
 	viewportHeight,
 }: CommandPaletteProps) => {
 	const overlayWidth = Math.min(viewportWidth - 4, 64)
+	const rows = buildRows(commands)
 	// Reserve: 2 for border (top+bottom), 1 query row, 1 spacer below query,
 	// 1 spacer above footer, 1 footer row. Body gets the rest.
 	const chrome = 2 + 1 + 1 + 1 + 1
 	const maxBody = Math.max(1, viewportHeight - 4 - chrome)
-	const desiredBody = Math.max(1, commands.length || 1)
+	const desiredBody = Math.max(1, rows.length || 1)
 	const bodyHeight = Math.min(desiredBody, maxBody)
 	const overlayHeight = chrome + bodyHeight
 	const left = Math.max(0, Math.floor((viewportWidth - overlayWidth) / 2))
@@ -97,10 +100,8 @@ export const CommandPalette = ({
 	// Inner content width: overlay minus 1-cell border + 1-cell padding on each side.
 	const rowWidth = Math.max(4, overlayWidth - 4)
 
-	// Window the visible slice around the selection. With 9 commands in v1
-	// this is usually a no-op (list fits), but the math is in place for the
-	// inevitable backlog growth.
-	const rows = buildRows(commands)
+	// Window the visible slice around the selected command row. Headers and
+	// spacers are render-only rows, so selection still tracks command indexes.
 	const scrollTop = (() => {
 		if (rows.length <= bodyHeight) return 0
 		const maxScroll = rows.length - bodyHeight

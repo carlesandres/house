@@ -2830,6 +2830,25 @@ describe("Browser — command palette", () => {
 		expect(frame).toContain("Filter files…")
 	})
 
+	test("palette body accounts for group headers and spacers when sizing", async () => {
+		const files = makeFiles(["README.md"])
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser files={files} readFile={makeReader({ "README.md": "x" })} onQuit={() => {}} />,
+				{ width: 120, height: 40 },
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		await act(async () => {
+			setup!.mockInput.pressKey("p", { ctrl: true })
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("App")
+		expect(frame).toContain("Quit")
+	})
+
 	test("typing keeps headers only for categories with matching commands", async () => {
 		const files = makeFiles(["README.md"])
 		await act(async () => {
@@ -3158,10 +3177,18 @@ describe("Browser — command palette", () => {
 		const duringFrame = setup!.captureCharFrame()
 		// Palette is up.
 		expect(duringFrame).toContain(" Commands ")
-		// Reader has NOT scrolled — the top line is still on screen behind
-		// the palette overlay. With the old `focused={readerActive}` code,
+
+		// Close palette before asserting on the underlying reader surface; the
+		// grouped palette can legitimately cover the top reader line.
+		await act(async () => {
+			setup!.mockInput.pressKey("p", { ctrl: true })
+		})
+		await stepFrame(setup!.renderOnce)
+		const afterFrame = await waitForFrameContaining("MARKER00")
+		expect(afterFrame).not.toContain(" Commands ")
+		// Reader has NOT scrolled. With the old `focused={readerActive}` code,
 		// MARKER00 would have scrolled out of the visible viewport.
-		expect(duringFrame).toContain("MARKER00")
+		expect(afterFrame).toContain("MARKER00")
 	})
 
 	test("regression: arrow keys with palette open do NOT scroll the reader", async () => {
