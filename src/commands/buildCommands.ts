@@ -48,6 +48,7 @@ const annotations: Record<string, Annotation> = {
 	"sidebar.bottom": { category: "Navigation" },
 	"sidebar.open": { title: "Open file", category: "Navigation" },
 	"filter.open": { title: "Filter files…", category: "Navigation" },
+	"filter.clearOrOpen": { category: "Navigation" },
 	"discovery.toggleAll": {
 		title: "Toggle hidden / gitignored files",
 		category: "Navigation",

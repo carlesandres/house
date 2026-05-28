@@ -2945,6 +2945,60 @@ describe("Browser — command palette", () => {
 		expect(quitCalls).toBe(1)
 	})
 
+	test("filtered grouped selection highlights and runs the selected command", async () => {
+		const startIdx = themeDefinitions.findIndex((theme, index) => {
+			const previous =
+				themeDefinitions[(index - 1 + themeDefinitions.length) % themeDefinitions.length]
+			return (
+				previous !== undefined &&
+				resolveTheme(theme.source, "dark").background !==
+					resolveTheme(previous.source, "dark").background
+			)
+		})
+		const index = startIdx >= 0 ? startIdx : 0
+		const startTheme = themeDefinitions[index]!
+		const previousTheme =
+			themeDefinitions[(index - 1 + themeDefinitions.length) % themeDefinitions.length]!
+		setActiveTheme(startTheme, "dark")
+		const initialValues = [[themeAtom, { id: startTheme.id, tone: "dark" }]] as Iterable<
+			readonly [any, any]
+		>
+		const files = makeFiles(["README.md"])
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser files={files} readFile={makeReader({ "README.md": "x" })} onQuit={() => {}} />,
+				VIEWPORT,
+				initialValues,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		const before = colors.background
+
+		await act(async () => {
+			setup!.mockInput.pressKey("p", { ctrl: true })
+			setup!.mockInput.pressKey("t")
+			setup!.mockInput.pressKey("h")
+			setup!.mockInput.pressKey("e")
+			setup!.mockInput.pressKey("m")
+			setup!.mockInput.pressKey("e")
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).toContain("Appearance")
+
+		await act(async () => {
+			setup!.mockInput.pressArrow("down")
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).toContain("▸ Previous theme")
+
+		await act(async () => {
+			setup!.mockInput.pressEnter()
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(colors.background).not.toBe(before)
+		expect(colors.background).toBe(resolveTheme(previousTheme.source, "dark").background)
+	})
+
 	test("rapid Down then Return runs the highlighted command, not the previous command", async () => {
 		let quitCalls = 0
 		const files = makeFiles(["README.md"])
