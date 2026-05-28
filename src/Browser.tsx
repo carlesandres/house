@@ -7,7 +7,7 @@
  *  - q / ctrl+c quit.
  *
  * Deferred to next iteration: focus model, reader scrolling via j/k,
- * sidebar collapse with `\`, help overlay.
+ * sidebar collapse with `\`.
  */
 
 import { SyntaxStyle } from "@opentui/core"
@@ -25,7 +25,6 @@ import { parseFrontmatter } from "./markdown/frontmatter.ts"
 import { BRAND, BRAND_NAME } from "./brand.ts"
 import { Footer, FOOTER_HEIGHT, type FooterProps } from "./Footer.tsx"
 import { Header, HEADER_HEIGHT } from "./Header.tsx"
-import { HelpOverlay } from "./HelpOverlay.tsx"
 import { openInEditor, resolveEditor } from "./io/editor.ts"
 import { readFileText } from "./io/readFile.ts"
 import { browserBindings, type BrowserCtx } from "./keymap/browser.ts"
@@ -98,18 +97,6 @@ export interface BrowserProps {
 const defaultReadFile = (path: string): Promise<string> => Effect.runPromise(readFileText(path))
 
 const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n))
-
-/** Bindings the help overlay lets through. Single source of truth for both
- *  the keyboard early-return and the footer hint filter. `palette.open`
- *  passes through so users can jump from help into the palette in one
- *  keystroke — `openPalette` closes help on its way in. */
-const HELP_ALLOWED_IDS: ReadonlySet<string> = new Set([
-	"help.toggle",
-	"theme.next",
-	"theme.prev",
-	"theme.toneToggle",
-	"palette.open",
-])
 
 let nextReaderEmptyStateTipRotation = 0
 
@@ -191,7 +178,6 @@ export const Browser = ({
 		shown || initialFocus === "sidebar" ? "sidebar" : "reader",
 	)
 	const [sidebarScroll, setSidebarScroll] = useState<number>(0)
-	const [helpVisible, setHelpVisible] = useState<boolean>(false)
 	const [filterOpen, setFilterOpen] = useState<boolean>(startInFilter)
 	const [filterInput, setFilterInput] = useState<string>(initialQuery)
 	const [filterApplied, setFilterApplied] = useState<string>(initialQuery)
@@ -389,7 +375,6 @@ export const Browser = ({
 		hasSelected: selected != null,
 		focus,
 		sidebarShown: shown,
-		helpVisible,
 		filterOpen,
 		restoreFilterOnSidebarFocus: restoreFilterOnSidebarFocusRef.current,
 		filterQuery: filterInput,
@@ -429,7 +414,6 @@ export const Browser = ({
 				if (focus === "reader") setFocus("sidebar")
 			}
 		},
-		setHelpVisible,
 		openFilter: () => {
 			// Focus the sidebar so the filter input has a home. In wide,
 			// §7.1's visibility rule (`shown || focus === "sidebar"`) brings
@@ -458,10 +442,8 @@ export const Browser = ({
 			setFilterOpen(true)
 		},
 		openPalette: () => {
-			// Close help if it was open — palette is the active modal now.
 			// Reset query/index so each open starts fresh (no stale state from
 			// the previous session).
-			if (helpVisible) setHelpVisible(() => false)
 			paletteQueryRef.current = ""
 			setPaletteQuery("")
 			paletteIndexRef.current = 0
@@ -688,8 +670,7 @@ export const Browser = ({
 		// empty-backspace, because accidental close feels worse in the
 		// palette). Printable characters extend the query and snap selection
 		// to 0 (#70 Q7c). Ctrl/Meta-modified keys are swallowed except
-		// ctrl+p, which toggles the palette closed (matches help-toggle's
-		// re-press-to-close behavior).
+		// ctrl+p, which toggles the palette closed on re-press.
 		if (paletteOpenRef.current) {
 			const closePalette = () => {
 				paletteOpenRef.current = false
@@ -730,7 +711,7 @@ export const Browser = ({
 				setPaletteIndexSync(0)
 				return
 			}
-			// ctrl+p again closes — matches help-toggle behavior.
+			// ctrl+p again closes.
 			if (key.ctrl && !key.meta && key.name === "p") {
 				closePalette()
 				return
@@ -746,27 +727,6 @@ export const Browser = ({
 				setPaletteQuery(paletteQueryRef.current)
 				setPaletteIndexSync(0)
 			}
-			return
-		}
-		// While help is open, swallow most keys: only ? (toggle), esc
-		// (close), and the theme bindings pass through. Theme keys stay live
-		// so users can preview palette changes against the overlay itself —
-		// it is the largest theme-painted surface in the app. Everything else
-		// is suppressed so the user can read without driving the UI behind.
-		// This is the one place we step outside the data-driven keymap; the
-		// alternative — adding `when: !c.helpVisible` to every other binding
-		// — would clutter the array. See DESIGN.md §12 (keymap composition).
-		if (helpVisible) {
-			if (key.name === "escape") {
-				setHelpVisible(() => false)
-				return
-			}
-			const allowed = browserBindings.filter((b) => HELP_ALLOWED_IDS.has(b.id))
-			// Defensive: stub quit even though no allowed binding currently
-			// calls it. Keeps the invariant local to this branch instead of
-			// relying on a future maintainer remembering not to add quit-ish
-			// bindings to HELP_ALLOWED_IDS.
-			dispatch(allowed, { ...ctx, quit: () => {} }, key)
 			return
 		}
 		dispatch(browserBindings, ctx, key)
@@ -845,21 +805,8 @@ export const Browser = ({
 		[sidebarTextWidth],
 	)
 
-	// While help is open, the `?` key closes the overlay — relabel its hint
-	// so the footer accurately describes what pressing the key will do.
-	// Memoized: `helpVisible` changes rarely; `browserBindings` and
-	// `HELP_ALLOWED_IDS` are module-level constants.
-	const footerBindings = useMemo(
-		() =>
-			helpVisible
-				? browserBindings
-						.filter((b) => HELP_ALLOWED_IDS.has(b.id))
-						.map((b) => (b.id === "help.toggle" ? { ...b, hint: "close" } : b))
-				: browserBindings,
-		[helpVisible],
-	)
 	const footerProps = {
-		bindings: footerBindings,
+		bindings: browserBindings,
 		ctx,
 		width,
 		notice: footerNotice?.text ?? null,
@@ -1057,13 +1004,13 @@ export const Browser = ({
 									}}
 									// opentui's scrollbox consumes arrow keys at the focused-element
 									// level *before* useKeyboard fires, so a modal that handles
-									// arrow keys itself (palette nav, help dismissal) would still
+									// arrow keys itself (palette nav) would still
 									// see the reader scroll alongside its own action. Unfocus the
 									// scrollbox while any blocking modal is up — useKeyboard's
 									// modal branches own the keys in that state. Filter is not
 									// listed because it force-focuses the sidebar (readerActive
 									// is already false).
-									focused={readerActive && !paletteOpen && !helpVisible}
+									focused={readerActive && !paletteOpen}
 								>
 									{parsedContent.fields.length > 0 && (
 										<box style={{ flexDirection: "column", marginBottom: 1 }}>
@@ -1102,9 +1049,6 @@ export const Browser = ({
 				)}
 			</box>
 			<Footer {...footerProps} />
-			{helpVisible && (
-				<HelpOverlay bindings={browserBindings} viewportWidth={width} viewportHeight={height} />
-			)}
 			{paletteOpen && (
 				<CommandPalette
 					commands={filterCommands(buildCommands(ctx), paletteQuery)}

@@ -247,7 +247,7 @@ const sidebarIsFocused = (frame: CapturedFrame, charFrame: string): boolean => {
  *     reader-only mode, but only the sidebar list shows multiple files.
  *
  *  Callers in narrow scenarios should pass `files`. Tests that open the
- *  help overlay or command palette — both of which also render `│` —
+ *  command palette — which also renders `│` —
  *  should not use this helper while a modal is up. */
 const sidebarIsVisible = (frame: string, files?: readonly string[]): boolean => {
 	if (frame.includes("│")) return true
@@ -1053,157 +1053,6 @@ describe("Browser — reader [ / ] navigates files", () => {
 	})
 })
 
-describe("Browser — help overlay", () => {
-	// The overlay lists all bindings across 3 groups; needs enough height to show all.
-	const TALL_VIEWPORT = { width: 120, height: 50 }
-
-	test("? opens the help overlay; section headers and bindings appear", async () => {
-		await act(async () => {
-			setup = await renderBrowser(
-				<Browser
-					files={makeFiles(["a.md"])}
-					readFile={makeReader({ "a.md": "x" })}
-					onQuit={() => {}}
-				/>,
-				TALL_VIEWPORT,
-			)
-		})
-		await stepFrame(setup!.renderOnce)
-
-		await act(async () => {
-			setup!.mockInput.pressKey("?")
-		})
-		await settleBrowser()
-
-		const frame = setup!.captureCharFrame()
-		expect(frame).toContain("Help")
-		// Section headers from the binding groups
-		expect(frame).toContain("Global")
-		expect(frame).toContain("Sidebar")
-		expect(frame).toContain("Reader")
-		// At least one binding's keys + description visible
-		expect(frame).toContain("Quit")
-		expect(frame).toContain("Toggle sidebar visibility")
-	})
-
-	test("? again closes the help overlay", async () => {
-		await act(async () => {
-			setup = await renderBrowser(
-				<Browser
-					files={makeFiles(["a.md"])}
-					readFile={makeReader({ "a.md": "x" })}
-					onQuit={() => {}}
-				/>,
-				TALL_VIEWPORT,
-			)
-		})
-		await stepFrame(setup!.renderOnce)
-
-		await act(async () => {
-			setup!.mockInput.pressKey("?")
-		})
-		await stepFrame(setup!.renderOnce)
-		expect(setup!.captureCharFrame()).toContain("Help")
-
-		await act(async () => {
-			setup!.mockInput.pressKey("?")
-		})
-		await stepFrame(setup!.renderOnce)
-		expect(setup!.captureCharFrame()).not.toContain("Help")
-	})
-
-	test("escape closes the help overlay", async () => {
-		await act(async () => {
-			setup = await renderBrowser(
-				<Browser
-					files={makeFiles(["a.md"])}
-					readFile={makeReader({ "a.md": "x" })}
-					onQuit={() => {}}
-				/>,
-				TALL_VIEWPORT,
-			)
-		})
-		await stepFrame(setup!.renderOnce)
-
-		await act(async () => {
-			setup!.mockInput.pressKey("?")
-		})
-		await stepFrame(setup!.renderOnce)
-
-		await act(async () => {
-			setup!.mockInput.pressEscape()
-			await new Promise<void>((resolve) => setTimeout(resolve, 60))
-		})
-		await stepFrame(setup!.renderOnce)
-		expect(setup!.captureCharFrame()).not.toContain("Help")
-	})
-
-	test("while help is open, q does not trigger quit", async () => {
-		let quitCount = 0
-		await act(async () => {
-			setup = await renderBrowser(
-				<Browser
-					files={makeFiles(["a.md"])}
-					readFile={makeReader({ "a.md": "x" })}
-					onQuit={() => {
-						quitCount += 1
-					}}
-				/>,
-				TALL_VIEWPORT,
-			)
-		})
-		await stepFrame(setup!.renderOnce)
-
-		await act(async () => {
-			setup!.mockInput.pressKey("?")
-		})
-		await stepFrame(setup!.renderOnce)
-
-		await act(async () => {
-			setup!.mockInput.pressKey("q")
-		})
-		await stepFrame(setup!.renderOnce)
-
-		expect(quitCount).toBe(0)
-		// Overlay should still be open.
-		expect(setup!.captureCharFrame()).toContain("Help")
-	})
-
-	test("while help is open, j does not move sidebar selection", async () => {
-		const files = makeFiles(["a.md", "b.md"])
-		await act(async () => {
-			setup = await renderBrowser(
-				<Browser
-					files={files}
-					readFile={makeReader({ "a.md": "x", "b.md": "y" })}
-					onQuit={() => {}}
-				/>,
-				TALL_VIEWPORT,
-			)
-		})
-		await stepFrame(setup!.renderOnce)
-
-		// Open help.
-		await act(async () => {
-			setup!.mockInput.pressKey("?")
-		})
-		await stepFrame(setup!.renderOnce)
-
-		// j should be swallowed.
-		await act(async () => {
-			setup!.mockInput.pressKey("j")
-		})
-		await stepFrame(setup!.renderOnce)
-
-		// Close help, then check sidebar is still on a.md.
-		await act(async () => {
-			setup!.mockInput.pressKey("?")
-		})
-		await stepFrame(setup!.renderOnce)
-		expect(readerTitleContains(setup!.captureCharFrame(), "a.md")).toBe(true)
-	})
-})
-
 describe("Browser — quit", () => {
 	test("q invokes onQuit", async () => {
 		let calls = 0
@@ -1322,7 +1171,6 @@ describe("Browser — footer", () => {
 
 		const frame = setup!.captureCharFrame()
 		expect(frame).toContain("q quit")
-		expect(frame).toContain("? help")
 		expect(frame).toContain("s sidebar")
 		// sidebar.open hint surfaces because focus starts on sidebar.
 		expect(frame).toContain("↵ open")
@@ -1431,36 +1279,6 @@ describe("Browser — footer", () => {
 		// At minimum the bare key for the first hint (`q`) should appear so
 		// the row is not silently blank.
 		expect(frame).toContain("q")
-	})
-
-	test("narrows the hint row to help-allowed bindings while help is open", async () => {
-		const TALL_VIEWPORT = { width: 120, height: 50 }
-		await act(async () => {
-			setup = await renderBrowser(
-				<Browser
-					files={makeFiles(["a.md"])}
-					readFile={makeReader({ "a.md": "x" })}
-					onQuit={() => {}}
-				/>,
-				TALL_VIEWPORT,
-			)
-		})
-		await stepFrame(setup!.renderOnce)
-
-		await act(async () => {
-			setup!.mockInput.pressKey("?")
-		})
-		await stepFrame(setup!.renderOnce)
-
-		const frame = setup!.captureCharFrame()
-		// help-allowed hints survive; `?` is relabeled "close" since pressing
-		// it now closes the overlay.
-		expect(frame).toContain("? close")
-		expect(frame).not.toContain("? help")
-		expect(frame).toContain("t theme")
-		// suppressed bindings disappear from the row.
-		expect(frame).not.toContain("q quit")
-		expect(frame).not.toContain("s sidebar")
 	})
 })
 
@@ -1610,44 +1428,6 @@ describe("Browser — theme cycling", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		expect(colors.background).toBe(darkBg)
-	})
-
-	test("theme keys still cycle while the help overlay is open", async () => {
-		const iv = seedTheme(startTheme.id)
-		await act(async () => {
-			setup = await renderBrowser(
-				<Browser
-					files={makeFiles(["a.md"])}
-					readFile={makeReader({ "a.md": "x" })}
-					onQuit={() => {}}
-				/>,
-				VIEWPORT,
-				iv,
-			)
-		})
-		await stepFrame(setup!.renderOnce)
-
-		// Open help.
-		await act(async () => {
-			setup!.mockInput.pressKey("?")
-		})
-		await stepFrame(setup!.renderOnce)
-
-		const start = colors.background
-
-		// t advances while help is open.
-		await act(async () => {
-			setup!.mockInput.pressKey("t")
-		})
-		await stepFrame(setup!.renderOnce)
-		expect(colors.background).not.toBe(start)
-
-		// T steps back to the original.
-		await act(async () => {
-			setup!.mockInput.pressKey("t", { shift: true })
-		})
-		await stepFrame(setup!.renderOnce)
-		expect(colors.background).toBe(start)
 	})
 })
 
@@ -2559,37 +2339,6 @@ describe("Browser — filter modal", () => {
 		expect(sidebarIsVisible(setup!.captureCharFrame())).toBe(false)
 	})
 
-	test("/ does nothing while the help overlay is open", async () => {
-		const files = makeFiles(["README.md", "notes.md"])
-		await act(async () => {
-			setup = await renderBrowser(
-				<Browser
-					files={files}
-					readFile={makeReader({ "README.md": "x", "notes.md": "y" })}
-					onQuit={() => {}}
-				/>,
-				{ width: 120, height: 50 },
-			)
-		})
-		await stepFrame(setup!.renderOnce)
-
-		await act(async () => {
-			setup!.mockInput.pressKey("?")
-		})
-		await stepFrame(setup!.renderOnce)
-		// Help overlay open
-		expect(setup!.captureCharFrame()).toContain("Help")
-
-		await act(async () => {
-			setup!.mockInput.pressKey("/")
-		})
-		await stepFrame(setup!.renderOnce)
-		const frame = setup!.captureCharFrame()
-		// Help is still open; no filter input.
-		expect(frame).toContain("Help")
-		expect(frame).not.toContain("> ▏")
-	})
-
 	test("backspace at empty query closes the modal (removes the slash)", async () => {
 		const files = makeFiles(["README.md", "notes.md"])
 		await act(async () => {
@@ -2978,35 +2727,6 @@ describe("Browser — filter modal", () => {
 		expect(frame).toContain("> / to filter…")
 	})
 
-	test("ctrl+\\ with the help overlay open is swallowed (help stays, no filter open)", async () => {
-		const files = makeFiles(["README.md", "notes.md"])
-		await act(async () => {
-			setup = await renderBrowser(
-				<Browser
-					files={files}
-					readFile={makeReader({ "README.md": "x", "notes.md": "y" })}
-					onQuit={() => {}}
-				/>,
-				{ width: 120, height: 50 },
-			)
-		})
-		await stepFrame(setup!.renderOnce)
-		await act(async () => {
-			setup!.mockInput.pressKey("?")
-		})
-		await stepFrame(setup!.renderOnce)
-		expect(setup!.captureCharFrame()).toContain("Help")
-
-		await act(async () => {
-			setup!.mockInput.pressKey("\\", { ctrl: true })
-		})
-		await stepFrame(setup!.renderOnce)
-		const frame = setup!.captureCharFrame()
-		// Help still up; no filter editing cursor.
-		expect(frame).toContain("Help")
-		expect(frame).not.toContain("> ▏")
-	})
-
 	test("footer shows `ctrl+\\ clear` only when a filter is applied and no modal is open", async () => {
 		const files = makeFiles(["README.md", "notes.md", "docs/intro.md"])
 		await act(async () => {
@@ -3047,17 +2767,13 @@ describe("Browser — filter modal", () => {
 		await stepFrame(setup!.renderOnce)
 		expect(setup!.captureCharFrame()).not.toContain("ctrl+\\ clear")
 
-		// Close palette, open help: hint should also be hidden under help.
+		// Close palette: hint should come back once no modal owns the input.
 		await act(async () => {
 			setup!.mockInput.pressEscape()
 			await new Promise<void>((resolve) => setTimeout(resolve, 60))
 		})
 		await stepFrame(setup!.renderOnce)
-		await act(async () => {
-			setup!.mockInput.pressKey("?")
-		})
-		await stepFrame(setup!.renderOnce)
-		expect(setup!.captureCharFrame()).not.toContain("ctrl+\\ clear")
+		expect(setup!.captureCharFrame()).toContain("ctrl+\\ clear")
 	})
 
 	test("printable characters do not fire their normal bindings while filter is open", async () => {
@@ -3255,9 +2971,9 @@ describe("Browser — command palette", () => {
 	test("regression: arrow keys in the palette do NOT scroll the reader", async () => {
 		// Bug: opentui's <scrollbox focused> consumes arrow keys *before* React's
 		// useKeyboard fires, so palette navigation also scrolled the reader.
-		// Fix: the scrollbox unfocuses while the palette (or help) is open.
+		// Fix: the scrollbox unfocuses while the palette is open.
 		// This test would fail with `focused={readerActive}` and passes with
-		// `focused={readerActive && !paletteOpen && !helpVisible}`.
+		// `focused={readerActive && !paletteOpen}`.
 		// Avoid `_` in the marker — markdown italicizes underscore-delimited
 		// runs and our scrubber drops them from the rendered cells.
 		const longContent = Array.from(
@@ -3309,11 +3025,9 @@ describe("Browser — command palette", () => {
 		expect(duringFrame).toContain("MARKER00")
 	})
 
-	test("regression: arrow keys with help open do NOT scroll the reader", async () => {
-		// Same root cause as the palette regression: the scrollbox stole
-		// arrow keys when the reader was focused, even with the help overlay
-		// up. Help itself doesn't react to arrows, so the user could observe
-		// silent scrolling while reading the help text.
+	test("regression: arrow keys with palette open do NOT scroll the reader", async () => {
+		// Same root cause as the other palette regression: the scrollbox must
+		// unfocus while the palette owns arrow-key handling.
 		const longContent = Array.from(
 			{ length: 80 },
 			(_, i) => `MARKER${String(i).padStart(2, "0")}`,
@@ -3338,10 +3052,10 @@ describe("Browser — command palette", () => {
 		expect(await waitForFrameContaining("MARKER00")).toContain("MARKER00")
 
 		await act(async () => {
-			setup!.mockInput.pressKey("?")
+			setup!.mockInput.pressKey("p", { ctrl: true })
 		})
 		await stepFrame(setup!.renderOnce)
-		expect(setup!.captureCharFrame()).toContain("Help")
+		expect(setup!.captureCharFrame()).toContain(" Commands ")
 		await act(async () => {
 			setup!.mockInput.pressArrow("down")
 			setup!.mockInput.pressArrow("down")
@@ -3351,15 +3065,13 @@ describe("Browser — command palette", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 
-		// Close help — the overlay covers MARKER00 visually even when the
-		// reader hasn't scrolled, so we have to dismiss it before asserting.
+		// Close palette before asserting on the underlying reader surface.
 		await act(async () => {
-			setup!.mockInput.pressEscape()
-			await new Promise<void>((resolve) => setTimeout(resolve, 60))
+			setup!.mockInput.pressKey("p", { ctrl: true })
 		})
 		await stepFrame(setup!.renderOnce)
 		const frame = await waitForFrameContaining("MARKER00")
-		expect(frame).not.toContain(" Help ")
+		expect(frame).not.toContain(" Commands ")
 		// Reader did not scroll — first line is still at the top.
 		expect(frame).toContain("MARKER00")
 	})

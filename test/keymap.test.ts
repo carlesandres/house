@@ -140,7 +140,6 @@ describe("browserBindings — discovery.toggleAll", () => {
 		hasSelected: false,
 		focus: "sidebar",
 		sidebarShown: true,
-		helpVisible: false,
 		filterOpen: false,
 		restoreFilterOnSidebarFocus: false,
 		filterQuery: "",
@@ -148,7 +147,6 @@ describe("browserBindings — discovery.toggleAll", () => {
 		setFocus: noop,
 		setSelectedIndex: noop,
 		toggleShown: noop,
-		setHelpVisible: noop,
 		openFilter: noop,
 		clearAndOpenFilter: noop,
 		openPalette: noop,
@@ -182,5 +180,57 @@ describe("browserBindings — discovery.toggleAll", () => {
 		const { buildCommands } = await import("../src/commands/buildCommands.ts")
 		const commands = buildCommands(stubCtx())
 		expect(commands.find((c) => c.id === "discovery.toggleAll")).toBeTruthy()
+	})
+
+	test("all currently enabled actions are available in the palette except palette.open", async () => {
+		const { buildCommands } = await import("../src/commands/buildCommands.ts")
+		const files = [
+			{ path: "/v/0.md", relativePath: "0.md", name: "0.md" },
+			{ path: "/v/1.md", relativePath: "1.md", name: "1.md" },
+		] as const
+		const readerIds = new Set(
+			buildCommands(
+				stubCtx({
+					files,
+					hasSelected: true,
+					focus: "reader",
+					filterQuery: "abc",
+				}),
+			).map((c) => c.id),
+		)
+		const sidebarIds = new Set(
+			buildCommands(
+				stubCtx({
+					files,
+					hasSelected: true,
+					focus: "sidebar",
+					filterQuery: "abc",
+				}),
+			).map((c) => c.id),
+		)
+		expect(readerIds.has("palette.open")).toBe(false)
+		expect(readerIds.has("quit")).toBe(true)
+		expect(readerIds.has("focus.toggle")).toBe(true)
+		expect(readerIds.has("sidebar.toggle")).toBe(true)
+		expect(readerIds.has("filter.open")).toBe(true)
+		expect(readerIds.has("filter.clearOrOpen")).toBe(true)
+		expect(readerIds.has("discovery.toggleAll")).toBe(true)
+		expect(readerIds.has("theme.next")).toBe(true)
+		expect(readerIds.has("theme.prev")).toBe(true)
+		expect(readerIds.has("theme.toneToggle")).toBe(true)
+		expect(readerIds.has("reader.back")).toBe(true)
+		expect(readerIds.has("reader.prevFile")).toBe(true)
+		expect(readerIds.has("reader.nextFile")).toBe(true)
+		expect(readerIds.has("serve.current")).toBe(true)
+		expect(readerIds.has("file.edit")).toBe(true)
+		expect(sidebarIds.has("sidebar.down")).toBe(true)
+		expect(sidebarIds.has("sidebar.up")).toBe(true)
+		expect(sidebarIds.has("sidebar.jumpDown")).toBe(true)
+		expect(sidebarIds.has("sidebar.jumpUp")).toBe(true)
+		expect(sidebarIds.has("sidebar.pageDown")).toBe(true)
+		expect(sidebarIds.has("sidebar.pageUp")).toBe(true)
+		expect(sidebarIds.has("sidebar.top")).toBe(true)
+		expect(sidebarIds.has("sidebar.bottom")).toBe(true)
+		expect(sidebarIds.has("sidebar.open")).toBe(true)
 	})
 })

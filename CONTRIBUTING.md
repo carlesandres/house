@@ -35,7 +35,7 @@ See `DESIGN.md` §9.1 for the module map. In short:
 - `src/io/` — file reads (Effect)
 - `src/keymap/` — declarative bindings + dispatch
 - `src/theme/` — typed palette + mutable singleton
-- `src/Browser.tsx`, `src/HelpOverlay.tsx`, `src/index.tsx` — TUI
+- `src/Browser.tsx`, `src/index.tsx` — TUI
 - `test/` — `bun test` runs only files under here (see `bunfig.toml`)
 - `dev/` — build + smoke + bench scripts (not shipped)
 
@@ -85,7 +85,7 @@ Tagged fenced-code blocks are covered by `test/markdown-codeblock.test.tsx`. If 
 
 ## Keymap changes
 
-Bindings are data: `src/keymap/browser.ts` is the single source for `useKeyboard` *and* the `?` help overlay. To add a binding, append a `KeyBinding` to `browserBindings` with `id`, `description`, `keys`, an optional `group`, optional `when` predicate, and `run`. The help overlay picks it up automatically.
+Bindings are data: `src/keymap/browser.ts` is the single source for `useKeyboard`, footer hints, and command-palette derivation. To add a binding, append a `KeyBinding` to `browserBindings` with `id`, `description`, `keys`, an optional `group`, optional `when` predicate, and `run`.
 
 Do not bind these keys — they are reserved for v2 (DESIGN.md §7.3): `/`, `r`.
 

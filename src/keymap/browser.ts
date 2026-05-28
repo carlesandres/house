@@ -1,6 +1,5 @@
 /**
- * Browser keymap — the data backing `Browser.tsx`'s `useKeyboard` handler
- * and (next iteration) the `?` help overlay.
+ * Browser keymap — the data backing `Browser.tsx`'s `useKeyboard` handler.
  */
 
 import type { FileEntry } from "../discovery/walk.ts"
@@ -18,7 +17,6 @@ export interface BrowserCtx {
 	readonly focus: BrowserFocus
 	/** User's sticky sidebar preference. Visibility is `shown || focus==="sidebar"`. */
 	readonly sidebarShown: boolean
-	readonly helpVisible: boolean
 	readonly filterOpen: boolean
 	readonly restoreFilterOnSidebarFocus: boolean
 	/** Current applied/edited filter query. Used by `filter.clearOrOpen`'s
@@ -29,7 +27,6 @@ export interface BrowserCtx {
 	readonly setSelectedIndex: (updater: (prev: number) => number) => void
 	/** Toggle `shown` and adjust focus per DESIGN.md §7.1 (see s-behavior table). */
 	readonly toggleShown: () => void
-	readonly setHelpVisible: (updater: (prev: boolean) => boolean) => void
 	readonly openFilter: () => void
 	/** Clear the current filter query and open the filter modal in a single
 	 *  action. Bound to `\` so users can reset a stranded zero-match filter
@@ -105,14 +102,6 @@ export const browserBindings: readonly KeyBinding<BrowserCtx>[] = [
 		run: (c) => c.toggleShown(),
 	},
 	{
-		id: "help.toggle",
-		group: "Global",
-		description: "Show / dismiss help",
-		hint: "help",
-		keys: ["?"],
-		run: (c) => c.setHelpVisible((v) => !v),
-	},
-	{
 		id: "filter.open",
 		group: "Sidebar",
 		description: "Filter files (fuzzy match on path)",
@@ -133,17 +122,16 @@ export const browserBindings: readonly KeyBinding<BrowserCtx>[] = [
 		// Fires from anywhere outside the filter modal via the keymap.
 		// Inside the filter modal it's intercepted directly in Browser.tsx
 		// (the filter mode owns key handling), but the action is the same —
-		// clear input, keep modal open. Palette/help branches short-circuit
+		// clear input, keep modal open. Palette branches short-circuit
 		// dispatch in Browser.tsx, so we don't need to gate on them for
-		// behavior; the `hintWhen` gate keeps the footer chip from showing
+		// behavior; the `hintWhen` gate keeps the footer hint from showing
 		// when there's nothing to clear or when a modal owns the input.
 		// Chord chosen over single `\` so the binding works inside the
 		// filter input without colliding with the typed character; ctrl+u
 		// is deliberately left to its reader/sidebar half-page-up role to
 		// avoid overload.
 		when: filterClosed,
-		hintWhen: (c) =>
-			filterClosed(c) && !c.paletteOpen && !c.helpVisible && c.filterQuery.length > 0,
+		hintWhen: (c) => filterClosed(c) && !c.paletteOpen && c.filterQuery.length > 0,
 		run: (c) => c.clearAndOpenFilter(),
 	},
 	{
@@ -154,8 +142,7 @@ export const browserBindings: readonly KeyBinding<BrowserCtx>[] = [
 		keys: ["ctrl+p"],
 		// Filter swallows ctrl+p as a typed character in its own branch, so this
 		// `when` only matters when the palette is already open (which it
-		// shouldn't re-open). #70 Q2 — fires from everywhere except the filter,
-		// closes help on its way in (handled in Browser.tsx).
+		// shouldn't re-open). #70 Q2 — fires from everywhere except the filter.
 		when: paletteClosed,
 		run: (c) => c.openPalette(),
 	},

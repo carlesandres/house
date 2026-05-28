@@ -113,7 +113,6 @@ The file is optional — a missing file is fine. Invalid keys, unknown themes, o
 | `q` / `ctrl+c` | Quit |
 | `tab` | Toggle focus (sidebar ↔ reader) |
 | `s` | Toggle sidebar visibility |
-| `?` | Show / dismiss help overlay |
 | `ctrl+p` | Command palette |
 | `O` | Open current file in browser as HTML |
 | `E` | Open current file in `$EDITOR` (`$VISUAL` takes precedence) |
