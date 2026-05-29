@@ -1,5 +1,8 @@
 import { afterEach, beforeAll, describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
+import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { act } from "react"
 import React from "react"
 import { testRender } from "@opentui/react/test-utils"
@@ -11,6 +14,7 @@ import {
 	resetReaderEmptyStateTipRotationForTests,
 	setReaderEmptyStateTipRotationForTests,
 } from "../src/Browser.tsx"
+import { DiscoverShell } from "../src/index.tsx"
 import type { FileEntry } from "../src/discovery/walk.ts"
 import { colors, setActiveTheme } from "../src/theme/colors.ts"
 import { themeAtom } from "../src/theme/atom.ts"
@@ -838,6 +842,66 @@ describe("Browser — #22 layout v2", () => {
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
 		expect(frame).toContain("scan failed: boom second line third line")
+	})
+
+	test("renders fatal discovery failures without raw Effect diagnostics", async () => {
+		await act(async () => {
+			setup = await testRender(
+				<RegistryProvider>
+					<DiscoverShell
+						target="/no/such/path/__house_missing__"
+						initialQuery=""
+						initialShow={[]}
+						sort="dirs-first"
+						mdx={true}
+						maxWidth={null}
+						sidebarMode="auto"
+						startupFocus="sidebar"
+					/>
+				</RegistryProvider>,
+				VIEWPORT,
+			)
+		})
+		for (let i = 0; i < 5; i++) await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("scan failed: unable to read discovery root")
+		expect(frame).not.toContain("Cause")
+		expect(frame).not.toContain("DiscoveryError")
+	})
+
+	test("renders partial discovery warnings as a concise footer status", async () => {
+		const root = await mkdtemp(join(tmpdir(), "house-browser-"))
+		const locked = join(root, "locked")
+		await writeFile(join(root, "readable.md"), "# Readable", "utf8")
+		await mkdir(locked)
+		await writeFile(join(locked, "secret.md"), "# Secret", "utf8")
+		await chmod(locked, 0o000)
+		try {
+			await act(async () => {
+				setup = await testRender(
+					<RegistryProvider>
+						<DiscoverShell
+							target={root}
+							initialQuery=""
+							initialShow={[]}
+							sort="dirs-first"
+							mdx={true}
+							maxWidth={null}
+							sidebarMode="auto"
+							startupFocus="sidebar"
+						/>
+					</RegistryProvider>,
+					VIEWPORT,
+				)
+			})
+			const frame = await waitForFrameContaining("scan incomplete: skipped 1 directory: locked")
+			expect(frame).toContain("readable.md")
+			expect(frame).toContain("scan incomplete: skipped 1 directory: locked")
+			expect(frame).not.toContain(root)
+		} finally {
+			await chmod(locked, 0o755).catch(() => {})
+			await rm(root, { recursive: true, force: true })
+		}
 	})
 
 	test("renders leading YAML frontmatter as metadata instead of raw markdown", async () => {

@@ -110,6 +110,8 @@ export const formatPartialDiscoveryStatus = ({
 	return `scan incomplete: skipped ${skippedCount} ${noun}${suffix}`
 }
 
+export const formatFatalDiscoveryStatus = (): string => "scan failed: unable to read discovery root"
+
 interface DiscoverShellProps {
 	readonly target: string
 	readonly initialQuery: string
@@ -125,7 +127,7 @@ interface DiscoverShellProps {
 	readonly startupFocus: StartupFocus
 }
 
-const DiscoverShell = ({
+export const DiscoverShell = ({
 	target,
 	initialQuery,
 	initialShow,
@@ -162,8 +164,13 @@ const DiscoverShell = ({
 			sort,
 			mdx,
 			onWarning: ({ path }) => {
+				const relativePath = relative(resolve(target), path)
 				setSkippedDirCount((prev) => prev + 1)
-				setLastSkippedDir(path)
+				setLastSkippedDir(
+					relativePath.length > 0 && !relativePath.startsWith("..") && !isAbsolute(relativePath)
+						? relativePath
+						: path,
+				)
 			},
 		}).pipe(
 			Stream.groupedWithin(64, Duration.millis(60)),
@@ -180,7 +187,7 @@ const DiscoverShell = ({
 				onFailure: (cause) =>
 					Effect.sync(() => {
 						if (Cause.hasInterrupts(cause)) return
-						setScanError(`scan failed: ${Cause.pretty(cause)}`)
+						setScanError(formatFatalDiscoveryStatus())
 						setScanning(false)
 					}),
 			}),

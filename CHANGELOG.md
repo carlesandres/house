@@ -6,6 +6,11 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 
 ## [Unreleased]
 
+### Fixed
+
+- Discovery scan failures now render short, user-facing footer status instead of raw Effect diagnostics.
+- Partial discovery warnings now show concise skipped-directory status with root-relative paths where possible.
+
 ### Docs
 
 - Corrected usage docs and `--help` text: directory browsing is controlled by `--root` / `defaultRoot`; the positional path now seeds the initial browser filter query.

@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import {
+	formatFatalDiscoveryStatus,
 	formatPartialDiscoveryStatus,
 	resolveInitialQuery,
 	resolveDiscoveryRoot,
@@ -108,5 +109,15 @@ describe("formatPartialDiscoveryStatus", () => {
 		expect(formatPartialDiscoveryStatus({ skippedCount: 2, lastSkippedPath: "/tmp/locked" })).toBe(
 			"scan incomplete: skipped 2 directories",
 		)
+	})
+})
+
+describe("formatFatalDiscoveryStatus", () => {
+	test("returns a short user-facing status without raw diagnostics", () => {
+		const status = formatFatalDiscoveryStatus()
+		expect(status).toBe("scan failed: unable to read discovery root")
+		expect(status).not.toContain("\n")
+		expect(status).not.toContain("Cause")
+		expect(status).not.toContain("DiscoveryError")
 	})
 })

@@ -18,15 +18,13 @@ An item belongs here if its absence is a visible papercut or a table-stakes capa
 | Bugs | Relative assets (images, etc.) don't load in browser preview | [#75](https://github.com/carlesandres/house/issues/75) |
 | Bugs | Filter chip can crowd out key hints when query is long | [#86](https://github.com/carlesandres/house/issues/86) |
 | Bugs | Reader keys act on content occluded by the persistent drawer | [#87](https://github.com/carlesandres/house/issues/87) |
-| Bugs | Discovery aborts entirely when any subdirectory is unreadable (EACCES, etc.) | [#171](https://github.com/carlesandres/house/issues/171) |
-| Bugs | Raw multi-line `Cause.pretty` from scan errors corrupts footer + reader | [#172](https://github.com/carlesandres/house/issues/172) |
-| Bugs | `--root` flag is not validated before launching directory-mode TUI | [#173](https://github.com/carlesandres/house/issues/173) |
-| Bugs | No coherent UX or tests for partial discovery failures | [#174](https://github.com/carlesandres/house/issues/174) |
-| Architecture | `defaultRoot` config + `--root` flag | [#109](https://github.com/carlesandres/house/issues/109) |
-| Architecture | Spinner component + indexing-status integration | [#110](https://github.com/carlesandres/house/issues/110) |
-| Architecture | Debounced filter (50ms) with flush points | [#111](https://github.com/carlesandres/house/issues/111) |
-| Architecture | Sticky first-match auto-select | [#112](https://github.com/carlesandres/house/issues/112) |
+| Architecture | Unified browser model — epic | [#118](https://github.com/carlesandres/house/issues/118) |
+| Architecture | Browser `initialQuery` prop | [#113](https://github.com/carlesandres/house/issues/113) |
+| Architecture | Positional path becomes filter query; delete single-file `App` | [#114](https://github.com/carlesandres/house/issues/114) |
 | Architecture | Sidebar empty-state copy | [#116](https://github.com/carlesandres/house/issues/116) |
+| Chrome | Clickable discovery warning details spike | [#186](https://github.com/carlesandres/house/issues/186) |
+| Components | Reusable status popover component | [#185](https://github.com/carlesandres/house/issues/185) |
+| Docs | Sweep docs for unified browser model | [#117](https://github.com/carlesandres/house/issues/117) |
 | File-level | Delete current file with confirmation | [#20](https://github.com/carlesandres/house/issues/20) |
 | Navigation | Search — filename, full-text, fuzzy | [#25](https://github.com/carlesandres/house/issues/25) |
 | Navigation | Navigation history stack (back/forward) ★ | [#29](https://github.com/carlesandres/house/issues/29) |
