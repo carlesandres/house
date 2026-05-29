@@ -563,114 +563,10 @@ export const Browser = ({
 	}
 
 	useKeyboard((key) => {
-		// Filter modal: capture keystrokes for the input. Esc closes,
-		// leaving the typed query applied as the active filter; Return
-		// closes and focuses the reader (open the match); Ctrl+\ clears
-		// the input but stays in filter mode (same binding used from
-		// outside the modal — single chord, single mental model. Ctrl+U
-		// is deliberately not overloaded here; it stays reserved for its
-		// sidebar/reader half-page-up role); Backspace edits; Up/Down
-		// navigate the filtered list; printable characters extend the
-		// query and reset selection to 0. Everything else is swallowed
-		// so normal bindings (j/k as nav, `s`, `t`, …) don't fire while
-		// the user is typing. This sits outside the data-driven keymap
-		// for the same reason the help branch does — see DESIGN.md §12.
-		if (filterOpenRef.current && focusRef.current === "sidebar") {
-			// One close path used by both Esc and Return. `commit=true` is
-			// the Return semantic (open the match in the reader); false is
-			// Esc (stop typing, keep the applied filter, stay in sidebar).
-			const closeFilter = (commit: boolean) => {
-				filterAppliedRef.current = filterInputRef.current
-				setFilterApplied(filterInputRef.current)
-				const picked = displayedFiles[selectedIndex] ?? null
-				const effectiveCommit = commit && picked !== null
-				restoreFilterOnSidebarFocusRef.current = false
-				filterOpenRef.current = false
-				setFilterOpen(false)
-				// Where focus lands after the filter closes:
-				//   commit (Return on a real pick) → reader. The user asked
-				//     to open the match; show them what they picked.
-				//   otherwise → sidebar if it's up so j/k keeps walking the
-				//     filtered list; reader if the sidebar was hidden.
-				if (effectiveCommit) {
-					focusRef.current = "reader"
-					setFocus("reader")
-				} else {
-					const nextFocus = shown ? "sidebar" : "reader"
-					focusRef.current = nextFocus
-					setFocus(nextFocus)
-				}
-			}
-			if (key.name === "escape") {
-				closeFilter(false)
-				return
-			}
-			if (key.name === "return") {
-				closeFilter(true)
-				return
-			}
-			if (key.name === "tab" || (key.ctrl && key.name === "i" && !key.shift && !key.meta)) {
-				focusRef.current = "reader"
-				restoreFilterOnSidebarFocusRef.current = true
-				filterOpenRef.current = false
-				setFilterOpen(false)
-				setFocus("reader")
-				return
-			}
-			if (key.ctrl && key.name === "\\") {
-				// Same action as the `filter.clearOrOpen` binding fires from
-				// outside the modal: clear the query, reset selection. The
-				// keymap doesn't see keys in filter mode, so this branch is
-				// the in-modal half of that single chord.
-				filterInputRef.current = ""
-				filterAppliedRef.current = ""
-				setFilterInput("")
-				setFilterApplied("")
-				setSelectedIndex(() => 0)
-				return
-			}
-			if (key.name === "backspace" || key.name === "delete") {
-				// Backspace on empty input closes the modal — the leading `/`
-				// chevron is the last thing left to "delete."
-				if (filterInputRef.current.length === 0) {
-					closeFilter(false)
-					return
-				}
-				filterInputRef.current = filterInputRef.current.slice(0, -1)
-				setFilterInput(filterInputRef.current)
-				setSelectedIndex(() => 0)
-				return
-			}
-			if (key.name === "up") {
-				setSelectedIndex((i) => Math.max(0, i - 1))
-				return
-			}
-			if (key.name === "down") {
-				setSelectedIndex((i) => Math.min(Math.max(0, displayedFiles.length - 1), i + 1))
-				return
-			}
-			if (key.ctrl || key.meta) return
-			let char: string | null = null
-			if (key.name === "space") char = " "
-			else if (typeof key.name === "string" && key.name.length === 1) {
-				char = key.shift ? key.name.toUpperCase() : key.name
-			}
-			if (char !== null) {
-				filterInputRef.current = filterInputRef.current + char
-				setFilterInput(filterInputRef.current)
-				setSelectedIndex(() => 0)
-			}
-			return
-		}
 		// Command palette modal: capture keystrokes for the query input and
-		// list navigation. Esc closes (single press, regardless of query —
-		// #70 Q7a). Return runs the selected command. Up/Down navigate.
-		// Backspace edits the query and is a no-op on empty (#70 Q7b —
-		// intentionally diverges from the filter modal, which closes on
-		// empty-backspace, because accidental close feels worse in the
-		// palette). Printable characters extend the query and snap selection
-		// to 0 (#70 Q7c). Ctrl/Meta-modified keys are swallowed except
-		// ctrl+p, which toggles the palette closed on re-press.
+		// list navigation. This branch intentionally runs before the filter
+		// branch so ctrl+p can open the palette from filter mode while the
+		// palette still owns Esc/arrows/Return until it closes.
 		if (paletteOpenRef.current) {
 			const closePalette = () => {
 				paletteOpenRef.current = false
@@ -726,6 +622,110 @@ export const Browser = ({
 				paletteQueryRef.current = paletteQueryRef.current + char
 				setPaletteQuery(paletteQueryRef.current)
 				setPaletteIndexSync(0)
+			}
+			return
+		}
+
+		// Filter modal: capture keystrokes for the input. Esc closes,
+		// leaving the typed query applied as the active filter; Return
+		// closes and focuses the reader (open the match); Ctrl+\ clears
+		// the input but stays in filter mode (same binding used from
+		// outside the modal — single chord, single mental model. Ctrl+U
+		// is deliberately not overloaded here; it stays reserved for its
+		// sidebar/reader half-page-up role); Backspace edits; Up/Down
+		// navigate the filtered list; printable characters extend the
+		// query and reset selection to 0. Everything else is swallowed
+		// so normal bindings (j/k as nav, `s`, `t`, …) don't fire while
+		// the user is typing. This sits outside the data-driven keymap
+		// for the same reason the help branch does — see DESIGN.md §12.
+		if (filterOpenRef.current && focusRef.current === "sidebar") {
+			// One close path used by both Esc and Return. `commit=true` is
+			// the Return semantic (open the match in the reader); false is
+			// Esc (stop typing, keep the applied filter, stay in sidebar).
+			const closeFilter = (commit: boolean) => {
+				filterAppliedRef.current = filterInputRef.current
+				setFilterApplied(filterInputRef.current)
+				const picked = displayedFiles[selectedIndex] ?? null
+				const effectiveCommit = commit && picked !== null
+				restoreFilterOnSidebarFocusRef.current = false
+				filterOpenRef.current = false
+				setFilterOpen(false)
+				// Where focus lands after the filter closes:
+				//   commit (Return on a real pick) → reader. The user asked
+				//     to open the match; show them what they picked.
+				//   otherwise → sidebar if it's up so j/k keeps walking the
+				//     filtered list; reader if the sidebar was hidden.
+				if (effectiveCommit) {
+					focusRef.current = "reader"
+					setFocus("reader")
+				} else {
+					const nextFocus = shown ? "sidebar" : "reader"
+					focusRef.current = nextFocus
+					setFocus(nextFocus)
+				}
+			}
+			if (key.name === "escape") {
+				closeFilter(false)
+				return
+			}
+			if (key.name === "return") {
+				closeFilter(true)
+				return
+			}
+			if (key.name === "tab" || (key.ctrl && key.name === "i" && !key.shift && !key.meta)) {
+				focusRef.current = "reader"
+				restoreFilterOnSidebarFocusRef.current = true
+				filterOpenRef.current = false
+				setFilterOpen(false)
+				setFocus("reader")
+				return
+			}
+			if (key.ctrl && !key.meta && key.name === "p") {
+				ctx.openPalette()
+				return
+			}
+			if (key.ctrl && key.name === "\\") {
+				// Same action as the `filter.clearOrOpen` binding fires from
+				// outside the modal: clear the query, reset selection. The
+				// keymap doesn't see keys in filter mode, so this branch is
+				// the in-modal half of that single chord.
+				filterInputRef.current = ""
+				filterAppliedRef.current = ""
+				setFilterInput("")
+				setFilterApplied("")
+				setSelectedIndex(() => 0)
+				return
+			}
+			if (key.name === "backspace" || key.name === "delete") {
+				// Backspace on empty input closes the modal — the leading `/`
+				// chevron is the last thing left to "delete."
+				if (filterInputRef.current.length === 0) {
+					closeFilter(false)
+					return
+				}
+				filterInputRef.current = filterInputRef.current.slice(0, -1)
+				setFilterInput(filterInputRef.current)
+				setSelectedIndex(() => 0)
+				return
+			}
+			if (key.name === "up") {
+				setSelectedIndex((i) => Math.max(0, i - 1))
+				return
+			}
+			if (key.name === "down") {
+				setSelectedIndex((i) => Math.min(Math.max(0, displayedFiles.length - 1), i + 1))
+				return
+			}
+			if (key.ctrl || key.meta) return
+			let char: string | null = null
+			if (key.name === "space") char = " "
+			else if (typeof key.name === "string" && key.name.length === 1) {
+				char = key.shift ? key.name.toUpperCase() : key.name
+			}
+			if (char !== null) {
+				filterInputRef.current = filterInputRef.current + char
+				setFilterInput(filterInputRef.current)
+				setSelectedIndex(() => 0)
 			}
 			return
 		}

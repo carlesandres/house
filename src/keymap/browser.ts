@@ -140,9 +140,9 @@ export const browserBindings: readonly KeyBinding<BrowserCtx>[] = [
 		description: "Command palette",
 		hint: "palette",
 		keys: ["ctrl+p"],
-		// Filter swallows ctrl+p as a typed character in its own branch, so this
-		// `when` only matters when the palette is already open (which it
-		// shouldn't re-open). #70 Q2 — fires from everywhere except the filter.
+		// The filter modal handles this chord directly so the palette can open
+		// while filter input owns the rest of the keyboard. This gate keeps the
+		// normal dispatcher from reopening an already-open palette.
 		when: paletteClosed,
 		run: (c) => c.openPalette(),
 	},

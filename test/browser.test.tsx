@@ -2582,6 +2582,110 @@ describe("Browser — filter modal", () => {
 		expect(frame).toContain("> int▏")
 	})
 
+	test("ctrl+p opens the command palette while the filter modal is open", async () => {
+		const files = makeFiles(["README.md", "notes.md", "docs/intro.md"])
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={files}
+					readFile={makeReader({
+						"README.md": "x",
+						"notes.md": "y",
+						"docs/intro.md": "z",
+					})}
+					onQuit={() => {}}
+				/>,
+				{ width: 160, height: 40 },
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		await act(async () => {
+			setup!.mockInput.pressKey("/")
+			setup!.mockInput.pressKey("i")
+			setup!.mockInput.pressKey("n")
+			setup!.mockInput.pressKey("t")
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).toContain("> int▏")
+
+		await act(async () => {
+			setup!.mockInput.pressKey("p", { ctrl: true })
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("Commands")
+		expect(frame).toContain("Navigation")
+		expect(frame).not.toContain("> intp▏")
+	})
+
+	test("closing a palette opened from filter mode returns to the active filter", async () => {
+		const files = makeFiles(["README.md", "notes.md", "docs/intro.md"])
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={files}
+					readFile={makeReader({
+						"README.md": "x",
+						"notes.md": "y",
+						"docs/intro.md": "z",
+					})}
+					onQuit={() => {}}
+				/>,
+				{ width: 160, height: 40 },
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		await act(async () => {
+			setup!.mockInput.pressKey("/")
+			setup!.mockInput.pressKey("i")
+			setup!.mockInput.pressKey("n")
+			setup!.mockInput.pressKey("t")
+		})
+		await stepFrame(setup!.renderOnce)
+
+		await act(async () => {
+			setup!.mockInput.pressKey("p", { ctrl: true })
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).toContain("Commands")
+
+		await act(async () => {
+			setup!.mockInput.pressEscape()
+			await new Promise<void>((resolve) => setTimeout(resolve, 60))
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(frame).not.toContain(" Commands ")
+		expect(frame).toContain("> int▏")
+	})
+
+	test("footer keeps the palette hint visible while the filter modal is open", async () => {
+		const files = makeFiles(["README.md", "notes.md", "docs/intro.md"])
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={files}
+					readFile={makeReader({
+						"README.md": "x",
+						"notes.md": "y",
+						"docs/intro.md": "z",
+					})}
+					onQuit={() => {}}
+				/>,
+				{ width: 160, height: 40 },
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		await act(async () => {
+			setup!.mockInput.pressKey("/")
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).toContain("ctrl+p palette")
+	})
+
 	test("ctrl+\\ from sidebar with an applied filter clears it and reopens the modal", async () => {
 		const files = makeFiles(["README.md", "notes.md", "docs/intro.md"])
 		await act(async () => {
