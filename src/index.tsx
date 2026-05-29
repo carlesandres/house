@@ -198,6 +198,7 @@ export const DiscoverShell = ({
 			files={files}
 			initialQuery={initialQuery}
 			maxWidth={maxWidth}
+			emptyRootLabel={target}
 			discoveryStatus={discoveryStatus}
 			sidebarMode={sidebarMode}
 			startupFocus={startupFocus}

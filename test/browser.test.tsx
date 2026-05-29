@@ -118,17 +118,24 @@ describe("Browser — sidebar", () => {
 		expect(frame).toMatch(/api\.md\s+·\s+docs/)
 	})
 
-	test("shows '(no markdown files)' when files is empty", async () => {
+	test("shows the discovery root when files are empty after discovery", async () => {
 		resetReaderEmptyStateTipRotationForTests()
 		await act(async () => {
 			setup = await renderBrowser(
-				<Browser files={[]} readFile={makeReader({})} onQuit={() => {}} />,
+				<Browser
+					files={[]}
+					emptyRootLabel="docs"
+					readFile={makeReader({})}
+					onQuit={() => {}}
+				/>,
 				VIEWPORT,
 			)
 		})
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
-		expect(frame).toContain("no markdown files")
+		expect(frame).toContain("No markdown files in")
+		expect(frame).toContain('"docs"')
+		expectSidebarMessageCentered(frame, "No markdown files in", '"docs"')
 		expect(frame).toContain("Press / to start filtering files by path.")
 		expect(frame).not.toContain(
 			"Press Enter in the filter to open the selected match in the reader.",
@@ -276,6 +283,33 @@ const waitForFrameContaining = async (text: string): Promise<string> => {
 		if (frame.includes(text)) return frame
 	}
 	return setup!.captureCharFrame()
+}
+
+const expectSidebarBlankLineBetween = (frame: string, before: string, after: string): void => {
+	const lines = frame.split("\n")
+	const beforeIndex = lines.findIndex((line) => line.includes(before))
+	const afterIndex = lines.findIndex((line) => line.includes(after))
+	expect(beforeIndex).toBeGreaterThanOrEqual(0)
+	expect(afterIndex).toBe(beforeIndex + 2)
+	const spacer = lines[beforeIndex + 1] ?? ""
+	const sidebarCells = spacer.split("│")[0] ?? spacer
+	expect(sidebarCells.trim()).toBe("")
+}
+
+const expectSidebarMessageCentered = (frame: string, label: string, value: string): void => {
+	const line = frame
+		.split("\n")
+		.find((candidate) => candidate.includes(label) && candidate.includes(value))
+	expect(line).toBeDefined()
+	const sidebarCells = line!.split("│")[0] ?? line!
+	const labelStart = sidebarCells.indexOf(label)
+	const valueStart = sidebarCells.indexOf(value)
+	const start = Math.min(labelStart, valueStart)
+	expect(start).toBeGreaterThan(0)
+	const end = Math.max(labelStart + label.length, valueStart + value.length)
+	const left = sidebarCells.slice(0, start).length
+	const right = sidebarCells.slice(end).length
+	expect(Math.abs(left - right)).toBeLessThanOrEqual(1)
 }
 
 describe("Browser — selection", () => {
@@ -1726,13 +1760,19 @@ describe("Browser — sidebar filter row", () => {
 	test("filter row is suppressed on an empty vault (no '/ filter…')", async () => {
 		await act(async () => {
 			setup = await renderBrowser(
-				<Browser files={[]} readFile={makeReader({})} onQuit={() => {}} />,
+				<Browser
+					files={[]}
+					emptyRootLabel="root"
+					readFile={makeReader({})}
+					onQuit={() => {}}
+				/>,
 				VIEWPORT,
 			)
 		})
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
-		expect(frame).toContain("no markdown files")
+		expect(frame).toContain("No markdown files in")
+		expect(frame).toContain('"root"')
 		expect(frame).not.toContain("> / to filter…")
 	})
 
@@ -1855,6 +1895,66 @@ describe("Browser — sidebar filter row", () => {
 		expect(frame).not.toContain("README.md")
 		expect(frame).not.toContain("notes.md")
 		expect(readerTitleContains(frame, "docs/intro.md")).toBe(true)
+	})
+
+	test("zero-match sidebar copy names the applied query", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={makeFiles(["README.md", "notes.md"])}
+					initialQuery="zzz"
+					readFile={makeReader({
+						"README.md": "x",
+						"notes.md": "y",
+					})}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("No files match")
+		expect(frame).toContain('"zzz"')
+		expectSidebarMessageCentered(frame, "No files match", '"zzz"')
+		expectSidebarBlankLineBetween(frame, "> zzz", "No files match")
+		expect(frame).toContain("No files match: zzz")
+		expect(frame).not.toContain("README.md")
+		expect(frame).not.toContain("notes.md")
+	})
+
+	test("zero-match sidebar copy updates when the query changes", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={makeFiles(["README.md", "notes.md"])}
+					readFile={makeReader({
+						"README.md": "x",
+						"notes.md": "y",
+					})}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		await act(async () => {
+			setup!.mockInput.pressKey("/")
+			setup!.mockInput.pressKey("r")
+		})
+		await waitForFrameContaining("README.md")
+
+		await act(async () => {
+			setup!.mockInput.pressKey("z")
+			setup!.mockInput.pressKey("z")
+		})
+		await waitForFrameContaining("No files match: rzz")
+		const frame = setup!.captureCharFrame()
+		expect(frame).not.toContain("No files match r ")
+		expect(frame).toContain('"rzz"')
+		expectSidebarBlankLineBetween(frame, "> rzz", "No files match")
+		expect(frame).toContain("No files match: rzz")
 	})
 
 	test("Esc keeps the typed query applied (close-without-revert)", async () => {
