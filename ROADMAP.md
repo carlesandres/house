@@ -19,8 +19,7 @@ An item belongs here if its absence is a visible papercut or a table-stakes capa
 | Bugs | Filter chip can crowd out key hints when query is long | [#86](https://github.com/carlesandres/house/issues/86) |
 | Bugs | Reader keys act on content occluded by the persistent drawer | [#87](https://github.com/carlesandres/house/issues/87) |
 | Architecture | Unified browser model — epic | [#118](https://github.com/carlesandres/house/issues/118) |
-| Architecture | Browser `initialQuery` prop | [#113](https://github.com/carlesandres/house/issues/113) |
-| Architecture | Positional path becomes filter query; delete single-file `App` | [#114](https://github.com/carlesandres/house/issues/114) |
+| Architecture | Remove legacy `App` export and spike tests after unified Browser model | [#114](https://github.com/carlesandres/house/issues/114) |
 | Architecture | Sidebar empty-state copy | [#116](https://github.com/carlesandres/house/issues/116) |
 | Chrome | Clickable discovery warning details spike | [#186](https://github.com/carlesandres/house/issues/186) |
 | Components | Reusable status popover component | [#185](https://github.com/carlesandres/house/issues/185) |
@@ -32,15 +31,9 @@ An item belongs here if its absence is a visible papercut or a table-stakes capa
 | Navigation | Per-file bookmarks ★ (depends on #13) | [#33](https://github.com/carlesandres/house/issues/33) |
 | Sidebar | Tree-style sidebar with collapsible folders | [#14](https://github.com/carlesandres/house/issues/14) |
 | Config | Hierarchical config file (prereq for several deferred features) | [#13](https://github.com/carlesandres/house/issues/13) |
-| Config | Expand file-settable options (`width`, `sort`, `all`, `port`, `sidebarWidth`) | [#63](https://github.com/carlesandres/house/issues/63) |
+| Config | Expand file-settable options (`width`, `sort`, `show`, `port`, `sidebarWidth`) | [#63](https://github.com/carlesandres/house/issues/63) |
 | Theming | Theming v2 — user stylesheets, named theme sets | [#34](https://github.com/carlesandres/house/issues/34) |
 | Theming | Persist active theme to project or global config | [#73](https://github.com/carlesandres/house/issues/73) |
-| Distribution | Standalone binary (no Bun-on-PATH) — epic | [#2](https://github.com/carlesandres/house/issues/2) |
-| Distribution | Split `src/standalone.ts` entrypoint for fast `--version`/`--help` | [#131](https://github.com/carlesandres/house/issues/131) |
-| Distribution | Bundle published source via `dev/build-cli.ts` + `prepack` hook | [#132](https://github.com/carlesandres/house/issues/132) |
-| Distribution | `dev/build-standalone.ts` (`bun build --compile --bytecode`, per-platform) | [#133](https://github.com/carlesandres/house/issues/133) |
-| Distribution | Per-platform binary npm packages via `dev/build-npm-packages.ts` | [#134](https://github.com/carlesandres/house/issues/134) |
-| Distribution | `bin/house.js` Node shim with binary-package resolver + Bun fallback | [#135](https://github.com/carlesandres/house/issues/135) |
 | Tooling | One-command release flow (`bun run release`) | [#121](https://github.com/carlesandres/house/issues/121) |
 
 ## Backlog
@@ -52,6 +45,12 @@ No commitment to ship. Tracked to remember.
 | Item | Issue |
 |---|---|
 | Active auto-update command (depends on #100) | [#12](https://github.com/carlesandres/house/issues/12) |
+| Standalone binary (no Bun-on-PATH) — epic | [#2](https://github.com/carlesandres/house/issues/2) |
+| Split `src/standalone.ts` entrypoint for fast `--version`/`--help` | [#131](https://github.com/carlesandres/house/issues/131) |
+| Bundle published source via `dev/build-cli.ts` + `prepack` hook | [#132](https://github.com/carlesandres/house/issues/132) |
+| `dev/build-standalone.ts` (`bun build --compile --bytecode`, per-platform) | [#133](https://github.com/carlesandres/house/issues/133) |
+| Per-platform binary npm packages via `dev/build-npm-packages.ts` | [#134](https://github.com/carlesandres/house/issues/134) |
+| `bin/house.js` Node shim with binary-package resolver + Bun fallback | [#135](https://github.com/carlesandres/house/issues/135) |
 | Distribute via Homebrew tap | [#51](https://github.com/carlesandres/house/issues/51) |
 | Windows support (epic; see also #128 PATHEXT) | [#129](https://github.com/carlesandres/house/issues/129) |
 
@@ -95,7 +94,6 @@ No commitment to ship. Tracked to remember.
 | Extract `Sidebar.tsx` from `Browser.tsx` | [#66](https://github.com/carlesandres/house/issues/66) |
 | Mouse interaction on the sidebar filter row | [#67](https://github.com/carlesandres/house/issues/67) |
 | Filter-row behaviour in the tight viewport bucket | [#68](https://github.com/carlesandres/house/issues/68) |
-| Runtime toggle + config option for hidden/gitignored files | [#69](https://github.com/carlesandres/house/issues/69) |
 | Enter from reader returns to sidebar (extra key on `reader.back`) | [#78](https://github.com/carlesandres/house/issues/78) |
 
 ### Discovery

@@ -41,7 +41,7 @@ See `DESIGN.md` §9.1 for the module map. In short:
 
 ## Testing
 
-The headless test pattern is documented in `test/spike.test.tsx`. Use `testRender` + `captureCharFrame` + `mockInput`. When asserting on `<markdown>` body content, prefer asserting on stable surfaces (border titles, sidebar rows) — the markdown body has first-frame quirks in headless render.
+The headless test pattern is documented in `test/browser.test.tsx`. Use `testRender` + `captureCharFrame` + `mockInput`. When asserting on `<markdown>` body content, prefer asserting on stable surfaces (border titles, sidebar rows) — the markdown body has first-frame quirks in headless render.
 
 Add tests alongside features. We don't enforce coverage, but every keymap binding should have at least one integration test (see §10.2 of DESIGN.md for the v2 gate).
 

@@ -1,7 +1,7 @@
 # Sample
 
 A small fixture used by tests. The strings in this file are asserted on
-in `test/spike.test.tsx` and friends — change them and you change tests.
+in Browser and markdown-rendering tests — change them and you change tests.
 
 ## Contents
 
