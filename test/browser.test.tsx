@@ -2847,7 +2847,43 @@ describe("Browser — filter modal", () => {
 			setup!.mockInput.pressKey("/")
 		})
 		await stepFrame(setup!.renderOnce)
-		expect(setup!.captureCharFrame()).toContain("ctrl+p palette")
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("tab focus")
+		expect(frame).toContain("ctrl+p palette")
+		expect(frame).toContain("↵ open")
+		expect(frame).not.toContain("q quit")
+		expect(frame).not.toContain("s sidebar")
+		expect(frame).not.toContain("t theme")
+		expect(frame).not.toContain("shift+o html")
+		expect(frame).not.toContain("shift+e edit")
+	})
+
+	test("footer hides open hint while the filter modal has no selected match", async () => {
+		const files = makeFiles(["README.md", "notes.md"])
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={files}
+					readFile={makeReader({ "README.md": "x", "notes.md": "y" })}
+					onQuit={() => {}}
+				/>,
+				{ width: 160, height: 40 },
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		await act(async () => {
+			setup!.mockInput.pressKey("/")
+			setup!.mockInput.pressKey("z")
+			await new Promise<void>((resolve) => setTimeout(resolve, 60))
+		})
+		await waitForFrameContaining("No files match: z")
+
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("tab focus")
+		expect(frame).toContain("ctrl+p palette")
+		expect(frame).not.toContain("↵ open")
+		expect(frame).not.toContain("q quit")
 	})
 
 	test("ctrl+\\ from sidebar with an applied filter clears it and reopens the modal", async () => {
