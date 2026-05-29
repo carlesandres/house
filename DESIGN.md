@@ -221,6 +221,12 @@ The semantic tokens are intentionally about UI role, not color names. When styli
 | `info` | Informational status distinct from active metadata. |
 | `syntax` | Markdown and fenced-code `SyntaxStyle` scope map built from `markdown*` and `syntax*` theme tokens. |
 
+Token application rules for common chrome patterns:
+
+- **Section/category headers inside palettes and lists** are organizational chrome, not active state — use `textMuted` (optionally bold).
+- **Selected interactive rows** use `backgroundElement` for background and `primary` or `selectedListItemText` for foreground.
+- **Do not use `borderActive` for text labels** unless the text itself is acting as active chrome; it is primarily for focused borders.
+
 The raw theme token surface also includes markdown-specific tokens (`markdownHeading`, `markdownLink`, etc.) and fenced-code syntax tokens (`syntaxKeyword`, `syntaxString`, etc.). Use those through `colors.syntax` for rendered markdown instead of applying UI accent tokens to document content.
 
 Terminal-background auto-detect (OSC 11 / `COLORFGBG` / fallback) is **deferred to beta** — see §12. Until that lands, users opt in via `--theme`.

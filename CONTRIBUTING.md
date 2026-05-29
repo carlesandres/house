@@ -93,7 +93,7 @@ Do not bind these keys — they are reserved for v2 (DESIGN.md §7.3): `/`, `r`.
 
 A theme resolves from opencode-style JSON into the typed token surface in `src/theme/types.ts`, then into the `ColorPalette` singleton. The exposed UI tokens keep OpenCode's naming (`background`, `backgroundPanel`, `backgroundElement`, `borderSubtle`, `primary`, `secondary`, etc.). To add one: drop a new JSON file in `src/theme/themes/` and register it in `src/theme/loader.ts`.
 
-Before using a token in UI code, check DESIGN.md §7.5's semantic token table. Tokens are role-based: choose by intended meaning, not by the color a single bundled theme happens to render.
+Before using a token in UI code, check DESIGN.md §7.5's semantic token table. Tokens are role-based: choose by intended meaning, not by the color a single bundled theme happens to render. In particular: section/category headers should usually be `textMuted` (optionally bold), while selected interactive rows should use `backgroundElement` plus `primary`/`selectedListItemText`.
 
 ## Demo recordings
 

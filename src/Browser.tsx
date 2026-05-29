@@ -18,7 +18,7 @@ import { Effect } from "effect"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { buildCommands } from "./commands/buildCommands.ts"
 import { clampSelectedIndex, filterCommands } from "./commands/score.ts"
-import { CommandPalette } from "./CommandPalette.tsx"
+import { CommandPalette, orderCommandsForPalette } from "./CommandPalette.tsx"
 import { filterFiles } from "./discovery/filter.ts"
 import { type FileEntry } from "./discovery/walk.ts"
 import { parseFrontmatter } from "./markdown/frontmatter.ts"
@@ -685,7 +685,7 @@ export const Browser = ({
 				setPaletteIndex(next)
 			}
 			const allCommands = buildCommands(ctx)
-			const filtered = filterCommands(allCommands, paletteQueryRef.current)
+			const filtered = orderCommandsForPalette(filterCommands(allCommands, paletteQueryRef.current))
 			if (key.name === "escape") {
 				closePalette()
 				return
@@ -1051,7 +1051,7 @@ export const Browser = ({
 			<Footer {...footerProps} />
 			{paletteOpen && (
 				<CommandPalette
-					commands={filterCommands(buildCommands(ctx), paletteQuery)}
+					commands={orderCommandsForPalette(filterCommands(buildCommands(ctx), paletteQuery))}
 					query={paletteQuery}
 					selectedIndex={paletteIndex}
 					viewportWidth={width}

@@ -2823,9 +2823,60 @@ describe("Browser — command palette", () => {
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
 		expect(frame).toContain("Commands")
+		expect(frame).toContain("Navigation")
+		expect(frame).toContain("View")
 		// Default-visible command titles from the annotation map are shown.
 		expect(frame).toContain("Toggle sidebar")
+		expect(frame).toContain("Filter files…")
+	})
+
+	test("palette body accounts for group headers and spacers when sizing", async () => {
+		const files = makeFiles(["README.md"])
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser files={files} readFile={makeReader({ "README.md": "x" })} onQuit={() => {}} />,
+				{ width: 120, height: 40 },
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		await act(async () => {
+			setup!.mockInput.pressKey("p", { ctrl: true })
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("App")
 		expect(frame).toContain("Quit")
+	})
+
+	test("typing keeps headers only for categories with matching commands", async () => {
+		const files = makeFiles(["README.md"])
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser files={files} readFile={makeReader({ "README.md": "x" })} onQuit={() => {}} />,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		await act(async () => {
+			setup!.mockInput.pressKey("p", { ctrl: true })
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).toContain("Navigation")
+
+		await act(async () => {
+			setup!.mockInput.pressKey("t")
+			setup!.mockInput.pressKey("h")
+			setup!.mockInput.pressKey("e")
+			setup!.mockInput.pressKey("m")
+			setup!.mockInput.pressKey("e")
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("Next theme")
+		expect(frame).toContain("Appearance")
+		expect(frame).not.toContain("Navigation")
 	})
 
 	test("Esc closes the palette", async () => {
@@ -2874,7 +2925,7 @@ describe("Browser — command palette", () => {
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
 		expect(frame).toContain("Next theme")
-		expect(frame).toContain("Previous theme")
+		expect(frame).toContain("Appearance")
 		// Non-matching commands drop out.
 		expect(frame).not.toContain("Quit")
 		expect(frame).not.toContain("Toggle sidebar")
@@ -2913,7 +2964,7 @@ describe("Browser — command palette", () => {
 		expect(quitCalls).toBe(1)
 	})
 
-	test("rapid Down then Return runs the highlighted command, not the previous command", async () => {
+	test("Return runs the highlighted grouped command", async () => {
 		let quitCalls = 0
 		const files = makeFiles(["README.md"])
 		await act(async () => {
@@ -2930,19 +2981,126 @@ describe("Browser — command palette", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 
-		// These keys can arrive in one React batch in a real terminal. Palette
-		// navigation must update the command index synchronously before Return
-		// reads it, otherwise Return runs the previous row (`Quit`).
 		await act(async () => {
 			setup!.mockInput.pressKey("p", { ctrl: true })
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).toContain("▸ Filter files…")
+
+		await act(async () => {
+			setup!.mockInput.pressEnter()
+		})
+		await stepFrame(setup!.renderOnce)
+
+		const frame = setup!.captureCharFrame()
+		expect(quitCalls).toBe(0)
+		expect(frame).not.toContain(" Commands ")
+		expect(frame).toContain("> ▏")
+	})
+
+	test("filtered grouped selection highlights and runs the selected command", async () => {
+		const startIdx = themeDefinitions.findIndex((theme, index) => {
+			const previous =
+				themeDefinitions[(index - 1 + themeDefinitions.length) % themeDefinitions.length]
+			return (
+				previous !== undefined &&
+				resolveTheme(theme.source, "dark").background !==
+					resolveTheme(previous.source, "dark").background
+			)
+		})
+		const index = startIdx >= 0 ? startIdx : 0
+		const startTheme = themeDefinitions[index]!
+		const previousTheme =
+			themeDefinitions[(index - 1 + themeDefinitions.length) % themeDefinitions.length]!
+		setActiveTheme(startTheme, "dark")
+		const initialValues = [[themeAtom, { id: startTheme.id, tone: "dark" }]] as Iterable<
+			readonly [any, any]
+		>
+		const files = makeFiles(["README.md"])
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser files={files} readFile={makeReader({ "README.md": "x" })} onQuit={() => {}} />,
+				VIEWPORT,
+				initialValues,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		const before = colors.background
+
+		await act(async () => {
+			setup!.mockInput.pressKey("p", { ctrl: true })
+			setup!.mockInput.pressKey("t")
+			setup!.mockInput.pressKey("h")
+			setup!.mockInput.pressKey("e")
+			setup!.mockInput.pressKey("m")
+			setup!.mockInput.pressKey("e")
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).toContain("Appearance")
+
+		await act(async () => {
+			setup!.mockInput.pressArrow("down")
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).toContain("▸ Previous theme")
+
+		await act(async () => {
+			setup!.mockInput.pressEnter()
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(colors.background).not.toBe(before)
+		expect(colors.background).toBe(resolveTheme(previousTheme.source, "dark").background)
+	})
+
+	test("rapid Down then Return runs the highlighted command, not the previous command", async () => {
+		const startIdx = themeDefinitions.findIndex((theme, index) => {
+			const previous =
+				themeDefinitions[(index - 1 + themeDefinitions.length) % themeDefinitions.length]
+			return (
+				previous !== undefined &&
+				resolveTheme(theme.source, "dark").background !==
+					resolveTheme(previous.source, "dark").background
+			)
+		})
+		const index = startIdx >= 0 ? startIdx : 0
+		const startTheme = themeDefinitions[index]!
+		const previousTheme =
+			themeDefinitions[(index - 1 + themeDefinitions.length) % themeDefinitions.length]!
+		setActiveTheme(startTheme, "dark")
+		const initialValues = [[themeAtom, { id: startTheme.id, tone: "dark" }]] as Iterable<
+			readonly [any, any]
+		>
+		const files = makeFiles(["README.md"])
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser files={files} readFile={makeReader({ "README.md": "x" })} onQuit={() => {}} />,
+				VIEWPORT,
+				initialValues,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		// These keys can arrive in one React batch in a real terminal. Palette
+		// navigation must update the command index synchronously before Return
+		// reads it, otherwise Return runs the previous row (`Next theme`).
+		await act(async () => {
+			setup!.mockInput.pressKey("p", { ctrl: true })
+			setup!.mockInput.pressKey("t")
+			setup!.mockInput.pressKey("h")
+			setup!.mockInput.pressKey("e")
+			setup!.mockInput.pressKey("m")
+			setup!.mockInput.pressKey("e")
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).toContain("▸ Next theme")
+
+		await act(async () => {
 			setup!.mockInput.pressArrow("down")
 			setup!.mockInput.pressEnter()
 		})
 		await stepFrame(setup!.renderOnce)
 
-		expect(quitCalls).toBe(0)
-		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(false)
-		expect(readerTitleContains(setup!.captureCharFrame(), "README.md")).toBe(true)
+		expect(colors.background).toBe(resolveTheme(previousTheme.source, "dark").background)
 	})
 
 	test("ctrl+p a second time closes the palette (toggle)", async () => {
@@ -3019,10 +3177,18 @@ describe("Browser — command palette", () => {
 		const duringFrame = setup!.captureCharFrame()
 		// Palette is up.
 		expect(duringFrame).toContain(" Commands ")
-		// Reader has NOT scrolled — the top line is still on screen behind
-		// the palette overlay. With the old `focused={readerActive}` code,
+
+		// Close palette before asserting on the underlying reader surface; the
+		// grouped palette can legitimately cover the top reader line.
+		await act(async () => {
+			setup!.mockInput.pressKey("p", { ctrl: true })
+		})
+		await stepFrame(setup!.renderOnce)
+		const afterFrame = await waitForFrameContaining("MARKER00")
+		expect(afterFrame).not.toContain(" Commands ")
+		// Reader has NOT scrolled. With the old `focused={readerActive}` code,
 		// MARKER00 would have scrolled out of the visible viewport.
-		expect(duringFrame).toContain("MARKER00")
+		expect(afterFrame).toContain("MARKER00")
 	})
 
 	test("regression: arrow keys with palette open do NOT scroll the reader", async () => {

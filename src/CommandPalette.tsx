@@ -5,8 +5,10 @@
  * (#70 design log §state location). Key handling sits in Browser.tsx's
  * `useKeyboard` palette-branch, mirroring the filterOpen pattern.
  *
- * V1 ships a flat list in `browserBindings` order — no category headers,
- * no mouse, no recency. See #91/#93/#94/#95/#96 for the follow-ups.
+ * Commands are grouped by semantic category while preserving command order
+ * inside each group. Browser.tsx owns the query and selected command index;
+ * this component turns those commands into render rows and keeps the selected
+ * row visible when the list is taller than the modal body.
  */
 
 import { RGBA } from "@opentui/core"
@@ -29,6 +31,52 @@ export interface CommandPaletteProps {
 }
 
 const FOOTER_HINT = "↑↓ select  enter run  esc close"
+const CATEGORY_ORDER = ["Navigation", "View", "File", "Appearance", "App"] as const
+
+type PaletteRow =
+	| { readonly kind: "spacer"; readonly key: string }
+	| { readonly kind: "header"; readonly key: string; readonly text: string }
+	| {
+			readonly kind: "command"
+			readonly key: string
+			readonly command: AppCommand
+			readonly commandIndex: number
+	  }
+
+export const orderCommandsForPalette = (commands: readonly AppCommand[]): readonly AppCommand[] => {
+	const grouped = new Map<string, AppCommand[]>()
+	for (const command of commands) {
+		const category = command.category ?? "Other"
+		const list = grouped.get(category)
+		if (list) list.push(command)
+		else grouped.set(category, [command])
+	}
+
+	const orderedCategories = [
+		...CATEGORY_ORDER.filter((category) => grouped.has(category)),
+		...Array.from(grouped.keys()).filter((category) => !CATEGORY_ORDER.includes(category as never)),
+	]
+
+	return orderedCategories.flatMap((category) => grouped.get(category) ?? [])
+}
+
+const buildRows = (commands: readonly AppCommand[]): readonly PaletteRow[] => {
+	const orderedCommands = orderCommandsForPalette(commands)
+	const rows: PaletteRow[] = []
+	let previousCategory: string | null = null
+	let commandIndex = 0
+	for (const command of orderedCommands) {
+		const category = command.category ?? "Other"
+		if (category !== previousCategory) {
+			if (previousCategory !== null) rows.push({ kind: "spacer", key: `spacer-${category}` })
+			rows.push({ kind: "header", key: `header-${category}`, text: category })
+			previousCategory = category
+		}
+		rows.push({ kind: "command", key: command.id, command, commandIndex })
+		commandIndex += 1
+	}
+	return rows
+}
 
 export const CommandPalette = ({
 	commands,
@@ -38,11 +86,12 @@ export const CommandPalette = ({
 	viewportHeight,
 }: CommandPaletteProps) => {
 	const overlayWidth = Math.min(viewportWidth - 4, 64)
+	const rows = buildRows(commands)
 	// Reserve: 2 for border (top+bottom), 1 query row, 1 spacer below query,
 	// 1 spacer above footer, 1 footer row. Body gets the rest.
 	const chrome = 2 + 1 + 1 + 1 + 1
 	const maxBody = Math.max(1, viewportHeight - 4 - chrome)
-	const desiredBody = Math.max(1, commands.length || 1)
+	const desiredBody = Math.max(1, rows.length || 1)
 	const bodyHeight = Math.min(desiredBody, maxBody)
 	const overlayHeight = chrome + bodyHeight
 	const left = Math.max(0, Math.floor((viewportWidth - overlayWidth) / 2))
@@ -51,17 +100,19 @@ export const CommandPalette = ({
 	// Inner content width: overlay minus 1-cell border + 1-cell padding on each side.
 	const rowWidth = Math.max(4, overlayWidth - 4)
 
-	// Window the visible slice around the selection. With 9 commands in v1
-	// this is usually a no-op (list fits), but the math is in place for the
-	// inevitable backlog growth.
+	// Window the visible slice around the selected command row. Headers and
+	// spacers are render-only rows, so selection still tracks command indexes.
 	const scrollTop = (() => {
-		if (commands.length <= bodyHeight) return 0
-		const maxScroll = commands.length - bodyHeight
+		if (rows.length <= bodyHeight) return 0
+		const maxScroll = rows.length - bodyHeight
 		let s = 0
-		if (selectedIndex >= bodyHeight) s = selectedIndex - bodyHeight + 1
+		const selectedRowIndex = rows.findIndex(
+			(row) => row.kind === "command" && row.commandIndex === selectedIndex,
+		)
+		if (selectedRowIndex >= bodyHeight) s = selectedRowIndex - bodyHeight + 1
 		return Math.max(0, Math.min(s, maxScroll))
 	})()
-	const visible = commands.slice(scrollTop, scrollTop + bodyHeight)
+	const visible = rows.slice(scrollTop, scrollTop + bodyHeight)
 
 	// Shortcut column width — long enough for `shift+t`-style chords but
 	// trimmed to prevent the title from being squeezed below ~16 cells.
@@ -110,9 +161,22 @@ export const CommandPalette = ({
 				{commands.length === 0 ? (
 					<text wrapMode="none" content="  (no matches)" style={{ fg: colors.textMuted }} />
 				) : (
-					visible.map((cmd, i) => {
-						const realIdx = scrollTop + i
-						const isSelected = realIdx === selectedIndex
+					visible.map((row) => {
+						if (row.kind === "spacer") {
+							return <text key={row.key} content=" " />
+						}
+						if (row.kind === "header") {
+							return (
+								<text
+									key={row.key}
+									wrapMode="none"
+									content={fit(row.text, rowWidth)}
+									style={{ fg: colors.textMuted, attributes: 1 }}
+								/>
+							)
+						}
+						const cmd = row.command
+						const isSelected = row.commandIndex === selectedIndex
 						const selector = isSelected ? "▸ " : "  "
 						const titleText = fit(cmd.title, titleWidth)
 						const shortcutText = cmd.shortcut

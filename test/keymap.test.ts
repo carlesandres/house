@@ -233,4 +233,22 @@ describe("browserBindings — discovery.toggleAll", () => {
 		expect(sidebarIds.has("sidebar.bottom")).toBe(true)
 		expect(sidebarIds.has("sidebar.open")).toBe(true)
 	})
+
+	test("palette commands use the supported intent categories", async () => {
+		const { buildCommands } = await import("../src/commands/buildCommands.ts")
+		const allowed = new Set(["Navigation", "View", "File", "Appearance", "App"])
+		const files = [
+			{ path: "/v/0.md", relativePath: "0.md", name: "0.md" },
+			{ path: "/v/1.md", relativePath: "1.md", name: "1.md" },
+		] as const
+		const commands = [
+			...buildCommands(stubCtx({ files, hasSelected: true, focus: "reader", filterQuery: "abc" })),
+			...buildCommands(stubCtx({ files, hasSelected: true, focus: "sidebar", filterQuery: "abc" })),
+		]
+		const invalid = commands.filter(
+			(command) => command.category === undefined || !allowed.has(command.category),
+		)
+
+		expect(invalid.map((command) => command.id)).toEqual([])
+	})
 })
