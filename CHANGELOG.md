@@ -15,6 +15,7 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 ### Docs
 
 - Corrected usage docs and `--help` text: directory browsing is controlled by `--root` / `defaultRoot`; the positional path now seeds the initial browser filter query.
+- Refreshed unified-browser docs, roadmap state, and demo tapes after the single Browser model landed.
 
 ### Changed
 

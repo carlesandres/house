@@ -24,7 +24,7 @@ import { currentUpdateInfo, startUpdateProbe } from "./update/runtime.ts"
 import { useUpdateNotice } from "./update/useUpdateNotice.ts"
 
 /**
- * DiscoverShell — owns the streaming walk for directory mode. Mounts Browser
+ * DiscoverShell — owns the streaming walk for the Browser. Mounts Browser
  * immediately with `files=[]` and pushes entries as the stream emits.
  *
  * Batching: `Stream.groupedWithin(64, 60ms)` coalesces bursts so we don't

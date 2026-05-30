@@ -19,8 +19,6 @@ An item belongs here if its absence is a visible papercut or a table-stakes capa
 | Bugs | Filter chip can crowd out key hints when query is long | [#86](https://github.com/carlesandres/house/issues/86) |
 | Bugs | Reader keys act on content occluded by the persistent drawer | [#87](https://github.com/carlesandres/house/issues/87) |
 | Architecture | Unified browser model — epic | [#118](https://github.com/carlesandres/house/issues/118) |
-| Architecture | Remove legacy `App` export and spike tests after unified Browser model | [#114](https://github.com/carlesandres/house/issues/114) |
-| Architecture | Sidebar empty-state copy | [#116](https://github.com/carlesandres/house/issues/116) |
 | Chrome | Clickable discovery warning details spike | [#186](https://github.com/carlesandres/house/issues/186) |
 | Components | Reusable status popover component | [#185](https://github.com/carlesandres/house/issues/185) |
 | Docs | Sweep docs for unified browser model | [#117](https://github.com/carlesandres/house/issues/117) |

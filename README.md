@@ -42,12 +42,21 @@ bun add -g @carlesandres/house
 ## Usage
 
 ```
-house [path] [options]
+house [query] [options]
 ```
 
 By default, `house` opens the browser over the configured discovery root: the current directory, or the git root when `defaultRoot = "git"` is configured. Use `--root <dir>` to browse a specific directory.
 
-`[path]` seeds the initial sidebar filter query. It does **not** set the discovery root; use `--root <dir>` for that.
+`[query]` seeds the initial sidebar filter query. It can be a filename, a relative path, or any path fragment you want to match. It does **not** set the discovery root; use `--root <dir>` for that.
+
+Examples:
+
+```bash
+house                  # browse the configured discovery root
+house README.md        # browse with README.md preloaded as the sidebar filter
+house --root docs      # browse docs/ as the discovery root
+house --serve README.md
+```
 
 ### Options
 
@@ -61,7 +70,7 @@ By default, `house` opens the browser over the configured discovery root: the cu
 | `--sort <mode>` | `dirs-first` | Sidebar order: `dirs-first` or `files-first` |
 | `--sidebar <mode>` | `auto` | Initial sidebar visibility: `auto`, `on`, or `off` |
 | `--focus <mode>` | `filter` | Startup focus: `sidebar`, `reader`, or `filter`. `filter` opens the sidebar filter prompt immediately. |
-| `--serve` | off | Serve the given path as HTML in the browser (skips TUI) |
+| `--serve` | off | Serve the positional path as HTML in the browser (skips TUI) |
 | `--port <N>` | OS-assigned | Port for `--serve` |
 | `--no-mdx` | off | Exclude `.mdx` files from discovery |
 | `--no-update-check` | off | Suppress the "newer version available" check (also via `NO_UPDATE_NOTIFIER=1`) |

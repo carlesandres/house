@@ -14,7 +14,7 @@ export interface ParsedArgs {
 	readonly width: string | null
 	/** Value of `--sort <mode>` (`dirs-first` or `files-first`), or null. Validated by the boot layer. */
 	readonly sort: string | null
-	/** True when `--serve` was passed: serve the given path as HTML, skip TUI. */
+	/** True when `--serve` was passed: serve the positional path as HTML, skip TUI. */
 	readonly serve: boolean
 	/** Value of `--port <N>`, or null. Validated by the boot layer. */
 	readonly port: string | null
@@ -139,9 +139,11 @@ export const parseArgv = (argv: readonly string[]): ParsedArgs => {
 
 const themeList = themeDefinitions.map((t) => t.id).join(", ")
 
-export const usage = `usage: house [path] [options]
+export const usage = `usage:
+  house [query] [options]
+  house --serve <path> [--port N]
 
-  path           initial filter query; omit to browse the full discovery root
+  query          initial filter query; omit to browse the full discovery root
 
 options:
   --theme <id>   color theme: ${themeList} (default: opencode)
@@ -153,13 +155,18 @@ options:
   --sort <mode>  sidebar order: dirs-first (default) or files-first
   --sidebar <m>  initial sidebar visibility: auto (default), on, or off
   --focus <m>    startup focus: sidebar, reader, or filter (default: filter)
-  --serve        serve the given path as HTML in the browser (skips TUI)
+  --serve        serve the positional path as HTML in the browser (skips TUI)
   --port <N>     port for --serve (default: OS-assigned)
   -h, --help     show this help and exit
   -v, --version  print version and exit
   --config-path  print path to the config file and exit
   --no-update-check  suppress the "newer version available" check (also via NO_UPDATE_NOTIFIER=1)
   --no-mdx       exclude .mdx files from discovery (default: included)
+
+examples:
+  house README.md
+  house --root docs
+  house --serve README.md
 
 configuration:
   file: $XDG_CONFIG_HOME/house/config.toml  (default ~/.config/house/config.toml)

@@ -15,9 +15,9 @@ Set Height 1800
 Set Padding 40
 Set Theme "TokyoNight"
 
-# Launch the installed house against the repo's own markdown files
+# Launch house against the repo's own markdown files
 Hide
-Type "house ."
+Type "bun run src/index.tsx --root . --no-update-check"
 Enter
 Sleep 2s
 Show
