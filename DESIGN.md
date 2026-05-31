@@ -167,7 +167,7 @@ Do not bind these in v1:
 | `B` | Bookmarks panel |
 | `ctrl+[` / `ctrl+]` | Navigation history back / forward |
 
-`E` (open in `$EDITOR`) and `O` (open externally, currently HTML browser) are shipped — see the keymap. Reload semantics: `r` remains reserved because `E`'s post-edit reload is automatic; a manual reload is only needed if we ship file-watching as a separate feature.
+`E` (open in `$EDITOR`) and `O` (open externally, currently HTML browser) are shipped — see the keymap. The browser preview intentionally stays on the current simple `marked`-based HTML path for now; see [`docs/adr/0001-streamdown-preview-renderer.md`](./docs/adr/0001-streamdown-preview-renderer.md). Reload semantics: `r` remains reserved because `E`'s post-edit reload is automatic; a manual reload is only needed if we ship file-watching as a separate feature.
 
 ### 7.4 Unified browser model
 
