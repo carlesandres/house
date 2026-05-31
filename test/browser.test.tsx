@@ -1,5 +1,8 @@
 import { afterEach, beforeAll, describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
+import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { act } from "react"
 import React from "react"
 import { testRender } from "@opentui/react/test-utils"
@@ -11,6 +14,7 @@ import {
 	resetReaderEmptyStateTipRotationForTests,
 	setReaderEmptyStateTipRotationForTests,
 } from "../src/Browser.tsx"
+import { DiscoverShell } from "../src/index.tsx"
 import type { FileEntry } from "../src/discovery/walk.ts"
 import { colors, setActiveTheme } from "../src/theme/colors.ts"
 import { themeAtom } from "../src/theme/atom.ts"
@@ -114,17 +118,24 @@ describe("Browser — sidebar", () => {
 		expect(frame).toMatch(/api\.md\s+·\s+docs/)
 	})
 
-	test("shows '(no markdown files)' when files is empty", async () => {
+	test("shows the discovery root when files are empty after discovery", async () => {
 		resetReaderEmptyStateTipRotationForTests()
 		await act(async () => {
 			setup = await renderBrowser(
-				<Browser files={[]} readFile={makeReader({})} onQuit={() => {}} />,
+				<Browser
+					files={[]}
+					emptyRootLabel="docs"
+					readFile={makeReader({})}
+					onQuit={() => {}}
+				/>,
 				VIEWPORT,
 			)
 		})
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
-		expect(frame).toContain("no markdown files")
+		expect(frame).toContain("No markdown files in")
+		expect(frame).toContain('"docs"')
+		expectSidebarMessageCentered(frame, "No markdown files in", '"docs"')
 		expect(frame).toContain("Press / to start filtering files by path.")
 		expect(frame).not.toContain(
 			"Press Enter in the filter to open the selected match in the reader.",
@@ -272,6 +283,33 @@ const waitForFrameContaining = async (text: string): Promise<string> => {
 		if (frame.includes(text)) return frame
 	}
 	return setup!.captureCharFrame()
+}
+
+const expectSidebarBlankLineBetween = (frame: string, before: string, after: string): void => {
+	const lines = frame.split("\n")
+	const beforeIndex = lines.findIndex((line) => line.includes(before))
+	const afterIndex = lines.findIndex((line) => line.includes(after))
+	expect(beforeIndex).toBeGreaterThanOrEqual(0)
+	expect(afterIndex).toBe(beforeIndex + 2)
+	const spacer = lines[beforeIndex + 1] ?? ""
+	const sidebarCells = spacer.split("│")[0] ?? spacer
+	expect(sidebarCells.trim()).toBe("")
+}
+
+const expectSidebarMessageCentered = (frame: string, label: string, value: string): void => {
+	const line = frame
+		.split("\n")
+		.find((candidate) => candidate.includes(label) && candidate.includes(value))
+	expect(line).toBeDefined()
+	const sidebarCells = line!.split("│")[0] ?? line!
+	const labelStart = sidebarCells.indexOf(label)
+	const valueStart = sidebarCells.indexOf(value)
+	const start = Math.min(labelStart, valueStart)
+	expect(start).toBeGreaterThan(0)
+	const end = Math.max(labelStart + label.length, valueStart + value.length)
+	const left = sidebarCells.slice(0, start).length
+	const right = sidebarCells.slice(end).length
+	expect(Math.abs(left - right)).toBeLessThanOrEqual(1)
 }
 
 describe("Browser — selection", () => {
@@ -838,6 +876,66 @@ describe("Browser — #22 layout v2", () => {
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
 		expect(frame).toContain("scan failed: boom second line third line")
+	})
+
+	test("renders fatal discovery failures without raw Effect diagnostics", async () => {
+		await act(async () => {
+			setup = await testRender(
+				<RegistryProvider>
+					<DiscoverShell
+						target="/no/such/path/__house_missing__"
+						initialQuery=""
+						initialShow={[]}
+						sort="dirs-first"
+						mdx={true}
+						maxWidth={null}
+						sidebarMode="auto"
+						startupFocus="sidebar"
+					/>
+				</RegistryProvider>,
+				VIEWPORT,
+			)
+		})
+		for (let i = 0; i < 5; i++) await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("scan failed: unable to read discovery root")
+		expect(frame).not.toContain("Cause")
+		expect(frame).not.toContain("DiscoveryError")
+	})
+
+	test("renders partial discovery warnings as a concise footer status", async () => {
+		const root = await mkdtemp(join(tmpdir(), "house-browser-"))
+		const locked = join(root, "locked")
+		await writeFile(join(root, "readable.md"), "# Readable", "utf8")
+		await mkdir(locked)
+		await writeFile(join(locked, "secret.md"), "# Secret", "utf8")
+		await chmod(locked, 0o000)
+		try {
+			await act(async () => {
+				setup = await testRender(
+					<RegistryProvider>
+						<DiscoverShell
+							target={root}
+							initialQuery=""
+							initialShow={[]}
+							sort="dirs-first"
+							mdx={true}
+							maxWidth={null}
+							sidebarMode="auto"
+							startupFocus="sidebar"
+						/>
+					</RegistryProvider>,
+					VIEWPORT,
+				)
+			})
+			const frame = await waitForFrameContaining("scan incomplete: skipped 1 directory: locked")
+			expect(frame).toContain("readable.md")
+			expect(frame).toContain("scan incomplete: skipped 1 directory: locked")
+			expect(frame).not.toContain(root)
+		} finally {
+			await chmod(locked, 0o755).catch(() => {})
+			await rm(root, { recursive: true, force: true })
+		}
 	})
 
 	test("renders leading YAML frontmatter as metadata instead of raw markdown", async () => {
@@ -1662,13 +1760,19 @@ describe("Browser — sidebar filter row", () => {
 	test("filter row is suppressed on an empty vault (no '/ filter…')", async () => {
 		await act(async () => {
 			setup = await renderBrowser(
-				<Browser files={[]} readFile={makeReader({})} onQuit={() => {}} />,
+				<Browser
+					files={[]}
+					emptyRootLabel="root"
+					readFile={makeReader({})}
+					onQuit={() => {}}
+				/>,
 				VIEWPORT,
 			)
 		})
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
-		expect(frame).toContain("no markdown files")
+		expect(frame).toContain("No markdown files in")
+		expect(frame).toContain('"root"')
 		expect(frame).not.toContain("> / to filter…")
 	})
 
@@ -1791,6 +1895,66 @@ describe("Browser — sidebar filter row", () => {
 		expect(frame).not.toContain("README.md")
 		expect(frame).not.toContain("notes.md")
 		expect(readerTitleContains(frame, "docs/intro.md")).toBe(true)
+	})
+
+	test("zero-match sidebar copy names the applied query", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={makeFiles(["README.md", "notes.md"])}
+					initialQuery="zzz"
+					readFile={makeReader({
+						"README.md": "x",
+						"notes.md": "y",
+					})}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("No files match")
+		expect(frame).toContain('"zzz"')
+		expectSidebarMessageCentered(frame, "No files match", '"zzz"')
+		expectSidebarBlankLineBetween(frame, "> zzz", "No files match")
+		expect(frame).toContain("No files match: zzz")
+		expect(frame).not.toContain("README.md")
+		expect(frame).not.toContain("notes.md")
+	})
+
+	test("zero-match sidebar copy updates when the query changes", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={makeFiles(["README.md", "notes.md"])}
+					readFile={makeReader({
+						"README.md": "x",
+						"notes.md": "y",
+					})}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		await act(async () => {
+			setup!.mockInput.pressKey("/")
+			setup!.mockInput.pressKey("r")
+		})
+		await waitForFrameContaining("README.md")
+
+		await act(async () => {
+			setup!.mockInput.pressKey("z")
+			setup!.mockInput.pressKey("z")
+		})
+		await waitForFrameContaining("No files match: rzz")
+		const frame = setup!.captureCharFrame()
+		expect(frame).not.toContain("No files match r ")
+		expect(frame).toContain('"rzz"')
+		expectSidebarBlankLineBetween(frame, "> rzz", "No files match")
+		expect(frame).toContain("No files match: rzz")
 	})
 
 	test("Esc keeps the typed query applied (close-without-revert)", async () => {
@@ -2683,7 +2847,43 @@ describe("Browser — filter modal", () => {
 			setup!.mockInput.pressKey("/")
 		})
 		await stepFrame(setup!.renderOnce)
-		expect(setup!.captureCharFrame()).toContain("ctrl+p palette")
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("tab focus")
+		expect(frame).toContain("ctrl+p palette")
+		expect(frame).toContain("↵ open")
+		expect(frame).not.toContain("q quit")
+		expect(frame).not.toContain("s sidebar")
+		expect(frame).not.toContain("t theme")
+		expect(frame).not.toContain("shift+o html")
+		expect(frame).not.toContain("shift+e edit")
+	})
+
+	test("footer hides open hint while the filter modal has no selected match", async () => {
+		const files = makeFiles(["README.md", "notes.md"])
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={files}
+					readFile={makeReader({ "README.md": "x", "notes.md": "y" })}
+					onQuit={() => {}}
+				/>,
+				{ width: 160, height: 40 },
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		await act(async () => {
+			setup!.mockInput.pressKey("/")
+			setup!.mockInput.pressKey("z")
+			await new Promise<void>((resolve) => setTimeout(resolve, 60))
+		})
+		await waitForFrameContaining("No files match: z")
+
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("tab focus")
+		expect(frame).toContain("ctrl+p palette")
+		expect(frame).not.toContain("↵ open")
+		expect(frame).not.toContain("q quit")
 	})
 
 	test("ctrl+\\ from sidebar with an applied filter clears it and reopens the modal", async () => {

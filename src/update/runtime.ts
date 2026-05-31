@@ -3,7 +3,7 @@
  *
  * The probe runs at most once per process. The result lands in a module
  * variable so:
- *  - any UI surface (DiscoverShell, App) can subscribe and re-render when
+ *  - any UI surface can subscribe and re-render when
  *    it resolves, without each one issuing its own request;
  *  - the `process.on("exit")` hook can synchronously read the result and
  *    print the quit-time notice (async work can't run during 'exit').

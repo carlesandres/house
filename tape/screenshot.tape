@@ -15,7 +15,7 @@ Set Height 1600
 Set Padding 40
 Set Theme "TokyoNight"
 
-Type "bun run src/index.tsx ."
+Type "bun run src/index.tsx --root . --no-update-check"
 Enter
 Sleep 2s
 

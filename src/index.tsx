@@ -3,42 +3,28 @@
 
 import { stat } from "node:fs/promises"
 import { dirname, isAbsolute, relative, resolve } from "node:path"
-import { createCliRenderer, SyntaxStyle } from "@opentui/core"
-import type { BorderSides } from "@opentui/core"
-import { createRoot, useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react"
-import { RegistryProvider, useAtomSet, useAtomValue } from "@effect/atom-react"
+import { createCliRenderer } from "@opentui/core"
+import { createRoot } from "@opentui/react"
+import { RegistryProvider } from "@effect/atom-react"
 import { Cause, Duration, Effect, Fiber, Stream } from "effect"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import pkg from "../package.json" with { type: "json" }
 import { Browser, type StartupFocus } from "./Browser.tsx"
 import { parseArgv, usage } from "./cli/argv.ts"
 import { defaultConfigPath, formatConfigError, loadConfig } from "./config/load.ts"
 import { parseShowList, SHOW_CATEGORIES, type ShowCategory } from "./discovery/show.ts"
 import { walk, type FileEntry, type SortOrder } from "./discovery/walk.ts"
-import { Header } from "./Header.tsx"
-import { parseFrontmatter } from "./markdown/frontmatter.ts"
 import { openInBrowser } from "./serve/openBrowser.ts"
 import { startServer } from "./serve/server.ts"
-import { colors, setActiveTheme } from "./theme/colors.ts"
+import { setActiveTheme } from "./theme/colors.ts"
 import { themeAtom, type ThemeState } from "./theme/atom.ts"
-import { getThemeDefinition, themeDefinitions } from "./theme/registry.ts"
+import { getThemeDefinition } from "./theme/registry.ts"
 import { formatQuitNotice } from "./update/notice.ts"
 import { currentUpdateInfo, startUpdateProbe } from "./update/runtime.ts"
 import { useUpdateNotice } from "./update/useUpdateNotice.ts"
 
-export interface AppProps {
-	/** Markdown source to render. */
-	readonly content: string
-	/** Optional title shown in the header's current-file slot. Defaults to a generic label. */
-	readonly title?: string
-	/** Cap the rendered markdown's width at N columns (left-aligned). Null = fill the pane. */
-	readonly maxWidth?: number | null
-	/** Override quit behavior. Tests pass a spy; the binary uses the default. */
-	readonly onQuit?: () => void
-}
-
 /**
- * DiscoverShell — owns the streaming walk for directory mode. Mounts Browser
+ * DiscoverShell — owns the streaming walk for the Browser. Mounts Browser
  * immediately with `files=[]` and pushes entries as the stream emits.
  *
  * Batching: `Stream.groupedWithin(64, 60ms)` coalesces bursts so we don't
@@ -110,6 +96,8 @@ export const formatPartialDiscoveryStatus = ({
 	return `scan incomplete: skipped ${skippedCount} ${noun}${suffix}`
 }
 
+export const formatFatalDiscoveryStatus = (): string => "scan failed: unable to read discovery root"
+
 interface DiscoverShellProps {
 	readonly target: string
 	readonly initialQuery: string
@@ -125,7 +113,7 @@ interface DiscoverShellProps {
 	readonly startupFocus: StartupFocus
 }
 
-const DiscoverShell = ({
+export const DiscoverShell = ({
 	target,
 	initialQuery,
 	initialShow,
@@ -162,8 +150,13 @@ const DiscoverShell = ({
 			sort,
 			mdx,
 			onWarning: ({ path }) => {
+				const relativePath = relative(resolve(target), path)
 				setSkippedDirCount((prev) => prev + 1)
-				setLastSkippedDir(path)
+				setLastSkippedDir(
+					relativePath.length > 0 && !relativePath.startsWith("..") && !isAbsolute(relativePath)
+						? relativePath
+						: path,
+				)
 			},
 		}).pipe(
 			Stream.groupedWithin(64, Duration.millis(60)),
@@ -180,7 +173,7 @@ const DiscoverShell = ({
 				onFailure: (cause) =>
 					Effect.sync(() => {
 						if (Cause.hasInterrupts(cause)) return
-						setScanError(`scan failed: ${Cause.pretty(cause)}`)
+						setScanError(formatFatalDiscoveryStatus())
 						setScanning(false)
 					}),
 			}),
@@ -205,6 +198,7 @@ const DiscoverShell = ({
 			files={files}
 			initialQuery={initialQuery}
 			maxWidth={maxWidth}
+			emptyRootLabel={target}
 			discoveryStatus={discoveryStatus}
 			sidebarMode={sidebarMode}
 			startupFocus={startupFocus}
@@ -219,96 +213,6 @@ const DiscoverShell = ({
 				setShow(next)
 			}}
 		/>
-	)
-}
-
-export const App = ({ content, title = "house", maxWidth = null, onQuit }: AppProps) => {
-	const renderer = useRenderer()
-	const { width, height } = useTerminalDimensions()
-	const theme = useAtomValue(themeAtom)
-	const setTheme = useAtomSet(themeAtom)
-	const syntaxStyle = useMemo(() => SyntaxStyle.fromStyles(colors.syntax), [theme])
-
-	const cycleTheme = (delta: 1 | -1) => {
-		const idx = themeDefinitions.findIndex((d) => d.id === theme.id)
-		const next = themeDefinitions[(idx + delta + themeDefinitions.length) % themeDefinitions.length]
-		if (!next) return
-		setActiveTheme(next, theme.tone)
-		setTheme({ id: next.id, tone: theme.tone })
-	}
-
-	const toggleTone = () => {
-		const nextTone = theme.tone === "dark" ? "light" : "dark"
-		const def = getThemeDefinition(theme.id)
-		if (def) setActiveTheme(def, nextTone)
-		setTheme({ id: theme.id, tone: nextTone })
-	}
-
-	useKeyboard((key) => {
-		if (key.name === "q" || (key.ctrl && key.name === "c")) {
-			if (onQuit) {
-				onQuit()
-				return
-			}
-			renderer?.destroy()
-			process.exit(0)
-		}
-		if (key.name === "t" && !key.shift) cycleTheme(1)
-		if (key.name === "t" && key.shift) cycleTheme(-1)
-		if (key.name === "l" && key.shift) toggleTone()
-	})
-
-	const paneBorderSides: BorderSides[] = ["top", "bottom"]
-	const parsedContent = useMemo(() => parseFrontmatter(content), [content])
-
-	return (
-		<box style={{ width, height, flexDirection: "column", backgroundColor: colors.background }}>
-			<Header width={width} currentFile={title} />
-			<box
-				style={{
-					border: paneBorderSides,
-					borderColor: colors.border,
-					padding: 1,
-					flexGrow: 1,
-					flexShrink: 1,
-					backgroundColor: colors.background,
-				}}
-			>
-				<scrollbox
-					style={{
-						scrollY: true,
-						scrollX: false,
-						flexGrow: 1,
-						flexShrink: 1,
-						backgroundColor: colors.background,
-					}}
-					focused
-				>
-					{parsedContent.fields.length > 0 && (
-						<box style={{ flexDirection: "column", marginBottom: 1 }}>
-							{parsedContent.fields.map((field) => (
-								<box key={field.key} style={{ flexDirection: "row", gap: 1, flexWrap: "wrap" }}>
-									<text
-										content={`${field.key}:`}
-										wrapMode="word"
-										style={{ fg: colors.secondary }}
-									/>
-									<text content={field.value} wrapMode="word" style={{ fg: colors.textMuted }} />
-								</box>
-							))}
-						</box>
-					)}
-					<markdown
-						content={parsedContent.body}
-						syntaxStyle={syntaxStyle}
-						fg={colors.text}
-						bg={colors.background}
-						conceal
-						style={{ width: maxWidth ?? "100%" }}
-					/>
-				</scrollbox>
-			</box>
-		</box>
 	)
 }
 

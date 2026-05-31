@@ -35,6 +35,7 @@ import {
 	initialShownForAuto,
 	resolveSidebarWidth,
 } from "./layout/resolve.ts"
+import { fitSidebarEmptyValue } from "./layout/sidebarEmptyState.ts"
 import { formatSidebarRow } from "./layout/sidebarRow.ts"
 import { PromptRow } from "./PromptRow.tsx"
 import { buildReaderEmptyStateTips, pickTipByRotation } from "./tips.ts"
@@ -54,6 +55,8 @@ export interface BrowserProps {
 	readonly initialQuery?: string
 	/** Cap the rendered markdown's width at N columns. Null = fill the pane. */
 	readonly maxWidth?: number | null
+	/** Discovery root label used in the post-discovery empty-vault sidebar row. */
+	readonly emptyRootLabel?: string
 	/** Persistent footer indicator (e.g. "indexing… 42"). Pass null/undefined
 	 *  when discovery has finished; the indicator clears. */
 	readonly discoveryStatus?: string | null
@@ -111,11 +114,44 @@ export const setReaderEmptyStateTipRotationForTests = (next: number) => {
 const FILTER_DEBOUNCE_MS = 50
 const RENDERED_PATH_DEBOUNCE_MS = 80
 
+const SidebarEmptyMessage = ({
+	label,
+	value,
+	width,
+	withTopSpacer,
+}: {
+	readonly label: string
+	readonly value: string
+	readonly width: number
+	readonly withTopSpacer: boolean
+}) => (
+	<>
+		{withTopSpacer && <text content="" />}
+		<box
+			style={{
+				width,
+				flexDirection: "row",
+				flexWrap: "wrap",
+				justifyContent: "center",
+				gap: 1,
+			}}
+		>
+			<text wrapMode="none">
+				<span style={{ fg: colors.textMuted }}>{label}</span>
+			</text>
+			<text wrapMode="none">
+				<span style={{ fg: colors.textMuted }}>{`"${fitSidebarEmptyValue(value, width)}"`}</span>
+			</text>
+		</box>
+	</>
+)
+
 export const Browser = ({
 	files,
 	initialIndex = 0,
 	initialQuery = "",
 	maxWidth = null,
+	emptyRootLabel = "current root",
 	discoveryStatus = null,
 	discoverySpinnerIntervalMs,
 	discoverySpinnerInitialFrameIndex,
@@ -836,15 +872,17 @@ export const Browser = ({
 				/>
 			)}
 			{displayedFiles.length === 0 ? (
-				<text
-					content={
+				<SidebarEmptyMessage
+					withTopSpacer={filterRowVisible}
+					width={sidebarTextWidth}
+					label={
 						files.length === 0
 							? discoveryActive
-								? "(scanning…)"
-								: "(no markdown files)"
-							: "(no matches)"
+								? "Scanning"
+								: "No markdown files in"
+							: "No files match"
 					}
-					style={{ fg: colors.textMuted }}
+					value={files.length === 0 ? (discoveryActive ? "…" : emptyRootLabel) : filterApplied}
 				/>
 			) : (
 				visibleFiles.map((file, idx) => {

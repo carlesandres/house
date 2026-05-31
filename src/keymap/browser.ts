@@ -62,6 +62,7 @@ const stepBy = (c: BrowserCtx, delta: number) =>
 const inSidebar = (c: BrowserCtx) => c.focus === "sidebar"
 const filterClosed = (c: BrowserCtx) => !c.filterOpen
 const paletteClosed = (c: BrowserCtx) => !c.paletteOpen
+const inputClosed = (c: BrowserCtx) => filterClosed(c) && paletteClosed(c)
 const inReader = (c: BrowserCtx) => c.focus === "reader"
 const inSidebarWithFiles = (c: BrowserCtx) => inSidebar(c) && haveFiles(c)
 /** Reader-only sibling-step gate: needs a current selection plus a sibling
@@ -77,6 +78,7 @@ export const browserBindings: readonly KeyBinding<BrowserCtx>[] = [
 		description: "Quit",
 		hint: "quit",
 		keys: ["q", "ctrl+c"],
+		hintWhen: inputClosed,
 		run: (c) => c.quit(),
 	},
 	{
@@ -99,6 +101,7 @@ export const browserBindings: readonly KeyBinding<BrowserCtx>[] = [
 		description: "Toggle sidebar visibility",
 		hint: "sidebar",
 		keys: ["s"],
+		hintWhen: inputClosed,
 		run: (c) => c.toggleShown(),
 	},
 	{
@@ -165,6 +168,7 @@ export const browserBindings: readonly KeyBinding<BrowserCtx>[] = [
 		description: "Next theme",
 		hint: "theme",
 		keys: ["t"],
+		hintWhen: inputClosed,
 		run: (c) => c.cycleTheme(1),
 	},
 	{
@@ -254,6 +258,7 @@ export const browserBindings: readonly KeyBinding<BrowserCtx>[] = [
 		hint: "open",
 		keys: ["return", "right", "l"],
 		when: inSidebar,
+		hintWhen: (c) => inSidebar(c) && hasSelected(c),
 		run: (c) => c.setFocus("reader"),
 	},
 
@@ -267,6 +272,7 @@ export const browserBindings: readonly KeyBinding<BrowserCtx>[] = [
 		hint: "html",
 		keys: ["shift+o"],
 		when: hasSelected,
+		hintWhen: (c) => inputClosed(c) && hasSelected(c),
 		run: (c) => c.serveCurrent(),
 	},
 	{
@@ -276,6 +282,7 @@ export const browserBindings: readonly KeyBinding<BrowserCtx>[] = [
 		hint: "edit",
 		keys: ["shift+e"],
 		when: hasSelected,
+		hintWhen: (c) => inputClosed(c) && hasSelected(c),
 		run: (c) => c.editCurrent(),
 	},
 	{

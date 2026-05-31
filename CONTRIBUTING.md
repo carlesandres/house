@@ -41,7 +41,7 @@ See `DESIGN.md` §9.1 for the module map. In short:
 
 ## Testing
 
-The headless test pattern is documented in `test/spike.test.tsx`. Use `testRender` + `captureCharFrame` + `mockInput`. When asserting on `<markdown>` body content, prefer asserting on stable surfaces (border titles, sidebar rows) — the markdown body has first-frame quirks in headless render.
+The headless test pattern is documented in `test/browser.test.tsx`. Use `testRender` + `captureCharFrame` + `mockInput`. When asserting on `<markdown>` body content, prefer asserting on stable surfaces (border titles, sidebar rows) — the markdown body has first-frame quirks in headless render.
 
 Add tests alongside features. We don't enforce coverage, but every keymap binding should have at least one integration test (see §10.2 of DESIGN.md for the v2 gate).
 
@@ -105,7 +105,7 @@ vhs tape/house.tape         # → tape/house.gif (animated demo)
 vhs tape/screenshot.tape    # → tape/house.png (still)
 ```
 
-Both tapes invoke `bun run src/index.tsx .` against the repo's own markdown, so they don't need a published build or sample data. Tweak `Set Width` / `Set Height` / `Set FontSize` / `Sleep` durations inside the tape; change the `Output` extension (`.gif`, `.mp4`, `.webm`, `.png`) to switch format. Inside the tape, `Type "t"` cycles house's theme — distinct from `Set Theme`, which sets the *terminal* theme around it.
+Both tapes invoke the local source against the repo's own markdown, so they don't need a published build or sample data. Tweak `Set Width` / `Set Height` / `Set FontSize` / `Sleep` durations inside the tape; change the `Output` extension (`.gif`, `.mp4`, `.webm`, `.png`) to switch format. Inside the tape, `Type "t"` cycles house's theme — distinct from `Set Theme`, which sets the *terminal* theme around it.
 
 After regenerating, commit the asset and update the embed in `README.md`.
 
