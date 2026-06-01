@@ -122,12 +122,7 @@ describe("Browser — sidebar", () => {
 		resetReaderEmptyStateTipRotationForTests()
 		await act(async () => {
 			setup = await renderBrowser(
-				<Browser
-					files={[]}
-					emptyRootLabel="docs"
-					readFile={makeReader({})}
-					onQuit={() => {}}
-				/>,
+				<Browser files={[]} emptyRootLabel="docs" readFile={makeReader({})} onQuit={() => {}} />,
 				VIEWPORT,
 			)
 		})
@@ -1279,7 +1274,7 @@ describe("Browser — footer", () => {
 
 	test("switches to reader-specific hints when focus moves to the reader", async () => {
 		// Needs ≥2 files for the `[`/`]` prev/next hints to appear — they're
-		// gated on `inReaderWithSibling` (#115) so a single-file vault hides
+		// gated on `inReaderWithSibling` (#115) so a one-file vault hides
 		// them as there's nowhere to step to.
 		await act(async () => {
 			setup = await renderBrowser(
@@ -1760,12 +1755,7 @@ describe("Browser — sidebar filter row", () => {
 	test("filter row is suppressed on an empty vault (no '/ filter…')", async () => {
 		await act(async () => {
 			setup = await renderBrowser(
-				<Browser
-					files={[]}
-					emptyRootLabel="root"
-					readFile={makeReader({})}
-					onQuit={() => {}}
-				/>,
+				<Browser files={[]} emptyRootLabel="root" readFile={makeReader({})} onQuit={() => {}} />,
 				VIEWPORT,
 			)
 		})

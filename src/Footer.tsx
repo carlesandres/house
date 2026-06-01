@@ -46,6 +46,8 @@ export interface FooterProps<C> {
 	readonly discoverySpinnerInitialFrameIndex?: number
 	/** Test seam: deterministic footer spinner driver. */
 	readonly discoverySpinnerRegisterTick?: ((tick: () => void) => void) | null
+	/** TEMP: validation hook while wiring the reusable status popover. */
+	readonly onValidationTrigger?: () => void
 }
 
 const normalizeStatusLine = (status: string): string => status.replace(/\s+/g, " ").trim()
@@ -95,6 +97,7 @@ export const Footer = <C,>({
 	discoverySpinnerIntervalMs,
 	discoverySpinnerInitialFrameIndex,
 	discoverySpinnerRegisterTick,
+	onValidationTrigger,
 }: FooterProps<C>) => {
 	const usableWidth = Math.max(0, width - 2) // 1-cell horizontal padding each side
 
@@ -127,10 +130,6 @@ export const Footer = <C,>({
 	const statusBudget = status ? Math.min(status.length + STATUS_SEPARATOR.length, usableWidth) : 0
 	const hintsWidth = Math.max(0, usableWidth - statusBudget)
 	const visibleHints = fitHints(hints, hintsWidth)
-	const statusContent = status
-		? status.slice(0, Math.max(0, statusBudget - STATUS_SEPARATOR.length))
-		: ""
-
 	const noticeContent = notice
 		? notice.length > usableWidth
 			? notice.slice(0, usableWidth)
@@ -175,6 +174,21 @@ export const Footer = <C,>({
 		)
 	}
 
+	// TEMP: keep a visible trigger in the footer while validating the reusable component.
+	const validationTrigger = (
+		<box
+			{...(onValidationTrigger === undefined ? {} : { onMouseUp: onValidationTrigger })}
+			style={{
+				width: 3,
+				height: 1,
+				flexDirection: "row",
+				backgroundColor: colors.backgroundElement,
+			}}
+		>
+			<text content=" ! " wrapMode="none" style={{ fg: colors.warning, attributes: 1 }} />
+		</box>
+	)
+
 	if (status !== null) {
 		const spinnerProps = {
 			fg: colors.secondary,
@@ -193,12 +207,18 @@ export const Footer = <C,>({
 			<box style={rowStyle}>
 				<Spinner {...spinnerProps} />
 				<text content=" " wrapMode="none" style={{ fg: colors.textMuted }} />
-				<text content={statusContent} wrapMode="none" style={{ fg: colors.secondary }} />
+				{validationTrigger}
 				<text content={STATUS_SEPARATOR} wrapMode="none" style={{ fg: colors.textMuted }} />
 				{renderHints()}
 			</box>
 		)
 	}
 
-	return <box style={rowStyle}>{renderHints()}</box>
+	return (
+		<box style={rowStyle}>
+			{validationTrigger}
+			<text content={STATUS_SEPARATOR} wrapMode="none" style={{ fg: colors.textMuted }} />
+			{renderHints()}
+		</box>
+	)
 }

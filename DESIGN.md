@@ -173,7 +173,7 @@ Do not bind these in v1:
 
 **Status: planned (umbrella [#118](https://github.com/carlesandres/house/issues/118)).** The principles below are committed; the implementation is sequenced across #109–#117. Any agent picking up one of those issues must read this section first — it is the contract the individual diffs are working towards.
 
-There is **no "single-file mode"**. The Browser is the only render target. Whatever the user passes on the CLI, the resulting UI is Browser + sidebar + reader. The differences between "I named a file" and "I named a directory" collapse into a single axis: what filter query is preloaded.
+There is **no separate file-target mode**. The Browser is the only render target. Whatever the user passes on the CLI, the resulting UI is Browser + sidebar + reader. The differences between "I named a file" and "I named a directory" collapse into a single axis: what filter query is preloaded.
 
 **Invariant 1 — the sidebar is populated by search, never imperatively.** Sidebar contents are exactly `filter(discoveredPool, query)`. No code path may push entries into the sidebar by any other route. Refactors that need to "show entry X" must reframe as "what `(discoveryRoot, query)` pair selects X". This invariant exists so the sidebar has one source of truth; imperative population would diverge from the active filter under any edit / re-discovery / user input.
 

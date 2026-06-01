@@ -38,6 +38,7 @@ import {
 import { fitSidebarEmptyValue } from "./layout/sidebarEmptyState.ts"
 import { formatSidebarRow } from "./layout/sidebarRow.ts"
 import { PromptRow } from "./PromptRow.tsx"
+import { StatusPopoverPanel } from "./StatusPopover.tsx"
 import { buildReaderEmptyStateTips, pickTipByRotation } from "./tips.ts"
 import { openInBrowser } from "./serve/openBrowser.ts"
 import { startServer, type ServerHandle } from "./serve/server.ts"
@@ -218,6 +219,7 @@ export const Browser = ({
 	const [filterInput, setFilterInput] = useState<string>(initialQuery)
 	const [filterApplied, setFilterApplied] = useState<string>(initialQuery)
 	const [paletteOpen, setPaletteOpen] = useState<boolean>(false)
+	const [footerValidationOpen, setFooterValidationOpen] = useState<boolean>(false)
 	const [paletteQuery, setPaletteQuery] = useState<string>("")
 	const [paletteIndex, setPaletteIndex] = useState<number>(0)
 	// Synchronous mirrors for the keyboard handler — same reason filterOpenRef
@@ -852,6 +854,7 @@ export const Browser = ({
 			? {}
 			: { discoverySpinnerInitialFrameIndex }),
 		...(discoverySpinnerRegisterTick === undefined ? {} : { discoverySpinnerRegisterTick }),
+		onValidationTrigger: () => setFooterValidationOpen((open) => !open),
 	} satisfies FooterProps<BrowserCtx>
 	const readerEmptyStateTips = useMemo(() => buildReaderEmptyStateTips(browserBindings, ctx), [ctx])
 	const readerEmptyStateTip = useMemo(
@@ -1094,6 +1097,11 @@ export const Browser = ({
 					selectedIndex={paletteIndex}
 					viewportWidth={width}
 					viewportHeight={height}
+				/>
+			)}
+			{footerValidationOpen && (
+				<StatusPopoverPanel
+					content={"temporary footer validation\nif you can see this, it works"}
 				/>
 			)}
 		</box>

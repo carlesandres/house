@@ -20,7 +20,7 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 
 ### Changed
 
-- Removed TUI single-file mode: non-serve launches always open the browser over the discovery root, with any positional path applied as the initial sidebar filter.
+- Removed the separate file-target launch path: non-serve launches always open the browser over the discovery root, with any positional path applied as the initial sidebar filter.
 
 ## [0.4.7] — 2026-05-27
 
@@ -144,7 +144,7 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 
 ### Added
 
-- Header chrome: borderless one-row identity strip above the panes carries the ⌂ brand mark and running version. Renders in both directory mode (Browser) and single-file mode (App). Hidden on terminals shorter than 20 rows so tight panes keep the reader breathable.
+- Header chrome: borderless one-row identity strip above the panes carries the ⌂ brand mark and running version. Renders in the Browser UI for both directory and named-file launches. Hidden on terminals shorter than 20 rows so tight panes keep the reader breathable.
 
 ## [0.4.0] — 2026-05-21
 
@@ -218,7 +218,7 @@ Beta release gates (DESIGN §10.2) closed.
 - **`--tone dark|light`** flag to select the variant of a theme. Defaults to `dark`. Not all themes have a well-tuned light variant; quality is best-effort for those.
 - **JSON theme format**: each theme is a `{defs, theme: {dark, light}}` file validated against `schema/openmdr-theme.schema.json`. The format mirrors opencode's TUI theme shape; `defs` supports variable substitution.
 - **`dev/build-themes.ts`**: fetches themes from the opencode GitHub API, strips diff tokens, resolves variables, and regenerates `src/theme/loader.ts`. Supports `GITHUB_TOKEN` and `--dry-run`. Not shipped in the npm package.
-- **Runtime theme cycling**: press `t` / `T` to step forward / backward through all themes without restarting. Press `L` (shift+l) to toggle between dark and light tone. Works in both browser mode and single-file mode. Theme changes take effect immediately; syntax highlighting rebuilds with the new palette.
+- **Runtime theme cycling**: press `t` / `T` to step forward / backward through all themes without restarting. Press `L` (shift+l) to toggle between dark and light tone. Works in the Browser UI for both directory and named-file launches. Theme changes take effect immediately; syntax highlighting rebuilds with the new palette.
 
 ### Changed
 
