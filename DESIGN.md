@@ -233,6 +233,24 @@ Terminal-background auto-detect (OSC 11 / `COLORFGBG` / fallback) is **deferred 
 
 Visual direction is **typographic**: generous whitespace, light accents, lots of contrast on headings. Glow's dense background-bar style is a workaround for constrained renderers — we are not constrained.
 
+### 7.6 Floating overlay coordination
+
+Floating UI is coordinated by the Browser, not by individual leaf components. The Browser owns a single `floatingOverlay` state machine with mutually-exclusive variants such as `command-palette` and `status-popover`. Opening one floating overlay replaces any existing one; closing returns to `none`.
+
+The practical rule is: **at most one floating popover/modal is open at a time**. This keeps z-index ordering deterministic and prevents stale popovers from sitting above newer modal surfaces. Inline chrome such as the sidebar filter row is not a floating overlay, but opening it closes floating overlays because it becomes the user's active interaction target.
+
+Layer priority is intentionally simple:
+
+1. Base UI: header, sidebar, reader, footer.
+2. Inline input chrome: the sidebar filter row.
+3. Floating popovers: compact status/details panels.
+4. Modal overlays: command palette and future help/confirmation modals.
+5. Future blocking overlays: fatal/error recovery flows, if needed.
+
+Because only one floating overlay is rendered at a time, the layer list is a policy guide rather than a stack allocator. If a future feature truly needs nested floating surfaces, add that feature deliberately with tests for render order, keyboard ownership, and dismissal. Do not let unrelated components each manage their own independent `open` boolean.
+
+Footer notices also close floating overlays. The footer remains presentational; the Browser observes that a notice is active and dismisses transient overlays from the parent, where both pieces of state are visible.
+
 ## 8. Technical Constraints / Stack
 
 | Layer | Choice | Rationale |
@@ -372,7 +390,7 @@ Inline `// TODO(revisit: <topic>)` markers in the code point here from the relev
 - **Declarative keymap as data — small in-house version landed.** Bindings as values with `{ id, description, keys, when?, run }` and a pure `dispatch` live in `src/keymap/`. The shape is enough to drive `useKeyboard` *and* the upcoming `?` help overlay from one source of truth.
   - **Outstanding ghui machinery (still deferred):** chord sequences (`g g`), vim count prefixes (`5j`), scoped contexts via contramap, conflict detection, command-palette routing.
   - Trigger to revisit: a third interactive overlay/modal lands (search, filter, command palette), OR a real need for chord/count input emerges.
-  - **Current overlay count: 2** (help overlay, `/` filter modal). Both intercept keys outside the data-driven dispatch via `if`-branches in `Browser.tsx`. One more interactive surface trips the trigger.
+  - **Trigger status:** the third-overlay threshold has started to fire. Browser now owns a small single-`floatingOverlay` state machine (§7.6) so floating surfaces do not stack accidentally, but scoped keymap composition remains deferred until keyboard routing itself becomes hard to follow.
 
 - **Theme as a typed token interface — landed.** Implemented in `src/theme/`: `ColorPalette` interface (~12 semantic tokens), a `themeDefinitions` registry, and a mutable singleton `colors` consumers read directly. Modeled on ghui but at our smaller scale.
   - **Outstanding ghui machinery (still deferred):** large named-theme set (ghui ships 27), `ThemeConfig` distinguishing fixed-vs-system mode, OS appearance auto-detect, persistent config file, runtime theme switcher.
@@ -380,7 +398,7 @@ Inline `// TODO(revisit: <topic>)` markers in the code point here from the relev
 
 - **Keymap composition / scoped contexts**
   - What it is: per-view keymaps that compose via `Keymap.scope(predicate)` so modal bindings stack on top of base bindings without giant if/else routing in one handler.
-  - Why deferred: routing-by-state in our single `useKeyboard` is fine for sidebar-vs-reader.
+  - Why deferred: routing-by-state in our single `useKeyboard` is still readable, and the current overlay fix is state coordination rather than full key-routing composition.
   - Trigger: when the third overlay surface lands, OR when the focus-routing `if` chain in `Browser.tsx` gets uncomfortable to read.
 
 - **User-configurable sidebar width**

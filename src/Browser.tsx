@@ -15,7 +15,7 @@ import type { BorderSides } from "@opentui/core"
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react"
 import { useAtomValue, useAtomSet } from "@effect/atom-react"
 import { Effect } from "effect"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react"
 import { buildCommands } from "./commands/buildCommands.ts"
 import { clampSelectedIndex, filterCommands } from "./commands/score.ts"
 import { CommandPalette, orderCommandsForPalette } from "./CommandPalette.tsx"
@@ -114,6 +114,42 @@ export const setReaderEmptyStateTipRotationForTests = (next: number) => {
 
 const FILTER_DEBOUNCE_MS = 50
 const RENDERED_PATH_DEBOUNCE_MS = 80
+
+const isPartialDiscoveryWarning = (status: string | null | undefined): boolean =>
+	status?.trimStart().startsWith("scan incomplete:") ?? false
+
+type FloatingOverlay =
+	| { readonly kind: "none" }
+	| { readonly kind: "command-palette" }
+	| { readonly kind: "status-popover"; readonly content: string }
+
+type FloatingOverlayAction =
+	| { readonly type: "close" }
+	| { readonly type: "open-command-palette" }
+	| { readonly type: "toggle-status-popover"; readonly content: string }
+	| { readonly type: "update-status-popover"; readonly content: string }
+
+const noFloatingOverlay: FloatingOverlay = { kind: "none" }
+
+const floatingOverlayReducer = (
+	state: FloatingOverlay,
+	action: FloatingOverlayAction,
+): FloatingOverlay => {
+	switch (action.type) {
+		case "close":
+			return noFloatingOverlay
+		case "open-command-palette":
+			return { kind: "command-palette" }
+		case "toggle-status-popover":
+			return state.kind === "status-popover"
+				? noFloatingOverlay
+				: { kind: "status-popover", content: action.content }
+		case "update-status-popover":
+			return state.kind === "status-popover"
+				? { kind: "status-popover", content: action.content }
+				: state
+	}
+}
 
 const SidebarEmptyMessage = ({
 	label,
@@ -218,15 +254,26 @@ export const Browser = ({
 	const [filterOpen, setFilterOpen] = useState<boolean>(startInFilter)
 	const [filterInput, setFilterInput] = useState<string>(initialQuery)
 	const [filterApplied, setFilterApplied] = useState<string>(initialQuery)
-	const [paletteOpen, setPaletteOpen] = useState<boolean>(false)
-	const [footerValidationOpen, setFooterValidationOpen] = useState<boolean>(false)
+	const [floatingOverlay, dispatchFloatingOverlayState] = useReducer(
+		floatingOverlayReducer,
+		noFloatingOverlay,
+	)
+	const floatingOverlayRef = useRef<FloatingOverlay>(noFloatingOverlay)
+	const dispatchFloatingOverlay = (action: FloatingOverlayAction): void => {
+		const next = floatingOverlayReducer(floatingOverlayRef.current, action)
+		floatingOverlayRef.current = next
+		dispatchFloatingOverlayState(action)
+	}
+	const closeFloatingOverlay = (): void => dispatchFloatingOverlay({ type: "close" })
+	const paletteOpen = floatingOverlay.kind === "command-palette"
+	const activeStatusPopover = floatingOverlay.kind === "status-popover" ? floatingOverlay : null
+	const discoveryWarningStatus = isPartialDiscoveryWarning(discoveryStatus) ? discoveryStatus : null
 	const [paletteQuery, setPaletteQuery] = useState<string>("")
 	const [paletteIndex, setPaletteIndex] = useState<number>(0)
 	// Synchronous mirrors for the keyboard handler — same reason filterOpenRef
 	// exists. Modal input can arrive in one React batch (e.g. ctrl+p, Down,
 	// Return), so every palette field read by later keys must update its ref
 	// before React state commits.
-	const paletteOpenRef = useRef(false)
 	const paletteQueryRef = useRef("")
 	const paletteIndexRef = useRef(0)
 	const [readerEmptyStateTipRotation, setReaderEmptyStateTipRotation] = useState(
@@ -274,10 +321,24 @@ export const Browser = ({
 	// the other's display window.
 	useEffect(() => {
 		if (footerNotice === null) return
+		closeFloatingOverlay()
 		if (disableFooterNoticeAutoClear) return
 		const timer = setTimeout(() => setFooterNoticeState(null), footerNotice.ttlMs)
 		return () => clearTimeout(timer)
 	}, [disableFooterNoticeAutoClear, footerNotice])
+
+	useEffect(() => {
+		if (discoveryWarningStatus === null) {
+			if (floatingOverlay.kind === "status-popover") closeFloatingOverlay()
+			return
+		}
+		if (
+			floatingOverlay.kind === "status-popover" &&
+			floatingOverlay.content !== discoveryWarningStatus
+		) {
+			dispatchFloatingOverlay({ type: "update-status-popover", content: discoveryWarningStatus })
+		}
+	}, [discoveryWarningStatus, floatingOverlay])
 
 	// Push the update-available nudge once, when it arrives from the parent
 	// (the registry probe resolves asynchronously after boot). 10s gives the
@@ -453,6 +514,7 @@ export const Browser = ({
 			}
 		},
 		openFilter: () => {
+			closeFloatingOverlay()
 			// Focus the sidebar so the filter input has a home. In wide,
 			// §7.1's visibility rule (`shown || focus === "sidebar"`) brings
 			// the inline sidebar back on screen if it was hidden. In narrow,
@@ -465,6 +527,7 @@ export const Browser = ({
 			setFilterOpen(true)
 		},
 		clearAndOpenFilter: () => {
+			closeFloatingOverlay()
 			// Reset both the ref and the state so the freshly-opened modal
 			// shows an empty input and selection lands on the first file in
 			// the (now unfiltered) list.
@@ -486,8 +549,7 @@ export const Browser = ({
 			setPaletteQuery("")
 			paletteIndexRef.current = 0
 			setPaletteIndex(0)
-			paletteOpenRef.current = true
-			setPaletteOpen(true)
+			dispatchFloatingOverlay({ type: "open-command-palette" })
 		},
 		cycleTheme,
 		toggleTone,
@@ -605,12 +667,11 @@ export const Browser = ({
 		// list navigation. This branch intentionally runs before the filter
 		// branch so ctrl+p can open the palette from filter mode while the
 		// palette still owns Esc/arrows/Return until it closes.
-		if (paletteOpenRef.current) {
+		if (floatingOverlayRef.current.kind === "command-palette") {
 			const closePalette = () => {
-				paletteOpenRef.current = false
 				paletteQueryRef.current = ""
 				paletteIndexRef.current = 0
-				setPaletteOpen(false)
+				closeFloatingOverlay()
 				setPaletteQuery("")
 				setPaletteIndex(0)
 			}
@@ -854,7 +915,15 @@ export const Browser = ({
 			? {}
 			: { discoverySpinnerInitialFrameIndex }),
 		...(discoverySpinnerRegisterTick === undefined ? {} : { discoverySpinnerRegisterTick }),
-		onValidationTrigger: () => setFooterValidationOpen((open) => !open),
+		...(discoveryWarningStatus === null
+			? {}
+			: {
+					onDiscoveryWarningToggle: () =>
+						dispatchFloatingOverlay({
+							type: "toggle-status-popover",
+							content: discoveryWarningStatus,
+						}),
+				}),
 	} satisfies FooterProps<BrowserCtx>
 	const readerEmptyStateTips = useMemo(() => buildReaderEmptyStateTips(browserBindings, ctx), [ctx])
 	const readerEmptyStateTip = useMemo(
@@ -1099,10 +1168,8 @@ export const Browser = ({
 					viewportHeight={height}
 				/>
 			)}
-			{footerValidationOpen && (
-				<StatusPopoverPanel
-					content={"temporary footer validation\nif you can see this, it works"}
-				/>
+			{activeStatusPopover && (
+				<StatusPopoverPanel content={activeStatusPopover.content} variant="warning" />
 			)}
 		</box>
 	)

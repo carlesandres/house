@@ -46,8 +46,8 @@ export interface FooterProps<C> {
 	readonly discoverySpinnerInitialFrameIndex?: number
 	/** Test seam: deterministic footer spinner driver. */
 	readonly discoverySpinnerRegisterTick?: ((tick: () => void) => void) | null
-	/** TEMP: validation hook while wiring the reusable status popover. */
-	readonly onValidationTrigger?: () => void
+	/** Optional toggle callback for the discovery-warning popover. */
+	readonly onDiscoveryWarningToggle?: () => void
 }
 
 const normalizeStatusLine = (status: string): string => status.replace(/\s+/g, " ").trim()
@@ -88,6 +88,9 @@ const fitHints = (hints: readonly Hint[], width: number): Hint[] => {
 
 const STATUS_SEPARATOR = " · "
 
+const isPartialDiscoveryWarning = (status: string | null): boolean =>
+	status?.startsWith("scan incomplete:") ?? false
+
 export const Footer = <C,>({
 	bindings,
 	ctx,
@@ -97,7 +100,7 @@ export const Footer = <C,>({
 	discoverySpinnerIntervalMs,
 	discoverySpinnerInitialFrameIndex,
 	discoverySpinnerRegisterTick,
-	onValidationTrigger,
+	onDiscoveryWarningToggle,
 }: FooterProps<C>) => {
 	const usableWidth = Math.max(0, width - 2) // 1-cell horizontal padding each side
 
@@ -127,9 +130,15 @@ export const Footer = <C,>({
 	// the indicator stays visible while less-essential hints drop off.
 	const status =
 		discoveryStatus && discoveryStatus.length > 0 ? normalizeStatusLine(discoveryStatus) : null
-	const statusBudget = status ? Math.min(status.length + STATUS_SEPARATOR.length, usableWidth) : 0
+	const isPartialWarning = isPartialDiscoveryWarning(status)
+	const statusBudget = status
+		? Math.min((isPartialWarning ? 1 : status.length) + STATUS_SEPARATOR.length, usableWidth)
+		: 0
 	const hintsWidth = Math.max(0, usableWidth - statusBudget)
 	const visibleHints = fitHints(hints, hintsWidth)
+	const statusContent = status
+		? status.slice(0, Math.max(0, statusBudget - STATUS_SEPARATOR.length))
+		: ""
 	const noticeContent = notice
 		? notice.length > usableWidth
 			? notice.slice(0, usableWidth)
@@ -174,20 +183,19 @@ export const Footer = <C,>({
 		)
 	}
 
-	// TEMP: keep a visible trigger in the footer while validating the reusable component.
-	const validationTrigger = (
+	const warningTrigger = isPartialWarning ? (
 		<box
-			{...(onValidationTrigger === undefined ? {} : { onMouseUp: onValidationTrigger })}
+			{...(onDiscoveryWarningToggle === undefined ? {} : { onMouseUp: onDiscoveryWarningToggle })}
 			style={{
-				width: 3,
+				width: 1,
 				height: 1,
 				flexDirection: "row",
 				backgroundColor: colors.backgroundElement,
 			}}
 		>
-			<text content=" ! " wrapMode="none" style={{ fg: colors.warning, attributes: 1 }} />
+			<text content="!" wrapMode="none" style={{ fg: colors.warning, attributes: 1 }} />
 		</box>
-	)
+	) : null
 
 	if (status !== null) {
 		const spinnerProps = {
@@ -205,20 +213,20 @@ export const Footer = <C,>({
 
 		return (
 			<box style={rowStyle}>
-				<Spinner {...spinnerProps} />
-				<text content=" " wrapMode="none" style={{ fg: colors.textMuted }} />
-				{validationTrigger}
+				{isPartialWarning ? null : <Spinner {...spinnerProps} />}
+				{isPartialWarning ? null : (
+					<text content=" " wrapMode="none" style={{ fg: colors.textMuted }} />
+				)}
+				{isPartialWarning ? (
+					warningTrigger
+				) : (
+					<text content={statusContent} wrapMode="none" style={{ fg: colors.secondary }} />
+				)}
 				<text content={STATUS_SEPARATOR} wrapMode="none" style={{ fg: colors.textMuted }} />
 				{renderHints()}
 			</box>
 		)
 	}
 
-	return (
-		<box style={rowStyle}>
-			{validationTrigger}
-			<text content={STATUS_SEPARATOR} wrapMode="none" style={{ fg: colors.textMuted }} />
-			{renderHints()}
-		</box>
-	)
+	return <box style={rowStyle}>{renderHints()}</box>
 }

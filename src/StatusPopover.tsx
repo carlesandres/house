@@ -13,6 +13,7 @@ export interface StatusPopoverProps {
 	readonly open?: boolean
 	readonly defaultOpen?: boolean
 	readonly onOpenChange?: (open: boolean) => void
+	readonly showPanel?: boolean
 	readonly minWidth?: number
 	readonly maxWidth?: number
 	readonly maxHeight?: number
@@ -62,16 +63,17 @@ export const StatusPopover = ({
 	icon,
 	content,
 	variant = "warning",
-	placement = "auto",
+	placement: _placement = "auto",
 	open,
 	defaultOpen = false,
 	onOpenChange,
+	showPanel = true,
 	minWidth = 14,
 	maxWidth = 40,
 	maxHeight = 12,
 	zIndex = 30,
-	x = 0,
-	y = 0,
+	x: _x = 0,
+	y: _y = 0,
 }: StatusPopoverProps) => {
 	const { width: viewportWidth, height: viewportHeight } = useTerminalDimensions()
 	const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen)
@@ -105,7 +107,6 @@ export const StatusPopover = ({
 	return (
 		<>
 			<box
-				onMouseDown={() => setOpen(!isOpen)}
 				onMouseUp={() => setOpen(!isOpen)}
 				style={{
 					width: 3,
@@ -114,15 +115,9 @@ export const StatusPopover = ({
 					backgroundColor: colors.backgroundElement,
 				}}
 			>
-				<text
-					content={` ${icon} `}
-					wrapMode="none"
-					onMouseDown={() => setOpen(!isOpen)}
-					onMouseUp={() => setOpen(!isOpen)}
-					style={{ fg: triggerFg, attributes: 1 }}
-				/>
+				<text content={` ${icon} `} wrapMode="none" style={{ fg: triggerFg, attributes: 1 }} />
 			</box>
-			{isOpen && (
+			{showPanel && isOpen && (
 				<box
 					position="absolute"
 					left={left}
@@ -150,6 +145,7 @@ export const StatusPopover = ({
 
 export const StatusPopoverPanel = ({
 	content,
+	variant = "warning",
 	maxWidth = 40,
 	maxHeight = 12,
 	zIndex = 30,
@@ -170,6 +166,8 @@ export const StatusPopoverPanel = ({
 	const linesToRender = wrapped.slice(0, Math.max(0, popoverHeight - 2))
 	while (linesToRender.length < popoverHeight - 2) linesToRender.push("")
 
+	const borderColor = variantFg(variant)
+
 	return (
 		<box
 			position="absolute"
@@ -180,7 +178,7 @@ export const StatusPopoverPanel = ({
 			zIndex={zIndex}
 			style={{
 				border: true,
-				borderColor: colors.border,
+				borderColor,
 				backgroundColor: colors.backgroundPanel,
 				flexDirection: "column",
 			}}

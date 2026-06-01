@@ -27,7 +27,7 @@ const stepFrame = async (renderOnce: () => Promise<void>) => {
 }
 
 describe("Footer", () => {
-	test("shows and opens the temporary status trigger", async () => {
+	test("renders no warning trigger without a partial discovery warning", async () => {
 		const bindings: readonly KeyBinding<{ readonly ok: boolean }>[] = []
 		let clicks = 0
 		await act(async () => {
@@ -36,24 +36,70 @@ describe("Footer", () => {
 					bindings={bindings}
 					ctx={{ ok: true }}
 					width={VIEWPORT.width}
-					onValidationTrigger={() => clicks++}
+					onDiscoveryWarningToggle={() => clicks++}
 				/>,
 				VIEWPORT,
 			)
 		})
 		await stepFrame(setup!.renderOnce)
-		expect(setup!.captureCharFrame()).toContain("!")
+		expect(setup!.captureCharFrame()).not.toContain("!")
 
 		await act(async () => {
-			await setup!.mockMouse.pressDown(2, 0)
-			await setup!.mockMouse.release(2, 0)
+			await setup!.mockMouse.click(1, 0)
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(clicks).toBe(0)
+	})
+
+	test("keeps non-warning discovery statuses textual", async () => {
+		const bindings: readonly KeyBinding<{ readonly ok: boolean }>[] = []
+		await act(async () => {
+			setup = await testRender(
+				<Footer
+					bindings={bindings}
+					ctx={{ ok: true }}
+					width={VIEWPORT.width}
+					discoveryStatus="indexing… 1"
+					discoverySpinnerInitialFrameIndex={0}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("⠋ indexing… 1")
+		expect(frame).not.toContain("!")
+	})
+
+	test("shows and toggles the partial discovery warning trigger", async () => {
+		const bindings: readonly KeyBinding<{ readonly ok: boolean }>[] = []
+		let clicks = 0
+		const warning = "scan incomplete: skipped 1 directory: locked"
+		await act(async () => {
+			setup = await testRender(
+				<Footer
+					bindings={bindings}
+					ctx={{ ok: true }}
+					width={VIEWPORT.width}
+					discoveryStatus={warning}
+					onDiscoveryWarningToggle={() => clicks++}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("!")
+		expect(frame).not.toContain(warning)
+
+		await act(async () => {
+			await setup!.mockMouse.click(1, 0)
 		})
 		await stepFrame(setup!.renderOnce)
 		expect(clicks).toBe(1)
 
 		await act(async () => {
-			await setup!.mockMouse.pressDown(2, 0)
-			await setup!.mockMouse.release(2, 0)
+			await setup!.mockMouse.click(1, 0)
 		})
 		await stepFrame(setup!.renderOnce)
 		expect(clicks).toBe(2)

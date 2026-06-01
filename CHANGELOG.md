@@ -9,7 +9,7 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 ### Fixed
 
 - Discovery scan failures now render short, user-facing footer status instead of raw Effect diagnostics.
-- Partial discovery warnings now show concise skipped-directory status with root-relative paths where possible.
+- Partial discovery warnings now show a compact footer trigger that opens root-relative skipped-directory details.
 - Sidebar empty states now distinguish empty roots from zero-match filters with specific copy.
 
 ### Docs

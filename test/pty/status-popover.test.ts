@@ -1,10 +1,10 @@
 /**
- * PTY-backed smoke check for the temporary footer StatusPopover trigger.
+ * PTY-backed smoke check for the real footer discovery-warning popover trigger.
  *
  * Off by default. Run with: `HOUSE_PTY=1 bun test test/pty/status-popover.test.ts`.
  */
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterAll, describe, expect, setDefaultTimeout, test } from "bun:test"
@@ -16,19 +16,45 @@ const RUN = process.env.HOUSE_PTY === "1"
 setDefaultTimeout(20_000)
 
 const tempDirs: string[] = []
+const lockedDirs: string[] = []
 const sessions: Session[] = []
 
 afterAll(() => {
 	for (const s of sessions) s.close()
+	for (const d of lockedDirs) {
+		try {
+			chmodSync(d, 0o755)
+		} catch {}
+	}
 	for (const d of tempDirs) rmSync(d, { recursive: true, force: true })
 })
 
 function makeFixture(): string {
 	const dir = mkdtempSync(join(tmpdir(), "house-popover-pty-"))
+	const locked = join(dir, "x")
 	tempDirs.push(dir)
 	mkdirSync(dir, { recursive: true })
 	writeFileSync(join(dir, "README.md"), "# hello\n")
+	mkdirSync(locked)
+	writeFileSync(join(locked, "secret.md"), "# secret\n")
+	chmodSync(locked, 0o000)
+	lockedDirs.push(locked)
 	return dir
+}
+
+async function waitForSnapshot(
+	session: Session,
+	predicate: (text: string) => boolean,
+	timeoutMs = 5_000,
+): Promise<string> {
+	const deadline = Date.now() + timeoutMs
+	let text = ""
+	while (Date.now() < deadline) {
+		text = await session.text({ immediate: true, trimEnd: true })
+		if (predicate(text)) return text
+		await new Promise<void>((resolve) => setTimeout(resolve, 50))
+	}
+	return text
 }
 
 async function launchHouse(cwd: string): Promise<Session> {
@@ -48,7 +74,7 @@ async function launchHouse(cwd: string): Promise<Session> {
 }
 
 describe.skipIf(!RUN)("StatusPopover footer trigger (PTY)", () => {
-	test("clicking the temporary footer warning opens the popover", async () => {
+	test("clicking the partial discovery warning opens and closes the popover", async () => {
 		const dir = makeFixture()
 		const session = await launchHouse(dir)
 
@@ -56,10 +82,22 @@ describe.skipIf(!RUN)("StatusPopover footer trigger (PTY)", () => {
 		await session.waitForText(/!/, { timeout: 5_000 })
 		await session.waitIdle({ timeout: 500 }).catch(() => {})
 
-		await session.click(/!/)
-		await session.waitIdle({ timeout: 500 }).catch(() => {})
+		const compact = await session.text({ immediate: true, trimEnd: true })
+		expect(compact).not.toContain("scan incomplete: skipped 1 directory: x")
 
-		const frame = await session.text({ immediate: true, trimEnd: true })
-		expect(frame).toContain("temporary footer validation")
+		await session.clickAt(1, 23)
+		await session.waitIdle({ timeout: 500 }).catch(() => {})
+		const open = await session.waitForText(/scan incomplete: skipped 1 directory: x/, {
+			timeout: 5_000,
+		})
+		expect(open).not.toContain(dir)
+
+		await session.clickAt(1, 23)
+		await session.waitIdle({ timeout: 500 }).catch(() => {})
+		const closed = await waitForSnapshot(
+			session,
+			(text) => !text.includes("scan incomplete: skipped 1 directory: x"),
+		)
+		expect(closed).not.toContain("scan incomplete: skipped 1 directory: x")
 	})
 })
