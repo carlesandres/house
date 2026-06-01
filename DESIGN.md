@@ -251,6 +251,8 @@ Because only one floating overlay is rendered at a time, the layer list is a pol
 
 Footer notices also close floating overlays. The footer remains presentational; the Browser observes that a notice is active and dismisses transient overlays from the parent, where both pieces of state are visible.
 
+Reusable status popovers follow the same split: `StatusPopover` owns only the compact trigger and optional inline panel, while `StatusPopoverPanel` is the root-rendered panel used by Browser-owned overlays. This component contract intentionally does not expose anchor coordinates or placement. If a future surface needs true anchor-based placement, add that behavior deliberately with clamp/flip tests instead of advertising unsupported geometry props.
+
 ## 8. Technical Constraints / Stack
 
 | Layer | Choice | Rationale |
