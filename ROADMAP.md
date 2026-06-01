@@ -6,7 +6,7 @@ Architectural rationale, UX rules, and key reservations live in `DESIGN.md`. Pro
 
 ★ marks a confirmed competitive gap (mdcat / frogmouth / mdr — see issue #16).
 
-Beta shipped with v0.4.0. The remaining work below is split across the `1.0` and `backlog` milestones.
+Beta shipped with v0.4.0. The unified browser model has landed. The remaining work below is split across the `1.0` and `backlog` milestones.
 
 ## 1.0 — daily-driver release
 
@@ -18,10 +18,7 @@ An item belongs here if its absence is a visible papercut or a table-stakes capa
 | Bugs | Relative assets (images, etc.) don't load in browser preview | [#75](https://github.com/carlesandres/house/issues/75) |
 | Bugs | Filter chip can crowd out key hints when query is long | [#86](https://github.com/carlesandres/house/issues/86) |
 | Bugs | Reader keys act on content occluded by the persistent drawer | [#87](https://github.com/carlesandres/house/issues/87) |
-| Architecture | Unified browser model — epic | [#118](https://github.com/carlesandres/house/issues/118) |
-| Chrome | Clickable discovery warning details spike | [#186](https://github.com/carlesandres/house/issues/186) |
 | Components | Reusable status popover component | [#185](https://github.com/carlesandres/house/issues/185) |
-| Docs | Sweep docs for unified browser model | [#117](https://github.com/carlesandres/house/issues/117) |
 | File-level | Delete current file with confirmation | [#20](https://github.com/carlesandres/house/issues/20) |
 | Navigation | Search — filename, full-text, fuzzy | [#25](https://github.com/carlesandres/house/issues/25) |
 | Navigation | Navigation history stack (back/forward) ★ | [#29](https://github.com/carlesandres/house/issues/29) |
