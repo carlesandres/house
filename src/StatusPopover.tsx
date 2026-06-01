@@ -3,13 +3,11 @@ import { useMemo, useState } from "react"
 import { colors } from "./theme/colors.ts"
 
 export type StatusPopoverVariant = "info" | "warning" | "error" | "success"
-export type StatusPopoverPlacement = "auto" | "top" | "bottom" | "left" | "right"
 
 export interface StatusPopoverProps {
 	readonly icon: string
 	readonly content: string
 	readonly variant?: StatusPopoverVariant
-	readonly placement?: StatusPopoverPlacement
 	readonly open?: boolean
 	readonly defaultOpen?: boolean
 	readonly onOpenChange?: (open: boolean) => void
@@ -18,13 +16,12 @@ export interface StatusPopoverProps {
 	readonly maxWidth?: number
 	readonly maxHeight?: number
 	readonly zIndex?: number
-	readonly x?: number
-	readonly y?: number
 }
 
 export interface StatusPopoverPanelProps {
 	readonly content: string
 	readonly variant?: StatusPopoverVariant
+	readonly minWidth?: number
 	readonly maxWidth?: number
 	readonly maxHeight?: number
 	readonly zIndex?: number
@@ -63,7 +60,6 @@ export const StatusPopover = ({
 	icon,
 	content,
 	variant = "warning",
-	placement: _placement = "auto",
 	open,
 	defaultOpen = false,
 	onOpenChange,
@@ -72,8 +68,6 @@ export const StatusPopover = ({
 	maxWidth = 40,
 	maxHeight = 12,
 	zIndex = 30,
-	x: _x = 0,
-	y: _y = 0,
 }: StatusPopoverProps) => {
 	const { width: viewportWidth, height: viewportHeight } = useTerminalDimensions()
 	const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen)
@@ -103,6 +97,7 @@ export const StatusPopover = ({
 	const linesToRender = wrapped.slice(0, Math.max(0, popoverHeight - 2))
 	while (linesToRender.length < popoverHeight - 2) linesToRender.push("")
 	const triggerFg = variantFg(variant)
+	const borderColor = variantFg(variant)
 
 	return (
 		<>
@@ -127,7 +122,7 @@ export const StatusPopover = ({
 					zIndex={zIndex}
 					style={{
 						border: true,
-						borderColor: colors.border,
+						borderColor,
 						backgroundColor: colors.backgroundPanel,
 						flexDirection: "column",
 					}}
@@ -146,6 +141,7 @@ export const StatusPopover = ({
 export const StatusPopoverPanel = ({
 	content,
 	variant = "warning",
+	minWidth = 14,
 	maxWidth = 40,
 	maxHeight = 12,
 	zIndex = 30,
@@ -154,8 +150,8 @@ export const StatusPopoverPanel = ({
 	const lines = useMemo(() => content.split(/\r?\n/), [content])
 	const textWidth = useMemo(() => {
 		const widest = Math.max(1, ...lines.map(measureLine))
-		return clamp(widest, 14, Math.min(maxWidth, Math.max(1, viewportWidth - 4)))
-	}, [lines, maxWidth, viewportWidth])
+		return clamp(widest, minWidth, Math.min(maxWidth, Math.max(1, viewportWidth - 4)))
+	}, [lines, maxWidth, minWidth, viewportWidth])
 	const wrapped = useMemo(
 		() => lines.flatMap((line) => wrapLine(line, textWidth)),
 		[lines, textWidth],

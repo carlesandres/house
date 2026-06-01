@@ -22,6 +22,10 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 
 - Removed the separate file-target launch path: non-serve launches always open the browser over the discovery root, with any positional path applied as the initial sidebar filter.
 
+### Tests
+
+- Added reusable status popover coverage for parent-owned panels, long-line wrapping, and small-viewport clipping.
+
 ## [0.4.7] — 2026-05-27
 
 ### Added

@@ -1,7 +1,7 @@
 import { afterEach, beforeAll, describe, expect, test } from "bun:test"
 import { act, useState } from "react"
 import { testRender } from "@opentui/react/test-utils"
-import { StatusPopover } from "../src/StatusPopover.tsx"
+import { StatusPopover, StatusPopoverPanel } from "../src/StatusPopover.tsx"
 import { destroyTestRenderer } from "./helpers/opentui-test-cleanup.ts"
 
 beforeAll(() => {
@@ -29,7 +29,7 @@ describe("StatusPopover", () => {
 	test("toggles open on trigger click and renders multiline content", async () => {
 		await act(async () => {
 			setup = await testRender(
-				<StatusPopover icon="!" content={"first line\nsecond line"} x={1} y={1} />,
+				<StatusPopover icon="!" content={"first line\nsecond line"} />,
 				VIEWPORT,
 			)
 		})
@@ -63,8 +63,6 @@ describe("StatusPopover", () => {
 					icon="i"
 					content="controlled toggle"
 					onOpenChange={(next) => setOpen(next)}
-					x={1}
-					y={1}
 				/>
 			)
 		}
@@ -86,5 +84,100 @@ describe("StatusPopover", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		expect(setup!.captureCharFrame()).not.toContain("controlled toggle")
+	})
+
+	test("can delegate panel rendering to a parent overlay", async () => {
+		const changes: boolean[] = []
+		await act(async () => {
+			setup = await testRender(
+				<StatusPopover
+					icon="!"
+					content="parent-owned panel"
+					showPanel={false}
+					onOpenChange={(next) => changes.push(next)}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		await act(async () => {
+			await setup!.mockMouse.pressDown(0, 0)
+			await setup!.mockMouse.release(0, 0)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		expect(setup!.captureCharFrame()).toContain("!")
+		expect(setup!.captureCharFrame()).not.toContain("parent-owned panel")
+		expect(changes).toEqual([true])
+	})
+
+	test("wraps long lines and clips rendered content height", async () => {
+		await act(async () => {
+			setup = await testRender(
+				<StatusPopover
+					icon="!"
+					content={"abcdefghijklmnop\nthird-line"}
+					defaultOpen={true}
+					minWidth={4}
+					maxWidth={8}
+					maxHeight={2}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+
+		expect(frame).toContain("abcdefgh")
+		expect(frame).toContain("ijklmnop")
+		expect(frame).not.toContain("third-line")
+	})
+
+	test("panel clips content to small viewports", async () => {
+		await act(async () => {
+			setup = await testRender(
+				<StatusPopoverPanel
+					content={"line-one\nline-two\nline-three"}
+					minWidth={4}
+					maxWidth={20}
+					maxHeight={10}
+				/>,
+				{ width: 12, height: 5 },
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+
+		expect(frame).toContain("line-one")
+		expect(frame).not.toContain("line-two")
+		expect(frame).not.toContain("line-three")
+	})
+
+	test("panel autosizes short content", async () => {
+		await act(async () => {
+			setup = await testRender(<StatusPopoverPanel content="xy" minWidth={1} maxWidth={20} />, {
+				width: 30,
+				height: 8,
+			})
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+
+		expect(frame).toContain("┌──┐")
+		expect(frame).toContain("│xy│")
+	})
+
+	test("panel honors minWidth for short content", async () => {
+		await act(async () => {
+			setup = await testRender(<StatusPopoverPanel content="x" minWidth={10} maxWidth={20} />, {
+				width: 30,
+				height: 8,
+			})
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+
+		expect(frame).toContain("┌──────────┐")
+		expect(frame).toContain("│x         │")
 	})
 })
