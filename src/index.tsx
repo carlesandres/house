@@ -435,7 +435,13 @@ async function runTui({
 		}
 	}
 
-	const renderer = await createCliRenderer({ exitOnCtrlC: false })
+	const renderer = await createCliRenderer({
+		exitOnCtrlC: false,
+		useMouse: true,
+		enableMouseMovement: true,
+		screenMode: "alternate-screen",
+	})
+	renderer.useMouse = true
 	const initialTheme: ThemeState = { id: themeId, tone }
 	try {
 		await validateDiscoveryRoot(discoveryRoot)

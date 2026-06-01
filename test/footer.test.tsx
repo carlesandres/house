@@ -1,5 +1,8 @@
-import { afterEach, beforeAll } from "bun:test"
+import { afterEach, beforeAll, describe, expect, test } from "bun:test"
 import { testRender } from "@opentui/react/test-utils"
+import { act } from "react"
+import { Footer } from "../src/Footer.tsx"
+import type { KeyBinding } from "../src/keymap/keymap.ts"
 import { destroyTestRenderer } from "./helpers/opentui-test-cleanup.ts"
 
 beforeAll(() => {
@@ -14,6 +17,91 @@ afterEach(() => {
 	setup = null
 })
 
-// Filter rendering lives in the sidebar (Browser.tsx) — see the
-// `Browser — filter modal` and `Browser — sidebar filter row` describes
-// in browser.test.tsx.
+const VIEWPORT = { width: 80, height: 20 }
+
+const stepFrame = async (renderOnce: () => Promise<void>) => {
+	await act(async () => {
+		await renderOnce()
+		await new Promise<void>((resolve) => setTimeout(resolve, 1))
+	})
+}
+
+describe("Footer", () => {
+	test("renders no warning trigger without a partial discovery warning", async () => {
+		const bindings: readonly KeyBinding<{ readonly ok: boolean }>[] = []
+		let clicks = 0
+		await act(async () => {
+			setup = await testRender(
+				<Footer
+					bindings={bindings}
+					ctx={{ ok: true }}
+					width={VIEWPORT.width}
+					onDiscoveryWarningToggle={() => clicks++}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).not.toContain("!")
+
+		await act(async () => {
+			await setup!.mockMouse.click(1, 0)
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(clicks).toBe(0)
+	})
+
+	test("keeps non-warning discovery statuses textual", async () => {
+		const bindings: readonly KeyBinding<{ readonly ok: boolean }>[] = []
+		await act(async () => {
+			setup = await testRender(
+				<Footer
+					bindings={bindings}
+					ctx={{ ok: true }}
+					width={VIEWPORT.width}
+					discoveryStatus="indexing… 1"
+					discoverySpinnerInitialFrameIndex={0}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("⠋ indexing… 1")
+		expect(frame).not.toContain("!")
+	})
+
+	test("shows and toggles the partial discovery warning trigger", async () => {
+		const bindings: readonly KeyBinding<{ readonly ok: boolean }>[] = []
+		let clicks = 0
+		const warning = "scan incomplete: skipped 1 directory: locked"
+		await act(async () => {
+			setup = await testRender(
+				<Footer
+					bindings={bindings}
+					ctx={{ ok: true }}
+					width={VIEWPORT.width}
+					discoveryStatus={warning}
+					onDiscoveryWarningToggle={() => clicks++}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("!")
+		expect(frame).not.toContain(warning)
+
+		await act(async () => {
+			await setup!.mockMouse.click(1, 0)
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(clicks).toBe(1)
+
+		await act(async () => {
+			await setup!.mockMouse.click(1, 0)
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(clicks).toBe(2)
+	})
+})
