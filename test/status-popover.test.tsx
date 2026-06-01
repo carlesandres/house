@@ -152,4 +152,32 @@ describe("StatusPopover", () => {
 		expect(frame).not.toContain("line-two")
 		expect(frame).not.toContain("line-three")
 	})
+
+	test("panel autosizes short content", async () => {
+		await act(async () => {
+			setup = await testRender(<StatusPopoverPanel content="xy" minWidth={1} maxWidth={20} />, {
+				width: 30,
+				height: 8,
+			})
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+
+		expect(frame).toContain("┌──┐")
+		expect(frame).toContain("│xy│")
+	})
+
+	test("panel honors minWidth for short content", async () => {
+		await act(async () => {
+			setup = await testRender(<StatusPopoverPanel content="x" minWidth={10} maxWidth={20} />, {
+				width: 30,
+				height: 8,
+			})
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+
+		expect(frame).toContain("┌──────────┐")
+		expect(frame).toContain("│x         │")
+	})
 })
