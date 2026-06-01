@@ -29,7 +29,7 @@ describe("StatusPopover", () => {
 	test("toggles open on trigger click and renders multiline content", async () => {
 		await act(async () => {
 			setup = await testRender(
-				<StatusPopover icon="!" content={"first line\nsecond line"} x={1} y={1} />,
+				<StatusPopover icon="!" content={"first line\nsecond line"} />,
 				VIEWPORT,
 			)
 		})
@@ -63,8 +63,6 @@ describe("StatusPopover", () => {
 					icon="i"
 					content="controlled toggle"
 					onOpenChange={(next) => setOpen(next)}
-					x={1}
-					y={1}
 				/>
 			)
 		}

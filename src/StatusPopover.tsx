@@ -3,13 +3,11 @@ import { useMemo, useState } from "react"
 import { colors } from "./theme/colors.ts"
 
 export type StatusPopoverVariant = "info" | "warning" | "error" | "success"
-export type StatusPopoverPlacement = "auto" | "top" | "bottom" | "left" | "right"
 
 export interface StatusPopoverProps {
 	readonly icon: string
 	readonly content: string
 	readonly variant?: StatusPopoverVariant
-	readonly placement?: StatusPopoverPlacement
 	readonly open?: boolean
 	readonly defaultOpen?: boolean
 	readonly onOpenChange?: (open: boolean) => void
@@ -18,8 +16,6 @@ export interface StatusPopoverProps {
 	readonly maxWidth?: number
 	readonly maxHeight?: number
 	readonly zIndex?: number
-	readonly x?: number
-	readonly y?: number
 }
 
 export interface StatusPopoverPanelProps {
@@ -63,7 +59,6 @@ export const StatusPopover = ({
 	icon,
 	content,
 	variant = "warning",
-	placement: _placement = "auto",
 	open,
 	defaultOpen = false,
 	onOpenChange,
@@ -72,8 +67,6 @@ export const StatusPopover = ({
 	maxWidth = 40,
 	maxHeight = 12,
 	zIndex = 30,
-	x: _x = 0,
-	y: _y = 0,
 }: StatusPopoverProps) => {
 	const { width: viewportWidth, height: viewportHeight } = useTerminalDimensions()
 	const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen)
