@@ -61,8 +61,11 @@ export const Header = ({ width, currentFile, version = pkg.version }: HeaderProp
 				backgroundColor: colors.backgroundPanel,
 			}}
 		>
-			<text content={left} wrapMode="none" style={{ fg: colors.textMuted }} />
-			{showRight && <text content={right} wrapMode="none" style={{ fg: colors.textMuted }} />}
+			<text wrapMode="none">
+				<span style={{ fg: colors.text }}>{brand}</span>
+				{showFile && <span style={{ fg: colors.textMuted }}>{`${FILE_SEPARATOR}${file}`}</span>}
+			</text>
+			{showRight && <text content={right} wrapMode="none" style={{ fg: colors.text }} />}
 		</box>
 	)
 }

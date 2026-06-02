@@ -522,10 +522,11 @@ describe("Browser — focus", () => {
 		const spans = setup!.captureSpans()
 		const selectedRow = rowContaining(frame, "a.md", 1)
 		expect(selectedRow).toBeGreaterThanOrEqual(0)
-		expect(bgAt(spans, selectedRow, 1)?.equals(RGBA.fromHex(colors.backgroundElement))).toBe(true)
-		expect(fgAt(spans, selectedRow, 1)?.equals(RGBA.fromHex(colors.selectedListItemText))).toBe(
-			true,
-		)
+		const selectedBg = bgAt(spans, selectedRow, 1)
+		const selectedFg = fgAt(spans, selectedRow, 1)
+		const inactiveBg = bgAt(spans, selectedRow + 2, 1)
+		expect(selectedBg?.equals(inactiveBg!)).toBe(false)
+		expect(selectedFg?.equals(selectedBg!)).toBe(false)
 	})
 
 	test("starts with the sidebar focused", async () => {

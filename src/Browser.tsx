@@ -997,6 +997,7 @@ export const Browser = ({
 		rightT: "┤",
 		cross: "┼",
 	} as const
+	const INACTIVE_PANE_OPACITY = 0.62
 
 	return (
 		<box
@@ -1036,6 +1037,7 @@ export const Browser = ({
 								flexDirection: "column",
 								paddingLeft: 1,
 								backgroundColor: sidebarActive ? colors.background : colors.backgroundPanel,
+								opacity: sidebarActive ? 1 : INACTIVE_PANE_OPACITY,
 							}}
 						>
 							{sidebarBody}
@@ -1061,6 +1063,7 @@ export const Browser = ({
 								flexDirection: "column",
 								padding: 1,
 								backgroundColor: readerActive ? colors.background : colors.backgroundPanel,
+								opacity: readerActive ? 1 : INACTIVE_PANE_OPACITY,
 							}}
 						>
 							{error ? (
