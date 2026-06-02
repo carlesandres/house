@@ -270,7 +270,7 @@ describe("walk — symlinks", () => {
 })
 
 describe("walk — sort order", () => {
-	test("directories before files, alphabetical within each group (default)", async () => {
+	test("files before directories, alphabetical within each group (default)", async () => {
 		const root = await fixture({
 			"zeta.md": "x",
 			"alpha.md": "x",
@@ -278,9 +278,9 @@ describe("walk — sort order", () => {
 			"adocs/intro.md": "x", // dir starting with 'a' but lexicographically before 'docs'
 		})
 		const result = await run(walkToArray(root))
-		// adocs/intro.md comes before docs/api.md because adocs sorts first;
-		// then alpha.md, zeta.md — files after dirs at each level.
-		expect(names(result)).toEqual(["adocs/intro.md", "docs/api.md", "alpha.md", "zeta.md"])
+		// With files-first (default): top-level files first (alpha), then nested dir subtrees.
+		// adocs before docs because 'a' < 'd' among the dirs that come after files.
+		expect(names(result)).toEqual(["alpha.md", "zeta.md", "adocs/intro.md", "docs/api.md"])
 	})
 
 	test("files before directories with sort: 'files-first'", async () => {

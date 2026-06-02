@@ -152,7 +152,7 @@ options:
   --show <list>  reveal normally-skipped entries; comma-separated subset of:
                    hidden, gitignored. Use --show "" to clear.
   --root <dir>   discovery root to walk (overrides defaultRoot config/env)
-  --sort <mode>  sidebar order: dirs-first (default) or files-first
+  --sort <mode>  sidebar order: files-first (default) or dirs-first
   --sidebar <m>  initial sidebar visibility: auto (default), on, or off
   --focus <m>    startup focus: sidebar, reader, or filter (default: filter)
   --serve        serve the positional path as HTML in the browser (skips TUI)

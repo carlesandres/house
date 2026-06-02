@@ -60,7 +60,7 @@ There is no performance gate, no coverage gate, and no public release in v1.
 
 ### 5.2 beta — Public release gates
 
-`beta` is when we put the project in front of strangers. The gates are in §10. Note that `beta` here describes a release *state* (the first public announcement), not a semver version. The release itself may ship as `0.x` or `1.0`.
+`beta` is when we put the project in front of strangers. The gates are in §10. Note that `beta` here describes a release _state_ (the first public announcement), not a semver version. The release itself may ship as `0.x` or `1.0`.
 
 ### 5.3 Deferred / future
 
@@ -70,16 +70,16 @@ Key reservations for deferred features (search, navigation history, bookmarks, e
 
 ## 6. Discovery Rules
 
-| Rule | v1 behavior |
-|---|---|
-| Root | `--root <dir>` if given, else `defaultRoot` config/env (`cwd` or `git`), else `cwd`. The positional path does not set the discovery root. |
-| Recursion | Unbounded depth from root. |
-| Extensions | `.md`, `.markdown`, `.mdx` (mdx rendered as plain markdown — no JSX evaluation). `.mdx` is opt-out via `--no-mdx` or `mdx = false` in `config.toml` (or `HOUSE_MDX=false`). |
-| Ignore files | `.gitignore` honored. Nested `.gitignore` files honored. |
-| Hard skips | `node_modules`, `.git`, `.venv` (always, even with `--show`). |
-| Hidden files | Skipped by default; `--show hidden` to include. |
-| Symlinks | Not followed (loop hazard). |
-| Sort | Alphabetical within each group. Group order is controlled by `--sort`: `dirs-first` (default) puts directories above files; `files-first` flips it so the current directory's files appear before nested subtrees. |
+| Rule         | v1 behavior                                                                                                                                                                      |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Root         | `--root <dir>` if given, else `defaultRoot` config/env (`cwd` or `git`), else `cwd`. The positional path does not set the discovery root.                                        |
+| Recursion    | Unbounded depth from root.                                                                                                                                                       |
+| Extensions   | `.md`, `.markdown`, `.mdx` (mdx rendered as plain markdown — no JSX evaluation). `.mdx` is opt-out via `--no-mdx` or `mdx = false` in `config.toml` (or `HOUSE_MDX=false`).      |
+| Ignore files | `.gitignore` honored. Nested `.gitignore` files honored.                                                                                                                         |
+| Hard skips   | `node_modules`, `.git`, `.venv` (always, even with `--show`).                                                                                                                    |
+| Hidden files | Skipped by default; `--show hidden` to include.                                                                                                                                  |
+| Symlinks     | Not followed (loop hazard).                                                                                                                                                      |
+| Sort         | Alphabetical within each group. Group order is controlled by `--sort`: `files-first` (default) puts the current directory's files before nested subtrees; `dirs-first` flips it. |
 
 Discovery is a **non-trivial product decision** — users notice when their mental model of "what shows up" doesn't match. Changing these rules is a versioned change.
 
@@ -140,31 +140,31 @@ This is more work than glow's sequential full-screen views, but it is what `open
 
 Conventions follow `ghui` (escape-to-back, return-to-confirm, vim letters as arrow-key siblings) rather than glow.
 
-| Key | Action |
-|---|---|
-| `j` / `k`, `↑` / `↓` | Move selection / scroll line |
-| `shift+j` / `shift+k` | Jump (8 lines) |
-| `space` / `b`, `pagedown` / `pageup`, `ctrl+d` / `ctrl+u` | Page / half-page |
-| `g` / `G` | Top / bottom |
-| `return`, `l`, `→` | Open file / focus reader |
-| `escape`, `h`, `←` | Back / focus sidebar |
-| `[` / `]` | Previous / next file in list (from reader) |
-| `tab` | Toggle focus between sidebar and reader |
-| `s` | Toggle sidebar visibility |
-| `/` | Open filter input (basename-first fuzzy match on path) |
-| `?` | Help overlay |
-| `q`, `ctrl+c` | Quit |
+| Key                                                       | Action                                                 |
+| --------------------------------------------------------- | ------------------------------------------------------ |
+| `j` / `k`, `↑` / `↓`                                      | Move selection / scroll line                           |
+| `shift+j` / `shift+k`                                     | Jump (8 lines)                                         |
+| `space` / `b`, `pagedown` / `pageup`, `ctrl+d` / `ctrl+u` | Page / half-page                                       |
+| `g` / `G`                                                 | Top / bottom                                           |
+| `return`, `l`, `→`                                        | Open file / focus reader                               |
+| `escape`, `h`, `←`                                        | Back / focus sidebar                                   |
+| `[` / `]`                                                 | Previous / next file in list (from reader)             |
+| `tab`                                                     | Toggle focus between sidebar and reader                |
+| `s`                                                       | Toggle sidebar visibility                              |
+| `/`                                                       | Open filter input (basename-first fuzzy match on path) |
+| `?`                                                       | Help overlay                                           |
+| `q`, `ctrl+c`                                             | Quit                                                   |
 
-The filter is a modal-edit input rendered as a row inside the sidebar (above the file list, suppressed on an empty vault). Three reachable states: **idle** (`/ filter…` placeholder), **editing** (`/<query>▏` while the modal is open), and **applied** (`/<query>` after `Return` commits; the list stays narrowed and Reader navigation keys operate on the filtered set). Ranking is intentionally a pure function of `(query, relativePath)`: empty query preserves discovery/tree order; non-empty query ranks **exact/prefix/fuzzy filename matches above folder-only matches**, then uses the full relative path for fuzzy matching, with a soft preference for files in the current folder over deeper nested paths. `Esc` closes the modal without reverting — the typed query is kept as the applied filter, so re-opening with `/` resumes editing it. `Ctrl+\` is the single "clear filter" chord, deliberately a chord (not a bare key) so it works *inside* the filter input without colliding with typed characters: from outside the modal it clears the applied filter and reopens for editing; from inside the modal it clears the current input and stays in editing mode. `Ctrl+U` is *not* overloaded for this — it stays reserved for sidebar/reader half-page-up to avoid mental overload. The footer surfaces `ctrl+\ clear` only when there is something to clear and no modal owns the input. `Return` on a zero-match list is treated as `Esc` (close, keep the query applied). `Backspace`/`Delete` while the query is empty closes the modal — the slash *is* the prompt, so deleting it dismisses the prompt. Pattern adapted from ghui's PR list (a filter row that lives inside the list it filters), not from hunk's StatusBar.
+The filter is a modal-edit input rendered as a row inside the sidebar (above the file list, suppressed on an empty vault). Three reachable states: **idle** (`/ filter…` placeholder), **editing** (`/<query>▏` while the modal is open), and **applied** (`/<query>` after `Return` commits; the list stays narrowed and Reader navigation keys operate on the filtered set). Ranking is intentionally a pure function of `(query, relativePath)`: empty query preserves discovery/tree order; non-empty query ranks **exact/prefix/fuzzy filename matches above folder-only matches**, then uses the full relative path for fuzzy matching, with a soft preference for files in the current folder over deeper nested paths. `Esc` closes the modal without reverting — the typed query is kept as the applied filter, so re-opening with `/` resumes editing it. `Ctrl+\` is the single "clear filter" chord, deliberately a chord (not a bare key) so it works _inside_ the filter input without colliding with typed characters: from outside the modal it clears the applied filter and reopens for editing; from inside the modal it clears the current input and stays in editing mode. `Ctrl+U` is _not_ overloaded for this — it stays reserved for sidebar/reader half-page-up to avoid mental overload. The footer surfaces `ctrl+\ clear` only when there is something to clear and no modal owns the input. `Return` on a zero-match list is treated as `Esc` (close, keep the query applied). `Backspace`/`Delete` while the query is empty closes the modal — the slash _is_ the prompt, so deleting it dismisses the prompt. Pattern adapted from ghui's PR list (a filter row that lives inside the list it filters), not from hunk's StatusBar.
 
 ### 7.3 Reserved keys (future)
 
 Do not bind these in v1:
 
-| Key | Reserved for |
-|---|---|
-| `r` | Reload current file |
-| `B` | Bookmarks panel |
+| Key                 | Reserved for                      |
+| ------------------- | --------------------------------- |
+| `r`                 | Reload current file               |
+| `B`                 | Bookmarks panel                   |
 | `ctrl+[` / `ctrl+]` | Navigation history back / forward |
 
 `E` (open in `$EDITOR`) and `O` (open externally, currently HTML browser) are shipped — see the keymap. The browser preview intentionally stays on the current simple `marked`-based HTML path for now; see [`docs/adr/0001-streamdown-preview-renderer.md`](./docs/adr/0001-streamdown-preview-renderer.md). Reload semantics: `r` remains reserved because `E`'s post-edit reload is automatic; a manual reload is only needed if we ship file-watching as a separate feature.
@@ -179,13 +179,13 @@ There is **no separate file-target mode**. The Browser is the only render target
 
 **Invariant 2 — the discovery root and the query are independent inputs.** Discovery root is resolved from (highest wins): `--root <dir>` → `defaultRoot` config → built-in `"cwd"`. `defaultRoot` is string-valued — `"cwd"` (default) or `"git"` (repo root via parent walk, silent cwd fallback). The CLI positional argument never controls discovery root; that surface is reserved for `--root` and config.
 
-**Invariant 3 — the CLI positional is the initial filter query.** `house README.md` → walk the discovery root, seed the filter to `"README.md"`. The fuzzy scorer (`src/discovery/filter.ts`) ranks `README.md` highest by preferring filename hits over folder hits and current-folder files over deeper nested ties, sticky auto-select lands on it, the reader renders it. Clearing the filter (`Esc`) reveals the full tree. The CLI query is *applied* (live filter, visible in the filter chip), not *consumed* (silently picks selection and clears) — applied is the only shape that honors Invariant 1.
+**Invariant 3 — the CLI positional is the initial filter query.** `house README.md` → walk the discovery root, seed the filter to `"README.md"`. The fuzzy scorer (`src/discovery/filter.ts`) ranks `README.md` highest by preferring filename hits over folder hits and current-folder files over deeper nested ties, sticky auto-select lands on it, the reader renders it. Clearing the filter (`Esc`) reveals the full tree. The CLI query is _applied_ (live filter, visible in the filter chip), not _consumed_ (silently picks selection and clears) — applied is the only shape that honors Invariant 1.
 
 **Invariant 4 — the selected file drives the reader, regardless of focus.** As long as exactly one file is the active selection, that file's content is in the reader pane. Focus determines where keystrokes land, not what is shown. Empty selection → blank reader. There is no separate "open this file in the reader" action distinct from "select it".
 
 **Invariant 5 — file-scoped actions are gated on `hasSelected`, not on `haveFiles`.** The File keymap group (`O` open-in-browser, `[` prev, `]` next) is available iff `selected !== null`. `haveFiles` (list non-empty) is a sloppy proxy that breaks under debounced filter + sticky select, where the list can be non-empty while no row is the selection. `hasSelected` is the honest predicate.
 
-**Invariant 6 — filter input and applied filter are separated by a 50ms debounce.** `filterInput` (immediate) drives the typed line and the filter chip. `filterApplied` (debounced) drives `filterFiles` and selection. Three flush points bypass the debounce so the UI never feels stuck: launch with a seeded query (`initialQuery` initializes *both* states), `Esc` clearing the filter, `Return` committing a pick.
+**Invariant 6 — filter input and applied filter are separated by a 50ms debounce.** `filterInput` (immediate) drives the typed line and the filter chip. `filterApplied` (debounced) drives `filterFiles` and selection. Three flush points bypass the debounce so the UI never feels stuck: launch with a seeded query (`initialQuery` initializes _both_ states), `Esc` clearing the filter, `Return` committing a pick.
 
 **Invariant 7 — sticky first-match auto-select.** Once `filterApplied` produces its first non-empty result, selection snaps to index 0 and stays. Later-streamed entries with higher scores never reseat selection under the user. The gate re-arms when `filterApplied` changes.
 
@@ -201,25 +201,25 @@ Themes are opencode-derived JSON definitions resolved into the typed token surfa
 
 The semantic tokens are intentionally about UI role, not color names. When styling chrome, pick the token by meaning first and only then check how each bundled theme renders it.
 
-| Token | Intended use |
-|---|---|
-| `background` | Main active pane background and base canvas. |
-| `backgroundPanel` | Panel chrome and inactive pane background. |
-| `backgroundElement` | Raised inner element background and active selection background. |
-| `text` | Default readable UI text. |
-| `textMuted` | Secondary copy, labels, separators, disabled-looking metadata. |
-| `border` | Default pane and modal borders. |
-| `borderActive` | Focused/active border where a border itself carries state. |
-| `borderSubtle` | Low-contrast dividers and subdued separators. |
-| `selectedListItemText` | Foreground for selected list rows when a theme needs explicit contrast. |
-| `primary` | Brand/primary accent, strong emphasis, and selected foreground. |
-| `secondary` | Active contextual metadata: focused prompt marker, active filter chip, pending/discovery state, agent-like labels. Not generic emphasis. |
-| `accent` | Decorative or alternate accent for uncommon UI highlights. |
-| `error` | Errors and destructive/failed states. |
-| `warning` | Warnings, caution, or needs-attention states. |
-| `success` | Completed, confirmed, or positive states. |
-| `info` | Informational status distinct from active metadata. |
-| `syntax` | Markdown and fenced-code `SyntaxStyle` scope map built from `markdown*` and `syntax*` theme tokens. |
+| Token                  | Intended use                                                                                                                             |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `background`           | Main active pane background and base canvas.                                                                                             |
+| `backgroundPanel`      | Panel chrome and inactive pane background.                                                                                               |
+| `backgroundElement`    | Raised inner element background and active selection background.                                                                         |
+| `text`                 | Default readable UI text.                                                                                                                |
+| `textMuted`            | Secondary copy, labels, separators, disabled-looking metadata.                                                                           |
+| `border`               | Default pane and modal borders.                                                                                                          |
+| `borderActive`         | Focused/active border where a border itself carries state.                                                                               |
+| `borderSubtle`         | Low-contrast dividers and subdued separators.                                                                                            |
+| `selectedListItemText` | Foreground for selected list rows when a theme needs explicit contrast.                                                                  |
+| `primary`              | Brand/primary accent, strong emphasis, and selected foreground.                                                                          |
+| `secondary`            | Active contextual metadata: focused prompt marker, active filter chip, pending/discovery state, agent-like labels. Not generic emphasis. |
+| `accent`               | Decorative or alternate accent for uncommon UI highlights.                                                                               |
+| `error`                | Errors and destructive/failed states.                                                                                                    |
+| `warning`              | Warnings, caution, or needs-attention states.                                                                                            |
+| `success`              | Completed, confirmed, or positive states.                                                                                                |
+| `info`                 | Informational status distinct from active metadata.                                                                                      |
+| `syntax`               | Markdown and fenced-code `SyntaxStyle` scope map built from `markdown*` and `syntax*` theme tokens.                                      |
 
 Token application rules for common chrome patterns:
 
@@ -258,17 +258,17 @@ This component contract intentionally does not expose anchor coordinates or plac
 
 ## 8. Technical Constraints / Stack
 
-| Layer | Choice | Rationale |
-|---|---|---|
-| Runtime | Bun | Matches `ghui`; standalone-binary build pipeline already proven. |
-| Language | TypeScript | Strict mode. |
-| TUI framework | `@opentui/react` | JSX + hooks fit a multi-view app; matches `ghui`. |
-| State / IO | [Effect](https://effect.website) | Author wants to learn it; well-suited to async/IO when beta features land. |
+| Layer              | Choice                                                   | Rationale                                                                                                                                                                                                                               |
+| ------------------ | -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Runtime            | Bun                                                      | Matches `ghui`; standalone-binary build pipeline already proven.                                                                                                                                                                        |
+| Language           | TypeScript                                               | Strict mode.                                                                                                                                                                                                                            |
+| TUI framework      | `@opentui/react`                                         | JSX + hooks fit a multi-view app; matches `ghui`.                                                                                                                                                                                       |
+| State / IO         | [Effect](https://effect.website)                         | Author wants to learn it; well-suited to async/IO when beta features land.                                                                                                                                                              |
 | Markdown rendering | `opentui`'s built-in `<markdown>` (`MarkdownRenderable`) | opentui ships a production-hardened markdown renderer with tables, tree-sitter syntax highlighting, and theme support via `SyntaxStyle`. Reusing it skips a large class of parsing/layout work and matches the "showcase opentui" goal. |
-| Linter | `oxlint` | Matches `ghui`. |
-| Formatter | `oxfmt` | Matches `ghui`. |
-| Tests | `bun test` | Stays in-runtime. |
-| Distribution | Bun standalone binary + npm package | Brew tap deferred to post-beta. |
+| Linter             | `oxlint`                                                 | Matches `ghui`.                                                                                                                                                                                                                         |
+| Formatter          | `oxfmt`                                                  | Matches `ghui`.                                                                                                                                                                                                                         |
+| Tests              | `bun test`                                               | Stays in-runtime.                                                                                                                                                                                                                       |
+| Distribution       | Bun standalone binary + npm package                      | Brew tap deferred to post-beta.                                                                                                                                                                                                         |
 
 **Note on Effect.** The author has not shipped Effect before. Some early code will read like "Effect by way of Promises" until the patterns settle. That is expected and acceptable; refactors-toward-idiomatic-Effect are tracked as work in v1→beta.
 
@@ -328,26 +328,26 @@ Errors are tagged unions. No `throw` in domain code; errors-as-values flow up to
 
 ## 10. beta Quality Gates
 
-These are gates for *calling it beta and shipping publicly*, not blockers for individual PRs.
+These are gates for _calling it beta and shipping publicly_, not blockers for individual PRs.
 
 ### 10.1 Performance (targets to validate)
 
 Numbers below are guesses informed by "feels fast" expectations; treat them as targets to validate against measured baselines, not hard contracts.
 
-| Metric | Target |
-|---|---|
-| Cold start to first paint (200-file repo) | <150ms |
-| Render of a typical README (≤500 lines) | <50ms |
-| Render of a 5,000-line stress doc | <250ms |
-| Scroll latency (input → frame) | <16ms (60fps) |
-| Discovery on a 10k-file monorepo | <500ms |
-| Resident memory on a typical repo | <80MB |
+| Metric                                    | Target        |
+| ----------------------------------------- | ------------- |
+| Cold start to first paint (200-file repo) | <150ms        |
+| Render of a typical README (≤500 lines)   | <50ms         |
+| Render of a 5,000-line stress doc         | <250ms        |
+| Scroll latency (input → frame)            | <16ms (60fps) |
+| Discovery on a 10k-file monorepo          | <500ms        |
+| Resident memory on a typical repo         | <80MB         |
 
 A `bun run bench` script checks these against a fixture corpus checked into `test/fixtures/`.
 
 ### 10.2 Tests
 
-- The theme's tree-sitter scope map (`buildSyntaxMap` in `src/theme/colors.ts`) has an entry for every markdown node type §5.1.3 promises. This is the integration surface we own; opentui's own test suite covers the renderer end. Regression-style tests for *our* uses of `<markdown>` (e.g. the code-block invisibility bug in `test/markdown-codeblock.test.tsx`) are kept as targeted coverage, not blanket per-node snapshots.
+- The theme's tree-sitter scope map (`buildSyntaxMap` in `src/theme/colors.ts`) has an entry for every markdown node type §5.1.3 promises. This is the integration surface we own; opentui's own test suite covers the renderer end. Regression-style tests for _our_ uses of `<markdown>` (e.g. the code-block invisibility bug in `test/markdown-codeblock.test.tsx`) are kept as targeted coverage, not blanket per-node snapshots.
 - Every keymap binding has at least one integration test (boot TUI, send keys, assert state).
 - Discovery edge cases covered: `.gitignore`, nested `.gitignore`, hidden files, symlinks not followed, missing dir, empty dir.
 - Smoke test on the built standalone binary in CI.
@@ -388,11 +388,11 @@ Things we will learn by building, not by debating.
 
 ## 12. Patterns to revisit
 
-Approaches we deliberately did *not* adopt, with the trigger that should bring us back. Each entry pairs a deferred pattern with a concrete signal — when that signal fires, re-read this section.
+Approaches we deliberately did _not_ adopt, with the trigger that should bring us back. Each entry pairs a deferred pattern with a concrete signal — when that signal fires, re-read this section.
 
 Inline `// TODO(revisit: <topic>)` markers in the code point here from the relevant call sites. Grep for `TODO(revisit:` to enumerate them.
 
-- **Declarative keymap as data — small in-house version landed.** Bindings as values with `{ id, description, keys, when?, run }` and a pure `dispatch` live in `src/keymap/`. The shape is enough to drive `useKeyboard` *and* the upcoming `?` help overlay from one source of truth.
+- **Declarative keymap as data — small in-house version landed.** Bindings as values with `{ id, description, keys, when?, run }` and a pure `dispatch` live in `src/keymap/`. The shape is enough to drive `useKeyboard` _and_ the upcoming `?` help overlay from one source of truth.
   - **Outstanding ghui machinery (still deferred):** chord sequences (`g g`), vim count prefixes (`5j`), scoped contexts via contramap, conflict detection, command-palette routing.
   - Trigger to revisit: a third interactive overlay/modal lands (search, filter, command palette), OR a real need for chord/count input emerges.
   - **Trigger status:** the third-overlay threshold has started to fire. Browser now owns a small single-`floatingOverlay` state machine (§7.6) so floating surfaces do not stack accidentally, but scoped keymap composition remains deferred until keyboard routing itself becomes hard to follow.

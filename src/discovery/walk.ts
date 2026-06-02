@@ -26,7 +26,7 @@ export interface WalkOptions {
 	 *  entries. Order is irrelevant — semantics are set membership. Hard
 	 *  skips (`node_modules`, `.git`, `.venv`) always apply. */
 	readonly show?: Iterable<ShowCategory>
-	/** Group order within each directory. Default `dirs-first`. */
+	/** Group order within each directory. Default `files-first`. */
 	readonly sort?: SortOrder
 	/** Include `.mdx` files alongside `.md`/`.markdown`. Default `true`. */
 	readonly mdx?: boolean
@@ -167,7 +167,7 @@ async function* walkDirGen(
  * - `.gitignore` honored, including nested `.gitignore` files.
  * - Symlinks not followed.
  * - Sort: alphabetical within each group; directories before files
- *   (`dirs-first`, default) or files before directories (`files-first`).
+ *   (`files-first`, default) or directories before files (`dirs-first`).
  */
 export const walk = (
 	root: string,
@@ -178,7 +178,7 @@ export const walk = (
 	const opts = {
 		showHidden: show.has("hidden"),
 		showGitignored: show.has("gitignored"),
-		sort: options.sort ?? ("dirs-first" as SortOrder),
+		sort: options.sort ?? ("files-first" as SortOrder),
 		mdx: options.mdx ?? true,
 	}
 	const onWarning = options.onWarning ?? null

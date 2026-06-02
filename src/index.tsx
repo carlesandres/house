@@ -348,7 +348,7 @@ if (import.meta.main) {
 		process.on("SIGTERM", shutdown)
 		// Bun.serve keeps the event loop alive until stop().
 	} else {
-		let sort: SortOrder = "dirs-first"
+		let sort: SortOrder = "files-first"
 		if (args.sort !== null) {
 			if (args.sort !== "dirs-first" && args.sort !== "files-first") {
 				console.error(`house: --sort must be "dirs-first" or "files-first", got "${args.sort}"`)

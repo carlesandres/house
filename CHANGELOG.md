@@ -6,6 +6,10 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 
 ## [Unreleased]
 
+### Changed
+
+- Default `--sort` (and thus empty-filter / no-searchterm sidebar order) is now `files-first`. Root-level and per-directory files now appear before nested subtrees in the base list. This makes less-nested files naturally rank higher even without a search term (the previous `dirs-first` default caused entire early subtrees to be emitted before root files). The `--sort` flag and explicit behavior are unchanged; `files-first` simply aligns the default with the documented "current directory's files before nested subtrees" intent and the desire for less-nested items near the top. When a filter query is active the existing `filterFiles` / `rankFile` scoring (filename bias + strengthened depth penalties) still applies on top.
+
 ## [0.4.8] — 2026-06-02
 
 ### Fixed
@@ -18,7 +22,7 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 ### Docs
 
 - Corrected usage docs and `--help` text: directory browsing is controlled by `--root` / `defaultRoot`; the positional path now seeds the initial browser filter query.
-- Refreshed unified-browser docs, roadmap state, and demo tapes after the single Browser model landed.
+- Refreshed unified-browser docs, pruned shipped roadmap items, and updated demo tapes after the single Browser model landed.
 - Added ADR 0001 documenting the decision to keep the current `marked`-based browser preview instead of adopting Streamdown for now.
 
 ### Changed
