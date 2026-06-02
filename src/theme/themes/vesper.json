@@ -54,11 +54,11 @@
 			"light": "#FFF"
 		},
 		"backgroundPanel": {
-			"dark": "vesperBg",
+			"dark": "#151515",
 			"light": "#F0F0F0"
 		},
 		"backgroundElement": {
-			"dark": "vesperBg",
+			"dark": "#282828",
 			"light": "#E0E0E0"
 		},
 		"border": {

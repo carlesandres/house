@@ -54,6 +54,10 @@
 			"dark": "base01",
 			"light": "base1"
 		},
+		"selectedListItemText": {
+			"dark": "base3",
+			"light": "base03"
+		},
 		"background": {
 			"dark": "base03",
 			"light": "base3"
@@ -63,8 +67,8 @@
 			"light": "base2"
 		},
 		"backgroundElement": {
-			"dark": "#073642",
-			"light": "#eee8d5"
+			"dark": "base01",
+			"light": "base1"
 		},
 		"border": {
 			"dark": "base02",

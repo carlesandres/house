@@ -82,7 +82,7 @@ const HARD_FALLBACK: Readonly<Record<TokenName, HexColor>> = Object.fromEntries(
  * the theme omits them. Mirrors opencode's resolve behavior.
  */
 const TOKEN_FALLBACK: Partial<Record<TokenName, TokenName>> = {
-	selectedListItemText: "background",
+	selectedListItemText: "text",
 	markdownText: "text",
 	markdownCodeBlock: "text",
 	borderSubtle: "border",

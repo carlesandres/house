@@ -61,8 +61,8 @@
 			"light": "nightOwlPanel"
 		},
 		"backgroundElement": {
-			"dark": "nightOwlPanel",
-			"light": "nightOwlPanel"
+			"dark": "nightOwlGray",
+			"light": "nightOwlGray"
 		},
 		"border": {
 			"dark": "nightOwlMuted",

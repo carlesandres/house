@@ -229,6 +229,21 @@ const bgAt = (frame: CapturedFrame, row: number, col: number): RGBA | null => {
 	return null
 }
 
+const fgAt = (frame: CapturedFrame, row: number, col: number): RGBA | null => {
+	const line = frame.lines[row]
+	if (!line) return null
+	let c = 0
+	for (const span of line.spans) {
+		if (col < c + span.width) return span.fg
+		c += span.width
+	}
+	return null
+}
+
+const rowContaining = (charFrame: string, needle: string, after = -1): number => {
+	return charFrame.split("\n").findIndex((line, idx) => idx > after && line.includes(needle))
+}
+
 /** True when the sidebar pane is rendered AND focused. Active panes
  *  stay on colors.background; inactive ones dim to colors.backgroundPanel. We
  *  sample 3 rows from the bottom (past footer + bottom rule, into the
@@ -456,6 +471,63 @@ describe("Browser — selection", () => {
 })
 
 describe("Browser — focus", () => {
+	test("pane borders stay neutral while focus moves", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={makeFiles(["a.md", "b.md"])}
+					readFile={makeReader({ "a.md": "x", "b.md": "y" })}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		let spans = setup!.captureSpans()
+
+		expect(fgAt(spans, 1, 1)?.equals(RGBA.fromHex(colors.border))).toBe(true)
+
+		await act(async () => {
+			setup!.mockInput.pressTab()
+		})
+		await stepFrame(setup!.renderOnce)
+		spans = setup!.captureSpans()
+		const topRule = setup!.captureCharFrame().split("\n")[1] ?? ""
+		const readerBorderCol = topRule.indexOf("┬") + 1
+
+		expect(fgAt(spans, 1, 1)?.equals(RGBA.fromHex(colors.border))).toBe(true)
+		expect(readerBorderCol).toBeGreaterThan(0)
+		expect(fgAt(spans, 1, readerBorderCol)?.equals(RGBA.fromHex(colors.border))).toBe(true)
+	})
+
+	test("selected sidebar row stays visibly highlighted when sidebar is inactive", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={makeFiles(["a.md", "b.md"])}
+					readFile={makeReader({ "a.md": "x", "b.md": "y" })}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		await act(async () => {
+			setup!.mockInput.pressTab()
+		})
+		await stepFrame(setup!.renderOnce)
+
+		const frame = setup!.captureCharFrame()
+		const spans = setup!.captureSpans()
+		const selectedRow = rowContaining(frame, "a.md", 1)
+		expect(selectedRow).toBeGreaterThanOrEqual(0)
+		expect(bgAt(spans, selectedRow, 1)?.equals(RGBA.fromHex(colors.backgroundElement))).toBe(true)
+		expect(fgAt(spans, selectedRow, 1)?.equals(RGBA.fromHex(colors.selectedListItemText))).toBe(
+			true,
+		)
+	})
+
 	test("starts with the sidebar focused", async () => {
 		await act(async () => {
 			setup = await renderBrowser(

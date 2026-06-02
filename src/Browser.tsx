@@ -961,18 +961,8 @@ export const Browser = ({
 					const realIdx = desiredScroll + idx
 					const isSelected = realIdx === selectedIndex
 					const { basename, separator, parent } = layoutSidebarRow(file.relativePath)
-					const selectedFg =
-						colors.selectedListItemText === colors.background
-							? colors.primary
-							: colors.selectedListItemText
-					const basenameFg = isSelected
-						? sidebarActive
-							? selectedFg
-							: colors.primary
-						: colors.text
-					const rowStyle = isSelected
-						? { bg: sidebarActive ? colors.backgroundElement : colors.borderSubtle }
-						: {}
+					const basenameFg = isSelected ? colors.selectedListItemText : colors.text
+					const rowStyle = isSelected ? { bg: colors.backgroundElement } : {}
 					return (
 						<text key={file.path} wrapMode="none" style={rowStyle}>
 							<span style={{ fg: basenameFg }}>{basename}</span>
@@ -1027,7 +1017,7 @@ export const Browser = ({
 							// Narrow mode runs single-pane: the sidebar fills the area
 							// and drops its right divider (no neighbour to abut).
 							border: isNarrow ? readerBorderSides : sidebarBorderSides,
-							borderColor: colors.textMuted,
+							borderColor: colors.border,
 							...(isNarrow
 								? { flexGrow: 1, flexShrink: 1 }
 								: { width: sidebarWidth, flexShrink: 0 }),
@@ -1056,7 +1046,7 @@ export const Browser = ({
 					<box
 						style={{
 							border: readerBorderSides,
-							borderColor: colors.textMuted,
+							borderColor: colors.border,
 							flexGrow: 1,
 							flexShrink: 1,
 							flexDirection: "column",
