@@ -12,8 +12,6 @@ export interface ParsedArgs {
 	readonly tone: string | null
 	/** Value of `--width <N>`, or null. Validated by the boot layer (must be a positive integer). */
 	readonly width: string | null
-	/** Value of `--sort <mode>` (`dirs-first` or `files-first`), or null. Validated by the boot layer. */
-	readonly sort: string | null
 	/** True when `--serve` was passed: serve the positional path as HTML, skip TUI. */
 	readonly serve: boolean
 	/** Value of `--port <N>`, or null. Validated by the boot layer. */
@@ -51,7 +49,6 @@ const createProgram = () =>
 		.option("--theme [id]")
 		.option("--tone [mode]")
 		.option("--width [N]")
-		.option("--sort [mode]")
 		.option("--serve")
 		.option("--port [N]")
 		.option("--config-path")
@@ -69,13 +66,14 @@ const VALUE_FLAGS: ReadonlySet<string> = new Set([
 	"--theme",
 	"--tone",
 	"--width",
-	"--sort",
 	"--port",
 	"--sidebar",
 	"--focus",
 	"--show",
 	"--root",
 ])
+
+const REMOVED_VALUE_FLAGS: ReadonlySet<string> = new Set(["--sort"])
 
 const BOOLEAN_FLAGS: ReadonlySet<string> = new Set([
 	"--serve",
@@ -91,7 +89,7 @@ const BOOLEAN_FLAGS: ReadonlySet<string> = new Set([
 const findPathArg = (argv: readonly string[]): string | null => {
 	for (let i = 0; i < argv.length; i++) {
 		const arg = argv[i]!
-		if (VALUE_FLAGS.has(arg)) {
+		if (VALUE_FLAGS.has(arg) || REMOVED_VALUE_FLAGS.has(arg)) {
 			const next = argv[i + 1]
 			if (next !== undefined && !next.startsWith("-")) i++
 			continue
@@ -123,7 +121,6 @@ export const parseArgv = (argv: readonly string[]): ParsedArgs => {
 		theme: stringOrNull(opts["theme"]),
 		tone: stringOrNull(opts["tone"]),
 		width: stringOrNull(opts["width"]),
-		sort: stringOrNull(opts["sort"]),
 		serve: opts["serve"] === true,
 		port: stringOrNull(opts["port"]),
 		help: opts["help"] === true,
@@ -152,7 +149,6 @@ options:
   --show <list>  reveal normally-skipped entries; comma-separated subset of:
                    hidden, gitignored. Use --show "" to clear.
   --root <dir>   discovery root to walk (overrides defaultRoot config/env)
-  --sort <mode>  sidebar order: files-first (default) or dirs-first
   --sidebar <m>  initial sidebar visibility: auto (default), on, or off
   --focus <m>    startup focus: sidebar, reader, or filter (default: filter)
   --serve        serve the positional path as HTML in the browser (skips TUI)

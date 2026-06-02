@@ -13,7 +13,7 @@ import { Browser, type StartupFocus } from "./Browser.tsx"
 import { parseArgv, usage } from "./cli/argv.ts"
 import { defaultConfigPath, formatConfigError, loadConfig } from "./config/load.ts"
 import { parseShowList, SHOW_CATEGORIES, type ShowCategory } from "./discovery/show.ts"
-import { walk, type FileEntry, type SortOrder } from "./discovery/walk.ts"
+import { walk, type FileEntry } from "./discovery/walk.ts"
 import { openInBrowser } from "./serve/openBrowser.ts"
 import { startServer } from "./serve/server.ts"
 import { setActiveTheme } from "./theme/colors.ts"
@@ -106,7 +106,6 @@ interface DiscoverShellProps {
 	 *  and the full vocabulary; the underlying categories remain
 	 *  independent everywhere else. */
 	readonly initialShow: readonly ShowCategory[]
-	readonly sort: SortOrder
 	readonly mdx: boolean
 	readonly maxWidth: number | null
 	readonly sidebarMode: SidebarMode
@@ -117,7 +116,6 @@ export const DiscoverShell = ({
 	target,
 	initialQuery,
 	initialShow,
-	sort,
 	mdx,
 	maxWidth,
 	sidebarMode,
@@ -147,7 +145,6 @@ export const DiscoverShell = ({
 		countRef.current = 0
 		const warnedProgram = walk(target, {
 			show,
-			sort,
 			mdx,
 			onWarning: ({ path }) => {
 				const relativePath = relative(resolve(target), path)
@@ -182,7 +179,7 @@ export const DiscoverShell = ({
 		return () => {
 			Effect.runFork(Fiber.interrupt(fiber))
 		}
-	}, [target, show, sort, mdx])
+	}, [target, show, mdx])
 
 	const discoveryStatus =
 		scanError ??
@@ -348,14 +345,6 @@ if (import.meta.main) {
 		process.on("SIGTERM", shutdown)
 		// Bun.serve keeps the event loop alive until stop().
 	} else {
-		let sort: SortOrder = "files-first"
-		if (args.sort !== null) {
-			if (args.sort !== "dirs-first" && args.sort !== "files-first") {
-				console.error(`house: --sort must be "dirs-first" or "files-first", got "${args.sort}"`)
-				process.exit(2)
-			}
-			sort = args.sort
-		}
 		let sidebarMode: SidebarMode = "auto"
 		if (args.sidebar !== null) {
 			if (args.sidebar !== "auto" && args.sidebar !== "on" && args.sidebar !== "off") {
@@ -379,7 +368,6 @@ if (import.meta.main) {
 			tone,
 			maxWidth,
 			show,
-			sort,
 			mdx,
 			sidebarMode,
 			startupFocus,
@@ -395,7 +383,6 @@ interface TuiBootOptions {
 	readonly tone: "dark" | "light"
 	readonly maxWidth: number | null
 	readonly show: readonly ShowCategory[]
-	readonly sort: SortOrder
 	readonly mdx: boolean
 	readonly sidebarMode: SidebarMode
 	readonly startupFocus: StartupFocus
@@ -411,7 +398,6 @@ async function runTui({
 	tone,
 	maxWidth,
 	show,
-	sort,
 	mdx,
 	sidebarMode,
 	startupFocus,
@@ -455,7 +441,6 @@ async function runTui({
 				target={discoveryRoot}
 				initialQuery={initialQuery}
 				initialShow={show}
-				sort={sort}
 				mdx={mdx}
 				maxWidth={maxWidth}
 				sidebarMode={sidebarMode}

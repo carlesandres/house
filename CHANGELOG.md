@@ -8,7 +8,7 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 
 ### Changed
 
-- Default `--sort` (and thus empty-filter / no-searchterm sidebar order) is now `files-first`. Root-level and per-directory files now appear before nested subtrees in the base list. This makes less-nested files naturally rank higher even without a search term (the previous `dirs-first` default caused entire early subtrees to be emitted before root files). The `--sort` flag and explicit behavior are unchanged; `files-first` simply aligns the default with the documented "current directory's files before nested subtrees" intent and the desire for less-nested items near the top. When a filter query is active the existing `filterFiles` / `rankFile` scoring (filename bias + strengthened depth penalties) still applies on top.
+- Removed the experimental `--sort` option. The sidebar now consistently lists files before directories, so current-directory files appear before nested subtrees in the base list. This makes less-nested files naturally rank higher even without a search term. When a filter query is active the existing `filterFiles` / `rankFile` scoring (filename bias + strengthened depth penalties) still applies on top.
 
 ## [0.4.8] — 2026-06-02
 

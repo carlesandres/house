@@ -67,7 +67,6 @@ house --serve README.md
 | `--width <N>`        | —                 | Cap rendered markdown width at N columns                                                                     |
 | `--show <list>`      | `""`              | Reveal normally-skipped entries; comma-separated subset of `hidden`, `gitignored`. Use `--show ""` to clear. |
 | `--root <dir>`       | current directory | Discovery root to walk; overrides `defaultRoot` config/env                                                   |
-| `--sort <mode>`      | `files-first`     | Sidebar order: `files-first` (files before nested subtrees) or `dirs-first`                                  |
 | `--sidebar <mode>`   | `auto`            | Initial sidebar visibility: `auto`, `on`, or `off`                                                           |
 | `--focus <mode>`     | `filter`          | Startup focus: `sidebar`, `reader`, or `filter`. `filter` opens the sidebar filter prompt immediately.       |
 | `--serve`            | off               | Serve the positional path as HTML in the browser (skips TUI)                                                 |

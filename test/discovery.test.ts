@@ -282,18 +282,6 @@ describe("walk — sort order", () => {
 		// adocs before docs because 'a' < 'd' among the dirs that come after files.
 		expect(names(result)).toEqual(["alpha.md", "zeta.md", "adocs/intro.md", "docs/api.md"])
 	})
-
-	test("files before directories with sort: 'files-first'", async () => {
-		const root = await fixture({
-			"zeta.md": "x",
-			"alpha.md": "x",
-			"docs/api.md": "x",
-			"adocs/intro.md": "x",
-		})
-		const result = await run(walkToArray(root, { sort: "files-first" }))
-		// Top-level files first (alphabetical), then nested dir contents.
-		expect(names(result)).toEqual(["alpha.md", "zeta.md", "adocs/intro.md", "docs/api.md"])
-	})
 })
 
 describe("walk — errors", () => {

@@ -79,7 +79,7 @@ Key reservations for deferred features (search, navigation history, bookmarks, e
 | Hard skips   | `node_modules`, `.git`, `.venv` (always, even with `--show`).                                                                                                                    |
 | Hidden files | Skipped by default; `--show hidden` to include.                                                                                                                                  |
 | Symlinks     | Not followed (loop hazard).                                                                                                                                                      |
-| Sort         | Alphabetical within each group. Group order is controlled by `--sort`: `files-first` (default) puts the current directory's files before nested subtrees; `dirs-first` flips it. |
+| Sort         | Files before directories, alphabetical within each group. This puts the current directory's files before nested subtrees. |
 
 Discovery is a **non-trivial product decision** — users notice when their mental model of "what shows up" doesn't match. Changing these rules is a versioned change.
 
