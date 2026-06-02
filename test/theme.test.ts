@@ -15,6 +15,21 @@ const minimalTheme: ThemeJson = {
 	},
 }
 
+const luminance = (hex: string): number => {
+	const normalized = hex.replace("#", "")
+	const [r, g, b] = [0, 2, 4].map((offset) => {
+		const channel = Number.parseInt(normalized.slice(offset, offset + 2), 16) / 255
+		return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4
+	})
+	return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!
+}
+
+const contrastRatio = (a: string, b: string): number => {
+	const l1 = luminance(a)
+	const l2 = luminance(b)
+	return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05)
+}
+
 describe("isThemeJson", () => {
 	test("accepts an object with a theme object", () => {
 		expect(isThemeJson({ theme: {} })).toBe(true)
@@ -88,6 +103,30 @@ describe("registry", () => {
 	test("getThemeDefinition returns the definition or undefined", () => {
 		expect(getThemeDefinition("nord")?.id).toBe("nord")
 		expect(getThemeDefinition("nope")).toBeUndefined()
+	})
+
+	test("bundled themes have distinct pane and selection chrome", () => {
+		for (const definition of themeDefinitions) {
+			for (const tone of ["dark", "light"] as const) {
+				const resolved = resolveTheme(definition.source, tone)
+				expect(resolved.background, `${definition.id}:${tone} active pane bg`).not.toBe(
+					resolved.backgroundPanel,
+				)
+				expect(resolved.backgroundElement, `${definition.id}:${tone} selected row bg`).not.toBe(
+					resolved.background,
+				)
+				expect(resolved.backgroundElement, `${definition.id}:${tone} selected row bg`).not.toBe(
+					resolved.backgroundPanel,
+				)
+				expect(resolved.selectedListItemText, `${definition.id}:${tone} selected row fg`).not.toBe(
+					resolved.backgroundElement,
+				)
+				expect(
+					contrastRatio(resolved.selectedListItemText, resolved.backgroundElement),
+					`${definition.id}:${tone} selected row contrast`,
+				).toBeGreaterThanOrEqual(3)
+			}
+		}
 	})
 })
 

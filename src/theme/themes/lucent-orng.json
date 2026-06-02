@@ -61,8 +61,8 @@
 			"light": "lightStep11"
 		},
 		"selectedListItemText": {
-			"dark": "#0a0a0a",
-			"light": "#ffffff"
+			"dark": "darkStep12",
+			"light": "lightStep12"
 		},
 		"background": {
 			"dark": "transparent",
@@ -73,8 +73,8 @@
 			"light": "transparent"
 		},
 		"backgroundElement": {
-			"dark": "transparent",
-			"light": "transparent"
+			"dark": "darkStep6",
+			"light": "lightStep6"
 		},
 		"border": {
 			"dark": "darkOrange",

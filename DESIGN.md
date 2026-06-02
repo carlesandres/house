@@ -210,7 +210,7 @@ The semantic tokens are intentionally about UI role, not color names. When styli
 | `textMuted` | Secondary copy, labels, separators, disabled-looking metadata. |
 | `border` | Default pane and modal borders. |
 | `borderActive` | Focused/active border where a border itself carries state. |
-| `borderSubtle` | Low-contrast dividers and inactive selection background. |
+| `borderSubtle` | Low-contrast dividers and subdued separators. |
 | `selectedListItemText` | Foreground for selected list rows when a theme needs explicit contrast. |
 | `primary` | Brand/primary accent, strong emphasis, and selected foreground. |
 | `secondary` | Active contextual metadata: focused prompt marker, active filter chip, pending/discovery state, agent-like labels. Not generic emphasis. |
@@ -224,7 +224,8 @@ The semantic tokens are intentionally about UI role, not color names. When styli
 Token application rules for common chrome patterns:
 
 - **Section/category headers inside palettes and lists** are organizational chrome, not active state — use `textMuted` (optionally bold).
-- **Selected interactive rows** use `backgroundElement` for background and `primary` or `selectedListItemText` for foreground.
+- **Pane frames** use `border`, not `borderActive`; full-frame accent borders are visually too loud. Pane focus is carried by the active pane body tint and local interaction chrome.
+- **Selected interactive rows** use `backgroundElement` for background in both active and inactive panes, and `selectedListItemText` for foreground. Bundled themes must keep those tokens visually distinct from pane backgrounds.
 - **Do not use `borderActive` for text labels** unless the text itself is acting as active chrome; it is primarily for focused borders.
 
 The raw theme token surface also includes markdown-specific tokens (`markdownHeading`, `markdownLink`, etc.) and fenced-code syntax tokens (`syntaxKeyword`, `syntaxString`, etc.). Use those through `colors.syntax` for rendered markdown instead of applying UI accent tokens to document content.

@@ -25,7 +25,7 @@
 		"textMuted": "darkFgMuted",
 		"background": "darkBg",
 		"backgroundPanel": "darkBgPanel",
-		"backgroundElement": "darkBgPanel",
+		"backgroundElement": "darkBorder",
 		"border": "darkBorder",
 		"borderActive": "darkFgMuted",
 		"borderSubtle": "darkBorder",
