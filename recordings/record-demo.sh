@@ -31,6 +31,24 @@ sleep 1
 termctrl send "$session_name" text:t
 sleep 1
 termctrl send "$session_name" text:t
+sleep 1
+termctrl send "$session_name" ctrl-p
+sleep 1
+termctrl send "$session_name" --pace-ms 250 down down down
+sleep 1
+termctrl send "$session_name" --pace-ms 250 up up
+sleep 1
+termctrl send "$session_name" escape
+sleep 1
+termctrl send "$session_name" tab
+sleep 1
+termctrl send "$session_name" tab
+sleep 1
+termctrl send "$session_name" tab
+sleep 1
+termctrl send "$session_name" text:s
+sleep 1
+termctrl send "$session_name" text:s
 sleep 4
 
 termctrl stop "$session_name"

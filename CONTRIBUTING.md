@@ -101,10 +101,10 @@ Before using a token in UI code, check DESIGN.md §7.5's semantic token table. T
 
 ```bash
 brew install termctrl ffmpeg          # one-time
-bun run rerecord:demo                 # → recordings/house-demo.mp4
+bun run record-demo                   # → recordings/house-demo.mp4
 ```
 
-The recorder starts from a clean `zsh` session, types `house`, drives the demo via `termctrl send`, and exports `recordings/house-demo.mp4`. Tweak timing, terminal size, or key flow in `recordings/rerecord-demo.sh`. Inside the demo, `t` cycles house's theme.
+The recorder starts from a clean `zsh` session, types `house`, drives the demo via `termctrl send`, and exports `recordings/house-demo.mp4`. Tweak timing, terminal size, or key flow in `recordings/record-demo.sh`. Inside the demo, `t` cycles house's theme.
 
 After regenerating, commit the asset and update the embed in `README.md`.
 
