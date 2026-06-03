@@ -21,7 +21,7 @@ describe("formatSidebarRow", () => {
 
 	test("head-elides at segment boundaries with …/ marker when parent overflows", () => {
 		const rel = "site-packages/conda-23.7.4.dist-info/licenses/AUTHORS.md"
-		// remaining = 40 - 10 - 5 = 25 → parent "site-packages/conda-23.7.4.dist-info/licenses" (45) doesn't fit
+		// remaining = 40 - 10 - 1 = 29 → parent "site-packages/conda-23.7.4.dist-info/licenses" (45) doesn't fit
 		// drop leading segs → "…/conda-23.7.4.dist-info/licenses" (33) still overflows
 		// drop more → "…/licenses" (10) fits
 		const out = formatSidebarRow(rel, 40)
@@ -38,22 +38,22 @@ describe("formatSidebarRow", () => {
 	})
 
 	test("when even the tail segment with …/ overflows, drop the marker", () => {
-		// parent "abc/xyz/foo-1.2.3.dist-info" (27); width 35; remaining 20
+		// parent "abc/xyz/foo-1.2.3.dist-info" (27); width 31; remaining 20
 		// "…/foo-1.2.3.dist-info" (21) overflows by 1; "foo-1.2.3.dist-info" (19) fits
-		const out = formatSidebarRow("abc/xyz/foo-1.2.3.dist-info/LICENSE.md", 35)
+		const out = formatSidebarRow("abc/xyz/foo-1.2.3.dist-info/LICENSE.md", 31)
 		expect(out.basename).toBe("LICENSE.md")
 		expect(out.parent).toBe("foo-1.2.3.dist-info")
 	})
 
 	test("hard-chops the tail segment from its head as a last resort", () => {
 		const rel = "dir/this-segment-is-very-long-indeed/LICENSE.md"
-		// remaining = 25 - 10 - 5 = 10; tail "this-segment-is-very-long-indeed" overflows
+		// remaining = 25 - 10 - 1 = 14; tail "this-segment-is-very-long-indeed" overflows
 		// hard-chop from head → "…ng-indeed" (10)
 		const out = formatSidebarRow(rel, 25)
 		expect(out.basename).toBe("LICENSE.md")
 		expect(out.parent.startsWith("…")).toBe(true)
 		expect(out.parent.endsWith("indeed")).toBe(true)
-		expect(out.parent.length).toBe(10)
+		expect(out.parent.length).toBe(14)
 	})
 
 	test("when parent budget falls below the floor, drop the parent entirely", () => {
