@@ -2,7 +2,7 @@
 
 A terminal markdown reader and navigator — themable and configurable, with a keyboard-driven modern UI. Browse a directory of `.md` files without leaving the terminal.
 
-![house demo](tape/house.gif)
+<video src="recordings/house-demo.mp4" controls muted loop playsinline></video>
 
 ## Features
 

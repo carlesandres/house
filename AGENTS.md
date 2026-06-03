@@ -33,6 +33,10 @@ If `bun dev` and `bun run dev` seem to differ, check for stale watcher processes
 
 For fenced code blocks, rely on opentui's built-in `<markdown>` renderer and keep `test/markdown-codeblock.test.tsx` covering tagged fences. Do not replace the markdown renderer or reintroduce a broad `renderNode` override unless DESIGN.md §12's custom-renderer trigger has fired.
 
+## termctrl
+
+`termctrl` is available locally and is useful for debugging or testing terminal behavior outside the headless render harness. Use it to start persistent PTY sessions, send ordered input, wait for visible text, inspect the current screen, capture logs/screens, and export session videos when reproducing TUI issues or documenting behavior. When you need to explore its capabilities or exact flags, start with `termctrl --help` and then inspect the relevant subcommand help.
+
 ## Local commands
 
 ```bash
