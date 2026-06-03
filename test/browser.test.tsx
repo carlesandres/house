@@ -110,12 +110,12 @@ describe("Browser — sidebar", () => {
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
 		// Sidebar rows render basename-first with the parent path as a dim suffix
-		// (e.g. "intro.md  ·  docs"). Match the full shape so a regression that
+		// (e.g. "intro.md docs"). Match the full shape so a regression that
 		// drops the parent suffix — or renders it without the separator — fails
 		// here instead of silently passing on a basename-only frame.
 		expect(frame).toContain("README.md")
-		expect(frame).toMatch(/intro\.md\s+·\s+docs/)
-		expect(frame).toMatch(/api\.md\s+·\s+docs/)
+		expect(frame).toContain("intro.md docs")
+		expect(frame).toContain("api.md docs")
 	})
 
 	test("shows the discovery root when files are empty after discovery", async () => {
@@ -2254,7 +2254,7 @@ describe("Browser — filter modal", () => {
 		await act(async () => {
 			await new Promise<void>((resolve) => setTimeout(resolve, 60))
 		})
-		const narrowed = await waitForFrameContaining("intro.md  ·  docs")
+		const narrowed = await waitForFrameContaining("intro.md docs")
 		// Filter narrowed to the intro match; unrelated rows are gone once applied.
 		expect(narrowed).not.toContain("notes.md")
 
@@ -2348,7 +2348,7 @@ describe("Browser — filter modal", () => {
 		await act(async () => {
 			await new Promise<void>((resolve) => setTimeout(resolve, 60))
 		})
-		const narrowed = await waitForFrameContaining("readme.md  ·  docs")
+		const narrowed = await waitForFrameContaining("readme.md docs")
 		// Sanity: filter narrowed to the docs/readme match.
 		expect(narrowed).not.toContain("alpha.md")
 		expect(narrowed).not.toContain("beta.md")
@@ -2454,7 +2454,7 @@ describe("Browser — filter modal", () => {
 		await act(async () => {
 			await new Promise<void>((resolve) => setTimeout(resolve, 60))
 		})
-		await waitForFrameContaining("a.md  ·  docs")
+		await waitForFrameContaining("a.md docs")
 		expect(setup!.captureCharFrame()).not.toContain("unrelated.md")
 
 		await act(async () => {
@@ -3242,7 +3242,7 @@ describe("Browser — filter modal", () => {
 		const frame = setup!.captureCharFrame()
 		// Sidebar still visible; `s` went into the query.
 		expect(frame).toContain("> s▏")
-		expect(frame).toContain("build.md  ·  scripts")
+		expect(frame).toContain("build.md scripts")
 		// The filter hasn't applied yet; this test only asserts that `s` was
 		// captured as input and did not toggle the sidebar binding.
 	})

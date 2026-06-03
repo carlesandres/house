@@ -97,15 +97,14 @@ Before using a token in UI code, check DESIGN.md §7.5's semantic token table. T
 
 ## Demo recordings
 
-`tape/` holds [VHS](https://github.com/charmbracelet/vhs) scripts that capture house running, for use as README hero assets.
+`recordings/` holds the `termctrl` recording workflow used to capture house running for the README hero asset.
 
 ```bash
-brew install vhs            # one-time
-vhs tape/house.tape         # → tape/house.gif (animated demo)
-vhs tape/screenshot.tape    # → tape/house.png (still)
+brew install termctrl ffmpeg          # one-time
+bun run record-demo                   # → recordings/house-demo.mp4
 ```
 
-Both tapes invoke the local source against the repo's own markdown, so they don't need a published build or sample data. Tweak `Set Width` / `Set Height` / `Set FontSize` / `Sleep` durations inside the tape; change the `Output` extension (`.gif`, `.mp4`, `.webm`, `.png`) to switch format. Inside the tape, `Type "t"` cycles house's theme — distinct from `Set Theme`, which sets the *terminal* theme around it.
+The recorder starts from a clean `zsh` session, types `house`, drives the demo via `termctrl send`, and exports `recordings/house-demo.mp4`. Tweak timing, terminal size, or key flow in `recordings/record-demo.sh`. Inside the demo, `t` cycles house's theme.
 
 After regenerating, commit the asset and update the embed in `README.md`.
 

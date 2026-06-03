@@ -14,7 +14,6 @@ An item belongs here only if its absence is a clear blocker or papercut for regu
 
 | Theme | Item | Issue |
 |---|---|---|
-| Config | Hierarchical config file (prereq for several deferred features) | [#13](https://github.com/carlesandres/house/issues/13) |
 | Navigation | Search — filename, full-text, fuzzy | [#25](https://github.com/carlesandres/house/issues/25) |
 | Sidebar | Sidebar enhancements (usability fixes only) | — |
 | Theming | Theming tweaks (fixes only) | — |
@@ -48,7 +47,8 @@ No commitment to ship. Tracked to remember.
 
 | Item | Issue |
 |---|---|
-| Expand file-settable options (`width`, `sort`, `show`, `port`, `sidebarWidth`) | [#63](https://github.com/carlesandres/house/issues/63) |
+| File-settable options (`width`, `sort`, `show`, `port`, `sidebarWidth`) | [#63](https://github.com/carlesandres/house/issues/63) |
+| Hierarchical config file (project-local config, if still needed) | [#13](https://github.com/carlesandres/house/issues/13) |
 
 ### Theming
 

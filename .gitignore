@@ -17,6 +17,9 @@ coverage/
 # logs
 *.log
 
+# generated terminal recordings
+recordings/*.termctrl
+
 # editor and OS files
 .DS_Store
 .claude/

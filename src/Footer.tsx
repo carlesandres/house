@@ -15,12 +15,11 @@
  * sidebar (see Browser.tsx). The pattern mirrors ghui's PR list, where the
  * filter is part of the list it filters.
  *
- * Width math assumes hint labels are ASCII plus a small set of single-cell
- * BMP glyphs (see `displayKey`). `fitHints` and notice clipping use string
- * length as a proxy for cell count; introducing a CJK or emoji label would
- * require a real cell-width counter (e.g. East Asian Width).
+ * Width math uses terminal-style string width instead of raw string length so
+ * ambiguous glyphs such as `↵` don't steal spacing from the label beside them.
  */
 
+import stringWidth from "string-width"
 import type React from "react"
 import type { KeyBinding } from "./keymap/keymap.ts"
 import { displayKey } from "./keymap/displayKey.ts"
@@ -59,7 +58,7 @@ interface Hint {
 	readonly label: string
 }
 
-const hintWidth = (h: Hint): number => h.key.length + 1 + h.label.length // key + " " + label
+const hintWidth = (h: Hint): number => stringWidth(h.key) + 1 + stringWidth(h.label) // key + " " + label
 
 const formatHint = <C,>(b: KeyBinding<C>): Hint | null => {
 	if (!b.hint) return null

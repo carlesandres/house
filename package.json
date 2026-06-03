@@ -42,6 +42,7 @@
 	"scripts": {
 		"dev": "bun --watch src/index.tsx",
 		"start": "bun run src/index.tsx",
+		"record-demo": "bash recordings/record-demo.sh",
 		"typecheck": "tsc --noEmit",
 		"lint": "oxlint --tsconfig tsconfig.json src/",
 		"format": "oxfmt src/",

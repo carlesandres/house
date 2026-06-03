@@ -188,7 +188,7 @@ Beta release gates (DESIGN §10.2) closed.
 
 ### Docs
 
-- README embeds a VHS-generated demo gif; `tape/` holds the source scripts.
+- README embeds the recorded demo asset; `recordings/` holds the capture workflow.
 - `CONTRIBUTING.md` documents the `captureSpans()` / `MockTreeSitterClient` / `TestRecorder` testing patterns and the "before blaming `<markdown>`" stale-watcher debugging checklist.
 
 ## [0.3.0] — 2026-05-16

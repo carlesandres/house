@@ -22,7 +22,7 @@
  * and the most universally meaningful one when context shrinks.
  */
 
-export const SIDEBAR_ROW_SEPARATOR = "  ·  "
+export const SIDEBAR_ROW_SEPARATOR = " "
 const ELISION_PREFIX = "…/"
 const MIN_PARENT_BUDGET = 3
 
