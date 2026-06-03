@@ -18,16 +18,12 @@ export interface DiscoveryWarning {
 	readonly cause: unknown
 }
 
-export type SortOrder = "dirs-first" | "files-first"
-
 export interface WalkOptions {
 	/** Categories of normally-skipped entries to opt into. Empty (the
 	 *  default) yields the conservative set: no dotfiles, no gitignored
 	 *  entries. Order is irrelevant — semantics are set membership. Hard
 	 *  skips (`node_modules`, `.git`, `.venv`) always apply. */
 	readonly show?: Iterable<ShowCategory>
-	/** Group order within each directory. Default `dirs-first`. */
-	readonly sort?: SortOrder
 	/** Include `.mdx` files alongside `.md`/`.markdown`. Default `true`. */
 	readonly mdx?: boolean
 	/** Non-fatal subtree read errors. Root-level failures still error the walk. */
@@ -73,14 +69,12 @@ const tryLoadGitignore = async (dir: string): Promise<Ignore | null> => {
 
 const sortEntries = <T extends { name: string; isDirectory: () => boolean }>(
 	entries: readonly T[],
-	order: SortOrder,
 ): T[] =>
 	[...entries].sort((a, b) => {
 		const aDir = a.isDirectory()
 		const bDir = b.isDirectory()
 		if (aDir !== bDir) {
-			if (order === "files-first") return aDir ? 1 : -1
-			return aDir ? -1 : 1
+			return aDir ? 1 : -1
 		}
 		return a.name.localeCompare(b.name)
 	})
@@ -88,7 +82,7 @@ const sortEntries = <T extends { name: string; isDirectory: () => boolean }>(
 /**
  * DFS generator. Yields each markdown FileEntry as it is discovered, before
  * descending further. Per-directory sort still happens before yielding so
- * arrival order within a directory matches the configured sort.
+ * arrival order is files-first and alphabetical within each group.
  *
  * Cancellation: `signal.aborted` is checked between syscalls. Node's
  * `readdir` doesn't accept an AbortSignal, so a single in-flight `readdir`
@@ -99,7 +93,7 @@ async function* walkDirGen(
 	dirPath: string,
 	rootPath: string,
 	parentLevels: readonly IgnoreLevel[],
-	opts: { showHidden: boolean; showGitignored: boolean; sort: SortOrder; mdx: boolean },
+	opts: { showHidden: boolean; showGitignored: boolean; mdx: boolean },
 	onWarning: ((warning: DiscoveryWarning) => void) | null,
 	signal: AbortSignal,
 ): AsyncGenerator<FileEntry, void, void> {
@@ -123,7 +117,7 @@ async function* walkDirGen(
 	}
 	if (signal.aborted) return
 
-	for (const entry of sortEntries(raw, opts.sort)) {
+	for (const entry of sortEntries(raw)) {
 		if (signal.aborted) return
 
 		// Never follow symlinks — cycle hazard, and a markdown reader doesn't
@@ -166,8 +160,7 @@ async function* walkDirGen(
  * - Hidden files/dirs (leading `.`) skipped unless `show` contains `"hidden"`.
  * - `.gitignore` honored, including nested `.gitignore` files.
  * - Symlinks not followed.
- * - Sort: alphabetical within each group; directories before files
- *   (`dirs-first`, default) or files before directories (`files-first`).
+ * - Sort: files before directories, alphabetical within each group.
  */
 export const walk = (
 	root: string,
@@ -178,7 +171,6 @@ export const walk = (
 	const opts = {
 		showHidden: show.has("hidden"),
 		showGitignored: show.has("gitignored"),
-		sort: options.sort ?? ("dirs-first" as SortOrder),
 		mdx: options.mdx ?? true,
 	}
 	const onWarning = options.onWarning ?? null

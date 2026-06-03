@@ -36,6 +36,16 @@ describe("fuzzyScore", () => {
 		expect(boundary).toBeGreaterThan(midWord)
 	})
 
+	test("best alignment picks the good boundary match even with early distractors in path", () => {
+		// Old first-greedy would "steal" the first 'r' from "src", then match the rest of
+		// "eadme" starting later, losing boundary + consecutive bonuses. Best-alignment
+		// must discover the later perfect "readme" boundary and give it the high score.
+		const withDistractor = fuzzyScore("readme", "src/ui/readme.md")!
+		const clean = fuzzyScore("readme", "docs/readme.md")!
+		expect(withDistractor).toBe(clean) // both should get the full 40-point boundary run
+		expect(withDistractor).toBeGreaterThan(fuzzyScore("readme", "src/r-e-a-d-m-e-notes.md")!)
+	})
+
 	test("consecutive match scores higher than scattered", () => {
 		const consecutive = fuzzyScore("ead", "head.md")!
 		const scattered = fuzzyScore("ead", "extra-and-dispersed.md")!
@@ -87,5 +97,13 @@ describe("filterFiles", () => {
 	test("exact filename match outranks prefix-only variants", () => {
 		const xs = files(["readme-old.md", "readme.md", "docs/readme-notes.md"])
 		expect(paths(filterFiles(xs, "readme"))[0]).toBe("readme.md")
+	})
+
+	test("shallow name matches outrank deep directory-only matches (prevents nested folders bubbling)", () => {
+		// "mycomp" has the query in its filename -> strong name priority.
+		// The deep one only matches because of the "components" directory in its path.
+		// Even with good boundary match in the dir, depth + lack of name match should push it down.
+		const xs = files(["mycomp.md", "foo/components/bar.md"])
+		expect(paths(filterFiles(xs, "comp"))).toEqual(["mycomp.md", "foo/components/bar.md"])
 	})
 })

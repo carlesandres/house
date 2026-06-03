@@ -7,7 +7,6 @@ const empty: ParsedArgs = {
 	theme: null,
 	tone: null,
 	width: null,
-	sort: null,
 	serve: false,
 	port: null,
 	help: false,
@@ -138,15 +137,9 @@ describe("parseArgv — --show", () => {
 	})
 })
 
-describe("parseArgv — --sort", () => {
-	test("captures the value after --sort", () => {
-		expect(parseArgv(["--sort", "files-first"])).toEqual(args({ sort: "files-first" }))
-	})
-	test("captures unknown sort values verbatim (boot validates)", () => {
-		expect(parseArgv(["--sort", "weird"])).toEqual(args({ sort: "weird" }))
-	})
-	test("--sort with no value yields null", () => {
-		expect(parseArgv(["--sort"])).toEqual(args({ sort: null }))
+describe("parseArgv — removed flags", () => {
+	test("--sort is NOT a recognised flag", () => {
+		expect(parseArgv(["--sort", "dirs-first"])).toEqual(empty)
 	})
 })
 

@@ -1,38 +1,67 @@
 # Roadmap
 
-Planned work for house is tracked in GitHub milestones — see [milestones](https://github.com/carlesandres/house/milestones) for the authoritative list. This file groups items by theme for orientation; the milestone column is the source of truth for *when*.
+Planned work for house is tracked in GitHub milestones — see [milestones](https://github.com/carlesandres/house/milestones) for the authoritative list. This file groups items by bucket for orientation; the milestone column is the source of truth for *when*.
 
 Architectural rationale, UX rules, and key reservations live in `DESIGN.md`. Project terminology (such as the meaning of the `beta` release state) is defined where it is introduced.
 
 ★ marks a confirmed competitive gap (mdcat / frogmouth / mdr — see issue #16).
 
-Beta shipped with v0.4.0. The unified browser model has landed. The remaining work below is split across the `1.0` and `backlog` milestones.
+Beta shipped with v0.4.0. The unified browser model has landed. The public launch goal is now intentionally narrow: only daily-driver essentials stay in scope.
 
-## 1.0 — daily-driver release
+## Public launch — daily-driver essentials
 
-An item belongs here if its absence is a visible papercut or a table-stakes capability a daily driver expects. See the 1.0 milestone description and the table below for the bar.
+An item belongs here only if its absence is a clear blocker or papercut for regular use.
 
 | Theme | Item | Issue |
 |---|---|---|
-| Bugs | Pane focus and selected sidebar row are hard to distinguish in many themes | [#71](https://github.com/carlesandres/house/issues/71) |
-| Bugs | Relative assets (images, etc.) don't load in browser preview | [#75](https://github.com/carlesandres/house/issues/75) |
-| Bugs | Filter chip can crowd out key hints when query is long | [#86](https://github.com/carlesandres/house/issues/86) |
-| Bugs | Reader keys act on content occluded by the persistent drawer | [#87](https://github.com/carlesandres/house/issues/87) |
-| File-level | Delete current file with confirmation | [#20](https://github.com/carlesandres/house/issues/20) |
-| Navigation | Search — filename, full-text, fuzzy | [#25](https://github.com/carlesandres/house/issues/25) |
-| Navigation | Navigation history stack (back/forward) ★ | [#29](https://github.com/carlesandres/house/issues/29) |
-| Navigation | Heading jump / in-document TOC panel ★ | [#30](https://github.com/carlesandres/house/issues/30) |
-| Navigation | Per-file bookmarks ★ (depends on #13) | [#33](https://github.com/carlesandres/house/issues/33) |
-| Sidebar | Tree-style sidebar with collapsible folders | [#14](https://github.com/carlesandres/house/issues/14) |
 | Config | Hierarchical config file (prereq for several deferred features) | [#13](https://github.com/carlesandres/house/issues/13) |
-| Config | Expand file-settable options (`width`, `sort`, `show`, `port`, `sidebarWidth`) | [#63](https://github.com/carlesandres/house/issues/63) |
-| Theming | Theming v2 — user stylesheets, named theme sets | [#34](https://github.com/carlesandres/house/issues/34) |
-| Theming | Persist active theme to project or global config | [#73](https://github.com/carlesandres/house/issues/73) |
-| Tooling | One-command release flow (`bun run release`) | [#121](https://github.com/carlesandres/house/issues/121) |
+| Navigation | Search — filename, full-text, fuzzy | [#25](https://github.com/carlesandres/house/issues/25) |
+| Sidebar | Sidebar enhancements (usability fixes only) | — |
+| Theming | Theming tweaks (fixes only) | — |
+| Chrome | UI polish | — |
 
-## Backlog
+## Future ideas
 
 No commitment to ship. Tracked to remember.
+
+### File-level
+
+| Item | Issue |
+|---|---|
+| Delete current file with confirmation | [#20](https://github.com/carlesandres/house/issues/20) |
+
+### Navigation
+
+| Item | Issue |
+|---|---|
+| Navigation history stack (back/forward) ★ | [#29](https://github.com/carlesandres/house/issues/29) |
+| Heading jump / in-document TOC panel ★ | [#30](https://github.com/carlesandres/house/issues/30) |
+| Per-file bookmarks ★ (depends on #13) | [#33](https://github.com/carlesandres/house/issues/33) |
+
+### Sidebar
+
+| Item | Issue |
+|---|---|
+| Tree-style sidebar with collapsible folders | [#14](https://github.com/carlesandres/house/issues/14) |
+
+### Config
+
+| Item | Issue |
+|---|---|
+| Expand file-settable options (`width`, `sort`, `show`, `port`, `sidebarWidth`) | [#63](https://github.com/carlesandres/house/issues/63) |
+
+### Theming
+
+| Item | Issue |
+|---|---|
+| Theming v2 — user stylesheets, named theme sets | [#34](https://github.com/carlesandres/house/issues/34) |
+| Persist active theme to project or global config | [#73](https://github.com/carlesandres/house/issues/73) |
+
+### Tooling
+
+| Item | Issue |
+|---|---|
+| One-command release flow (`bun run release`) | [#121](https://github.com/carlesandres/house/issues/121) |
 
 ### Distribution
 

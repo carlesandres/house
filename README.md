@@ -60,23 +60,22 @@ house --serve README.md
 
 ### Options
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--theme <name>` | `opencode` | Starting theme (see list below) |
-| `--tone dark\|light` | `dark` | Starting tone |
-| `--width <N>` | — | Cap rendered markdown width at N columns |
-| `--show <list>` | `""` | Reveal normally-skipped entries; comma-separated subset of `hidden`, `gitignored`. Use `--show ""` to clear. |
-| `--root <dir>` | current directory | Discovery root to walk; overrides `defaultRoot` config/env |
-| `--sort <mode>` | `dirs-first` | Sidebar order: `dirs-first` or `files-first` |
-| `--sidebar <mode>` | `auto` | Initial sidebar visibility: `auto`, `on`, or `off` |
-| `--focus <mode>` | `filter` | Startup focus: `sidebar`, `reader`, or `filter`. `filter` opens the sidebar filter prompt immediately. |
-| `--serve` | off | Serve the positional path as HTML in the browser (skips TUI) |
-| `--port <N>` | OS-assigned | Port for `--serve` |
-| `--no-mdx` | off | Exclude `.mdx` files from discovery |
-| `--no-update-check` | off | Suppress the "newer version available" check (also via `NO_UPDATE_NOTIFIER=1`) |
-| `--config-path` | — | Print the resolved config-file path and exit |
-| `-h`, `--help` | — | Show help and exit |
-| `-v`, `--version` | — | Print version and exit |
+| Flag                 | Default           | Description                                                                                                  |
+| -------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------ |
+| `--theme <name>`     | `opencode`        | Starting theme (see list below)                                                                              |
+| `--tone dark\|light` | `dark`            | Starting tone                                                                                                |
+| `--width <N>`        | —                 | Cap rendered markdown width at N columns                                                                     |
+| `--show <list>`      | `""`              | Reveal normally-skipped entries; comma-separated subset of `hidden`, `gitignored`. Use `--show ""` to clear. |
+| `--root <dir>`       | current directory | Discovery root to walk; overrides `defaultRoot` config/env                                                   |
+| `--sidebar <mode>`   | `auto`            | Initial sidebar visibility: `auto`, `on`, or `off`                                                           |
+| `--focus <mode>`     | `filter`          | Startup focus: `sidebar`, `reader`, or `filter`. `filter` opens the sidebar filter prompt immediately.       |
+| `--serve`            | off               | Serve the positional path as HTML in the browser (skips TUI)                                                 |
+| `--port <N>`         | OS-assigned       | Port for `--serve`                                                                                           |
+| `--no-mdx`           | off               | Exclude `.mdx` files from discovery                                                                          |
+| `--no-update-check`  | off               | Suppress the "newer version available" check (also via `NO_UPDATE_NOTIFIER=1`)                               |
+| `--config-path`      | —                 | Print the resolved config-file path and exit                                                                 |
+| `-h`, `--help`       | —                 | Show help and exit                                                                                           |
+| `-v`, `--version`    | —                 | Print version and exit                                                                                       |
 
 ## Configuration
 
@@ -117,41 +116,41 @@ The file is optional — a missing file is fine. Invalid keys, unknown themes, o
 
 ### Global
 
-| Key | Action |
-|-----|--------|
-| `q` / `ctrl+c` | Quit |
-| `tab` | Toggle focus (sidebar ↔ reader) |
-| `s` | Toggle sidebar visibility |
-| `ctrl+p` | Command palette |
-| `O` | Open current file in browser as HTML |
-| `E` | Open current file in `$EDITOR` (`$VISUAL` takes precedence) |
-| `t` | Next theme |
-| `T` | Previous theme |
-| `L` | Toggle dark / light tone |
+| Key            | Action                                                      |
+| -------------- | ----------------------------------------------------------- |
+| `q` / `ctrl+c` | Quit                                                        |
+| `tab`          | Toggle focus (sidebar ↔ reader)                             |
+| `s`            | Toggle sidebar visibility                                   |
+| `ctrl+p`       | Command palette                                             |
+| `O`            | Open current file in browser as HTML                        |
+| `E`            | Open current file in `$EDITOR` (`$VISUAL` takes precedence) |
+| `t`            | Next theme                                                  |
+| `T`            | Previous theme                                              |
+| `L`            | Toggle dark / light tone                                    |
 
 ### Sidebar
 
-| Key | Action |
-|-----|--------|
-| `j` / `↓` | Move selection down |
-| `k` / `↑` | Move selection up |
-| `J` | Jump down 8 |
-| `K` | Jump up 8 |
-| `space` / `pagedown` / `ctrl+d` | Page down |
-| `b` / `pageup` / `ctrl+u` | Page up |
-| `g` | First file |
-| `G` | Last file |
-| `/` | Filter files (fuzzy match on path) |
-| `A` | Toggle hidden + gitignored entries (session-only; round-trips with the configured `show`) |
-| `↵` / `→` / `l` | Open file (focus reader) |
+| Key                             | Action                                                                                    |
+| ------------------------------- | ----------------------------------------------------------------------------------------- |
+| `j` / `↓`                       | Move selection down                                                                       |
+| `k` / `↑`                       | Move selection up                                                                         |
+| `J`                             | Jump down 8                                                                               |
+| `K`                             | Jump up 8                                                                                 |
+| `space` / `pagedown` / `ctrl+d` | Page down                                                                                 |
+| `b` / `pageup` / `ctrl+u`       | Page up                                                                                   |
+| `g`                             | First file                                                                                |
+| `G`                             | Last file                                                                                 |
+| `/`                             | Filter files (fuzzy match on path)                                                        |
+| `A`                             | Toggle hidden + gitignored entries (session-only; round-trips with the configured `show`) |
+| `↵` / `→` / `l`                 | Open file (focus reader)                                                                  |
 
 ### Reader
 
-| Key | Action |
-|-----|--------|
+| Key               | Action          |
+| ----------------- | --------------- |
 | `esc` / `←` / `h` | Back to sidebar |
-| `[` | Previous file |
-| `]` | Next file |
+| `[`               | Previous file   |
+| `]`               | Next file       |
 
 ## Themes
 
