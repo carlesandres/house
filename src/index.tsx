@@ -106,7 +106,7 @@ interface DiscoverShellProps {
 	 *  and the full vocabulary; the underlying categories remain
 	 *  independent everywhere else. */
 	readonly initialShow: readonly ShowCategory[]
-	readonly mdx: boolean
+	readonly extensions: readonly string[]
 	readonly maxWidth: number | null
 	readonly sidebarMode: SidebarMode
 	readonly startupFocus: StartupFocus
@@ -116,7 +116,7 @@ export const DiscoverShell = ({
 	target,
 	initialQuery,
 	initialShow,
-	mdx,
+	extensions,
 	maxWidth,
 	sidebarMode,
 	startupFocus,
@@ -145,7 +145,7 @@ export const DiscoverShell = ({
 		countRef.current = 0
 		const warnedProgram = walk(target, {
 			show,
-			mdx,
+			extensions,
 			onWarning: ({ path }) => {
 				const relativePath = relative(resolve(target), path)
 				setSkippedDirCount((prev) => prev + 1)
@@ -179,7 +179,7 @@ export const DiscoverShell = ({
 		return () => {
 			Effect.runFork(Fiber.interrupt(fiber))
 		}
-	}, [target, show, mdx])
+	}, [target, show, extensions])
 
 	const discoveryStatus =
 		scanError ??
@@ -268,9 +268,13 @@ if (import.meta.main) {
 			cli: {
 				theme: args.theme,
 				tone: args.tone,
-				// --no-mdx is a one-way override: present means "off". When
-				// absent, fall through to env/file/default.
-				mdx: args.noMdx ? false : null,
+				extensions:
+					args.extensions === null
+						? null
+						: args.extensions
+								.split(",")
+								.map((s) => s.trim())
+								.filter(Boolean),
 				// `--show` replaces env/file when present (set semantics —
 				// no per-category merge across sources). `null` falls through.
 				show: cliShow,
@@ -284,7 +288,7 @@ if (import.meta.main) {
 		console.error(`house: ${formatConfigError(err)}`)
 		process.exit(2)
 	})
-	const { theme: themeId, tone, mdx, show, focus: startupFocus, defaultRoot } = config
+	const { theme: themeId, tone, extensions, show, focus: startupFocus, defaultRoot } = config
 	const themeDef = getThemeDefinition(themeId)
 	if (themeDef === undefined) {
 		// Unreachable: Config.schema validated themeId against themeDefinitions.
@@ -368,7 +372,7 @@ if (import.meta.main) {
 			tone,
 			maxWidth,
 			show,
-			mdx,
+			extensions,
 			sidebarMode,
 			startupFocus,
 			updateCheck: !args.noUpdateCheck,
@@ -383,7 +387,7 @@ interface TuiBootOptions {
 	readonly tone: "dark" | "light"
 	readonly maxWidth: number | null
 	readonly show: readonly ShowCategory[]
-	readonly mdx: boolean
+	readonly extensions: readonly string[]
 	readonly sidebarMode: SidebarMode
 	readonly startupFocus: StartupFocus
 	/** Run the npm-registry probe and surface the "update available" notice.
@@ -398,7 +402,7 @@ async function runTui({
 	tone,
 	maxWidth,
 	show,
-	mdx,
+	extensions,
 	sidebarMode,
 	startupFocus,
 	updateCheck,
@@ -441,7 +445,7 @@ async function runTui({
 				target={discoveryRoot}
 				initialQuery={initialQuery}
 				initialShow={show}
-				mdx={mdx}
+				extensions={extensions}
 				maxWidth={maxWidth}
 				sidebarMode={sidebarMode}
 				startupFocus={startupFocus}

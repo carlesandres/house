@@ -45,7 +45,7 @@ v1 is a personal-use MVP. It may never be published to npm, GitHub, or Homebrew.
 
 v1 ships when:
 
-1. `house` opens a TUI with a sidebar of `.md` / `.markdown` / `.mdx` files discovered recursively from the configured discovery root (default cwd). `house <path>` seeds the initial sidebar filter query; all non-serve launches use the Browser model from §7.4.
+1. `house` opens a TUI with a sidebar of `.md` / `.markdown` files discovered recursively from the configured discovery root (default cwd), plus any extra extensions configured by the user. `house <path>` seeds the initial sidebar filter query; all non-serve launches use the Browser model from §7.4.
 2. Discovery respects `.gitignore`, skips `node_modules` / `.git` / `.venv` unconditionally, and does not follow symlinks.
 3. Selecting a file renders it in the reader pane with support for: headings, paragraphs, lists (ordered, unordered, nested), blockquotes, GFM tables, inline emphasis (bold, italic, and strike — strike rendered as dim/muted because opentui's syntax-style API has no strikethrough attribute), inline code, links (rendered, not followed), images-as-alt-text, horizontal rules, fenced code blocks, including language-tagged fences.
 4. The keymap in §7.2 works end-to-end, including the help overlay.
@@ -74,7 +74,7 @@ Key reservations for deferred features (search, navigation history, bookmarks, e
 | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Root         | `--root <dir>` if given, else `defaultRoot` config/env (`cwd` or `git`), else `cwd`. The positional path does not set the discovery root.                                        |
 | Recursion    | Unbounded depth from root.                                                                                                                                                       |
-| Extensions   | `.md`, `.markdown`, `.mdx` (mdx rendered as plain markdown — no JSX evaluation). `.mdx` is opt-out via `--no-mdx` or `mdx = false` in `config.toml` (or `HOUSE_MDX=false`).      |
+| Extensions   | `.md`, `.markdown`, plus user-configured extras. Extra extensions are opt-in via `--ext`, `extensions = []`, or `HOUSE_EXTENSIONS`.      |
 | Ignore files | `.gitignore` honored. Nested `.gitignore` files honored.                                                                                                                         |
 | Hard skips   | `node_modules`, `.git`, `.venv` (always, even with `--show`).                                                                                                                    |
 | Hidden files | Skipped by default; `--show hidden` to include.                                                                                                                                  |

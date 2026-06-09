@@ -71,7 +71,7 @@ house --serve README.md
 | `--focus <mode>`     | `filter`          | Startup focus: `sidebar`, `reader`, or `filter`. `filter` opens the sidebar filter prompt immediately.       |
 | `--serve`            | off               | Serve the positional path as HTML in the browser (skips TUI)                                                 |
 | `--port <N>`         | OS-assigned       | Port for `--serve`                                                                                           |
-| `--no-mdx`           | off               | Exclude `.mdx` files from discovery                                                                          |
+| `--ext <list>`       | none              | Include extra file extensions (comma-separated)                                                               |
 | `--no-update-check`  | off               | Suppress the "newer version available" check (also via `NO_UPDATE_NOTIFIER=1`)                               |
 | `--config-path`      | —                 | Print the resolved config-file path and exit                                                                 |
 | `-h`, `--help`       | —                 | Show help and exit                                                                                           |
@@ -91,22 +91,22 @@ Run `house --config-path` to print the exact location.
 # ~/.config/house/config.toml
 theme = "tokyonight"
 tone  = "dark"
-mdx   = true
+extensions = []
 show  = ["hidden", "gitignored"]
 focus = "filter"
 defaultRoot = "cwd" # or "git"
 ```
 
-Supported keys: `theme`, `tone`, `mdx`, `show`, `focus`, `defaultRoot`.
+Supported keys: `theme`, `tone`, `extensions`, `show`, `focus`, `defaultRoot`.
 
 `show` is a list of normally-skipped categories to opt into. Known categories: `hidden` (dot-prefixed entries), `gitignored` (entries matched by a `.gitignore`). Default is the empty list. Hard skips (`node_modules`, `.git`, `.venv`) always apply.
 
 Precedence, highest to lowest:
 
-1. CLI flags (`--theme`, `--tone`, `--no-mdx`, `--show`, `--focus`, `--root`)
-2. Env vars (`HOUSE_THEME`, `HOUSE_TONE`, `HOUSE_MDX`, `HOUSE_SHOW`, `HOUSE_FOCUS`, `HOUSE_DEFAULT_ROOT`)
+1. CLI flags (`--theme`, `--tone`, `--ext`, `--show`, `--focus`, `--root`)
+2. Env vars (`HOUSE_THEME`, `HOUSE_TONE`, `HOUSE_EXTENSIONS`, `HOUSE_SHOW`, `HOUSE_FOCUS`, `HOUSE_DEFAULT_ROOT`)
 3. Config file
-4. Built-in defaults (`opencode` / `dark` / `mdx = true` / `show = []` / `focus = "filter"` / `defaultRoot = "cwd"`)
+4. Built-in defaults (`opencode` / `dark` / `extensions = []` / `show = []` / `focus = "filter"` / `defaultRoot = "cwd"`)
 
 `HOUSE_SHOW` takes a comma-separated list (`HOUSE_SHOW=hidden,gitignored`). For `show` specifically, each source completely replaces the next — categories don't merge across layers. Press `shift+a` in the TUI to round-trip between the configured set and the full vocabulary without editing config.
 

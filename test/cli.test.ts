@@ -14,7 +14,7 @@ const empty: ParsedArgs = {
 	configPath: false,
 	sidebar: null,
 	noUpdateCheck: false,
-	noMdx: false,
+	extensions: null,
 	show: null,
 	focus: null,
 }
@@ -85,8 +85,8 @@ describe("parseArgv — boolean flags", () => {
 	test("--config-path is parsed as boolean", () => {
 		expect(parseArgv(["--config-path"])).toEqual(args({ configPath: true }))
 	})
-	test("--no-mdx is parsed as boolean", () => {
-		expect(parseArgv(["--no-mdx"])).toEqual(args({ noMdx: true }))
+	test("--ext is parsed as a string value", () => {
+		expect(parseArgv(["--ext", "note,txt"])).toEqual(args({ extensions: "note,txt" }))
 	})
 })
 

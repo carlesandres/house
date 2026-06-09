@@ -28,8 +28,8 @@ export interface ParsedArgs {
 	 *  probe and the "update available" notice. Mirrors the
 	 *  `NO_UPDATE_NOTIFIER` env var so opt-out is reachable without env state. */
 	readonly noUpdateCheck: boolean
-	/** True when `--no-mdx` was passed: exclude `.mdx` files from discovery. */
-	readonly noMdx: boolean
+	/** Raw value of `--ext [list]`, or null if absent. Comma-separated list. */
+	readonly extensions: string | null
 	/** Value of `--focus <mode>` (`sidebar`, `reader`, `filter`), or null.
 	 *  Validated by the boot layer. */
 	readonly focus: string | null
@@ -54,7 +54,7 @@ const createProgram = () =>
 		.option("--config-path")
 		.option("--sidebar [mode]")
 		.option("--no-update-check")
-		.option("--no-mdx")
+		.option("--ext [list]")
 		.option("--focus [mode]")
 		.option("--show [list]")
 		.option("--root [dir]")
@@ -71,6 +71,7 @@ const VALUE_FLAGS: ReadonlySet<string> = new Set([
 	"--focus",
 	"--show",
 	"--root",
+	"--ext",
 ])
 
 const REMOVED_VALUE_FLAGS: ReadonlySet<string> = new Set(["--sort"])
@@ -79,7 +80,6 @@ const BOOLEAN_FLAGS: ReadonlySet<string> = new Set([
 	"--serve",
 	"--config-path",
 	"--no-update-check",
-	"--no-mdx",
 	"--help",
 	"-h",
 	"--version",
@@ -128,7 +128,7 @@ export const parseArgv = (argv: readonly string[]): ParsedArgs => {
 		configPath: opts["configPath"] === true,
 		sidebar: stringOrNull(opts["sidebar"]),
 		noUpdateCheck: opts["noUpdateCheck"] === true,
-		noMdx: opts["mdx"] === false,
+		extensions: stringOrNull(opts["ext"]),
 		show: stringOrNull(opts["show"]),
 		focus: stringOrNull(opts["focus"]),
 	}
@@ -157,7 +157,7 @@ options:
   -v, --version  print version and exit
   --config-path  print path to the config file and exit
   --no-update-check  suppress the "newer version available" check (also via NO_UPDATE_NOTIFIER=1)
-  --no-mdx       exclude .mdx files from discovery (default: included)
+	--ext <list>   include extra file extensions (comma-separated)
 
 examples:
   house README.md
@@ -166,6 +166,6 @@ examples:
 
 configuration:
   file: $XDG_CONFIG_HOME/house/config.toml  (default ~/.config/house/config.toml)
-  keys: theme, tone, mdx, show, focus, defaultRoot
-  env:  HOUSE_THEME, HOUSE_TONE, HOUSE_MDX, HOUSE_SHOW, HOUSE_FOCUS, HOUSE_DEFAULT_ROOT
+	  keys: theme, tone, extensions, show, focus, defaultRoot
+	  env:  HOUSE_THEME, HOUSE_TONE, HOUSE_EXTENSIONS, HOUSE_SHOW, HOUSE_FOCUS, HOUSE_DEFAULT_ROOT
   precedence (high → low): flags → env → file → defaults`

@@ -19,7 +19,7 @@ import { themeDefinitions } from "../theme/registry.ts"
 export interface HouseConfig {
 	readonly theme: string
 	readonly tone: "dark" | "light"
-	readonly mdx: boolean
+	readonly extensions: readonly string[]
 	/** Default discovery-root strategy when no explicit `--root` flag is passed. */
 	readonly defaultRoot: "cwd" | "git"
 	/** Categories of normally-skipped entries to opt into. See
@@ -34,7 +34,7 @@ export interface HouseConfig {
 export interface CliOverrides {
 	readonly theme: string | null
 	readonly tone: string | null
-	readonly mdx: boolean | null
+	readonly extensions: readonly string[] | null
 	/** When non-null, the parsed `--show` list completely replaces env/file
 	 *  (no per-category merging — sets compose by replacement, like every
 	 *  other CLI override here). `--show ""` sets the empty set. */
@@ -44,7 +44,7 @@ export interface CliOverrides {
 
 const DEFAULT_THEME = "opencode"
 const DEFAULT_TONE: "dark" | "light" = "dark"
-const DEFAULT_MDX = true
+const DEFAULT_EXTENSIONS: readonly string[] = []
 const DEFAULT_ROOT: "cwd" | "git" = "cwd"
 const DEFAULT_SHOW = ""
 const DEFAULT_FOCUS: "sidebar" | "reader" | "filter" = "filter"
@@ -60,7 +60,7 @@ const themeIds = themeDefinitions.map((t) => t.id)
 const KNOWN_FILE_KEYS: ReadonlySet<string> = new Set([
 	"theme",
 	"tone",
-	"mdx",
+	"extensions",
 	"show",
 	"focus",
 	"defaultRoot",
@@ -70,10 +70,8 @@ const schema = Config.all({
 	theme: Config.schema(Schema.Literals(themeIds), "theme"),
 	tone: Config.schema(Schema.Literals(["dark", "light"] as const), "tone"),
 	defaultRoot: Config.schema(Schema.String, "defaultRoot"),
-	// Boolean stored as string literal because providers stringify values
-	// (TOML bools, env vars, CLI flags all flow through as text). Mapped to
-	// a real boolean in `loadConfig` below.
-	mdx: Config.schema(Schema.Literals(["true", "false"] as const), "mdx"),
+	// Comma-separated extension list. Empty string means no extra extensions.
+	extensions: Config.schema(Schema.String, "extensions"),
 	// `show` arrives as a comma-separated string from every provider
 	// (`fileProvider` coerces TOML arrays via `String()`, which produces
 	// `"hidden,gitignored"`). Token-level validation happens in `loadConfig`
@@ -87,7 +85,7 @@ const defaultsProvider = (): ConfigProvider.ConfigProvider =>
 		theme: DEFAULT_THEME,
 		tone: DEFAULT_TONE,
 		defaultRoot: DEFAULT_ROOT,
-		mdx: String(DEFAULT_MDX),
+		extensions: DEFAULT_EXTENSIONS.join(","),
 		show: DEFAULT_SHOW,
 		focus: DEFAULT_FOCUS,
 	})
@@ -205,13 +203,13 @@ const envProvider = (env: Record<string, string | undefined>): ConfigProvider.Co
 	const theme = env["HOUSE_THEME"]
 	const tone = env["HOUSE_TONE"]
 	const defaultRoot = env["HOUSE_DEFAULT_ROOT"]
-	const mdx = env["HOUSE_MDX"]
+	const extensions = env["HOUSE_EXTENSIONS"]
 	const show = env["HOUSE_SHOW"]
 	const focus = env["HOUSE_FOCUS"]
 	if (theme !== undefined) entries.push(["theme", theme])
 	if (tone !== undefined) entries.push(["tone", tone])
 	if (defaultRoot !== undefined) entries.push(["defaultRoot", defaultRoot])
-	if (mdx !== undefined) entries.push(["mdx", mdx])
+	if (extensions !== undefined) entries.push(["extensions", extensions])
 	if (show !== undefined) entries.push(["show", show])
 	if (focus !== undefined) entries.push(["focus", focus])
 	return ConfigProvider.fromUnknown(Object.fromEntries(entries))
@@ -221,7 +219,7 @@ const cliProvider = (overrides: CliOverrides): ConfigProvider.ConfigProvider => 
 	const entries: Array<[string, string]> = []
 	if (overrides.theme !== null) entries.push(["theme", overrides.theme])
 	if (overrides.tone !== null) entries.push(["tone", overrides.tone])
-	if (overrides.mdx !== null) entries.push(["mdx", String(overrides.mdx)])
+	if (overrides.extensions !== null) entries.push(["extensions", overrides.extensions.join(",")])
 	if (overrides.show !== null) entries.push(["show", overrides.show.join(",")])
 	if (overrides.focus !== null) entries.push(["focus", overrides.focus])
 	return ConfigProvider.fromUnknown(Object.fromEntries(entries))
@@ -264,7 +262,7 @@ export const loadConfig = (
 	const cli = options.cli ?? {
 		theme: null,
 		tone: null,
-		mdx: null,
+		extensions: null,
 		show: null,
 		focus: null,
 	}
@@ -300,7 +298,13 @@ export const loadConfig = (
 				theme: raw.theme,
 				tone: raw.tone,
 				defaultRoot,
-				mdx: raw.mdx === "true",
+				extensions:
+					raw.extensions === ""
+						? []
+						: raw.extensions
+								.split(",")
+								.map((s) => s.trim())
+								.filter(Boolean),
 				show: parsed.value,
 				focus: raw.focus,
 			})

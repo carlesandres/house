@@ -24,8 +24,9 @@ export interface WalkOptions {
 	 *  entries. Order is irrelevant — semantics are set membership. Hard
 	 *  skips (`node_modules`, `.git`, `.venv`) always apply. */
 	readonly show?: Iterable<ShowCategory>
-	/** Include `.mdx` files alongside `.md`/`.markdown`. Default `true`. */
-	readonly mdx?: boolean
+	/** Additional file extensions to include alongside `.md` / `.markdown`.
+	 *  Values may include or omit the leading dot. */
+	readonly extensions?: Iterable<string>
 	/** Non-fatal subtree read errors. Root-level failures still error the walk. */
 	readonly onWarning?: ((warning: DiscoveryWarning) => void) | null
 }
@@ -35,9 +36,13 @@ export class DiscoveryError extends Data.TaggedError("DiscoveryError")<{
 	readonly cause: unknown
 }> {}
 
-const MARKDOWN_EXTENSIONS = new Set([".md", ".markdown", ".mdx"])
-const MARKDOWN_EXTENSIONS_NO_MDX = new Set([".md", ".markdown"])
+const BASE_EXTENSIONS = new Set([".md", ".markdown"])
 const HARD_SKIP_DIRS = new Set(["node_modules", ".git", ".venv"])
+
+const normalizeExtension = (ext: string): string => {
+	const trimmed = ext.trim().toLowerCase()
+	return trimmed.startsWith(".") ? trimmed : `.${trimmed}`
+}
 
 interface IgnoreLevel {
 	readonly dir: string
@@ -93,7 +98,7 @@ async function* walkDirGen(
 	dirPath: string,
 	rootPath: string,
 	parentLevels: readonly IgnoreLevel[],
-	opts: { showHidden: boolean; showGitignored: boolean; mdx: boolean },
+	opts: { showHidden: boolean; showGitignored: boolean; extensions: ReadonlySet<string> },
 	onWarning: ((warning: DiscoveryWarning) => void) | null,
 	signal: AbortSignal,
 ): AsyncGenerator<FileEntry, void, void> {
@@ -136,7 +141,7 @@ async function* walkDirGen(
 
 		if (!entry.isFile()) continue
 		if (!opts.showHidden && entry.name.startsWith(".")) continue
-		const allowed = opts.mdx ? MARKDOWN_EXTENSIONS : MARKDOWN_EXTENSIONS_NO_MDX
+		const allowed = opts.extensions
 		if (!allowed.has(extname(entry.name).toLowerCase())) continue
 		if (!opts.showGitignored && isIgnored(entryPath, false, levels)) continue
 
@@ -155,7 +160,7 @@ async function* walkDirGen(
  * at its next `signal.aborted` check.
  *
  * Rules (see DESIGN.md §6):
- * - Extensions: `.md`, `.markdown`, and `.mdx` (unless `mdx: false`).
+ * - Extensions: `.md`, `.markdown`, plus configured extras.
  * - Hard skips (always): `node_modules`, `.git`, `.venv`.
  * - Hidden files/dirs (leading `.`) skipped unless `show` contains `"hidden"`.
  * - `.gitignore` honored, including nested `.gitignore` files.
@@ -168,10 +173,12 @@ export const walk = (
 ): Stream.Stream<FileEntry, DiscoveryError> => {
 	const absRoot = resolve(root)
 	const show = new Set<ShowCategory>(options.show ?? [])
+	const extensions = new Set(BASE_EXTENSIONS)
+	for (const ext of options.extensions ?? []) extensions.add(normalizeExtension(ext))
 	const opts = {
 		showHidden: show.has("hidden"),
 		showGitignored: show.has("gitignored"),
-		mdx: options.mdx ?? true,
+		extensions,
 	}
 	const onWarning = options.onWarning ?? null
 	const controller = new AbortController()

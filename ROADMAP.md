@@ -14,7 +14,7 @@ An item belongs here only if its absence is a clear blocker or papercut for regu
 
 | Theme | Item | Issue |
 |---|---|---|
-| Navigation | Search — filename, full-text, fuzzy | [#25](https://github.com/carlesandres/house/issues/25) |
+| Navigation | Search follow-up spikes — full-text search ([#202](https://github.com/carlesandres/house/issues/202)) and fuzzy title/content search ([#203](https://github.com/carlesandres/house/issues/203)) |
 | Sidebar | Sidebar enhancements (usability fixes only) | — |
 | Theming | Theming tweaks (fixes only) | — |
 | Chrome | UI polish | — |
