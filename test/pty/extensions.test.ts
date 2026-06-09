@@ -63,7 +63,7 @@ async function launchHouse(
 describe.skipIf(!RUN)("extension allow-list (PTY)", () => {
 	test("includes configured extensions in discovery", async () => {
 		const dir = makeFixture()
-		const session = await launchHouse(dir, "note,txt")
+		const session = await launchHouse(dir, { extArg: "note,txt" })
 
 		await session.waitForText(/README\.md/, { timeout: 5_000 })
 		await session.waitForText(/notes\.note/, { timeout: 5_000 })
