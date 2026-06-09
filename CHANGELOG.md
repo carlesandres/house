@@ -6,9 +6,19 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 
 ## [Unreleased]
 
+## [0.4.9] — 2026-06-09
+
+### Fixed
+
+- Sidebar rows now keep a tighter single-space filename/path gap, and footer hint width calculation better handles wide glyphs.
+
 ### Changed
 
 - Removed the experimental `--sort` option. The sidebar now consistently lists files before directories, so current-directory files appear before nested subtrees in the base list. This makes less-nested files naturally rank higher even without a search term. When a filter query is active the existing `filterFiles` / `rankFile` scoring (filename bias + strengthened depth penalties) still applies on top.
+
+### Docs
+
+- Demo recording now lives in `recordings/record-demo.sh`, with docs and recorded assets updated to match the new capture flow.
 
 ## [0.4.8] — 2026-06-02
 
@@ -284,7 +294,8 @@ The v1 MVP, published as `@carlesandres/openmdr` on npm.
 
 Search, stdin, URL fetching, cross-file link following, `$EDITOR` hand-off, syntax highlighting, persistent config, OS-appearance auto-detect, single-binary distribution (issue [#2](https://github.com/carlesandres/openmdr/issues/2)), Homebrew tap. All tracked.
 
-[Unreleased]: https://github.com/carlesandres/house/compare/v0.4.8...HEAD
+[Unreleased]: https://github.com/carlesandres/house/compare/v0.4.9...HEAD
+[0.4.9]: https://github.com/carlesandres/house/compare/v0.4.8...v0.4.9
 [0.4.8]: https://github.com/carlesandres/house/compare/v0.4.7...v0.4.8
 [0.4.7]: https://github.com/carlesandres/house/compare/v0.4.6...v0.4.7
 [0.4.6]: https://github.com/carlesandres/house/compare/v0.4.5...v0.4.6
