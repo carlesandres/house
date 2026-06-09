@@ -45,6 +45,7 @@ import { startServer, type ServerHandle } from "./serve/server.ts"
 import { colors, setActiveTheme } from "./theme/colors.ts"
 import { themeAtom } from "./theme/atom.ts"
 import { themeDefinitions, getThemeDefinition } from "./theme/registry.ts"
+import { saveThemePreference } from "./config/save.ts"
 
 export type SidebarMode = "auto" | "on" | "off"
 export type StartupFocus = "sidebar" | "reader" | "filter"
@@ -362,6 +363,7 @@ export const Browser = ({
 		if (!next) return
 		setActiveTheme(next, theme.tone)
 		setTheme({ id: next.id, tone: theme.tone })
+		void saveThemePreference({ theme: next.id, tone: theme.tone })
 		pushFooterNotice(`theme: ${next.name}`)
 	}
 
@@ -370,6 +372,7 @@ export const Browser = ({
 		const def = getThemeDefinition(theme.id)
 		if (def) setActiveTheme(def, nextTone)
 		setTheme({ id: theme.id, tone: nextTone })
+		void saveThemePreference({ theme: theme.id, tone: nextTone })
 		pushFooterNotice(`tone: ${nextTone}`)
 	}
 
