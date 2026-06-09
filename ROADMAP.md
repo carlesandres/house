@@ -12,10 +12,8 @@ Beta shipped with v0.4.0. The unified browser model has landed. The public launc
 
 These are the next tasks to work on, in order:
 
-1. Persist the active theme to project or global config.
-2. Improve how paths are displayed in the sidebar.
-3. Improve theme transformation so bundled themes look right in our UI.
-4. Wrap long text lines in the markdown viewer.
+1. Improve theme transformation so bundled themes look right in our UI.
+2. Wrap long text lines in the markdown viewer.
 
 ## Public launch — daily-driver essentials
 

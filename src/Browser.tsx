@@ -46,6 +46,7 @@ import { colors, setActiveTheme } from "./theme/colors.ts"
 import { themeAtom } from "./theme/atom.ts"
 import { themeDefinitions, getThemeDefinition } from "./theme/registry.ts"
 import { saveThemePreference } from "./config/save.ts"
+import { middleTruncate } from "./ui/middleTruncate.ts"
 
 export type SidebarMode = "auto" | "on" | "off"
 export type StartupFocus = "sidebar" | "reader" | "filter"
@@ -970,7 +971,12 @@ export const Browser = ({
 						<text key={file.path} wrapMode="none" style={rowStyle}>
 							<span style={{ fg: basenameFg }}>{basename}</span>
 							{parent !== "" && (
-								<span style={{ fg: colors.textMuted }}>{`${separator}${parent}`}</span>
+								<span style={{ fg: colors.textMuted }}>
+									{middleTruncate(
+										`${separator}${parent}`,
+										Math.max(0, sidebarTextWidth - basename.length),
+									)}
+								</span>
 							)}
 						</text>
 					)
