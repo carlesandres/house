@@ -259,7 +259,7 @@ The v1 MVP, published as `@carlesandres/openmdr` on npm.
 
 ### Added — discovery
 
-- Recursive walk from the path argument (or cwd), `.md` / `.markdown` / `.mdx` only.
+- Recursive walk from the path argument (or cwd), limited to markdown extensions.
 - Honors `.gitignore` (root + nested).
 - Hard-skips `node_modules`, `.git`, `.venv` (always, even with `--all`).
 - Does not follow symlinks.

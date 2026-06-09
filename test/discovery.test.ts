@@ -34,16 +34,15 @@ const names = (entries: readonly { relativePath: string }[]): string[] =>
 const run = <A, E>(effect: Effect.Effect<A, E>): Promise<A> => Effect.runPromise(effect)
 
 describe("walk — extensions", () => {
-	test("includes .md, .markdown, .mdx", async () => {
+	test("includes .md and .markdown by default", async () => {
 		const root = await fixture({
 			"a.md": "x",
 			"b.markdown": "x",
-			"c.mdx": "x",
 			"d.txt": "x",
 			"e.MD": "x", // case-insensitive extension match
 		})
 		const result = await run(walkToArray(root))
-		expect(names(result).sort()).toEqual(["a.md", "b.markdown", "c.mdx", "e.MD"])
+		expect(names(result).sort()).toEqual(["a.md", "b.markdown", "e.MD"])
 	})
 
 	test("excludes non-markdown files", async () => {
@@ -52,14 +51,15 @@ describe("walk — extensions", () => {
 		expect(names(result)).toEqual(["README.md"])
 	})
 
-	test("mdx: false excludes .mdx but keeps .md and .markdown", async () => {
+	test("extensions include extra file types", async () => {
 		const root = await fixture({
 			"a.md": "x",
 			"b.markdown": "x",
-			"c.mdx": "x",
+			"c.note": "x",
+			"d.txt": "x",
 		})
-		const result = await run(walkToArray(root, { mdx: false }))
-		expect(names(result).sort()).toEqual(["a.md", "b.markdown"])
+		const result = await run(walkToArray(root, { extensions: ["note", "txt"] }))
+		expect(names(result).sort()).toEqual(["a.md", "b.markdown", "c.note", "d.txt"])
 	})
 })
 
