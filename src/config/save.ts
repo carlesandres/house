@@ -1,5 +1,5 @@
 import { dirname } from "node:path"
-import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises"
+import { lstat, mkdir, readFile, realpath, rename, unlink, writeFile } from "node:fs/promises"
 import { defaultConfigPath } from "./load.ts"
 
 export interface ThemePreference {
@@ -50,7 +50,19 @@ const updateThemePreferenceToml = (raw: string, record: ThemePreference): string
 	return upsertTopLevelString(upsertTopLevelString(raw, "theme", record.theme), "tone", record.tone)
 }
 
+const resolveWritableConfigPath = async (path: string): Promise<string> => {
+	try {
+		const stat = await lstat(path)
+		if (stat.isSymbolicLink()) return await realpath(path)
+	} catch (err) {
+		if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err
+	}
+	return path
+}
+
 const writeThemePreference = async (record: ThemePreference, path: string): Promise<void> => {
+	const targetPath = await resolveWritableConfigPath(path)
+	path = targetPath
 	const tmp = `${path}.${process.pid}.${Date.now()}.tmp`
 	try {
 		await mkdir(dirname(path), { recursive: true })

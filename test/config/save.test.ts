@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
-import { mkdir, mkdtemp, rm, writeFile, readFile } from "node:fs/promises"
+import { lstat, mkdir, mkdtemp, rm, symlink, writeFile, readFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { dirname, join } from "node:path"
 import { Effect } from "effect"
 import { loadConfig } from "../../src/config/load.ts"
 import { saveThemePreference } from "../../src/config/save.ts"
@@ -80,6 +80,18 @@ describe("saveThemePreference", () => {
 		await writeFile(cfgPath, 'theme = "opencode"\ntone =', "utf8")
 		await expect(saveThemePreference({ theme: "nord", tone: "light" }, cfgPath)).rejects.toThrow()
 		await expect(readFile(cfgPath, "utf8")).resolves.toBe('theme = "opencode"\ntone =')
+	})
+
+	test("preserves symlinked config files", async () => {
+		const targetPath = join(dir, "dotfiles", "house.toml")
+		await mkdir(dirname(targetPath), { recursive: true })
+		await writeFile(targetPath, 'theme = "opencode"\ntone = "dark"\n', "utf8")
+		await symlink(targetPath, cfgPath)
+
+		await saveThemePreference({ theme: "nord", tone: "light" }, cfgPath)
+
+		expect((await lstat(cfgPath)).isSymbolicLink()).toBe(true)
+		await expect(readFile(targetPath, "utf8")).resolves.toBe('theme = "nord"\ntone = "light"\n')
 	})
 
 	test("round-trips through the normal loader", async () => {
