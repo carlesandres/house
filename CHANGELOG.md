@@ -6,6 +6,10 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 
 ## [Unreleased]
 
+### Fixed
+
+- Removed the package-level Node engine requirement so npm installs do not warn about `house` itself; Bun remains the supported runtime and installer path until standalone binaries land.
+
 ## [0.4.10] — 2026-06-14
 
 ### Added
