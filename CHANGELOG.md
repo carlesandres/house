@@ -6,6 +6,10 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 
 ## [Unreleased]
 
+### Fixed
+
+- Pinned the Effect runtime stack to the latest beta that does not pull `ini@7`, avoiding npm install engine warnings for users on older Node 22 installers.
+
 ## [0.4.11] — 2026-06-14
 
 ### Fixed
