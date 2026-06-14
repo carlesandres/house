@@ -6,6 +6,17 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 
 ## [Unreleased]
 
+## [0.4.10] — 2026-06-14
+
+### Added
+
+- Active theme selection is now persisted globally, with hardened config saving that preserves symlinked config files.
+
+### Changed
+
+- Sidebar parent paths now middle-truncate in deep trees to keep filenames scannable.
+- Markdown discovery now uses an extension allow-list for supported markdown file types.
+
 ## [0.4.9] — 2026-06-09
 
 ### Fixed
@@ -294,7 +305,8 @@ The v1 MVP, published as `@carlesandres/openmdr` on npm.
 
 Search, stdin, URL fetching, cross-file link following, `$EDITOR` hand-off, syntax highlighting, persistent config, OS-appearance auto-detect, single-binary distribution (issue [#2](https://github.com/carlesandres/openmdr/issues/2)), Homebrew tap. All tracked.
 
-[Unreleased]: https://github.com/carlesandres/house/compare/v0.4.9...HEAD
+[Unreleased]: https://github.com/carlesandres/house/compare/v0.4.10...HEAD
+[0.4.10]: https://github.com/carlesandres/house/compare/v0.4.9...v0.4.10
 [0.4.9]: https://github.com/carlesandres/house/compare/v0.4.8...v0.4.9
 [0.4.8]: https://github.com/carlesandres/house/compare/v0.4.7...v0.4.8
 [0.4.7]: https://github.com/carlesandres/house/compare/v0.4.6...v0.4.7
