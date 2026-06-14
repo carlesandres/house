@@ -6,6 +6,8 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 
 ## [Unreleased]
 
+## [0.4.12] — 2026-06-14
+
 ### Fixed
 
 - Pinned the Effect runtime stack to the latest beta that does not pull `ini@7`, avoiding npm install engine warnings for users on older Node 22 installers.
@@ -315,7 +317,8 @@ The v1 MVP, published as `@carlesandres/openmdr` on npm.
 
 Search, stdin, URL fetching, cross-file link following, `$EDITOR` hand-off, syntax highlighting, persistent config, OS-appearance auto-detect, single-binary distribution (issue [#2](https://github.com/carlesandres/openmdr/issues/2)), Homebrew tap. All tracked.
 
-[Unreleased]: https://github.com/carlesandres/house/compare/v0.4.11...HEAD
+[Unreleased]: https://github.com/carlesandres/house/compare/v0.4.12...HEAD
+[0.4.12]: https://github.com/carlesandres/house/compare/v0.4.11...v0.4.12
 [0.4.11]: https://github.com/carlesandres/house/compare/v0.4.10...v0.4.11
 [0.4.10]: https://github.com/carlesandres/house/compare/v0.4.9...v0.4.10
 [0.4.9]: https://github.com/carlesandres/house/compare/v0.4.8...v0.4.9
