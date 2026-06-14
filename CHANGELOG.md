@@ -6,6 +6,8 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 
 ## [Unreleased]
 
+## [0.4.11] — 2026-06-14
+
 ### Fixed
 
 - Removed the package-level Node engine requirement so npm installs do not warn about `house` itself; Bun remains the supported runtime and installer path until standalone binaries land.
@@ -309,7 +311,8 @@ The v1 MVP, published as `@carlesandres/openmdr` on npm.
 
 Search, stdin, URL fetching, cross-file link following, `$EDITOR` hand-off, syntax highlighting, persistent config, OS-appearance auto-detect, single-binary distribution (issue [#2](https://github.com/carlesandres/openmdr/issues/2)), Homebrew tap. All tracked.
 
-[Unreleased]: https://github.com/carlesandres/house/compare/v0.4.10...HEAD
+[Unreleased]: https://github.com/carlesandres/house/compare/v0.4.11...HEAD
+[0.4.11]: https://github.com/carlesandres/house/compare/v0.4.10...v0.4.11
 [0.4.10]: https://github.com/carlesandres/house/compare/v0.4.9...v0.4.10
 [0.4.9]: https://github.com/carlesandres/house/compare/v0.4.8...v0.4.9
 [0.4.8]: https://github.com/carlesandres/house/compare/v0.4.7...v0.4.8
