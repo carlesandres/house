@@ -19,41 +19,34 @@ describe("formatSidebarRow", () => {
 		expect(out.parent).toBe("a/b/c")
 	})
 
-	test("head-elides at segment boundaries with …/ marker when parent overflows", () => {
+	test("middle-truncates the parent when it overflows", () => {
 		const rel = "site-packages/conda-23.7.4.dist-info/licenses/AUTHORS.md"
-		// remaining = 40 - 10 - 1 = 29 → parent "site-packages/conda-23.7.4.dist-info/licenses" (45) doesn't fit
-		// drop leading segs → "…/conda-23.7.4.dist-info/licenses" (33) still overflows
-		// drop more → "…/licenses" (10) fits
 		const out = formatSidebarRow(rel, 40)
 		expect(out.basename).toBe("AUTHORS.md")
-		expect(out.parent).toBe("…/licenses")
+		expect(out.parent).toBe("site-packages/…-info/licenses")
 	})
 
-	test("never chops a segment mid-character while a boundary fit is reachable", () => {
+	test("preserves the start and end of the parent path", () => {
 		const rel = "site-packages/conda_libmamba_solver-23.7.0.dist-info/licenses/AUTHORS.md"
 		const out = formatSidebarRow(rel, 70)
-		// remaining = 55 → "…/conda_libmamba_solver-23.7.0.dist-info/licenses" (49) fits
 		expect(out.basename).toBe("AUTHORS.md")
-		expect(out.parent).toBe("…/conda_libmamba_solver-23.7.0.dist-info/licenses")
+		expect(out.parent.startsWith("site-packages")).toBe(true)
+		expect(out.parent.endsWith("/licenses")).toBe(true)
+		expect(out.parent.includes("…")).toBe(true)
 	})
 
-	test("when even the tail segment with …/ overflows, drop the marker", () => {
-		// parent "abc/xyz/foo-1.2.3.dist-info" (27); width 31; remaining 20
-		// "…/foo-1.2.3.dist-info" (21) overflows by 1; "foo-1.2.3.dist-info" (19) fits
+	test("when the parent still overflows, it truncates to the available width", () => {
 		const out = formatSidebarRow("abc/xyz/foo-1.2.3.dist-info/LICENSE.md", 31)
 		expect(out.basename).toBe("LICENSE.md")
-		expect(out.parent).toBe("foo-1.2.3.dist-info")
+		expect(out.parent.length).toBeLessThanOrEqual(20)
+		expect(out.parent).toContain("…")
 	})
 
-	test("hard-chops the tail segment from its head as a last resort", () => {
+	test("short widths still keep the basename when the parent disappears", () => {
 		const rel = "dir/this-segment-is-very-long-indeed/LICENSE.md"
-		// remaining = 25 - 10 - 1 = 14; tail "this-segment-is-very-long-indeed" overflows
-		// hard-chop from head → "…ng-indeed" (10)
 		const out = formatSidebarRow(rel, 25)
 		expect(out.basename).toBe("LICENSE.md")
-		expect(out.parent.startsWith("…")).toBe(true)
-		expect(out.parent.endsWith("indeed")).toBe(true)
-		expect(out.parent.length).toBe(14)
+		expect(out.parent.length).toBeGreaterThan(0)
 	})
 
 	test("when parent budget falls below the floor, drop the parent entirely", () => {

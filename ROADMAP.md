@@ -8,16 +8,30 @@ Architectural rationale, UX rules, and key reservations live in `DESIGN.md`. Pro
 
 Beta shipped with v0.4.0. The unified browser model has landed. The public launch goal is now intentionally narrow: only daily-driver essentials stay in scope.
 
+## Next up — current focus
+
+These are the next tasks to work on, in order:
+
+1. Improve theme transformation so bundled themes look right in our UI.
+2. Wrap long text lines in the markdown viewer.
+
 ## Public launch — daily-driver essentials
 
 An item belongs here only if its absence is a clear blocker or papercut for regular use.
 
 | Theme | Item | Issue |
 |---|---|---|
-| Navigation | Search follow-up spikes — full-text search ([#202](https://github.com/carlesandres/house/issues/202)) and fuzzy title/content search ([#203](https://github.com/carlesandres/house/issues/203)) |
 | Sidebar | Sidebar enhancements (usability fixes only) | — |
 | Theming | Theming tweaks (fixes only) | — |
 | Chrome | UI polish | — |
+
+## Far future — spikes and nice-to-haves
+
+These are intentionally not the next things to work on.
+
+| Theme | Item | Issue |
+|---|---|---|
+| Navigation | Search follow-up spikes — full-text search ([#202](https://github.com/carlesandres/house/issues/202)) and fuzzy title/content search ([#203](https://github.com/carlesandres/house/issues/203)) | |
 
 ## Future ideas
 

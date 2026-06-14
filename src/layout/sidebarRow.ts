@@ -10,20 +10,15 @@
  * selected row); a future auto-scroll on the selected sidebar row can carry
  * the same information without altering layout for the rest.
  *
- * Truncation policy (head-elide, segment-aware):
- *   - Full parent fits → render whole.
- *   - Else drop leading segments one at a time, prefixed with `…/`, until
- *     the remainder fits — never chops a segment mid-character.
- *   - When even the tail segment with `…/` overflows, drop the marker.
- *   - When the tail segment alone overflows, hard-truncate it from its head
- *     (leading `…`) as a last resort.
- *
- * Why head-elide: the immediate parent is the segment closest to the file
- * and the most universally meaningful one when context shrinks.
+ * Truncation policy: the basename stays whole when possible; the parent path
+ * middle-truncates into `a/…/z`-style output once it exceeds the remaining
+ * width. This preserves both the start and the end of the path, which is
+ * usually what users need to disambiguate nested docs.
  */
 
+import { middleTruncate } from "../ui/middleTruncate.ts"
+
 export const SIDEBAR_ROW_SEPARATOR = " "
-const ELISION_PREFIX = "…/"
 const MIN_PARENT_BUDGET = 3
 
 export interface SidebarRowParts {
@@ -54,18 +49,7 @@ export const formatSidebarRow = (relativePath: string, totalWidth: number): Side
 		return row(basename, parentFull)
 	}
 
-	const segments = parentFull.split("/")
-	for (let k = segments.length - 1; k >= 1; k--) {
-		const candidate = ELISION_PREFIX + segments.slice(segments.length - k).join("/")
-		if (candidate.length <= remaining) return row(basename, candidate)
-	}
-
-	// Even one segment with the `…/` marker doesn't fit. Try without the marker.
-	const tail = segments[segments.length - 1]!
-	if (tail.length <= remaining) return row(basename, tail)
-
-	// Hard-chop the tail segment from its head as a last resort.
-	return row(basename, "…" + tail.slice(tail.length - remaining + 1))
+	return row(basename, middleTruncate(parentFull, remaining))
 }
 
 const row = (basename: string, parent: string): SidebarRowParts => ({
