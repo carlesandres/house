@@ -7,59 +7,77 @@ export interface ThemePreference {
 	readonly tone: "dark" | "light"
 }
 
-const isThemePreference = (value: unknown): value is ThemePreference => {
-	if (typeof value !== "object" || value === null) return false
-	const r = value as Record<string, unknown>
-	return typeof r.theme === "string" && (r.tone === "dark" || r.tone === "light")
-}
+let saveQueue: Promise<void> = Promise.resolve()
 
-const stringifyTomlValue = (value: unknown): string | null => {
-	if (typeof value === "string") return JSON.stringify(value)
-	if (typeof value === "number" && Number.isFinite(value)) return String(value)
-	if (typeof value === "boolean") return String(value)
-	if (Array.isArray(value) && value.every((item) => typeof item === "string")) {
-		return `[${value.map((item) => JSON.stringify(item)).join(", ")}]`
+const encodeTomlString = (value: string): string => JSON.stringify(value)
+
+const upsertTopLevelString = (raw: string, key: keyof ThemePreference, value: string): string => {
+	const encoded = encodeTomlString(value)
+	const lines = raw.split("\n")
+	const keyPattern = new RegExp(`^(\\s*)${key}\\s*=.*$`)
+	let inTopLevel = true
+	let insertAt = lines.length
+
+	for (let i = 0; i < lines.length; i++) {
+		const line = lines[i]!
+		if (/^\s*\[[^\]]+\]\s*(?:#.*)?$/.test(line)) {
+			inTopLevel = false
+			insertAt = Math.min(insertAt, i)
+		}
+		if (!inTopLevel) continue
+		const match = keyPattern.exec(line)
+		if (match) {
+			lines[i] = `${match[1]}${key} = ${encoded}`
+			return lines.join("\n")
+		}
 	}
-	return null
+
+	const insertion = `${key} = ${encoded}`
+	if (insertAt === lines.length) {
+		if (lines.length === 0 || lines[lines.length - 1] !== "") return `${raw}\n${insertion}\n`
+		lines.splice(lines.length - 1, 0, insertion)
+		return lines.join("\n")
+	}
+
+	lines.splice(insertAt, 0, insertion)
+	return lines.join("\n")
 }
 
-const serializeToml = (record: Record<string, unknown>): string =>
-	Object.entries(record)
-		.map(([key, value]) => {
-			const encoded = stringifyTomlValue(value)
-			return encoded === null ? null : `${key} = ${encoded}`
-		})
-		.filter((line): line is string => line !== null)
-		.join("\n") + "\n"
+const updateThemePreferenceToml = (raw: string, record: ThemePreference): string => {
+	// Validate the existing file before preserving and editing its text. If the
+	// user has malformed TOML, fail loudly rather than replacing it wholesale.
+	Bun.TOML.parse(raw)
+	return upsertTopLevelString(upsertTopLevelString(raw, "theme", record.theme), "tone", record.tone)
+}
 
-export const saveThemePreference = async (
-	record: ThemePreference,
-	path = defaultConfigPath(),
-): Promise<void> => {
+const writeThemePreference = async (record: ThemePreference, path: string): Promise<void> => {
 	const tmp = `${path}.${process.pid}.${Date.now()}.tmp`
 	try {
 		await mkdir(dirname(path), { recursive: true })
-		let merged: ThemePreference = record
-		let extra: Record<string, unknown> = {}
+		let next = `theme = ${encodeTomlString(record.theme)}\ntone = ${encodeTomlString(record.tone)}\n`
 		try {
 			const raw = await readFile(path, "utf8")
-			const parsed = Bun.TOML.parse(raw) as unknown
-			if (typeof parsed === "object" && parsed !== null) {
-				extra = parsed as Record<string, unknown>
-				if (isThemePreference(parsed)) {
-					merged = { ...parsed, ...record }
-				}
-			}
-		} catch {
-			// Missing or unreadable config falls back to the new record.
+			next = updateThemePreferenceToml(raw, record)
+		} catch (err) {
+			if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err
 		}
-		await writeFile(tmp, serializeToml({ ...extra, ...merged }), "utf8")
+		await writeFile(tmp, next, "utf8")
 		await rename(tmp, path)
-	} catch {
+	} catch (err) {
 		try {
 			await unlink(tmp)
 		} catch {
 			// best-effort cleanup
 		}
+		throw err
 	}
+}
+
+export const saveThemePreference = async (
+	record: ThemePreference,
+	path = defaultConfigPath(),
+): Promise<void> => {
+	const run = saveQueue.catch(() => {}).then(() => writeThemePreference(record, path))
+	saveQueue = run.catch(() => {})
+	return run
 }

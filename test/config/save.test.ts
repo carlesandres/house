@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
-import { mkdtemp, rm, writeFile, readFile } from "node:fs/promises"
+import { mkdir, mkdtemp, rm, writeFile, readFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { Effect } from "effect"
@@ -33,6 +33,53 @@ describe("saveThemePreference", () => {
 		await saveThemePreference({ theme: "nord", tone: "light" }, cfgPath)
 		const cfg = await run(loadConfig({ filePath: cfgPath, env: {} }))
 		expect(cfg).toMatchObject({ theme: "nord", tone: "light", extensions: ["mdx"] })
+	})
+
+	test("preserves existing comments and formatting", async () => {
+		await writeFile(
+			cfgPath,
+			'# keep my comment\nextensions = ["mdx"]\n\ntheme = "opencode"\ntone = "dark"\n',
+			"utf8",
+		)
+		await saveThemePreference({ theme: "nord", tone: "light" }, cfgPath)
+		const raw = await readFile(cfgPath, "utf8")
+		expect(raw).toBe(
+			'# keep my comment\nextensions = ["mdx"]\n\ntheme = "nord"\ntone = "light"\n',
+		)
+	})
+
+	test("inserts missing theme keys before TOML tables", async () => {
+		await writeFile(
+			cfgPath,
+			'# config\nextensions = ["mdx"]\n\n[future]\nname = "kept"\n',
+			"utf8",
+		)
+		await saveThemePreference({ theme: "nord", tone: "light" }, cfgPath)
+		const raw = await readFile(cfgPath, "utf8")
+		expect(raw).toBe(
+			'# config\nextensions = ["mdx"]\n\ntheme = "nord"\ntone = "light"\n[future]\nname = "kept"\n',
+		)
+	})
+
+	test("serializes rapid saves so the latest call wins", async () => {
+		await Promise.all([
+			saveThemePreference({ theme: "opencode", tone: "dark" }, cfgPath),
+			saveThemePreference({ theme: "nord", tone: "light" }, cfgPath),
+			saveThemePreference({ theme: "vercel", tone: "dark" }, cfgPath),
+		])
+		const cfg = await run(loadConfig({ filePath: cfgPath, env: {} }))
+		expect(cfg).toMatchObject({ theme: "vercel", tone: "dark" })
+	})
+
+	test("reports write failures to callers", async () => {
+		await mkdir(cfgPath)
+		await expect(saveThemePreference({ theme: "nord", tone: "light" }, cfgPath)).rejects.toThrow()
+	})
+
+	test("does not overwrite malformed TOML", async () => {
+		await writeFile(cfgPath, 'theme = "opencode"\ntone =', "utf8")
+		await expect(saveThemePreference({ theme: "nord", tone: "light" }, cfgPath)).rejects.toThrow()
+		await expect(readFile(cfgPath, "utf8")).resolves.toBe('theme = "opencode"\ntone =')
 	})
 
 	test("round-trips through the normal loader", async () => {

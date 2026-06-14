@@ -364,7 +364,12 @@ export const Browser = ({
 		if (!next) return
 		setActiveTheme(next, theme.tone)
 		setTheme({ id: next.id, tone: theme.tone })
-		void saveThemePreference({ theme: next.id, tone: theme.tone })
+		void saveThemePreference({ theme: next.id, tone: theme.tone }).catch((err) => {
+			pushFooterNotice("theme not saved")
+			process.stderr.write(
+				`house: failed to save theme preference: ${err instanceof Error ? err.message : String(err)}\n`,
+			)
+		})
 		pushFooterNotice(`theme: ${next.name}`)
 	}
 
@@ -373,7 +378,12 @@ export const Browser = ({
 		const def = getThemeDefinition(theme.id)
 		if (def) setActiveTheme(def, nextTone)
 		setTheme({ id: theme.id, tone: nextTone })
-		void saveThemePreference({ theme: theme.id, tone: nextTone })
+		void saveThemePreference({ theme: theme.id, tone: nextTone }).catch((err) => {
+			pushFooterNotice("theme not saved")
+			process.stderr.write(
+				`house: failed to save theme preference: ${err instanceof Error ? err.message : String(err)}\n`,
+			)
+		})
 		pushFooterNotice(`tone: ${nextTone}`)
 	}
 
