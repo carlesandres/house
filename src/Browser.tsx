@@ -55,8 +55,8 @@ export interface BrowserProps {
 	readonly wrapWidth?: number
 	/** Initial reader wrap mode. Runtime toggles are session-only. */
 	readonly initialWrap?: boolean
-	/** Discovery root label used in the post-discovery empty-vault sidebar row. */
-	readonly emptyRootLabel?: string
+	/** Canonical discovery root label used anywhere the UI names the scan scope. */
+	readonly rootLabel?: string
 	/** Persistent footer indicator (e.g. "indexing… 42"). Pass null/undefined
 	 *  when discovery has finished; the indicator clears. */
 	readonly discoveryStatus?: string | null
@@ -187,7 +187,7 @@ export const Browser = ({
 	initialQuery = "",
 	wrapWidth = 80,
 	initialWrap = false,
-	emptyRootLabel = "current root",
+	rootLabel = "current root",
 	discoveryStatus = null,
 	discoverySpinnerIntervalMs,
 	discoverySpinnerInitialFrameIndex,
@@ -990,7 +990,7 @@ export const Browser = ({
 								: "No markdown files in"
 							: "No files match"
 					}
-					value={files.length === 0 ? (discoveryActive ? "…" : emptyRootLabel) : filterApplied}
+					value={files.length === 0 ? (discoveryActive ? "…" : rootLabel) : filterApplied}
 				/>
 			) : (
 				visibleFiles.map((file, idx) => {
@@ -1044,7 +1044,7 @@ export const Browser = ({
 		<box
 			style={{ width, height, flexDirection: "column", backgroundColor: colors.backgroundPanel }}
 		>
-			<Header width={width} currentFile={currentFile} />
+			<Header width={width} currentFile={currentFile} rootLabel={rootLabel} />
 			<box
 				style={{
 					flexDirection: "row",

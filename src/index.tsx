@@ -2,6 +2,7 @@
 /** house — entry point. Boots the browser TUI or `--serve` preview. */
 
 import { stat } from "node:fs/promises"
+import { homedir } from "node:os"
 import { dirname, isAbsolute, relative, resolve } from "node:path"
 import { createCliRenderer } from "@opentui/core"
 import { createRoot } from "@opentui/react"
@@ -13,6 +14,7 @@ import { Browser, type StartupFocus } from "./Browser.tsx"
 import { parseArgv, usage } from "./cli/argv.ts"
 import { defaultConfigPath, formatConfigError, loadConfig } from "./config/load.ts"
 import { parseShowList, SHOW_CATEGORIES, type ShowCategory } from "./discovery/show.ts"
+import { formatDiscoveryRootLabel } from "./discovery/rootLabel.ts"
 import { walk, type FileEntry } from "./discovery/walk.ts"
 import { openInBrowser } from "./serve/openBrowser.ts"
 import { startServer } from "./serve/server.ts"
@@ -64,7 +66,7 @@ export const resolveDiscoveryRoot = async ({
 	readonly defaultRoot: "cwd" | "git"
 	readonly cwd: string
 }): Promise<string> => {
-	if (cliRoot !== null) return cliRoot
+	if (cliRoot !== null) return resolve(cwd, cliRoot)
 	if (defaultRoot === "git") return findGitRoot(cwd)
 	return cwd
 }
@@ -104,6 +106,7 @@ interface DiscoverShellProps {
 	 *  and the full vocabulary; the underlying categories remain
 	 *  independent everywhere else. */
 	readonly initialShow: readonly ShowCategory[]
+	readonly rootLabel?: string
 	readonly extensions: readonly string[]
 	readonly wrapWidth: number
 	readonly initialWrap: boolean
@@ -114,6 +117,7 @@ export const DiscoverShell = ({
 	target,
 	initialQuery,
 	initialShow,
+	rootLabel = target,
 	extensions,
 	wrapWidth,
 	initialWrap,
@@ -194,7 +198,7 @@ export const DiscoverShell = ({
 			initialQuery={initialQuery}
 			wrapWidth={wrapWidth}
 			initialWrap={initialWrap}
-			emptyRootLabel={target}
+			rootLabel={rootLabel}
 			discoveryStatus={discoveryStatus}
 			startupFocus={startupFocus}
 			updateNotice={updateNotice}
@@ -454,6 +458,7 @@ async function runTui({
 				target={discoveryRoot}
 				initialQuery={initialQuery}
 				initialShow={show}
+				rootLabel={formatDiscoveryRootLabel({ discoveryRoot, home: homedir() })}
 				extensions={extensions}
 				wrapWidth={wrapWidth}
 				initialWrap={initialWrap}
