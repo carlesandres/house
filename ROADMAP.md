@@ -12,8 +12,8 @@ Beta shipped with v0.4.0. The unified browser model has landed. The public launc
 
 These are the next tasks to work on, in order:
 
-1. Improve theme transformation so bundled themes look right in our UI.
-2. Wrap long text lines in the markdown viewer.
+1. Preserve alpha colours from bundled themes so muted/border tokens keep their intended contrast ([#189](https://github.com/carlesandres/house/issues/189)).
+2. Make footer status-indicator layout display-width aware ([#220](https://github.com/carlesandres/house/issues/220)).
 
 ## Public launch — daily-driver essentials
 
@@ -21,9 +21,10 @@ An item belongs here only if its absence is a clear blocker or papercut for regu
 
 | Theme | Item | Issue |
 |---|---|---|
-| Sidebar | Sidebar enhancements (usability fixes only) | — |
-| Theming | Theming tweaks (fixes only) | — |
-| Chrome | UI polish | — |
+| Sidebar | Sidebar display-width polish | [#207](https://github.com/carlesandres/house/issues/207) |
+| Theming | Theme fidelity fixes | [#189](https://github.com/carlesandres/house/issues/189) |
+| Chrome | Footer/status layout polish | [#220](https://github.com/carlesandres/house/issues/220) |
+| Browser preview | Relative assets for local README previews | [#75](https://github.com/carlesandres/house/issues/75) |
 
 ## Far future — spikes and nice-to-haves
 
@@ -69,7 +70,7 @@ No commitment to ship. Tracked to remember.
 | Item | Issue |
 |---|---|
 | Theming v2 — user stylesheets, named theme sets | [#34](https://github.com/carlesandres/house/issues/34) |
-| Persist active theme to project or global config | [#73](https://github.com/carlesandres/house/issues/73) |
+| Opt out of automatic theme persistence | [#206](https://github.com/carlesandres/house/issues/206) |
 
 ### Tooling
 
@@ -159,6 +160,7 @@ No commitment to ship. Tracked to remember.
 | Item | Issue |
 |---|---|
 | Extract reusable keymap package (`@ghui/keymap` style) | [#35](https://github.com/carlesandres/house/issues/35) |
+| Decide whether `Copy file contents` deserves a direct shortcut | [#216](https://github.com/carlesandres/house/issues/216) |
 
 ### Reader internals
 

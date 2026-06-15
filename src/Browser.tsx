@@ -975,7 +975,7 @@ export const Browser = ({
 				<PromptRow
 					query={filterInput}
 					editing={filterOpen}
-					placeholder="/ to filter…"
+					placeholder="type / to filter"
 					width={sidebarTextWidth}
 				/>
 			)}
@@ -998,19 +998,26 @@ export const Browser = ({
 					const isSelected = realIdx === selectedIndex
 					const { basename, separator, parent } = layoutSidebarRow(file.relativePath)
 					const basenameFg = isSelected ? colors.selectedListItemText : colors.text
-					const rowStyle = isSelected ? { bg: colors.backgroundElement } : {}
+					const rowStyle = {
+						width: sidebarTextWidth,
+						height: 1,
+						flexDirection: "row",
+						...(isSelected ? { backgroundColor: colors.backgroundElement } : {}),
+					} as const
 					return (
-						<text key={file.path} wrapMode="none" style={rowStyle}>
-							<span style={{ fg: basenameFg }}>{basename}</span>
-							{parent !== "" && (
-								<span style={{ fg: colors.textMuted }}>
-									{middleTruncate(
-										`${separator}${parent}`,
-										Math.max(0, sidebarTextWidth - basename.length),
-									)}
-								</span>
-							)}
-						</text>
+						<box key={file.path} style={rowStyle}>
+							<text wrapMode="none">
+								<span style={{ fg: basenameFg }}>{basename}</span>
+								{parent !== "" && (
+									<span style={{ fg: colors.textMuted }}>
+										{middleTruncate(
+											`${separator}${parent}`,
+											Math.max(0, sidebarTextWidth - basename.length),
+										)}
+									</span>
+								)}
+							</text>
+						</box>
 					)
 				})
 			)}

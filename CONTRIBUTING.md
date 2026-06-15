@@ -85,7 +85,7 @@ Tagged fenced-code blocks are covered by `test/markdown-codeblock.test.tsx`. If 
 
 ## Keymap changes
 
-Bindings are data: `src/keymap/browser.ts` is the single source for `useKeyboard`, footer hints, and command-palette derivation. To add a binding, append a `KeyBinding` to `browserBindings` with `id`, `description`, `keys`, an optional `group`, optional `when` predicate, and `run`.
+Bindings are data: `src/keymap/browser.ts` is the single source for `useKeyboard` and command-palette derivation. To add a binding, append a `KeyBinding` to `browserBindings` with `id`, `description`, `keys`, an optional `group`, optional `when` predicate, and `run`. Only add `hint` for the small fixed footer set of essential app controls; otherwise rely on the palette for discoverability.
 
 Do not bind these keys — they are reserved for v2 (DESIGN.md §7.3): `/`, `r`.
 

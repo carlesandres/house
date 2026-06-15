@@ -143,17 +143,22 @@ export const Header = ({ width, currentFile, rootLabel, version = pkg.version }:
 			}}
 		>
 			<text wrapMode="none">
-				{layout.left.map((segment, idx) => (
+				{layout.left.map((segment, idx) => [
+					idx > 0 ? (
+						<span key={`${segment.id}-${idx}-separator`} style={{ fg: colors.textMuted }}>
+							{FILE_SEPARATOR}
+						</span>
+					) : null,
 					<span
 						key={`${segment.id}-${idx}`}
-						style={{ fg: segment.tone === "muted" ? colors.textMuted : colors.text }}
+						style={{ fg: segment.tone === "primary" ? colors.text : colors.textMuted }}
 					>
-						{`${idx === 0 ? "" : FILE_SEPARATOR}${segment.text}`}
-					</span>
-				))}
+						{segment.text}
+					</span>,
+				])}
 			</text>
 			{layout.right !== null && (
-				<text content={layout.right} wrapMode="none" style={{ fg: colors.text }} />
+				<text content={layout.right} wrapMode="none" style={{ fg: colors.textMuted }} />
 			)}
 		</box>
 	)

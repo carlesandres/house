@@ -542,9 +542,11 @@ describe("Browser — focus", () => {
 		const selectedRow = rowContaining(frame, "a.md", 1)
 		expect(selectedRow).toBeGreaterThanOrEqual(0)
 		const selectedBg = bgAt(spans, selectedRow, 1)
+		const selectedRowTailBg = bgAt(spans, selectedRow, 12)
 		const selectedFg = fgAt(spans, selectedRow, 1)
 		const inactiveBg = bgAt(spans, selectedRow + 2, 1)
 		expect(selectedBg?.equals(inactiveBg!)).toBe(false)
+		expect(selectedRowTailBg?.equals(selectedBg!)).toBe(true)
 		expect(selectedFg?.equals(selectedBg!)).toBe(false)
 	})
 
@@ -1160,7 +1162,7 @@ describe("Browser — #22 layout v2", () => {
 		expect(setup!.captureCharFrame()).not.toContain("[filter:")
 	})
 
-	test("long applied filters do not consume footer hint space", async () => {
+	test("long applied filters do not render footer filter chips", async () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
@@ -1413,7 +1415,7 @@ describe("Browser — footer", () => {
 		expect(cleared).not.toContain("z▏")
 	})
 
-	test("renders global + sidebar hints when sidebar is focused", async () => {
+	test("renders only essential footer hints when sidebar is focused", async () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
@@ -1428,12 +1430,14 @@ describe("Browser — footer", () => {
 
 		const frame = setup!.captureCharFrame()
 		expect(frame).toContain("q quit")
+		expect(frame).toContain("tab focus")
 		expect(frame).toContain("s sidebar")
-		// sidebar.open hint surfaces because focus starts on sidebar.
-		expect(frame).toContain("↵ open")
-		// reader-only hints are absent.
+		expect(frame).toContain("ctrl+p palette")
+		// Other actions stay discoverable through the command palette, not the footer.
+		expect(frame).not.toContain("↵ open")
 		expect(frame).not.toContain("[ prev")
 		expect(frame).not.toContain("] next")
+		expect(frame).not.toContain("w wrap")
 	})
 
 	test("shows a persistent wrap indicator and toggles it with w", async () => {
@@ -1455,7 +1459,7 @@ describe("Browser — footer", () => {
 		let spans = setup!.captureSpans()
 		const footerRow = VIEWPORT.height - 1
 		expect(frame.split("\n")[footerRow]).toContain(" W ")
-		expect(frame).toContain("w wrap")
+		expect(frame).not.toContain("w wrap")
 		expect(fgAt(spans, footerRow, 2)?.equals(RGBA.fromHex(colors.textMuted))).toBe(true)
 
 		await act(async () => {
@@ -1500,10 +1504,9 @@ describe("Browser — footer", () => {
 		expect(frame).toContain("within the pane")
 	})
 
-	test("switches to reader-specific hints when focus moves to the reader", async () => {
-		// Needs ≥2 files for the `[`/`]` prev/next hints to appear — they're
-		// gated on `inReaderWithSibling` (#115) so a one-file vault hides
-		// them as there's nowhere to step to.
+	test("keeps the fixed footer hints when focus moves to the reader", async () => {
+		// Reader navigation/actions remain available through the keymap and palette,
+		// but the footer no longer switches into a contextual hint list.
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
@@ -1522,16 +1525,18 @@ describe("Browser — footer", () => {
 		await stepFrame(setup!.renderOnce)
 
 		const frame = setup!.captureCharFrame()
-		// Reader-only hints are active here; on this viewport the longer
-		// shift+o / shift+e labels can push `esc back` off the clipped row.
-		expect(frame).toContain("[ prev")
-		expect(frame).toContain("] next")
+		expect(frame).toContain("q quit")
+		expect(frame).toContain("tab focus")
+		expect(frame).toContain("s sidebar")
+		expect(frame).toContain("ctrl+p palette")
+		expect(frame).not.toContain("[ prev")
+		expect(frame).not.toContain("] next")
 		expect(frame).not.toContain("↵ open")
 	})
 
-	test("hides `[`/`]` hints in the reader when only one file is displayed", async () => {
-		// #115: File-group siblings need an actual sibling. Single-file
-		// vaults should not surface dead hints.
+	test("does not surface reader-only footer hints in a single-file reader", async () => {
+		// The fixed footer should stay compact even in reader focus; sibling-specific
+		// commands are still gated by #115 in the keymap/palette.
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
@@ -1550,7 +1555,11 @@ describe("Browser — footer", () => {
 		await stepFrame(setup!.renderOnce)
 
 		const frame = setup!.captureCharFrame()
-		expect(frame).toContain("esc back")
+		expect(frame).toContain("q quit")
+		expect(frame).toContain("tab focus")
+		expect(frame).toContain("s sidebar")
+		expect(frame).toContain("ctrl+p palette")
+		expect(frame).not.toContain("esc back")
 		expect(frame).not.toContain("[ prev")
 		expect(frame).not.toContain("] next")
 	})
@@ -1581,9 +1590,9 @@ describe("Browser — footer", () => {
 		expect(frame.split("\n")[VIEWPORT.height - 1]).toContain(" W ")
 	})
 
-	test("falls back to the first key when no full hint fits", async () => {
-		// Ultra-narrow viewport: nothing like `q:quit` (6 chars) fits within
-		// the usable width (terminal width minus 2 for padding).
+	test("keeps the wrap indicator on ultra-narrow viewports", async () => {
+		// Ultra-narrow viewport: after the persistent W indicator there is no room
+		// for a full text hint. The compact state chip is the footer's priority.
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
@@ -1598,9 +1607,7 @@ describe("Browser — footer", () => {
 
 		const frame = setup!.captureCharFrame()
 		expect(frame).not.toContain("q quit")
-		// At minimum the bare key for the first hint (`q`) should appear so
-		// the row is not silently blank.
-		expect(frame).toContain("q")
+		expect(frame.split("\n")[11]).toContain("W")
 	})
 })
 
@@ -1958,7 +1965,7 @@ describe("Browser — sidebar virtualization", () => {
 })
 
 describe("Browser — sidebar filter row", () => {
-	test("idle state shows '/ filter…' placeholder when no query is set", async () => {
+	test("idle state shows 'type / to filter' placeholder when no query is set", async () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
@@ -1972,11 +1979,11 @@ describe("Browser — sidebar filter row", () => {
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
 		// Placeholder visible, modal is not open (no cursor).
-		expect(frame).toContain("> / to filter…")
+		expect(frame).toContain("> type / to filter")
 		expect(frame).not.toContain("> ▏")
 	})
 
-	test("filter row is suppressed on an empty vault (no '/ filter…')", async () => {
+	test("filter row is suppressed on an empty vault (no 'type / to filter')", async () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser files={[]} rootLabel="root" readFile={makeReader({})} onQuit={() => {}} />,
@@ -1987,7 +1994,7 @@ describe("Browser — sidebar filter row", () => {
 		const frame = setup!.captureCharFrame()
 		expect(frame).toContain("No markdown files in")
 		expect(frame).toContain('"root"')
-		expect(frame).not.toContain("> / to filter…")
+		expect(frame).not.toContain("> type / to filter")
 	})
 
 	test("editing state shows the live query with a cursor", async () => {
@@ -2011,7 +2018,7 @@ describe("Browser — sidebar filter row", () => {
 		const frame = setup!.captureCharFrame()
 		expect(frame).toContain("> re▏")
 		// Placeholder gone while editing.
-		expect(frame).not.toContain("> / to filter…")
+		expect(frame).not.toContain("> type / to filter")
 	})
 
 	test("applied state persists query after Return; no cursor visible", async () => {
@@ -2745,7 +2752,7 @@ describe("Browser — filter modal", () => {
 		const frame = setup!.captureCharFrame()
 		// Editing cursor gone; idle placeholder back.
 		expect(frame).not.toContain("> ▏")
-		expect(frame).toContain("> / to filter…")
+		expect(frame).toContain("> type / to filter")
 		// Both files still visible (no committed filter).
 		expect(frame).toContain("README.md")
 		expect(frame).toContain("notes.md")
@@ -2792,7 +2799,7 @@ describe("Browser — filter modal", () => {
 		const frame = setup!.captureCharFrame()
 		// Editing cursor gone; idle placeholder back.
 		expect(frame).not.toContain("> ▏")
-		expect(frame).toContain("> / to filter…")
+		expect(frame).toContain("> type / to filter")
 		// Filter cleared — full list visible.
 		expect(frame).toContain("README.md")
 		expect(frame).toContain("notes.md")
@@ -3038,7 +3045,7 @@ describe("Browser — filter modal", () => {
 		expect(frame).toContain("> int▏")
 	})
 
-	test("footer keeps the palette hint visible while the filter modal is open", async () => {
+	test("footer keeps the fixed essential hints visible while the filter modal is open", async () => {
 		const files = makeFiles(["README.md", "notes.md", "docs/intro.md"])
 		await act(async () => {
 			setup = await renderBrowser(
@@ -3061,17 +3068,17 @@ describe("Browser — filter modal", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("q quit")
 		expect(frame).toContain("tab focus")
+		expect(frame).toContain("s sidebar")
 		expect(frame).toContain("ctrl+p palette")
-		expect(frame).toContain("↵ open")
-		expect(frame).not.toContain("q quit")
-		expect(frame).not.toContain("s sidebar")
+		expect(frame).not.toContain("↵ open")
 		expect(frame).not.toContain("t theme")
 		expect(frame).not.toContain("shift+o html")
 		expect(frame).not.toContain("shift+e edit")
 	})
 
-	test("footer hides open hint while the filter modal has no selected match", async () => {
+	test("footer stays fixed while the filter modal has no selected match", async () => {
 		const files = makeFiles(["README.md", "notes.md"])
 		await act(async () => {
 			setup = await renderBrowser(
@@ -3093,10 +3100,11 @@ describe("Browser — filter modal", () => {
 		await waitForFrameContaining("No files match: z")
 
 		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("q quit")
 		expect(frame).toContain("tab focus")
+		expect(frame).toContain("s sidebar")
 		expect(frame).toContain("ctrl+p palette")
 		expect(frame).not.toContain("↵ open")
-		expect(frame).not.toContain("q quit")
 	})
 
 	test("ctrl+\\ from sidebar with an applied filter clears it and reopens the modal", async () => {
@@ -3196,7 +3204,7 @@ describe("Browser — filter modal", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		// No filter applied (idle).
-		expect(setup!.captureCharFrame()).toContain("> / to filter…")
+		expect(setup!.captureCharFrame()).toContain("> type / to filter")
 
 		await act(async () => {
 			setup!.mockInput.pressKey("\\", { ctrl: true })
@@ -3241,10 +3249,10 @@ describe("Browser — filter modal", () => {
 		// Filter modal is NOT open — sidebar row shows the idle placeholder,
 		// not the editing chevron. (Both palette and filter inputs use "> ▏",
 		// so check the sidebar row text specifically.)
-		expect(frame).toContain("> / to filter…")
+		expect(frame).toContain("> type / to filter")
 	})
 
-	test("footer shows `ctrl+\\ clear` only when a filter is applied and no modal is open", async () => {
+	test("footer does not show clear-filter; palette remains the discovery surface", async () => {
 		const files = makeFiles(["README.md", "notes.md", "docs/intro.md"])
 		await act(async () => {
 			setup = await renderBrowser(
@@ -3261,7 +3269,7 @@ describe("Browser — filter modal", () => {
 			)
 		})
 		await stepFrame(setup!.renderOnce)
-		// Idle (no filter): hint absent.
+		// Idle (no filter): footer hint absent.
 		expect(setup!.captureCharFrame()).not.toContain("ctrl+\\ clear")
 
 		// Apply a filter and close the modal (no-revert Esc keeps it applied).
@@ -3274,23 +3282,25 @@ describe("Browser — filter modal", () => {
 			await new Promise<void>((resolve) => setTimeout(resolve, 60))
 		})
 		await stepFrame(setup!.renderOnce)
-		// Hint now visible.
-		expect(setup!.captureCharFrame()).toContain("ctrl+\\ clear")
+		// Applied filters no longer add a contextual footer hint.
+		expect(setup!.captureCharFrame()).not.toContain("ctrl+\\ clear")
 
-		// Open the palette: hint should disappear (palette ctx hides it).
+		// Open the palette: the clear-filter command remains discoverable there.
 		await act(async () => {
 			setup!.mockInput.pressKey("p", { ctrl: true })
 		})
 		await stepFrame(setup!.renderOnce)
-		expect(setup!.captureCharFrame()).not.toContain("ctrl+\\ clear")
+		const paletteFrame = setup!.captureCharFrame()
+		expect(paletteFrame).toContain("Clear filter")
+		expect(paletteFrame).toContain("ctrl+\\")
 
-		// Close palette: hint should come back once no modal owns the input.
+		// Close palette: footer returns to the same fixed hint set.
 		await act(async () => {
 			setup!.mockInput.pressEscape()
 			await new Promise<void>((resolve) => setTimeout(resolve, 60))
 		})
 		await stepFrame(setup!.renderOnce)
-		expect(setup!.captureCharFrame()).toContain("ctrl+\\ clear")
+		expect(setup!.captureCharFrame()).not.toContain("ctrl+\\ clear")
 	})
 
 	test("printable characters do not fire their normal bindings while filter is open", async () => {

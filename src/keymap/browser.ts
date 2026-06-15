@@ -68,7 +68,6 @@ const stepBy = (c: BrowserCtx, delta: number) =>
 const inSidebar = (c: BrowserCtx) => c.focus === "sidebar"
 const filterClosed = (c: BrowserCtx) => !c.filterOpen
 const paletteClosed = (c: BrowserCtx) => !c.paletteOpen
-const inputClosed = (c: BrowserCtx) => filterClosed(c) && paletteClosed(c)
 const inReader = (c: BrowserCtx) => c.focus === "reader"
 const inSidebarWithFiles = (c: BrowserCtx) => inSidebar(c) && haveFiles(c)
 /** Reader-only sibling-step gate: needs a current selection plus a sibling
@@ -84,7 +83,6 @@ export const browserBindings: readonly KeyBinding<BrowserCtx>[] = [
 		description: "Quit",
 		hint: "quit",
 		keys: ["q", "ctrl+c"],
-		hintWhen: inputClosed,
 		run: (c) => c.quit(),
 	},
 	{
@@ -107,14 +105,12 @@ export const browserBindings: readonly KeyBinding<BrowserCtx>[] = [
 		description: "Toggle sidebar visibility",
 		hint: "sidebar",
 		keys: ["s"],
-		hintWhen: inputClosed,
 		run: (c) => c.toggleShown(),
 	},
 	{
 		id: "filter.open",
 		group: "Sidebar",
 		description: "Filter files (fuzzy match on path)",
-		hint: "filter",
 		keys: ["/"],
 		// Fires from anywhere except inside an already-open filter. `openFilter`
 		// itself force-opens the sidebar and moves focus there, so the binding
@@ -126,21 +122,17 @@ export const browserBindings: readonly KeyBinding<BrowserCtx>[] = [
 		id: "filter.clearOrOpen",
 		group: "Sidebar",
 		description: "Clear filter",
-		hint: "clear",
 		keys: ["ctrl+\\"],
 		// Fires from anywhere outside the filter modal via the keymap.
 		// Inside the filter modal it's intercepted directly in Browser.tsx
 		// (the filter mode owns key handling), but the action is the same —
 		// clear input, keep modal open. Palette branches short-circuit
-		// dispatch in Browser.tsx, so we don't need to gate on them for
-		// behavior; the `hintWhen` gate keeps the footer hint from showing
-		// when there's nothing to clear or when a modal owns the input.
+		// dispatch in Browser.tsx, so we don't need to gate on them here.
 		// Chord chosen over single `\` so the binding works inside the
 		// filter input without colliding with the typed character; ctrl+u
 		// is deliberately left to its reader/sidebar half-page-up role to
 		// avoid overload.
 		when: filterClosed,
-		hintWhen: (c) => filterClosed(c) && !c.paletteOpen && c.filterQuery.length > 0,
 		run: (c) => c.clearAndOpenFilter(),
 	},
 	{
@@ -149,6 +141,7 @@ export const browserBindings: readonly KeyBinding<BrowserCtx>[] = [
 		description: "Command palette",
 		hint: "palette",
 		keys: ["ctrl+p"],
+		hintWhen: () => true,
 		// The filter modal handles this chord directly so the palette can open
 		// while filter input owns the rest of the keyboard. This gate keeps the
 		// normal dispatcher from reopening an already-open palette.
@@ -159,9 +152,9 @@ export const browserBindings: readonly KeyBinding<BrowserCtx>[] = [
 		id: "discovery.toggleAll",
 		group: "Sidebar",
 		description: "Show / hide hidden and gitignored files",
-		// No footer hint: shift+a is help/palette only. The footer hint row is
-		// already at width capacity on narrow viewports, and the toggle isn't
-		// a per-row action you reach for constantly.
+		// No footer hint: shift+a is palette-only. The footer is reserved for
+		// essential app controls, and this is not a per-row action you reach for
+		// constantly.
 		keys: ["shift+a"],
 		// Selection-preservation logic lives in Browser.tsx — see the
 		// `pendingSelectionPath` ref. The toggle itself is session-only and
@@ -172,18 +165,14 @@ export const browserBindings: readonly KeyBinding<BrowserCtx>[] = [
 		id: "reader.wrap.toggle",
 		group: "Global",
 		description: "Toggle reader wrap",
-		hint: "wrap",
 		keys: ["w"],
-		hintWhen: inputClosed,
 		run: (c) => c.toggleWrap(),
 	},
 	{
 		id: "theme.next",
 		group: "Global",
 		description: "Next theme",
-		hint: "theme",
 		keys: ["t"],
-		hintWhen: inputClosed,
 		run: (c) => c.cycleTheme(1),
 	},
 	{
@@ -270,10 +259,8 @@ export const browserBindings: readonly KeyBinding<BrowserCtx>[] = [
 		id: "sidebar.open",
 		group: "Sidebar",
 		description: "Open file (focus reader)",
-		hint: "open",
 		keys: ["return", "right", "l"],
 		when: inSidebar,
-		hintWhen: (c) => inSidebar(c) && hasSelected(c),
 		run: (c) => c.setFocus("reader"),
 	},
 
@@ -284,20 +271,16 @@ export const browserBindings: readonly KeyBinding<BrowserCtx>[] = [
 		id: "serve.current",
 		group: "File",
 		description: "Open current file in browser as HTML",
-		hint: "html",
 		keys: ["shift+o"],
 		when: hasSelected,
-		hintWhen: (c) => inputClosed(c) && hasSelected(c),
 		run: (c) => c.serveCurrent(),
 	},
 	{
 		id: "file.edit",
 		group: "File",
 		description: "Open current file in $EDITOR",
-		hint: "edit",
 		keys: ["shift+e"],
 		when: hasSelected,
-		hintWhen: (c) => inputClosed(c) && hasSelected(c),
 		run: (c) => c.editCurrent(),
 	},
 	{
@@ -307,7 +290,6 @@ export const browserBindings: readonly KeyBinding<BrowserCtx>[] = [
 		id: "reader.prevFile",
 		group: "File",
 		description: "Prev file",
-		hint: "prev",
 		keys: ["["],
 		when: inReaderWithSibling,
 		run: (c) => stepBy(c, -1),
@@ -316,7 +298,6 @@ export const browserBindings: readonly KeyBinding<BrowserCtx>[] = [
 		id: "reader.nextFile",
 		group: "File",
 		description: "Next file",
-		hint: "next",
 		keys: ["]"],
 		when: inReaderWithSibling,
 		run: (c) => stepBy(c, 1),
@@ -327,7 +308,6 @@ export const browserBindings: readonly KeyBinding<BrowserCtx>[] = [
 		id: "reader.back",
 		group: "Reader",
 		description: "Back to sidebar",
-		hint: "back",
 		keys: ["escape", "left", "h"],
 		when: inReader,
 		run: (c) => c.setFocus("sidebar"),
