@@ -6,6 +6,12 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 
 ## [Unreleased]
 
+## [0.4.14] — 2026-06-15
+
+### Added
+
+- Browser header now shows the active discovery root, and empty states reuse the same canonical root label for consistent launch context.
+
 ## [0.4.13] — 2026-06-15
 
 ### Added
@@ -333,7 +339,8 @@ The v1 MVP, published as `@carlesandres/openmdr` on npm.
 
 Search, stdin, URL fetching, cross-file link following, `$EDITOR` hand-off, syntax highlighting, persistent config, OS-appearance auto-detect, single-binary distribution (issue [#2](https://github.com/carlesandres/openmdr/issues/2)), Homebrew tap. All tracked.
 
-[Unreleased]: https://github.com/carlesandres/house/compare/v0.4.13...HEAD
+[Unreleased]: https://github.com/carlesandres/house/compare/v0.4.14...HEAD
+[0.4.14]: https://github.com/carlesandres/house/compare/v0.4.13...v0.4.14
 [0.4.13]: https://github.com/carlesandres/house/compare/v0.4.12...v0.4.13
 [0.4.12]: https://github.com/carlesandres/house/compare/v0.4.11...v0.4.12
 [0.4.11]: https://github.com/carlesandres/house/compare/v0.4.10...v0.4.11
