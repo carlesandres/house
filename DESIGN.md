@@ -369,9 +369,10 @@ A `bun run bench` script checks these against a fixture corpus checked into `tes
 
 ### 10.5 Release / OSS hygiene
 
-- **Distribution: npm-only for now.** Published as `@carlesandres/house`; the user must have Bun on `PATH` (Bun is the runtime, no compiled binary). Modeled on ghui's distribution shape. Trigger: GH release `published` event → `publish.yml` runs `npm publish` via Trusted Publisher.
-- **Single-binary distribution is a follow-up**, not a beta gate. It is attractive (no Bun-on-PATH requirement) but the matrix-build cost and per-OS smoke complexity are real. Tracked as a GitHub issue; revisit when there is concrete user demand for "I want one binary, not npm + bun".
-- **Homebrew tap** still on the list, gated on either npm-only being insufficient or the binary distribution landing first.
+- **Distribution today: npm source package.** Published as `@carlesandres/house`; the current package still requires Bun on `PATH` because the runtime is source executed by Bun. Release publishing is triggered by the GH release `published` event → `publish.yml` runs `npm publish` via Trusted Publisher.
+- **Next distribution work: npm-installed prebuilt binaries.** The trigger has fired: npm install/runtime friction is now a real user-facing problem. Adopt the standard native-package pattern: the main npm package exposes a small Node shim, while `optionalDependencies` provide per-platform compiled packages such as `@carlesandres/house-darwin-arm64` and `@carlesandres/house-linux-x64`. Initial supported targets are macOS arm64/x64 and Linux arm64/x64; Windows remains out of scope until the Windows support epic is resolved.
+- **Standalone binary release artifacts are secondary.** GitHub Release attachments are useful for direct downloads and Homebrew, but npm prebuilt packages solve the current user-facing install path first.
+- **Homebrew tap** waits until the binary pipeline is proven.
 - Semver from v0.1.0 onward; pre-v0.1 may break.
 - Manual `CHANGELOG.md` (Keep-a-Changelog). Changesets remains an option if/when contributors land.
 - CI: typecheck + lint + format:check + test + `npm pack --dry-run` on every PR (`ci.yml`).
