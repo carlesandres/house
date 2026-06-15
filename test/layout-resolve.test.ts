@@ -6,7 +6,6 @@ import {
 	SIDEBAR_MIN_WIDTH,
 	canFitInline,
 	defaultPreferredWidth,
-	initialShownForAuto,
 	resolveSidebarWidth,
 } from "../src/layout/resolve.ts"
 
@@ -54,13 +53,5 @@ describe("defaultPreferredWidth", () => {
 		expect(defaultPreferredWidth(40)).toBe(SIDEBAR_MIN_WIDTH) // 10 floored, clamped up
 		expect(defaultPreferredWidth(160)).toBe(40)
 		expect(defaultPreferredWidth(400)).toBe(SIDEBAR_MAX_WIDTH) // 100 clamped down
-	})
-})
-
-describe("initialShownForAuto", () => {
-	test("always shows the sidebar (narrow: stack-mode sidebar; wide: inline)", () => {
-		expect(initialShownForAuto(40)).toBe(true)
-		expect(initialShownForAuto(80)).toBe(true)
-		expect(initialShownForAuto(200)).toBe(true)
 	})
 })

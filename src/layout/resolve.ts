@@ -50,11 +50,3 @@ export const defaultPreferredWidth = (viewport: number): number =>
  */
 export const canFitInline = (viewport: number): boolean =>
 	viewport >= SIDEBAR_MIN_WIDTH + DIVIDER_WIDTH + READER_MIN_WIDTH
-
-/**
- * Initial sidebar visibility for `--sidebar=auto`. Always true — every
- * viewport now boots on the sidebar (narrow: as the single visible screen;
- * wide: as the focused inline pane). `--sidebar=off` is the only way to
- * boot directly into the reader.
- */
-export const initialShownForAuto = (_viewport: number): boolean => true

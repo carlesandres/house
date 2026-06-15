@@ -69,7 +69,6 @@ house --serve README.md
 | `--no-wrap`          | off               | Start with reader wrapping disabled                                                                          |
 | `--show <list>`      | `""`              | Reveal normally-skipped entries; comma-separated subset of `hidden`, `gitignored`. Use `--show ""` to clear. |
 | `--root <dir>`       | current directory | Discovery root to walk; overrides `defaultRoot` config/env                                                   |
-| `--sidebar <mode>`   | `auto`            | Initial sidebar visibility: `auto`, `on`, or `off`                                                           |
 | `--focus <mode>`     | `sidebar`         | Startup focus: `sidebar`, `reader`, or `filter`. `filter` opens the sidebar filter prompt immediately.       |
 | `--serve`            | off               | Serve the positional path as HTML in the browser (skips TUI)                                                 |
 | `--port <N>`         | OS-assigned       | Port for `--serve`                                                                                           |

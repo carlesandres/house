@@ -110,11 +110,11 @@ resolveSidebarWidth(viewport, preferred) =
 
 Until persistent config (#13) lands, `preferred` is derived from viewport (`floor(width * 0.25)` clamped to `[28, 60]`).
 
-**Launch** — `--sidebar=auto|on|off` initialises `shown`:
-
-- `auto` (default) — `shown=true`. Every viewport boots on the sidebar: narrow as the single visible screen, wide as the focused inline pane.
-- `on` — `shown=true`. Same as `auto` in v1; reserved for future per-pane sticky behaviors.
-- `off` — `shown=false`, focus=reader. Boots into reader (narrow) or reader-only inline (wide). Sidebar still reachable via `s`/`tab`/`/`.
+**Launch** — `shown=true`. Startup sidebar visibility is not a configuration
+surface; every viewport boots with the sidebar visible (narrow: as the single
+visible screen when focused; wide: as the inline navigation pane). After launch,
+`s`, `tab`, and `/` remain the interactive ways to hide, reveal, or focus the
+sidebar.
 
 **Resize** — switching layouts preserves intent:
 

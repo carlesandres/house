@@ -14,7 +14,6 @@ const empty: ParsedArgs = {
 	help: false,
 	version: false,
 	configPath: false,
-	sidebar: null,
 	noUpdateCheck: false,
 	extensions: null,
 	show: null,
@@ -153,21 +152,11 @@ describe("parseArgv — removed flags", () => {
 	test("--sort is NOT a recognised flag", () => {
 		expect(parseArgv(["--sort", "dirs-first"])).toEqual(empty)
 	})
-})
-
-describe("parseArgv — --sidebar", () => {
-	test("captures the value after --sidebar", () => {
-		expect(parseArgv(["--sidebar", "off"])).toEqual(args({ sidebar: "off" }))
+	test("--sidebar is NOT a recognised flag", () => {
+		expect(parseArgv(["--sidebar", "off"])).toEqual(empty)
 	})
-	test("captures unknown sidebar values verbatim (boot validates)", () => {
-		expect(parseArgv(["--sidebar", "maybe"])).toEqual(args({ sidebar: "maybe" }))
-	})
-	test("--sidebar with no value yields null", () => {
-		expect(parseArgv(["--sidebar"])).toEqual(args({ sidebar: null }))
-	})
-	test("--sidebar does not swallow the following flag", () => {
-		// Regression guard: `--sidebar --width 80` must still parse --width.
-		expect(parseArgv(["--sidebar", "--width", "80"])).toEqual(args({ sidebar: null, width: "80" }))
+	test("removed --sidebar does not swallow the following flag", () => {
+		expect(parseArgv(["--sidebar", "--width", "80"])).toEqual(args({ width: "80" }))
 	})
 })
 

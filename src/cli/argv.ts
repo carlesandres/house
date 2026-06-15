@@ -26,8 +26,6 @@ export interface ParsedArgs {
 	readonly version: boolean
 	/** True when `--config-path` was passed: print resolved config path and exit. */
 	readonly configPath: boolean
-	/** Value of `--sidebar <mode>` (`auto`, `on`, `off`), or null. Validated by the boot layer. */
-	readonly sidebar: string | null
 	/** True when `--no-update-check` was passed: suppress the npm-registry
 	 *  probe and the "update available" notice. Mirrors the
 	 *  `NO_UPDATE_NOTIFIER` env var so opt-out is reachable without env state. */
@@ -58,7 +56,6 @@ const createProgram = () =>
 		.option("--serve")
 		.option("--port [N]")
 		.option("--config-path")
-		.option("--sidebar [mode]")
 		.option("--no-update-check")
 		.option("--ext [list]")
 		.option("--focus [mode]")
@@ -73,14 +70,13 @@ const VALUE_FLAGS: ReadonlySet<string> = new Set([
 	"--tone",
 	"--width",
 	"--port",
-	"--sidebar",
 	"--focus",
 	"--show",
 	"--root",
 	"--ext",
 ])
 
-const REMOVED_VALUE_FLAGS: ReadonlySet<string> = new Set(["--sort"])
+const REMOVED_VALUE_FLAGS: ReadonlySet<string> = new Set(["--sort", "--sidebar"])
 
 const BOOLEAN_FLAGS: ReadonlySet<string> = new Set([
 	"--serve",
@@ -138,7 +134,6 @@ export const parseArgv = (argv: readonly string[]): ParsedArgs => {
 		help: opts["help"] === true,
 		version: opts["version"] === true,
 		configPath: opts["configPath"] === true,
-		sidebar: stringOrNull(opts["sidebar"]),
 		noUpdateCheck: opts["noUpdateCheck"] === true,
 		extensions: stringOrNull(opts["ext"]),
 		show: stringOrNull(opts["show"]),
@@ -163,7 +158,6 @@ options:
   --show <list>  reveal normally-skipped entries; comma-separated subset of:
                    hidden, gitignored. Use --show "" to clear.
   --root <dir>   discovery root to walk (overrides defaultRoot config/env)
-  --sidebar <m>  initial sidebar visibility: auto (default), on, or off
   --focus <m>    startup focus: sidebar, reader, or filter (default: sidebar)
   --serve        serve the positional path as HTML in the browser (skips TUI)
   --port <N>     port for --serve (default: OS-assigned)

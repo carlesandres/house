@@ -14,6 +14,7 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 
 - Reader wrapping is now a session mode toggled with `w`: `width` / `--width` defines the fixed wrap width, while `wrap` / `--wrap` / `--no-wrap` controls startup mode. The footer now keeps a persistent `W` indicator for wrap state.
 - The built-in startup focus now defaults to `sidebar` instead of opening the filter prompt immediately; use `--focus filter`, `HOUSE_FOCUS=filter`, or `focus = "filter"` to keep the previous behavior.
+- Removed `--sidebar` as a startup mode; the sidebar now starts visible and remains controlled interactively with `s`, `tab`, and `/` during the session.
 
 ## [0.4.12] — 2026-06-14
 

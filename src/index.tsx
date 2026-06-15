@@ -36,8 +36,6 @@ import { useUpdateNotice } from "./update/useUpdateNotice.ts"
  * `Quit` in Browser tears down the renderer and exits, which propagates
  * naturally — the cleanup effect still fires before process.exit completes.
  */
-export type SidebarMode = "auto" | "on" | "off"
-
 const pathIsDirectory = async (path: string): Promise<boolean> => {
 	try {
 		return (await stat(path)).isDirectory()
@@ -109,7 +107,6 @@ interface DiscoverShellProps {
 	readonly extensions: readonly string[]
 	readonly wrapWidth: number
 	readonly initialWrap: boolean
-	readonly sidebarMode: SidebarMode
 	readonly startupFocus: StartupFocus
 }
 
@@ -120,7 +117,6 @@ export const DiscoverShell = ({
 	extensions,
 	wrapWidth,
 	initialWrap,
-	sidebarMode,
 	startupFocus,
 }: DiscoverShellProps) => {
 	const updateNotice = useUpdateNotice()
@@ -200,7 +196,6 @@ export const DiscoverShell = ({
 			initialWrap={initialWrap}
 			emptyRootLabel={target}
 			discoveryStatus={discoveryStatus}
-			sidebarMode={sidebarMode}
 			startupFocus={startupFocus}
 			updateNotice={updateNotice}
 			onToggleAll={() => {
@@ -371,14 +366,6 @@ if (import.meta.main) {
 		process.on("SIGTERM", shutdown)
 		// Bun.serve keeps the event loop alive until stop().
 	} else {
-		let sidebarMode: SidebarMode = "auto"
-		if (args.sidebar !== null) {
-			if (args.sidebar !== "auto" && args.sidebar !== "on" && args.sidebar !== "off") {
-				console.error(`house: --sidebar must be "auto", "on", or "off", got "${args.sidebar}"`)
-				process.exit(2)
-			}
-			sidebarMode = args.sidebar
-		}
 		if (args.focus !== null) {
 			if (args.focus !== "sidebar" && args.focus !== "reader" && args.focus !== "filter") {
 				console.error(
@@ -396,7 +383,6 @@ if (import.meta.main) {
 			initialWrap,
 			show,
 			extensions,
-			sidebarMode,
 			startupFocus,
 			updateCheck: !args.noUpdateCheck,
 		})
@@ -412,7 +398,6 @@ interface TuiBootOptions {
 	readonly initialWrap: boolean
 	readonly show: readonly ShowCategory[]
 	readonly extensions: readonly string[]
-	readonly sidebarMode: SidebarMode
 	readonly startupFocus: StartupFocus
 	/** Run the npm-registry probe and surface the "update available" notice.
 	 *  False suppresses both the toast and the quit-time print. */
@@ -428,7 +413,6 @@ async function runTui({
 	initialWrap,
 	show,
 	extensions,
-	sidebarMode,
 	startupFocus,
 	updateCheck,
 }: TuiBootOptions): Promise<void> {
@@ -473,7 +457,6 @@ async function runTui({
 				extensions={extensions}
 				wrapWidth={wrapWidth}
 				initialWrap={initialWrap}
-				sidebarMode={sidebarMode}
 				startupFocus={startupFocus}
 			/>
 		</RegistryProvider>,

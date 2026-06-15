@@ -30,12 +30,7 @@ import { openInEditor, resolveEditor } from "./io/editor.ts"
 import { readFileText } from "./io/readFile.ts"
 import { browserBindings, type BrowserCtx } from "./keymap/browser.ts"
 import { dispatch } from "./keymap/keymap.ts"
-import {
-	canFitInline,
-	defaultPreferredWidth,
-	initialShownForAuto,
-	resolveSidebarWidth,
-} from "./layout/resolve.ts"
+import { canFitInline, defaultPreferredWidth, resolveSidebarWidth } from "./layout/resolve.ts"
 import { fitSidebarEmptyValue } from "./layout/sidebarEmptyState.ts"
 import { formatSidebarRow } from "./layout/sidebarRow.ts"
 import { PromptRow } from "./PromptRow.tsx"
@@ -49,7 +44,6 @@ import { themeDefinitions, getThemeDefinition } from "./theme/registry.ts"
 import { saveThemePreference } from "./config/save.ts"
 import { middleTruncate } from "./ui/middleTruncate.ts"
 
-export type SidebarMode = "auto" | "on" | "off"
 export type StartupFocus = "sidebar" | "reader" | "filter"
 
 export interface BrowserProps {
@@ -77,9 +71,6 @@ export interface BrowserProps {
 	readonly renderedPathDebounceMs?: number
 	/** Test seam: disable reader-empty-state tip rotation effect. */
 	readonly disableReaderEmptyStateRotation?: boolean
-	/** Initial sidebar visibility (`--sidebar` flag). `auto` consults the
-	 *  launch viewport bucket once; subsequent visibility goes through `s`. */
-	readonly sidebarMode?: SidebarMode
 	readonly onQuit?: () => void
 	/** Test seam: replaces the file reader. */
 	readonly readFile?: (path: string) => Promise<string>
@@ -204,7 +195,6 @@ export const Browser = ({
 	filterDebounceMs = FILTER_DEBOUNCE_MS,
 	renderedPathDebounceMs = RENDERED_PATH_DEBOUNCE_MS,
 	disableReaderEmptyStateRotation = false,
-	sidebarMode = "auto",
 	onQuit,
 	readFile = defaultReadFile,
 	copyToClipboard = copyTextToClipboard,
@@ -226,22 +216,10 @@ export const Browser = ({
 	const [wrapEnabled, setWrapEnabled] = useState(initialWrap)
 	const [loaded, setLoaded] = useState<{ path: string; content: string } | null>(null)
 	const [error, setError] = useState<string | null>(null)
-	// `shown` is the user's sticky preference. Visibility is derived:
-	// `visible = shown || focus === "sidebar"`. See DESIGN.md §7.1.
-	//
-	// Launch consults the viewport bucket once for `--sidebar=auto`. The
-	// useState initializer pins this to the first render — buckets are
-	// launch-only by design, so resize must NOT re-evaluate.
-	const [shown, setShown] = useState<boolean>(() => {
-		switch (sidebarMode) {
-			case "on":
-				return true
-			case "off":
-				return false
-			case "auto":
-				return initialShownForAuto(width)
-		}
-	})
+	// `shown` is the user's sticky interactive preference. The sidebar starts
+	// visible; after launch, `s`/`tab`/`/` may hide or reveal it. Visibility is
+	// derived: `visible = shown || focus === "sidebar"`. See DESIGN.md §7.1.
+	const [shown, setShown] = useState<boolean>(true)
 	const startInFilter = startupFocus === "filter"
 	const initialFocus: "sidebar" | "reader" =
 		startupFocus === null
@@ -253,13 +231,12 @@ export const Browser = ({
 				: "sidebar"
 	// `filter` mirrors `openFilter`'s focus rule: the filter input lives in
 	// the sidebar, so opening it on mount also forces sidebar focus regardless
-	// of `--sidebar=off` (§7.1's visibility derivation surfaces the sidebar via
-	// focus even when `shown` is false). Plain `sidebar` startup shares the
-	// same pane focus without opening the prompt. When omitted, preserve the
-	// legacy Browser behavior: initial focus follows visibility.
-	const [focus, setFocus] = useState<"sidebar" | "reader">(() =>
-		shown || initialFocus === "sidebar" ? "sidebar" : "reader",
-	)
+	// of the current interactive visibility state (§7.1's visibility derivation
+	// surfaces the sidebar via focus even when `shown` is false). Plain
+	// `sidebar` startup shares the same pane focus without opening the prompt.
+	// When omitted, preserve the legacy Browser behavior: initial focus follows
+	// visibility.
+	const [focus, setFocus] = useState<"sidebar" | "reader">(() => initialFocus)
 	const [sidebarScroll, setSidebarScroll] = useState<number>(0)
 	const [filterOpen, setFilterOpen] = useState<boolean>(startInFilter)
 	const [filterInput, setFilterInput] = useState<string>(initialQuery)
