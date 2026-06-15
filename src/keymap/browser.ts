@@ -41,6 +41,10 @@ export interface BrowserCtx {
 	/** Suspend the TUI, hand the TTY to `$EDITOR`, resume and re-read on
 	 *  exit. No-op when nothing is selected; gating is the binding's job. */
 	readonly editCurrent: () => void
+	/** Copy the currently-selected file's raw contents to the system
+	 *  clipboard. No-op when nothing is selected; palette gating is the
+	 *  primary availability control. */
+	readonly copyCurrentContents: () => void
 	/** Toggle hidden + gitignored discovery axes together (#145 — UI sugar
 	 *  for `shift+a`; the underlying flags stay independent everywhere
 	 *  else). Snapshots the current selected path so it can be restored

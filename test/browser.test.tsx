@@ -3406,6 +3406,103 @@ describe("Browser — command palette", () => {
 		expect(quitCalls).toBe(1)
 	})
 
+	test("Return runs Copy file contents and copies the selected file's raw contents", async () => {
+		const copied: string[] = []
+		const files = makeFiles(["README.md"])
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={files}
+					readFile={makeReader({ "README.md": "# Read me\n\nBody\n" })}
+					copyToClipboard={async (text) => {
+						copied.push(text)
+					}}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		await act(async () => {
+			setup!.mockInput.pressKey("p", { ctrl: true })
+			for (const key of "copy file contents") setup!.mockInput.pressKey(key)
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).toContain("Copy file contents")
+
+		await act(async () => {
+			setup!.mockInput.pressEnter()
+			await new Promise<void>((resolve) => setTimeout(resolve, 1))
+		})
+		await stepFrame(setup!.renderOnce)
+
+		expect(copied).toEqual(["# Read me\n\nBody\n"])
+		expect(setup!.captureCharFrame()).toContain("copied README.md")
+	})
+
+	test("Copy file contents shows a specific clipboard failure notice", async () => {
+		const files = makeFiles(["README.md"])
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={files}
+					readFile={makeReader({ "README.md": "# Read me\n" })}
+					copyToClipboard={async () => {
+						throw new Error("no clipboard tool found")
+					}}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		await act(async () => {
+			setup!.mockInput.pressKey("p", { ctrl: true })
+			for (const key of "copy file contents") setup!.mockInput.pressKey(key)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		await act(async () => {
+			setup!.mockInput.pressEnter()
+			await new Promise<void>((resolve) => setTimeout(resolve, 1))
+		})
+		const frame = await waitForFrameContaining("copy failed: no clipboard tool found")
+		expect(frame).toContain("copy failed: no clipboard tool found")
+	})
+
+	test("Copy file contents shows a specific read failure notice", async () => {
+		const files = makeFiles(["README.md"])
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={files}
+					readFile={async () => Promise.reject(new Error("ENOENT"))}
+					copyToClipboard={async () => {
+						throw new Error("should not reach clipboard")
+					}}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		await act(async () => {
+			setup!.mockInput.pressKey("p", { ctrl: true })
+			for (const key of "copy file contents") setup!.mockInput.pressKey(key)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		await act(async () => {
+			setup!.mockInput.pressEnter()
+			await new Promise<void>((resolve) => setTimeout(resolve, 1))
+		})
+		const frame = await waitForFrameContaining("copy failed: cannot read README.md")
+		expect(frame).toContain("copy failed: cannot read README.md")
+	})
+
 	test("Return runs the highlighted grouped command", async () => {
 		let quitCalls = 0
 		const files = makeFiles(["README.md"])
