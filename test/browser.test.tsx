@@ -1452,7 +1452,8 @@ describe("Browser — footer", () => {
 		frame = setup!.captureCharFrame()
 		spans = setup!.captureSpans()
 		expect(frame.split("\n")[footerRow]).toContain(" W ")
-		expect(fgAt(spans, footerRow, 2)?.equals(RGBA.fromHex(colors.info))).toBe(true)
+		expect(bgAt(spans, footerRow, 2)?.equals(RGBA.fromHex(colors.info))).toBe(true)
+		expect(fgAt(spans, footerRow, 2)?.equals(RGBA.fromHex(colors.backgroundPanel))).toBe(true)
 	})
 
 	test("switches to reader-specific hints when focus moves to the reader", async () => {

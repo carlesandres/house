@@ -27,23 +27,29 @@ export const StatusIndicator = ({
 	variant = "info",
 	active = true,
 	onMouseUp,
-}: StatusIndicatorProps) => (
-	<box
-		{...(onMouseUp === undefined ? {} : { onMouseUp })}
-		style={{
-			width: 3,
-			height: 1,
-			flexDirection: "row",
-			backgroundColor: colors.backgroundElement,
-		}}
-	>
-		<text
-			content={` ${icon} `}
-			wrapMode="none"
+}: StatusIndicatorProps) => {
+	const activeColor = statusIndicatorFg(variant)
+	const backgroundColor = active ? activeColor : colors.backgroundElement
+
+	return (
+		<box
+			{...(onMouseUp === undefined ? {} : { onMouseUp })}
 			style={{
-				fg: active ? statusIndicatorFg(variant) : colors.textMuted,
-				attributes: active ? 1 : 0,
+				width: 3,
+				height: 1,
+				flexDirection: "row",
+				backgroundColor,
 			}}
-		/>
-	</box>
-)
+		>
+			<text
+				content={` ${icon} `}
+				wrapMode="none"
+				style={{
+					fg: active ? colors.backgroundPanel : colors.textMuted,
+					bg: backgroundColor,
+					attributes: active ? 1 : 0,
+				}}
+			/>
+		</box>
+	)
+}
