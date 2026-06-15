@@ -50,11 +50,12 @@ const makeCtx = (o: CtxOverrides = {}): BrowserCtx => ({
 	openPalette: noop,
 	cycleTheme: noop,
 	toggleTone: noop,
-	quit: noop,
-	serveCurrent: o.onServe ?? noop,
-	editCurrent: o.onEdit ?? noop,
-	toggleAll: noop,
-})
+		quit: noop,
+		serveCurrent: o.onServe ?? noop,
+		editCurrent: o.onEdit ?? noop,
+		copyCurrentContents: noop,
+		toggleAll: noop,
+	})
 
 const k = (name: string, mods: Partial<KeyMatch> = {}): KeyMatch => ({
 	name,

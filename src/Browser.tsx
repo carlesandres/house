@@ -25,6 +25,7 @@ import { parseFrontmatter } from "./markdown/frontmatter.ts"
 import { BRAND, BRAND_NAME } from "./brand.ts"
 import { Footer, FOOTER_HEIGHT, type FooterProps } from "./Footer.tsx"
 import { Header, HEADER_HEIGHT } from "./Header.tsx"
+import { copyTextToClipboard } from "./io/clipboard.ts"
 import { openInEditor, resolveEditor } from "./io/editor.ts"
 import { readFileText } from "./io/readFile.ts"
 import { browserBindings, type BrowserCtx } from "./keymap/browser.ts"
@@ -80,6 +81,8 @@ export interface BrowserProps {
 	readonly onQuit?: () => void
 	/** Test seam: replaces the file reader. */
 	readonly readFile?: (path: string) => Promise<string>
+	/** Test seam: replaces the system clipboard writer. */
+	readonly copyToClipboard?: (text: string) => Promise<void>
 	/** Optional one-shot footer toast surfaced on first appearance (e.g. the
 	 *  "update available" nudge). Shown with an extended TTL so the user has
 	 *  time to read it; subsequent transient toasts (theme cycle, etc.)
@@ -201,6 +204,7 @@ export const Browser = ({
 	sidebarMode = "auto",
 	onQuit,
 	readFile = defaultReadFile,
+	copyToClipboard = copyTextToClipboard,
 	updateNotice = null,
 	updateNoticeTtlMs = 10000,
 	disableFooterNoticeAutoClear = false,
@@ -671,6 +675,26 @@ export const Browser = ({
 					} else if (result.reason === "non-zero") {
 						pushFooterNotice(`editor exited ${result.detail}`)
 					}
+				}
+			})()
+		},
+		copyCurrentContents: () => {
+			const file = displayedFiles[selectedIndex]
+			if (!file) return
+			void (async () => {
+				let text: string
+				try {
+					text = await readFile(file.path)
+				} catch {
+					pushFooterNotice(`copy failed: cannot read ${file.relativePath}`)
+					return
+				}
+				try {
+					await copyToClipboard(text)
+					pushFooterNotice(`copied ${file.relativePath}`)
+				} catch (err) {
+					const message = err instanceof Error ? err.message : String(err)
+					pushFooterNotice(`copy failed: ${message}`)
 				}
 			})()
 		},

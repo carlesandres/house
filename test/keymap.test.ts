@@ -155,6 +155,7 @@ describe("browserBindings — discovery.toggleAll", () => {
 		quit: noop,
 		serveCurrent: noop,
 		editCurrent: noop,
+		copyCurrentContents: noop,
 		toggleAll: noop,
 		...overrides,
 	})
@@ -223,6 +224,7 @@ describe("browserBindings — discovery.toggleAll", () => {
 		expect(readerIds.has("reader.nextFile")).toBe(true)
 		expect(readerIds.has("serve.current")).toBe(true)
 		expect(readerIds.has("file.edit")).toBe(true)
+		expect(readerIds.has("file.copyContents")).toBe(true)
 		expect(sidebarIds.has("sidebar.down")).toBe(true)
 		expect(sidebarIds.has("sidebar.up")).toBe(true)
 		expect(sidebarIds.has("sidebar.jumpDown")).toBe(true)
@@ -250,5 +252,15 @@ describe("browserBindings — discovery.toggleAll", () => {
 		)
 
 		expect(invalid.map((command) => command.id)).toEqual([])
+	})
+
+	test("palette-only copy command is hidden when there is no selected file", async () => {
+		const { buildCommands } = await import("../src/commands/buildCommands.ts")
+		const ids = new Set(
+			buildCommands(stubCtx({ files: [{ path: "/v/0.md", relativePath: "0.md", name: "0.md" }], hasSelected: false })).map(
+				(c) => c.id,
+			),
+		)
+		expect(ids.has("file.copyContents")).toBe(false)
 	})
 })

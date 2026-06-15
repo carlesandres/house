@@ -6,6 +6,10 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 
 ## [Unreleased]
 
+### Added
+
+- Command palette now includes a `Copy file contents` action for the selected markdown file, copying the exact on-disk text to the system clipboard on macOS and Linux.
+
 ## [0.4.12] — 2026-06-14
 
 ### Fixed

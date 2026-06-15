@@ -13,4 +13,15 @@
 import type { BrowserCtx } from "../keymap/browser.ts"
 import type { AppCommand } from "./types.ts"
 
-export const paletteOnlyCommands = (_ctx: BrowserCtx): readonly AppCommand[] => []
+export const paletteOnlyCommands = (ctx: BrowserCtx): readonly AppCommand[] =>
+	ctx.hasSelected
+		? [
+				{
+					id: "file.copyContents",
+					title: "Copy file contents",
+					category: "File",
+					keywords: ["copy", "clipboard", "contents", "markdown"],
+					run: () => ctx.copyCurrentContents(),
+				},
+			]
+		: []
