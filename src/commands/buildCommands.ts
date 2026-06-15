@@ -55,6 +55,7 @@ const annotations: Record<string, Annotation> = {
 		keywords: ["hidden", "gitignore", "dotfiles", "all"],
 	},
 	"reader.back": { title: "Back to sidebar", category: "Navigation" },
+	"reader.wrap.toggle": { title: "Toggle reader wrap", category: "View" },
 	"reader.prevFile": { title: "Previous file", category: "Navigation" },
 	"reader.nextFile": { title: "Next file", category: "Navigation" },
 	"serve.current": { title: "Open in browser", category: "File" },

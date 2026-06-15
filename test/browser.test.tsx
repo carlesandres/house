@@ -955,7 +955,8 @@ describe("Browser — #22 layout v2", () => {
 						initialQuery=""
 						initialShow={[]}
 						extensions={[]}
-						maxWidth={null}
+						wrapWidth={80}
+						initialWrap={false}
 						sidebarMode="auto"
 						startupFocus="sidebar"
 					/>
@@ -986,7 +987,8 @@ describe("Browser — #22 layout v2", () => {
 							initialQuery=""
 							initialShow={[]}
 							extensions={[]}
-							maxWidth={null}
+							wrapWidth={80}
+							initialWrap={false}
 							sidebarMode="auto"
 							startupFocus="sidebar"
 						/>
@@ -1420,6 +1422,39 @@ describe("Browser — footer", () => {
 		expect(frame).not.toContain("] next")
 	})
 
+	test("shows a persistent wrap indicator and toggles it with w", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={makeFiles(["a.md"])}
+					readFile={makeReader({ "a.md": "x" })}
+					initialWrap={false}
+					wrapWidth={80}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		let frame = setup!.captureCharFrame()
+		let spans = setup!.captureSpans()
+		const footerRow = VIEWPORT.height - 1
+		expect(frame.split("\n")[footerRow]).toContain(" W ")
+		expect(frame).toContain("w wrap")
+		expect(fgAt(spans, footerRow, 2)?.equals(RGBA.fromHex(colors.textMuted))).toBe(true)
+
+		await act(async () => {
+			setup!.mockInput.pressKey("w")
+		})
+		await stepFrame(setup!.renderOnce)
+
+		frame = setup!.captureCharFrame()
+		spans = setup!.captureSpans()
+		expect(frame.split("\n")[footerRow]).toContain(" W ")
+		expect(fgAt(spans, footerRow, 2)?.equals(RGBA.fromHex(colors.info))).toBe(true)
+	})
+
 	test("switches to reader-specific hints when focus moves to the reader", async () => {
 		// Needs ≥2 files for the `[`/`]` prev/next hints to appear — they're
 		// gated on `inReaderWithSibling` (#115) so a one-file vault hides
@@ -1496,8 +1531,9 @@ describe("Browser — footer", () => {
 
 		const frame = setup!.captureCharFrame()
 		expect(frame).toContain("theme:")
-		// hint row is replaced while the notice is live.
+		// hint row is replaced while the notice is live, but persistent indicators remain.
 		expect(frame).not.toContain("q quit")
+		expect(frame.split("\n")[VIEWPORT.height - 1]).toContain(" W ")
 	})
 
 	test("falls back to the first key when no full hint fits", async () => {

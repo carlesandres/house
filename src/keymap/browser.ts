@@ -23,6 +23,7 @@ export interface BrowserCtx {
 	 *  hint gate so the hint only appears when there is something to clear. */
 	readonly filterQuery: string
 	readonly paletteOpen: boolean
+	readonly wrapEnabled: boolean
 	readonly setFocus: (next: BrowserFocus | ((prev: BrowserFocus) => BrowserFocus)) => void
 	readonly setSelectedIndex: (updater: (prev: number) => number) => void
 	/** Toggle `shown` and adjust focus per DESIGN.md §7.1 (see s-behavior table). */
@@ -33,6 +34,7 @@ export interface BrowserCtx {
 	 *  without first reopening with `/` and backspacing. */
 	readonly clearAndOpenFilter: () => void
 	readonly openPalette: () => void
+	readonly toggleWrap: () => void
 	readonly cycleTheme: (delta: 1 | -1) => void
 	readonly toggleTone: () => void
 	readonly quit: () => void
@@ -165,6 +167,15 @@ export const browserBindings: readonly KeyBinding<BrowserCtx>[] = [
 		// `pendingSelectionPath` ref. The toggle itself is session-only and
 		// does not write back to the TOML config.
 		run: (c) => c.toggleAll(),
+	},
+	{
+		id: "reader.wrap.toggle",
+		group: "Global",
+		description: "Toggle reader wrap",
+		hint: "wrap",
+		keys: ["w"],
+		hintWhen: inputClosed,
+		run: (c) => c.toggleWrap(),
 	},
 	{
 		id: "theme.next",

@@ -12,6 +12,10 @@ export interface ParsedArgs {
 	readonly tone: string | null
 	/** Value of `--width <N>`, or null. Validated by the boot layer (must be a positive integer). */
 	readonly width: string | null
+	/** Startup reader wrap override. Null means config/env/default decides. */
+	readonly wrap: boolean | null
+	/** True when both `--wrap` and `--no-wrap` were passed. */
+	readonly wrapConflict: boolean
 	/** True when `--serve` was passed: serve the positional path as HTML, skip TUI. */
 	readonly serve: boolean
 	/** Value of `--port <N>`, or null. Validated by the boot layer. */
@@ -49,6 +53,8 @@ const createProgram = () =>
 		.option("--theme [id]")
 		.option("--tone [mode]")
 		.option("--width [N]")
+		.option("--wrap")
+		.option("--no-wrap")
 		.option("--serve")
 		.option("--port [N]")
 		.option("--config-path")
@@ -80,6 +86,8 @@ const BOOLEAN_FLAGS: ReadonlySet<string> = new Set([
 	"--serve",
 	"--config-path",
 	"--no-update-check",
+	"--wrap",
+	"--no-wrap",
 	"--help",
 	"-h",
 	"--version",
@@ -114,6 +122,8 @@ export const parseArgv = (argv: readonly string[]): ParsedArgs => {
 	const opts = program.opts<Record<string, unknown>>()
 	const pathArg = findPathArg(argv)
 	const stringOrNull = (value: unknown): string | null => (typeof value === "string" ? value : null)
+	const hasWrap = argv.includes("--wrap")
+	const hasNoWrap = argv.includes("--no-wrap")
 
 	return {
 		path: typeof pathArg === "string" ? pathArg : null,
@@ -121,6 +131,8 @@ export const parseArgv = (argv: readonly string[]): ParsedArgs => {
 		theme: stringOrNull(opts["theme"]),
 		tone: stringOrNull(opts["tone"]),
 		width: stringOrNull(opts["width"]),
+		wrap: hasWrap ? true : hasNoWrap ? false : null,
+		wrapConflict: hasWrap && hasNoWrap,
 		serve: opts["serve"] === true,
 		port: stringOrNull(opts["port"]),
 		help: opts["help"] === true,
@@ -145,7 +157,9 @@ export const usage = `usage:
 options:
   --theme <id>   color theme: ${themeList} (default: opencode)
   --tone <mode>  dark or light (default: dark)
-  --width <N>    cap rendered markdown width at N columns
+  --width <N>    reader wrap width used when wrapping is enabled (default: 80)
+  --wrap         start with reader wrapping enabled
+  --no-wrap      start with reader wrapping disabled
   --show <list>  reveal normally-skipped entries; comma-separated subset of:
                    hidden, gitignored. Use --show "" to clear.
   --root <dir>   discovery root to walk (overrides defaultRoot config/env)
@@ -166,6 +180,6 @@ examples:
 
 configuration:
   file: $XDG_CONFIG_HOME/house/config.toml  (default ~/.config/house/config.toml)
-	  keys: theme, tone, extensions, show, focus, defaultRoot
-	  env:  HOUSE_THEME, HOUSE_TONE, HOUSE_EXTENSIONS, HOUSE_SHOW, HOUSE_FOCUS, HOUSE_DEFAULT_ROOT
+	  keys: theme, tone, width, wrap, extensions, show, focus, defaultRoot
+	  env:  HOUSE_THEME, HOUSE_TONE, HOUSE_WIDTH, HOUSE_WRAP, HOUSE_EXTENSIONS, HOUSE_SHOW, HOUSE_FOCUS, HOUSE_DEFAULT_ROOT
   precedence (high → low): flags → env → file → defaults`

@@ -107,7 +107,8 @@ interface DiscoverShellProps {
 	 *  independent everywhere else. */
 	readonly initialShow: readonly ShowCategory[]
 	readonly extensions: readonly string[]
-	readonly maxWidth: number | null
+	readonly wrapWidth: number
+	readonly initialWrap: boolean
 	readonly sidebarMode: SidebarMode
 	readonly startupFocus: StartupFocus
 }
@@ -117,7 +118,8 @@ export const DiscoverShell = ({
 	initialQuery,
 	initialShow,
 	extensions,
-	maxWidth,
+	wrapWidth,
+	initialWrap,
 	sidebarMode,
 	startupFocus,
 }: DiscoverShellProps) => {
@@ -194,7 +196,8 @@ export const DiscoverShell = ({
 		<Browser
 			files={files}
 			initialQuery={initialQuery}
-			maxWidth={maxWidth}
+			wrapWidth={wrapWidth}
+			initialWrap={initialWrap}
 			emptyRootLabel={target}
 			discoveryStatus={discoveryStatus}
 			sidebarMode={sidebarMode}
@@ -240,6 +243,14 @@ if (import.meta.main) {
 		console.log(usage)
 		process.exit(0)
 	}
+	if (args.wrapConflict) {
+		console.error("house: --wrap and --no-wrap cannot be used together")
+		process.exit(2)
+	}
+	if (Bun.argv.slice(2).includes("--width") && args.width === null) {
+		console.error("house: --width requires a positive integer")
+		process.exit(2)
+	}
 	if (args.version) {
 		console.log(pkg.version)
 		process.exit(0)
@@ -282,13 +293,34 @@ if (import.meta.main) {
 					args.focus === "sidebar" || args.focus === "reader" || args.focus === "filter"
 						? args.focus
 						: null,
+				width:
+					args.width === null
+						? null
+						: (() => {
+								const n = Number.parseInt(args.width, 10)
+								if (!/^\d+$/.test(args.width) || !Number.isSafeInteger(n) || n <= 0) {
+									console.error(`house: --width must be a positive integer, got "${args.width}"`)
+									process.exit(2)
+								}
+								return n
+							})(),
+				wrap: args.wrap,
 			},
 		}),
 	).catch((err: unknown) => {
 		console.error(`house: ${formatConfigError(err)}`)
 		process.exit(2)
 	})
-	const { theme: themeId, tone, extensions, show, focus: startupFocus, defaultRoot } = config
+	const {
+		theme: themeId,
+		tone,
+		extensions,
+		show,
+		focus: startupFocus,
+		defaultRoot,
+		width: wrapWidth,
+		wrap: initialWrap,
+	} = config
 	const themeDef = getThemeDefinition(themeId)
 	if (themeDef === undefined) {
 		// Unreachable: Config.schema validated themeId against themeDefinitions.
@@ -296,16 +328,6 @@ if (import.meta.main) {
 		process.exit(2)
 	}
 	setActiveTheme(themeDef, tone)
-
-	let maxWidth: number | null = null
-	if (args.width !== null) {
-		const n = Number.parseInt(args.width, 10)
-		if (!Number.isFinite(n) || n <= 0) {
-			console.error(`house: --width must be a positive integer, got "${args.width}"`)
-			process.exit(2)
-		}
-		maxWidth = n
-	}
 
 	const cwd = process.cwd()
 	const discoveryRoot = await resolveDiscoveryRoot({ cliRoot: args.root, defaultRoot, cwd })
@@ -370,7 +392,8 @@ if (import.meta.main) {
 			initialQuery,
 			themeId,
 			tone,
-			maxWidth,
+			wrapWidth,
+			initialWrap,
 			show,
 			extensions,
 			sidebarMode,
@@ -385,7 +408,8 @@ interface TuiBootOptions {
 	readonly initialQuery: string
 	readonly themeId: string
 	readonly tone: "dark" | "light"
-	readonly maxWidth: number | null
+	readonly wrapWidth: number
+	readonly initialWrap: boolean
 	readonly show: readonly ShowCategory[]
 	readonly extensions: readonly string[]
 	readonly sidebarMode: SidebarMode
@@ -400,7 +424,8 @@ async function runTui({
 	initialQuery,
 	themeId,
 	tone,
-	maxWidth,
+	wrapWidth,
+	initialWrap,
 	show,
 	extensions,
 	sidebarMode,
@@ -446,7 +471,8 @@ async function runTui({
 				initialQuery={initialQuery}
 				initialShow={show}
 				extensions={extensions}
-				maxWidth={maxWidth}
+				wrapWidth={wrapWidth}
+				initialWrap={initialWrap}
 				sidebarMode={sidebarMode}
 				startupFocus={startupFocus}
 			/>

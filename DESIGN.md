@@ -50,7 +50,7 @@ v1 ships when:
 3. Selecting a file renders it in the reader pane with support for: headings, paragraphs, lists (ordered, unordered, nested), blockquotes, GFM tables, inline emphasis (bold, italic, and strike — strike rendered as dim/muted because opentui's syntax-style API has no strikethrough attribute), inline code, links (rendered, not followed), images-as-alt-text, horizontal rules, fenced code blocks, including language-tagged fences.
 4. The keymap in §7.2 works end-to-end, including the help overlay.
 5. Dark and light themes ship; `--theme dark|light` selects (default `dark`). Terminal-background auto-detect is deferred to beta (§12).
-6. `--width N` controls word-wrap column.
+6. `width` / `--width N` controls the reader wrap column (default 80), while `wrap` / `--wrap` / `--no-wrap` controls whether the session starts with fixed-width reader wrapping enabled. During a session, `w` toggles between the fixed wrap width and filling the reader pane.
 7. The app builds as a Bun standalone binary (host platform) with a smoke test on the binary. npm package and cross-target binaries are deferred to beta (§10.5).
 8. `README.md` covers install + run; `DESIGN.md` reflects shipped behavior.
 

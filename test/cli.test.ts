@@ -7,6 +7,8 @@ const empty: ParsedArgs = {
 	theme: null,
 	tone: null,
 	width: null,
+	wrap: null,
+	wrapConflict: false,
 	serve: false,
 	port: null,
 	help: false,
@@ -71,6 +73,9 @@ describe("parseArgv — --width", () => {
 	test("captures non-numeric values verbatim (boot validates)", () => {
 		expect(parseArgv(["--width", "wide"])).toEqual(args({ width: "wide" }))
 	})
+	test("bare --width yields null so boot can report the required value", () => {
+		expect(parseArgv(["--width"])).toEqual(args({ width: null }))
+	})
 })
 
 describe("parseArgv — boolean flags", () => {
@@ -84,6 +89,13 @@ describe("parseArgv — boolean flags", () => {
 	})
 	test("--config-path is parsed as boolean", () => {
 		expect(parseArgv(["--config-path"])).toEqual(args({ configPath: true }))
+	})
+	test("--wrap and --no-wrap set startup wrap overrides", () => {
+		expect(parseArgv(["--wrap"])).toEqual(args({ wrap: true }))
+		expect(parseArgv(["--no-wrap"])).toEqual(args({ wrap: false }))
+		expect(parseArgv(["--wrap", "--no-wrap"])).toEqual(
+			args({ wrap: true, wrapConflict: true }),
+		)
 	})
 	test("--ext is parsed as a string value", () => {
 		expect(parseArgv(["--ext", "note,txt"])).toEqual(args({ extensions: "note,txt" }))

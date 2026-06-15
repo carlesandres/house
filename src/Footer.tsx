@@ -24,6 +24,7 @@ import type React from "react"
 import type { KeyBinding } from "./keymap/keymap.ts"
 import { displayKey } from "./keymap/displayKey.ts"
 import { Spinner } from "./Spinner.tsx"
+import { StatusIndicator, type StatusIndicatorProps } from "./StatusIndicator.tsx"
 import { colors } from "./theme/colors.ts"
 
 /** Rows the Footer occupies. Importers use it for layout math so a future
@@ -39,6 +40,8 @@ export interface FooterProps<C> {
 	 *  no TTL, cleared by the caller when the underlying activity finishes.
 	 *  Loses to `notice` when both are set so transient toasts still surface. */
 	readonly discoveryStatus?: string | null
+	/** Persistent compact state/status indicators, rendered after built-in warning indicators. */
+	readonly indicators?: readonly (StatusIndicatorProps & { readonly id: string })[]
 	/** Test seam: override spinner tick speed so tests don't sleep on the full
 	 *  production interval. Ignored when discoveryStatus is null. */
 	readonly discoverySpinnerIntervalMs?: number
@@ -96,6 +99,7 @@ export const Footer = <C,>({
 	width,
 	notice,
 	discoveryStatus,
+	indicators = [],
 	discoverySpinnerIntervalMs,
 	discoverySpinnerInitialFrameIndex,
 	discoverySpinnerRegisterTick,
@@ -130,19 +134,39 @@ export const Footer = <C,>({
 	const status =
 		discoveryStatus && discoveryStatus.length > 0 ? normalizeStatusLine(discoveryStatus) : null
 	const isPartialWarning = isPartialDiscoveryWarning(status)
+	const renderedIndicators = [
+		...(isPartialWarning
+			? [
+					{
+						id: "discovery-warning",
+						icon: "!",
+						variant: "warning" as const,
+						active: true,
+						...(onDiscoveryWarningToggle === undefined
+							? {}
+							: { onMouseUp: onDiscoveryWarningToggle }),
+					},
+				]
+			: []),
+		...indicators,
+	]
+	const indicatorBudget = Math.min(usableWidth, renderedIndicators.length * 3)
+	const contentBudget = Math.max(0, usableWidth - indicatorBudget)
 	const statusBudget = status
-		? Math.min((isPartialWarning ? 1 : status.length) + STATUS_SEPARATOR.length, usableWidth)
+		? Math.min((isPartialWarning ? 0 : status.length) + STATUS_SEPARATOR.length, contentBudget)
 		: 0
-	const hintsWidth = Math.max(0, usableWidth - statusBudget)
+	const hintsWidth = Math.max(0, contentBudget - statusBudget)
 	const visibleHints = fitHints(hints, hintsWidth)
 	const statusContent = status
 		? status.slice(0, Math.max(0, statusBudget - STATUS_SEPARATOR.length))
 		: ""
 	const noticeContent = notice
-		? notice.length > usableWidth
-			? notice.slice(0, usableWidth)
+		? notice.length > contentBudget
+			? notice.slice(0, contentBudget)
 			: notice
 		: null
+	const renderIndicators = () =>
+		renderedIndicators.map(({ id, ...props }) => <StatusIndicator key={id} {...props} />)
 
 	// Two-tone hint row: keys render in `text` (foreground-strength), the
 	// `:label` portion in `textMuted`. Matches ghui's footer treatment so
@@ -177,24 +201,11 @@ export const Footer = <C,>({
 	if (noticeContent !== null) {
 		return (
 			<box style={rowStyle}>
+				{renderIndicators()}
 				<text content={noticeContent} wrapMode="none" style={{ fg: colors.primary }} />
 			</box>
 		)
 	}
-
-	const warningTrigger = isPartialWarning ? (
-		<box
-			{...(onDiscoveryWarningToggle === undefined ? {} : { onMouseUp: onDiscoveryWarningToggle })}
-			style={{
-				width: 1,
-				height: 1,
-				flexDirection: "row",
-				backgroundColor: colors.backgroundElement,
-			}}
-		>
-			<text content="!" wrapMode="none" style={{ fg: colors.warning, attributes: 1 }} />
-		</box>
-	) : null
 
 	if (status !== null) {
 		const spinnerProps = {
@@ -212,20 +223,29 @@ export const Footer = <C,>({
 
 		return (
 			<box style={rowStyle}>
+				{renderIndicators()}
 				{isPartialWarning ? null : <Spinner {...spinnerProps} />}
 				{isPartialWarning ? null : (
 					<text content=" " wrapMode="none" style={{ fg: colors.textMuted }} />
 				)}
-				{isPartialWarning ? (
-					warningTrigger
-				) : (
+				{isPartialWarning ? null : (
 					<text content={statusContent} wrapMode="none" style={{ fg: colors.secondary }} />
 				)}
-				<text content={STATUS_SEPARATOR} wrapMode="none" style={{ fg: colors.textMuted }} />
+				{contentBudget > 0 && (
+					<text content={STATUS_SEPARATOR} wrapMode="none" style={{ fg: colors.textMuted }} />
+				)}
 				{renderHints()}
 			</box>
 		)
 	}
 
-	return <box style={rowStyle}>{renderHints()}</box>
+	return (
+		<box style={rowStyle}>
+			{renderIndicators()}
+			{contentBudget > 0 && renderedIndicators.length > 0 && (
+				<text content=" " wrapMode="none" style={{ fg: colors.textMuted }} />
+			)}
+			{renderHints()}
+		</box>
+	)
 }

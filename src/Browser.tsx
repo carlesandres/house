@@ -57,8 +57,10 @@ export interface BrowserProps {
 	readonly initialIndex?: number
 	/** Initial applied filter query seeded from the CLI positional. */
 	readonly initialQuery?: string
-	/** Cap the rendered markdown's width at N columns. Null = fill the pane. */
-	readonly maxWidth?: number | null
+	/** Reader wrap width used when wrapping is enabled. */
+	readonly wrapWidth?: number
+	/** Initial reader wrap mode. Runtime toggles are session-only. */
+	readonly initialWrap?: boolean
 	/** Discovery root label used in the post-discovery empty-vault sidebar row. */
 	readonly emptyRootLabel?: string
 	/** Persistent footer indicator (e.g. "indexing… 42"). Pass null/undefined
@@ -192,7 +194,8 @@ export const Browser = ({
 	files,
 	initialIndex = 0,
 	initialQuery = "",
-	maxWidth = null,
+	wrapWidth = 80,
+	initialWrap = false,
 	emptyRootLabel = "current root",
 	discoveryStatus = null,
 	discoverySpinnerIntervalMs,
@@ -220,6 +223,7 @@ export const Browser = ({
 	const [selectedIndex, setSelectedIndex] = useState(() =>
 		clamp(initialIndex, 0, Math.max(0, files.length - 1)),
 	)
+	const [wrapEnabled, setWrapEnabled] = useState(initialWrap)
 	const [loaded, setLoaded] = useState<{ path: string; content: string } | null>(null)
 	const [error, setError] = useState<string | null>(null)
 	// `shown` is the user's sticky preference. Visibility is derived:
@@ -496,6 +500,7 @@ export const Browser = ({
 		restoreFilterOnSidebarFocus: restoreFilterOnSidebarFocusRef.current,
 		filterQuery: filterInput,
 		paletteOpen,
+		wrapEnabled,
 		setFocus,
 		// Wrapped so any keymap-driven selection move (j/k/g/G/[/], reader
 		// prev/next) clears the pending-restore ref from #145. Internal
@@ -569,6 +574,7 @@ export const Browser = ({
 			setPaletteIndex(0)
 			dispatchFloatingOverlay({ type: "open-command-palette" })
 		},
+		toggleWrap: () => setWrapEnabled((prev) => !prev),
 		cycleTheme,
 		toggleTone,
 		toggleAll: () => {
@@ -948,6 +954,15 @@ export const Browser = ({
 		width,
 		notice: footerNotice?.text ?? null,
 		discoveryStatus,
+		indicators: [
+			{
+				id: "wrap",
+				icon: "W",
+				variant: "info",
+				active: wrapEnabled,
+				onMouseUp: () => setWrapEnabled((prev) => !prev),
+			},
+		],
 		...(discoverySpinnerIntervalMs === undefined ? {} : { discoverySpinnerIntervalMs }),
 		...(discoverySpinnerInitialFrameIndex === undefined
 			? {}
@@ -1186,7 +1201,7 @@ export const Browser = ({
 										fg={colors.text}
 										bg={readerActive ? colors.background : colors.backgroundPanel}
 										conceal
-										style={{ width: maxWidth ?? "100%" }}
+										style={{ width: wrapEnabled ? wrapWidth : "100%" }}
 									/>
 								</scrollbox>
 							)}
