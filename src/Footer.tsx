@@ -152,7 +152,12 @@ export const Footer = <C,>({
 		...indicators,
 	]
 	const indicatorBudget = Math.min(usableWidth, renderedIndicators.length * 3)
-	const contentBudget = Math.max(0, usableWidth - indicatorBudget)
+	const hasContentAfterIndicators = notice !== null || status !== null || hints.length > 0
+	const indicatorContentGapBudget =
+		renderedIndicators.length > 0 && hasContentAfterIndicators && indicatorBudget < usableWidth
+			? 1
+			: 0
+	const contentBudget = Math.max(0, usableWidth - indicatorBudget - indicatorContentGapBudget)
 	const statusChromeWidth = status
 		? (isPartialWarning ? 0 : NON_WARNING_STATUS_PREFIX_WIDTH) + STATUS_SEPARATOR.length
 		: 0
@@ -177,6 +182,10 @@ export const Footer = <C,>({
 		: null
 	const renderIndicators = () =>
 		renderedIndicators.map(({ id, ...props }) => <StatusIndicator key={id} {...props} />)
+	const renderIndicatorContentGap = () =>
+		indicatorContentGapBudget > 0 ? (
+			<text content=" " wrapMode="none" style={{ fg: colors.textMuted }} />
+		) : null
 
 	// Two-tone hint row: keys render in `text` (foreground-strength), the
 	// `:label` portion in `textMuted`. Matches ghui's footer treatment so
@@ -212,6 +221,7 @@ export const Footer = <C,>({
 		return (
 			<box style={rowStyle}>
 				{renderIndicators()}
+				{renderIndicatorContentGap()}
 				<text content={noticeContent} wrapMode="none" style={{ fg: colors.primary }} />
 			</box>
 		)
@@ -234,6 +244,7 @@ export const Footer = <C,>({
 		return (
 			<box style={rowStyle}>
 				{renderIndicators()}
+				{renderIndicatorContentGap()}
 				{nonWarningStatusPrefixBudget >= 1 ? <Spinner {...spinnerProps} /> : null}
 				{nonWarningStatusPrefixBudget >= 2 ? (
 					<text content=" " wrapMode="none" style={{ fg: colors.textMuted }} />
@@ -252,6 +263,7 @@ export const Footer = <C,>({
 	return (
 		<box style={rowStyle}>
 			{renderIndicators()}
+			{renderIndicatorContentGap()}
 			{renderHints()}
 		</box>
 	)

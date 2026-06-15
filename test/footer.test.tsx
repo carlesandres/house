@@ -105,7 +105,7 @@ describe("Footer", () => {
 		expect(clicks).toBe(2)
 	})
 
-	test("does not spend unbudgeted spacer cells between indicators and hints", async () => {
+	test("reserves a spacer cell between indicators and hints", async () => {
 		const bindings: readonly KeyBinding<{ readonly ok: boolean }>[] = [
 			{ id: "quit", group: "Global", description: "Quit", hint: "quit", keys: ["q"], run: () => {} },
 			{
@@ -122,21 +122,21 @@ describe("Footer", () => {
 				<Footer
 					bindings={bindings}
 					ctx={{ ok: true }}
-					width={19}
+					width={20}
 					indicators={[{ id: "wrap", icon: "W", active: false }]}
 				/>,
-				{ width: 19, height: 1 },
+				{ width: 20, height: 1 },
 			)
 		})
 		await stepFrame(setup!.renderOnce)
 
 		const frame = setup!.captureCharFrame()
 		expect(frame).toContain("q quit")
-		// With 17 usable cells, the 3-cell indicator plus 14 cells of hints fits
-		// exactly. This guards against rendering an extra spacer that the footer
-		// width math did not reserve.
+		// With 18 usable cells, the 3-cell indicator, 1-cell spacer, and 14 cells
+		// of hints fits exactly. This guards the visual gap between status boxes
+		// and actionable footer tips.
 		expect(frame).toContain("w wrap")
-		expect(frame).not.toContain("W  q")
+		expect(frame).toContain("W  q")
 	})
 
 	test("budgets the non-warning status spinner and spacer before fitting hints", async () => {
@@ -166,7 +166,7 @@ describe("Footer", () => {
 		await stepFrame(setup!.renderOnce)
 
 		const frame = setup!.captureCharFrame()
-		expect(frame).toContain(" W ⠋ indexing… 1")
+		expect(frame).toContain(" W  ⠋ indexing… 1")
 		// The status row reserves the spinner + spacer before fitting hints. Without
 		// that reservation this full hint starts rendering and consumes cells the
 		// width math promised to the status area.
