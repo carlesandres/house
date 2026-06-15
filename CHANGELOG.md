@@ -11,6 +11,9 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 ### Added
 
 - Browser header now shows the active discovery root, and empty states reuse the same canonical root label for consistent launch context.
+### Changed
+
+- Footer hints are now limited to essential app controls, leaving other actions discoverable through the command palette.
 
 ## [0.4.13] — 2026-06-15
 

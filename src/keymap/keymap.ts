@@ -3,8 +3,8 @@
  *
  * Bindings are values: `{ id, description, keys, when?, run }`. A pure
  * `dispatch` looks up the first matching, enabled binding for a key event
- * and runs it. The same array also drives footer hints and command-palette
- * derivation, so there is one source of truth.
+ * and runs it. The same array also drives command-palette derivation, plus
+ * the small opt-in set of footer hints for essential app controls.
  *
  * Deliberately *not* a port of ghui's `@ghui/keymap`: no chord sequences,
  * no count prefixes, no scope contramaps. See DESIGN.md §12 for the full
@@ -28,17 +28,16 @@ export interface KeyBinding<C> {
 	readonly keys: readonly string[]
 	/** Optional grouping label for derived UI/documentation surfaces. */
 	readonly group?: string
-	/** Optional compact label for the footer hint row, e.g. "help" for `?:help`.
-	 *  Bindings without a hint are excluded from the footer. Order in the bindings
-	 *  array drives overflow priority (later bindings get truncated first). */
+	/** Optional compact label for the footer hint row. Keep this limited to
+	 *  essential app controls; other actions remain discoverable through the
+	 *  command palette. Order in the bindings array drives overflow priority
+	 *  (later bindings get truncated first). */
 	readonly hint?: string
 	/** If present, the binding only fires when this returns true. */
 	readonly when?: (ctx: C) => boolean
 	/** If present, the footer hint is shown only when this returns true. When
-	 *  absent, hint visibility falls back to `when`. Use when a binding's
-	 *  dispatch gate is broader than the situations where the hint is useful
-	 *  (e.g. "clear filter" fires from anywhere but only deserves a hint when
-	 *  there is actually a filter to clear). */
+	 *  absent, hint visibility falls back to `when`. Use this to keep a footer
+	 *  hint visible even when a modal branch handles the key directly. */
 	readonly hintWhen?: (ctx: C) => boolean
 	readonly run: (ctx: C) => void
 }

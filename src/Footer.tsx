@@ -2,14 +2,14 @@
  * Footer — single-row chrome under the two-pane area.
  *
  * Renders either a notice line (when one is active) or a compact hint row
- * derived from the keymap. Hints are filtered by each binding's `when`
- * against the current context, so the row reflects what the user can
- * actually do right now. Overflow is handled by truncating from the right
- * (later-in-array bindings drop off first).
+ * derived from the small set of keymap bindings that opt into footer hints.
+ * Most actions stay discoverable through the command palette; the footer is
+ * reserved for essential chrome. Overflow is handled by truncating from the
+ * right (later-in-array bindings drop off first).
  *
  * Empty vault: the footer renders normally even when no markdown files
- * were discovered. Intentional — `q:quit` and `?:help` are exactly what an
- * empty-vault user needs as an exit and discoverability anchor.
+ * were discovered. Intentional — `q quit` and `ctrl+p palette` are exactly
+ * what an empty-vault user needs as an exit and discoverability anchor.
  *
  * The filter input does not live here — it renders as a row inside the
  * sidebar (see Browser.tsx). The pattern mirrors ghui's PR list, where the

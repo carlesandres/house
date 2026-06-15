@@ -119,6 +119,8 @@ The file is optional — a missing file is fine. Invalid keys, unknown themes, o
 
 ## Keys
 
+The footer only shows essential app controls (`W`, `q`, `tab`, `s`, `ctrl+p`) to stay quiet. Use the command palette for the rest.
+
 ### Global
 
 | Key            | Action                                                      |
