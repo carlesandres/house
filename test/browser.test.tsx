@@ -122,15 +122,15 @@ describe("Browser — sidebar", () => {
 		resetReaderEmptyStateTipRotationForTests()
 		await act(async () => {
 			setup = await renderBrowser(
-				<Browser files={[]} emptyRootLabel="docs" readFile={makeReader({})} onQuit={() => {}} />,
+				<Browser files={[]} rootLabel="~" readFile={makeReader({})} onQuit={() => {}} />,
 				VIEWPORT,
 			)
 		})
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
 		expect(frame).toContain("No markdown files in")
-		expect(frame).toContain('"docs"')
-		expectSidebarMessageCentered(frame, "No markdown files in", '"docs"')
+		expect(frame).toContain('"~"')
+		expectSidebarMessageCentered(frame, "No markdown files in", '"~"')
 		expect(frame).toContain("Press / to start filtering files by path.")
 		expect(frame).not.toContain(
 			"Press Enter in the filter to open the selected match in the reader.",
@@ -323,6 +323,25 @@ const expectSidebarMessageCentered = (frame: string, label: string, value: strin
 }
 
 describe("Browser — selection", () => {
+	test("header shows the selected file and discovery root", async () => {
+		const files = makeFiles(["README.md"])
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={files}
+					rootLabel="~"
+					readFile={makeReader({ "README.md": "x" })}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+
+		await stepFrame(setup!.renderOnce)
+		const first = setup!.captureCharFrame().split("\n")[0] ?? ""
+		expect(first).toContain("⌂ house · README.md · ~")
+	})
+
 	test("opens the initially selected file in the reader pane", async () => {
 		const files = makeFiles(["a.md", "b.md"])
 		await act(async () => {
@@ -994,7 +1013,7 @@ describe("Browser — #22 layout v2", () => {
 			const frame = await waitForFrameContaining("!")
 			expect(frame).toContain("readable.md")
 			expect(frame).not.toContain("scan incomplete: skipped 1 directory: locked")
-			expect(frame).not.toContain(root)
+			expect(frame).not.toContain(`scan incomplete: skipped 1 directory: ${root}`)
 
 			await act(async () => {
 				await setup!.mockMouse.click(1, VIEWPORT.height - 1)
@@ -1002,7 +1021,7 @@ describe("Browser — #22 layout v2", () => {
 			await stepFrame(setup!.renderOnce)
 			const openFrame = setup!.captureCharFrame()
 			expect(openFrame).toMatch(/scan incomplete: skipped 1 directory: lo[\s\S]*cked/)
-			expect(openFrame).not.toContain(root)
+			expect(openFrame).not.toContain(`scan incomplete: skipped 1 directory: ${root}`)
 
 			await act(async () => {
 				await setup!.mockMouse.click(1, VIEWPORT.height - 1)
@@ -1960,7 +1979,7 @@ describe("Browser — sidebar filter row", () => {
 	test("filter row is suppressed on an empty vault (no '/ filter…')", async () => {
 		await act(async () => {
 			setup = await renderBrowser(
-				<Browser files={[]} emptyRootLabel="root" readFile={makeReader({})} onQuit={() => {}} />,
+				<Browser files={[]} rootLabel="root" readFile={makeReader({})} onQuit={() => {}} />,
 				VIEWPORT,
 			)
 		})

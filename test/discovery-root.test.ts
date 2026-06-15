@@ -23,7 +23,22 @@ afterEach(async () => {
 describe("resolveDiscoveryRoot", () => {
 	test("returns cliRoot when provided", async () => {
 		const resolved = await resolveDiscoveryRoot({ cliRoot: "docs", defaultRoot: "git", cwd: dir })
-		expect(resolved).toBe("docs")
+		expect(resolved).toBe(join(dir, "docs"))
+	})
+
+	test("normalizes equivalent cliRoot spellings to the same absolute root", async () => {
+		await mkdir(join(dir, "docs"))
+		const bare = await resolveDiscoveryRoot({ cliRoot: "docs", defaultRoot: "cwd", cwd: dir })
+		const dotted = await resolveDiscoveryRoot({ cliRoot: "./docs", defaultRoot: "cwd", cwd: dir })
+		const absolute = await resolveDiscoveryRoot({
+			cliRoot: join(dir, "docs"),
+			defaultRoot: "cwd",
+			cwd: dir,
+		})
+
+		expect(bare).toBe(join(dir, "docs"))
+		expect(dotted).toBe(bare)
+		expect(absolute).toBe(bare)
 	})
 
 	test('defaultRoot="cwd" returns cwd', async () => {
