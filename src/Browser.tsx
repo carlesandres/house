@@ -867,6 +867,12 @@ export const Browser = ({
 	const isNarrow = !canFitInline(width)
 	const sidebarInline = isNarrow ? sidebarActive : shown || sidebarActive
 	const readerVisible = isNarrow ? readerActive : true
+	// When fixed-width wrapping is enabled, never size markdown wider than the
+	// visible reader body. The scrollbox deliberately disables horizontal
+	// scrolling, so an over-wide markdown node clips instead of wrapping.
+	const readerPaneWidth = isNarrow || !sidebarInline ? width : Math.max(1, width - sidebarWidth)
+	const readerBodyWidth = Math.max(1, readerPaneWidth - 2) // reader padding: 1 left + 1 right
+	const markdownWidth = wrapEnabled ? Math.min(wrapWidth, readerBodyWidth) : "100%"
 	// Currently-selected file shown in the Header (which replaced the
 	// per-pane border title that used to carry this information).
 	const currentFile = selected?.relativePath ?? null
@@ -1178,7 +1184,7 @@ export const Browser = ({
 										fg={colors.text}
 										bg={readerActive ? colors.background : colors.backgroundPanel}
 										conceal
-										style={{ width: wrapEnabled ? wrapWidth : "100%" }}
+										style={{ width: markdownWidth }}
 									/>
 								</scrollbox>
 							)}

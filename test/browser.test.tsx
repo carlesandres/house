@@ -1451,6 +1451,36 @@ describe("Browser — footer", () => {
 		expect(fgAt(spans, footerRow, 2)?.equals(RGBA.fromHex(colors.backgroundPanel))).toBe(true)
 	})
 
+	test("clamps enabled wrap width to the visible reader pane", async () => {
+		const content =
+			"This is a very long line with words that should wrap visibly within the pane if wrapping is constrained to available width."
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={makeFiles(["a.md"])}
+					readFile={makeReader({ "a.md": content })}
+					initialWrap
+					wrapWidth={80}
+					startupFocus="reader"
+					onQuit={() => {}}
+				/>,
+				{ width: 50, height: 10 },
+			)
+		})
+		for (let i = 0; i < 5; i++) {
+			await act(async () => {
+				await setup!.renderOnce()
+				await new Promise<void>((resolve) => setTimeout(resolve, 20))
+			})
+		}
+
+		const frame = setup!.captureCharFrame()
+		// Regression guard: with an unclamped 80-col markdown node and scrollX=false,
+		// the middle of this sentence is clipped off-screen instead of wrapping.
+		expect(frame).toContain("wrap visibly")
+		expect(frame).toContain("within the pane")
+	})
+
 	test("switches to reader-specific hints when focus moves to the reader", async () => {
 		// Needs ≥2 files for the `[`/`]` prev/next hints to appear — they're
 		// gated on `inReaderWithSibling` (#115) so a one-file vault hides

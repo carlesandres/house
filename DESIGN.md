@@ -151,6 +151,7 @@ Conventions follow `ghui` (escape-to-back, return-to-confirm, vim letters as arr
 | `[` / `]`                                                 | Previous / next file in list (from reader)             |
 | `tab`                                                     | Toggle focus between sidebar and reader                |
 | `s`                                                       | Toggle sidebar visibility                              |
+| `w`                                                       | Toggle reader wrap                                     |
 | `/`                                                       | Open filter input (basename-first fuzzy match on path) |
 | `?`                                                       | Help overlay                                           |
 | `q`, `ctrl+c`                                             | Quit                                                   |
