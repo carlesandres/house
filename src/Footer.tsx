@@ -89,6 +89,7 @@ const fitHints = (hints: readonly Hint[], width: number): Hint[] => {
 }
 
 const STATUS_SEPARATOR = " · "
+const NON_WARNING_STATUS_PREFIX_WIDTH = 2 // 1-cell spinner + 1-cell spacer
 
 const isPartialDiscoveryWarning = (status: string | null): boolean =>
 	status?.startsWith("scan incomplete:") ?? false
@@ -152,13 +153,22 @@ export const Footer = <C,>({
 	]
 	const indicatorBudget = Math.min(usableWidth, renderedIndicators.length * 3)
 	const contentBudget = Math.max(0, usableWidth - indicatorBudget)
+	const statusChromeWidth = status
+		? (isPartialWarning ? 0 : NON_WARNING_STATUS_PREFIX_WIDTH) + STATUS_SEPARATOR.length
+		: 0
 	const statusBudget = status
-		? Math.min((isPartialWarning ? 0 : status.length) + STATUS_SEPARATOR.length, contentBudget)
+		? Math.min((isPartialWarning ? 0 : status.length) + statusChromeWidth, contentBudget)
 		: 0
 	const hintsWidth = Math.max(0, contentBudget - statusBudget)
 	const visibleHints = fitHints(hints, hintsWidth)
-	const statusContent = status
-		? status.slice(0, Math.max(0, statusBudget - STATUS_SEPARATOR.length))
+	const nonWarningStatusPrefixBudget =
+		status && !isPartialWarning ? Math.min(NON_WARNING_STATUS_PREFIX_WIDTH, statusBudget) : 0
+	const statusContent = status ? status.slice(0, Math.max(0, statusBudget - statusChromeWidth)) : ""
+	const statusSeparatorContent = status
+		? STATUS_SEPARATOR.slice(
+				0,
+				Math.max(0, statusBudget - nonWarningStatusPrefixBudget - statusContent.length),
+			)
 		: ""
 	const noticeContent = notice
 		? notice.length > contentBudget
@@ -224,15 +234,15 @@ export const Footer = <C,>({
 		return (
 			<box style={rowStyle}>
 				{renderIndicators()}
-				{isPartialWarning ? null : <Spinner {...spinnerProps} />}
-				{isPartialWarning ? null : (
+				{nonWarningStatusPrefixBudget >= 1 ? <Spinner {...spinnerProps} /> : null}
+				{nonWarningStatusPrefixBudget >= 2 ? (
 					<text content=" " wrapMode="none" style={{ fg: colors.textMuted }} />
-				)}
+				) : null}
 				{isPartialWarning ? null : (
 					<text content={statusContent} wrapMode="none" style={{ fg: colors.secondary }} />
 				)}
-				{contentBudget > 0 && (
-					<text content={STATUS_SEPARATOR} wrapMode="none" style={{ fg: colors.textMuted }} />
+				{statusSeparatorContent.length > 0 && (
+					<text content={statusSeparatorContent} wrapMode="none" style={{ fg: colors.textMuted }} />
 				)}
 				{renderHints()}
 			</box>

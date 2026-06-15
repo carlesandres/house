@@ -138,4 +138,38 @@ describe("Footer", () => {
 		expect(frame).toContain("w wrap")
 		expect(frame).not.toContain("W  q")
 	})
+
+	test("budgets the non-warning status spinner and spacer before fitting hints", async () => {
+		const bindings: readonly KeyBinding<{ readonly ok: boolean }>[] = [
+			{
+				id: "long",
+				group: "Global",
+				description: "Long hint",
+				hint: "abcdefgh",
+				keys: ["x"],
+				run: () => {},
+			},
+		]
+		await act(async () => {
+			setup = await testRender(
+				<Footer
+					bindings={bindings}
+					ctx={{ ok: true }}
+					width={29}
+					discoveryStatus="indexing… 1"
+					discoverySpinnerInitialFrameIndex={0}
+					indicators={[{ id: "wrap", icon: "W", active: false }]}
+				/>,
+				{ width: 29, height: 1 },
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain(" W ⠋ indexing… 1")
+		// The status row reserves the spinner + spacer before fitting hints. Without
+		// that reservation this full hint starts rendering and consumes cells the
+		// width math promised to the status area.
+		expect(frame).not.toContain("x abc")
+	})
 })
