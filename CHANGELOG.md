@@ -6,6 +6,8 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 
 ## [Unreleased]
 
+## [0.4.13] — 2026-06-15
+
 ### Added
 
 - Command palette now includes a `Copy file contents` action for the selected markdown file, copying the exact on-disk text to the system clipboard on macOS and Linux.
@@ -15,6 +17,10 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 - Reader wrapping is now a session mode toggled with `w`: `width` / `--width` defines the fixed wrap width, while `wrap` / `--wrap` / `--no-wrap` controls startup mode. The footer now keeps a persistent `W` indicator for wrap state.
 - The built-in startup focus now defaults to `sidebar` instead of opening the filter prompt immediately; use `--focus filter`, `HOUSE_FOCUS=filter`, or `focus = "filter"` to keep the previous behavior.
 - Removed `--sidebar` as a startup mode; the sidebar now starts visible and remains controlled interactively with `s`, `tab`, and `/` during the session.
+
+### Fixed
+
+- Footer status chrome, palette sizing, and reader wrap width calculations now stay within the visible pane.
 
 ## [0.4.12] — 2026-06-14
 
@@ -327,7 +333,8 @@ The v1 MVP, published as `@carlesandres/openmdr` on npm.
 
 Search, stdin, URL fetching, cross-file link following, `$EDITOR` hand-off, syntax highlighting, persistent config, OS-appearance auto-detect, single-binary distribution (issue [#2](https://github.com/carlesandres/openmdr/issues/2)), Homebrew tap. All tracked.
 
-[Unreleased]: https://github.com/carlesandres/house/compare/v0.4.12...HEAD
+[Unreleased]: https://github.com/carlesandres/house/compare/v0.4.13...HEAD
+[0.4.13]: https://github.com/carlesandres/house/compare/v0.4.12...v0.4.13
 [0.4.12]: https://github.com/carlesandres/house/compare/v0.4.11...v0.4.12
 [0.4.11]: https://github.com/carlesandres/house/compare/v0.4.10...v0.4.11
 [0.4.10]: https://github.com/carlesandres/house/compare/v0.4.9...v0.4.10
