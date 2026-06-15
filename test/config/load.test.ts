@@ -28,7 +28,7 @@ describe("loadConfig", () => {
 			defaultRoot: "cwd",
 			extensions: [],
 			show: [],
-			focus: "filter",
+			focus: "sidebar",
 		})
 	})
 

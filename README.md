@@ -68,7 +68,7 @@ house --serve README.md
 | `--show <list>`      | `""`              | Reveal normally-skipped entries; comma-separated subset of `hidden`, `gitignored`. Use `--show ""` to clear. |
 | `--root <dir>`       | current directory | Discovery root to walk; overrides `defaultRoot` config/env                                                   |
 | `--sidebar <mode>`   | `auto`            | Initial sidebar visibility: `auto`, `on`, or `off`                                                           |
-| `--focus <mode>`     | `filter`          | Startup focus: `sidebar`, `reader`, or `filter`. `filter` opens the sidebar filter prompt immediately.       |
+| `--focus <mode>`     | `sidebar`         | Startup focus: `sidebar`, `reader`, or `filter`. `filter` opens the sidebar filter prompt immediately.       |
 | `--serve`            | off               | Serve the positional path as HTML in the browser (skips TUI)                                                 |
 | `--port <N>`         | OS-assigned       | Port for `--serve`                                                                                           |
 | `--ext <list>`       | none              | Include extra file extensions (comma-separated)                                                               |
@@ -93,7 +93,7 @@ theme = "tokyonight"
 tone  = "dark"
 extensions = []
 show  = ["hidden", "gitignored"]
-focus = "filter"
+focus = "sidebar"
 defaultRoot = "cwd" # or "git"
 ```
 
@@ -106,7 +106,7 @@ Precedence, highest to lowest:
 1. CLI flags (`--theme`, `--tone`, `--ext`, `--show`, `--focus`, `--root`)
 2. Env vars (`HOUSE_THEME`, `HOUSE_TONE`, `HOUSE_EXTENSIONS`, `HOUSE_SHOW`, `HOUSE_FOCUS`, `HOUSE_DEFAULT_ROOT`)
 3. Config file
-4. Built-in defaults (`opencode` / `dark` / `extensions = []` / `show = []` / `focus = "filter"` / `defaultRoot = "cwd"`)
+4. Built-in defaults (`opencode` / `dark` / `extensions = []` / `show = []` / `focus = "sidebar"` / `defaultRoot = "cwd"`)
 
 `HOUSE_SHOW` takes a comma-separated list (`HOUSE_SHOW=hidden,gitignored`). For `show` specifically, each source completely replaces the next — categories don't merge across layers. Press `shift+a` in the TUI to round-trip between the configured set and the full vocabulary without editing config.
 

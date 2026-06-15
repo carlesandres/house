@@ -47,7 +47,7 @@ const DEFAULT_TONE: "dark" | "light" = "dark"
 const DEFAULT_EXTENSIONS: readonly string[] = []
 const DEFAULT_ROOT: "cwd" | "git" = "cwd"
 const DEFAULT_SHOW = ""
-const DEFAULT_FOCUS: "sidebar" | "reader" | "filter" = "filter"
+const DEFAULT_FOCUS: "sidebar" | "reader" | "filter" = "sidebar"
 
 const themeIds = themeDefinitions.map((t) => t.id)
 

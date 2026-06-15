@@ -150,7 +150,7 @@ options:
                    hidden, gitignored. Use --show "" to clear.
   --root <dir>   discovery root to walk (overrides defaultRoot config/env)
   --sidebar <m>  initial sidebar visibility: auto (default), on, or off
-  --focus <m>    startup focus: sidebar, reader, or filter (default: filter)
+  --focus <m>    startup focus: sidebar, reader, or filter (default: sidebar)
   --serve        serve the positional path as HTML in the browser (skips TUI)
   --port <N>     port for --serve (default: OS-assigned)
   -h, --help     show this help and exit
