@@ -88,9 +88,12 @@ export const CommandPalette = ({
 	const overlayWidth = Math.min(viewportWidth - 4, 64)
 	const rows = buildRows(commands)
 	// Reserve: 2 for border (top+bottom), 1 query row, 1 spacer below query,
-	// 1 spacer above footer, 1 footer row. Body gets the rest.
+	// 1 spacer above footer, 1 footer row. Body gets the rest. Keep a one-row
+	// viewport margin above and below when possible; the modal itself already
+	// owns a border and clips its body, so a larger fixed margin needlessly hides
+	// the final command on medium-height terminals.
 	const chrome = 2 + 1 + 1 + 1 + 1
-	const maxBody = Math.max(1, viewportHeight - 4 - chrome)
+	const maxBody = Math.max(1, viewportHeight - 2 - chrome)
 	const desiredBody = Math.max(1, rows.length || 1)
 	const bodyHeight = Math.min(desiredBody, maxBody)
 	const overlayHeight = chrome + bodyHeight

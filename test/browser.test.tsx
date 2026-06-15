@@ -533,8 +533,8 @@ describe("Browser — focus", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["a.md"])}
-					readFile={makeReader({ "a.md": "x" })}
+					files={makeFiles(["a.md", "b.md"])}
+					readFile={makeReader({ "a.md": "x", "b.md": "y" })}
 					onQuit={() => {}}
 				/>,
 				VIEWPORT,
@@ -713,7 +713,7 @@ describe("Browser — sidebar toggle", () => {
 })
 
 describe("Browser — #22 layout v2", () => {
-	test("--sidebar=on shows the sidebar even on a tight viewport", async () => {
+	test("shows the sidebar at startup even on a tight viewport", async () => {
 		// 70 cols can't fit SIDEBAR_MIN+DIVIDER+READER_MIN=69+ inline given
 		// 28-col sidebar+1-col divider+40-col reader. Border math means the
 		// drawer takes over — but the sidebar still appears, since shown=true.
@@ -723,7 +723,6 @@ describe("Browser — #22 layout v2", () => {
 					files={makeFiles(["a.md", "b.md"])}
 					readFile={makeReader({ "a.md": "x", "b.md": "y" })}
 					onQuit={() => {}}
-					sidebarMode="on"
 				/>,
 				{ width: 60, height: 20 },
 			)
@@ -734,22 +733,20 @@ describe("Browser — #22 layout v2", () => {
 		expect(frame).toContain("a.md")
 	})
 
-	test("--sidebar=off hides the sidebar at launch", async () => {
+	test("sidebar is visible at launch", async () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
 					files={makeFiles(["a.md", "b.md"])}
 					readFile={makeReader({ "a.md": "x", "b.md": "y" })}
 					onQuit={() => {}}
-					sidebarMode="off"
 				/>,
 				VIEWPORT,
 			)
 		})
 		await stepFrame(setup!.renderOnce)
-		expect(sidebarIsVisible(setup!.captureCharFrame())).toBe(false)
-		// Reader is the focused pane.
-		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(false)
+		expect(sidebarIsVisible(setup!.captureCharFrame())).toBe(true)
+		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(true)
 		expect(readerTitleContains(setup!.captureCharFrame(), "a.md")).toBe(true)
 	})
 
@@ -805,21 +802,20 @@ describe("Browser — #22 layout v2", () => {
 		expect(sidebarIsFocused(setup!.captureSpans(), returnedFrame)).toBe(true)
 	})
 
-	test("startupFocus=reader keeps sidebar hidden with --sidebar=off", async () => {
+	test("startupFocus=reader focuses reader while leaving the startup sidebar visible", async () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
 					files={makeFiles(["a.md", "b.md"])}
 					readFile={makeReader({ "a.md": "x", "b.md": "y" })}
 					onQuit={() => {}}
-					sidebarMode="off"
 					startupFocus="reader"
 				/>,
 				VIEWPORT,
 			)
 		})
 		await stepFrame(setup!.renderOnce)
-		expect(sidebarIsVisible(setup!.captureCharFrame())).toBe(false)
+		expect(sidebarIsVisible(setup!.captureCharFrame())).toBe(true)
 		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(false)
 	})
 
@@ -841,34 +837,35 @@ describe("Browser — #22 layout v2", () => {
 		expect(frame).not.toContain("> ▏")
 	})
 
-	test("--sidebar=auto consults the viewport bucket once", async () => {
-		// 60 cols < 80 → starts hidden.
+	test("startup sidebar visibility does not depend on the viewport bucket", async () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
 					files={makeFiles(["a.md"])}
 					readFile={makeReader({ "a.md": "x" })}
 					onQuit={() => {}}
-					sidebarMode="auto"
 				/>,
 				{ width: 60, height: 20 },
 			)
 		})
 		await stepFrame(setup!.renderOnce)
-		expect(sidebarIsVisible(setup!.captureCharFrame())).toBe(false)
+		expect(setup!.captureCharFrame()).toContain("a.md")
 	})
 
-	test("focusing a hidden sidebar opens it as a drawer; defocusing dismisses it", async () => {
+	test("focusing an interactively hidden sidebar opens it as a drawer; defocusing dismisses it", async () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
 					files={makeFiles(["a.md", "b.md"])}
 					readFile={makeReader({ "a.md": "x", "b.md": "y" })}
 					onQuit={() => {}}
-					sidebarMode="off"
 				/>,
 				VIEWPORT,
 			)
+		})
+		await stepFrame(setup!.renderOnce)
+		await act(async () => {
+			setup!.mockInput.pressKey("s")
 		})
 		await stepFrame(setup!.renderOnce)
 		expect(sidebarIsVisible(setup!.captureCharFrame())).toBe(false)
@@ -955,8 +952,8 @@ describe("Browser — #22 layout v2", () => {
 						initialQuery=""
 						initialShow={[]}
 						extensions={[]}
-						maxWidth={null}
-						sidebarMode="auto"
+						wrapWidth={80}
+						initialWrap={false}
 						startupFocus="sidebar"
 					/>
 				</RegistryProvider>,
@@ -986,8 +983,8 @@ describe("Browser — #22 layout v2", () => {
 							initialQuery=""
 							initialShow={[]}
 							extensions={[]}
-							maxWidth={null}
-							sidebarMode="auto"
+							wrapWidth={80}
+							initialWrap={false}
 							startupFocus="sidebar"
 						/>
 					</RegistryProvider>,
@@ -1420,6 +1417,70 @@ describe("Browser — footer", () => {
 		expect(frame).not.toContain("] next")
 	})
 
+	test("shows a persistent wrap indicator and toggles it with w", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={makeFiles(["a.md"])}
+					readFile={makeReader({ "a.md": "x" })}
+					initialWrap={false}
+					wrapWidth={80}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		let frame = setup!.captureCharFrame()
+		let spans = setup!.captureSpans()
+		const footerRow = VIEWPORT.height - 1
+		expect(frame.split("\n")[footerRow]).toContain(" W ")
+		expect(frame).toContain("w wrap")
+		expect(fgAt(spans, footerRow, 2)?.equals(RGBA.fromHex(colors.textMuted))).toBe(true)
+
+		await act(async () => {
+			setup!.mockInput.pressKey("w")
+		})
+		await stepFrame(setup!.renderOnce)
+
+		frame = setup!.captureCharFrame()
+		spans = setup!.captureSpans()
+		expect(frame.split("\n")[footerRow]).toContain(" W ")
+		expect(bgAt(spans, footerRow, 2)?.equals(RGBA.fromHex(colors.info))).toBe(true)
+		expect(fgAt(spans, footerRow, 2)?.equals(RGBA.fromHex(colors.backgroundPanel))).toBe(true)
+	})
+
+	test("clamps enabled wrap width to the visible reader pane", async () => {
+		const content =
+			"This is a very long line with words that should wrap visibly within the pane if wrapping is constrained to available width."
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={makeFiles(["a.md"])}
+					readFile={makeReader({ "a.md": content })}
+					initialWrap
+					wrapWidth={80}
+					startupFocus="reader"
+					onQuit={() => {}}
+				/>,
+				{ width: 50, height: 10 },
+			)
+		})
+		for (let i = 0; i < 5; i++) {
+			await act(async () => {
+				await setup!.renderOnce()
+				await new Promise<void>((resolve) => setTimeout(resolve, 20))
+			})
+		}
+
+		const frame = setup!.captureCharFrame()
+		// Regression guard: with an unclamped 80-col markdown node and scrollX=false,
+		// the middle of this sentence is clipped off-screen instead of wrapping.
+		expect(frame).toContain("wrap visibly")
+		expect(frame).toContain("within the pane")
+	})
+
 	test("switches to reader-specific hints when focus moves to the reader", async () => {
 		// Needs ≥2 files for the `[`/`]` prev/next hints to appear — they're
 		// gated on `inReaderWithSibling` (#115) so a one-file vault hides
@@ -1496,8 +1557,9 @@ describe("Browser — footer", () => {
 
 		const frame = setup!.captureCharFrame()
 		expect(frame).toContain("theme:")
-		// hint row is replaced while the notice is live.
+		// hint row is replaced while the notice is live, but persistent indicators remain.
 		expect(frame).not.toContain("q quit")
+		expect(frame.split("\n")[VIEWPORT.height - 1]).toContain(" W ")
 	})
 
 	test("falls back to the first key when no full hint fits", async () => {
@@ -1705,7 +1767,6 @@ describe("Browser — sidebar virtualization", () => {
 					files={TWENTY_FILES}
 					readFile={TWENTY_READER}
 					onQuit={() => {}}
-					sidebarMode="on"
 				/>,
 				TIGHT_VIEWPORT,
 			)
@@ -1726,7 +1787,6 @@ describe("Browser — sidebar virtualization", () => {
 					files={TWENTY_FILES}
 					readFile={TWENTY_READER}
 					onQuit={() => {}}
-					sidebarMode="on"
 				/>,
 				TIGHT_VIEWPORT,
 			)
@@ -1751,7 +1811,6 @@ describe("Browser — sidebar virtualization", () => {
 					files={TWENTY_FILES}
 					readFile={TWENTY_READER}
 					onQuit={() => {}}
-					sidebarMode="on"
 				/>,
 				TIGHT_VIEWPORT,
 			)
@@ -1779,7 +1838,6 @@ describe("Browser — sidebar virtualization", () => {
 					files={TWENTY_FILES}
 					readFile={TWENTY_READER}
 					onQuit={() => {}}
-					sidebarMode="on"
 				/>,
 				TIGHT_VIEWPORT,
 			)
@@ -1805,7 +1863,6 @@ describe("Browser — sidebar virtualization", () => {
 					files={TWENTY_FILES}
 					readFile={TWENTY_READER}
 					onQuit={() => {}}
-					sidebarMode="on"
 				/>,
 				TALL_VIEWPORT,
 			)
@@ -2779,7 +2836,6 @@ describe("Browser — filter modal", () => {
 					files={files}
 					readFile={makeReader({ "README.md": "x", "notes.md": "y" })}
 					onQuit={() => {}}
-					sidebarMode="off"
 				/>,
 				VIEWPORT,
 			)

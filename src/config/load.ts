@@ -20,6 +20,10 @@ export interface HouseConfig {
 	readonly theme: string
 	readonly tone: "dark" | "light"
 	readonly extensions: readonly string[]
+	/** Reader wrap width used when wrapping is enabled. */
+	readonly width: number
+	/** Whether the reader starts with fixed-width wrapping enabled. */
+	readonly wrap: boolean
 	/** Default discovery-root strategy when no explicit `--root` flag is passed. */
 	readonly defaultRoot: "cwd" | "git"
 	/** Categories of normally-skipped entries to opt into. See
@@ -40,6 +44,8 @@ export interface CliOverrides {
 	 *  other CLI override here). `--show ""` sets the empty set. */
 	readonly show: readonly ShowCategory[] | null
 	readonly focus: "sidebar" | "reader" | "filter" | null
+	readonly width: number | null
+	readonly wrap: boolean | null
 }
 
 const DEFAULT_THEME = "opencode"
@@ -47,7 +53,9 @@ const DEFAULT_TONE: "dark" | "light" = "dark"
 const DEFAULT_EXTENSIONS: readonly string[] = []
 const DEFAULT_ROOT: "cwd" | "git" = "cwd"
 const DEFAULT_SHOW = ""
-const DEFAULT_FOCUS: "sidebar" | "reader" | "filter" = "filter"
+const DEFAULT_FOCUS: "sidebar" | "reader" | "filter" = "sidebar"
+const DEFAULT_WIDTH = 80
+const DEFAULT_WRAP = false
 
 const themeIds = themeDefinitions.map((t) => t.id)
 
@@ -63,6 +71,8 @@ const KNOWN_FILE_KEYS: ReadonlySet<string> = new Set([
 	"extensions",
 	"show",
 	"focus",
+	"width",
+	"wrap",
 	"defaultRoot",
 ])
 
@@ -78,6 +88,8 @@ const schema = Config.all({
 	// so the error message can list valid categories at the field's path.
 	show: Config.schema(Schema.String, "show"),
 	focus: Config.schema(Schema.Literals(["sidebar", "reader", "filter"] as const), "focus"),
+	width: Config.schema(Schema.String, "width"),
+	wrap: Config.schema(Schema.String, "wrap"),
 })
 
 const defaultsProvider = (): ConfigProvider.ConfigProvider =>
@@ -88,7 +100,25 @@ const defaultsProvider = (): ConfigProvider.ConfigProvider =>
 		extensions: DEFAULT_EXTENSIONS.join(","),
 		show: DEFAULT_SHOW,
 		focus: DEFAULT_FOCUS,
+		width: String(DEFAULT_WIDTH),
+		wrap: String(DEFAULT_WRAP),
 	})
+
+const sourceError = (message: string, cause?: unknown): ConfigProvider.SourceError =>
+	new ConfigProvider.SourceError({ message, cause })
+
+const validateFileValue = (path: string, key: string, value: unknown): void => {
+	if (key === "width") {
+		if (!Number.isSafeInteger(value) || (value as number) <= 0) {
+			throw sourceError(`invalid value for width in ${path}: expected a positive integer`)
+		}
+	}
+	if (key === "wrap") {
+		if (typeof value !== "boolean") {
+			throw sourceError(`invalid value for wrap in ${path}: expected true or false`)
+		}
+	}
+}
 
 /**
  * Levenshtein edit distance, capped at `cap` for early exit.
@@ -154,15 +184,22 @@ const fileProvider = (
 		const parsed = yield* Effect.try({
 			try: () => Bun.TOML.parse(text) as Record<string, unknown>,
 			catch: (cause) =>
-				new ConfigProvider.SourceError({
-					message: `invalid TOML in ${path}: ${cause instanceof Error ? cause.message : String(cause)}`,
+				sourceError(
+					`invalid TOML in ${path}: ${cause instanceof Error ? cause.message : String(cause)}`,
 					cause,
-				}),
+				),
 		})
 		const known = [...KNOWN_FILE_KEYS]
 		const filtered: Record<string, unknown> = {}
 		for (const [k, v] of Object.entries(parsed)) {
 			if (KNOWN_FILE_KEYS.has(k)) {
+				yield* Effect.try({
+					try: () => validateFileValue(path, k, v),
+					catch: (cause) =>
+						cause instanceof ConfigProvider.SourceError
+							? cause
+							: sourceError(`invalid value for ${k} in ${path}`, cause),
+				})
 				filtered[k] = v
 			} else {
 				onWarning(formatUnknownKeyWarning(path, k, known))
@@ -206,12 +243,16 @@ const envProvider = (env: Record<string, string | undefined>): ConfigProvider.Co
 	const extensions = env["HOUSE_EXTENSIONS"]
 	const show = env["HOUSE_SHOW"]
 	const focus = env["HOUSE_FOCUS"]
+	const width = env["HOUSE_WIDTH"]
+	const wrap = env["HOUSE_WRAP"]
 	if (theme !== undefined) entries.push(["theme", theme])
 	if (tone !== undefined) entries.push(["tone", tone])
 	if (defaultRoot !== undefined) entries.push(["defaultRoot", defaultRoot])
 	if (extensions !== undefined) entries.push(["extensions", extensions])
 	if (show !== undefined) entries.push(["show", show])
 	if (focus !== undefined) entries.push(["focus", focus])
+	if (width !== undefined) entries.push(["width", width])
+	if (wrap !== undefined) entries.push(["wrap", wrap])
 	return ConfigProvider.fromUnknown(Object.fromEntries(entries))
 }
 
@@ -222,7 +263,26 @@ const cliProvider = (overrides: CliOverrides): ConfigProvider.ConfigProvider => 
 	if (overrides.extensions !== null) entries.push(["extensions", overrides.extensions.join(",")])
 	if (overrides.show !== null) entries.push(["show", overrides.show.join(",")])
 	if (overrides.focus !== null) entries.push(["focus", overrides.focus])
+	if (overrides.width !== null) entries.push(["width", String(overrides.width)])
+	if (overrides.wrap !== null) entries.push(["wrap", String(overrides.wrap)])
 	return ConfigProvider.fromUnknown(Object.fromEntries(entries))
+}
+
+const parsePositiveInteger = (key: string, raw: string): Effect.Effect<number, Error> => {
+	if (!/^\d+$/.test(raw)) {
+		return Effect.fail(new Error(`${key}: expected a positive integer, got ${JSON.stringify(raw)}`))
+	}
+	const value = Number.parseInt(raw, 10)
+	if (!Number.isSafeInteger(value) || value <= 0) {
+		return Effect.fail(new Error(`${key}: expected a positive integer, got ${JSON.stringify(raw)}`))
+	}
+	return Effect.succeed(value)
+}
+
+const parseBoolean = (key: string, raw: string): Effect.Effect<boolean, Error> => {
+	if (raw === "true") return Effect.succeed(true)
+	if (raw === "false") return Effect.succeed(false)
+	return Effect.fail(new Error(`${key}: expected true or false, got ${JSON.stringify(raw)}`))
 }
 
 export interface LoadOptions {
@@ -265,6 +325,8 @@ export const loadConfig = (
 		extensions: null,
 		show: null,
 		focus: null,
+		width: null,
+		wrap: null,
 	}
 	const onWarning = options.onWarning ?? ((msg) => process.stderr.write(`${msg}\n`))
 	const provider = cliProvider(cli).pipe(
@@ -273,41 +335,47 @@ export const loadConfig = (
 		ConfigProvider.orElse(defaultsProvider()),
 	)
 	return schema.parse(provider).pipe(
-		Effect.flatMap((raw) => {
-			const defaultRoot =
-				raw.defaultRoot === "cwd" || raw.defaultRoot === "git" ? raw.defaultRoot : DEFAULT_ROOT
-			if (raw.defaultRoot !== defaultRoot) {
-				onWarning(
-					`house: ignoring invalid value ${JSON.stringify(raw.defaultRoot)} for defaultRoot in config/env; using "${DEFAULT_ROOT}"`,
-				)
-			}
-			const parsed = parseShowList(raw.show)
-			if (!parsed.ok) {
-				// Effect's `Config.ConfigError` requires a `SchemaError` or
-				// `SourceError` cause that we don't have a clean constructor
-				// for here — surface as a plain Error and let the boot
-				// layer's existing `formatConfigError` (which already handles
-				// `instanceof Error`) render it.
-				return Effect.fail(
-					new Error(
-						`show: unknown category "${parsed.invalid.join('", "')}" (valid: ${SHOW_CATEGORIES.join(", ")})`,
-					),
-				)
-			}
-			return Effect.succeed({
-				theme: raw.theme,
-				tone: raw.tone,
-				defaultRoot,
-				extensions:
-					raw.extensions === ""
-						? []
-						: raw.extensions
-								.split(",")
-								.map((s) => s.trim())
-								.filter(Boolean),
-				show: parsed.value,
-				focus: raw.focus,
-			})
-		}),
+		Effect.flatMap((raw) =>
+			Effect.gen(function* () {
+				const defaultRoot =
+					raw.defaultRoot === "cwd" || raw.defaultRoot === "git" ? raw.defaultRoot : DEFAULT_ROOT
+				if (raw.defaultRoot !== defaultRoot) {
+					onWarning(
+						`house: ignoring invalid value ${JSON.stringify(raw.defaultRoot)} for defaultRoot in config/env; using "${DEFAULT_ROOT}"`,
+					)
+				}
+				const parsed = parseShowList(raw.show)
+				if (!parsed.ok) {
+					// Effect's `Config.ConfigError` requires a `SchemaError` or
+					// `SourceError` cause that we don't have a clean constructor
+					// for here — surface as a plain Error and let the boot
+					// layer's existing `formatConfigError` (which already handles
+					// `instanceof Error`) render it.
+					return yield* Effect.fail(
+						new Error(
+							`show: unknown category "${parsed.invalid.join('", "')}" (valid: ${SHOW_CATEGORIES.join(", ")})`,
+						),
+					)
+				}
+				const width = yield* parsePositiveInteger("width", raw.width)
+				const wrap = yield* parseBoolean("wrap", raw.wrap)
+				return {
+					theme: raw.theme,
+					tone: raw.tone,
+					defaultRoot,
+					width,
+					wrap,
+					extensions:
+						raw.extensions === ""
+							? []
+							: raw.extensions
+									.split(",")
+									.map((s) => s.trim())
+									.filter(Boolean),
+					show: parsed.value,
+					focus: raw.focus,
+				}
+			}),
+		),
 	)
 }

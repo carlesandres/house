@@ -104,4 +104,72 @@ describe("Footer", () => {
 		await stepFrame(setup!.renderOnce)
 		expect(clicks).toBe(2)
 	})
+
+	test("does not spend unbudgeted spacer cells between indicators and hints", async () => {
+		const bindings: readonly KeyBinding<{ readonly ok: boolean }>[] = [
+			{ id: "quit", group: "Global", description: "Quit", hint: "quit", keys: ["q"], run: () => {} },
+			{
+				id: "wrap",
+				group: "Global",
+				description: "Toggle wrap",
+				hint: "wrap",
+				keys: ["w"],
+				run: () => {},
+			},
+		]
+		await act(async () => {
+			setup = await testRender(
+				<Footer
+					bindings={bindings}
+					ctx={{ ok: true }}
+					width={19}
+					indicators={[{ id: "wrap", icon: "W", active: false }]}
+				/>,
+				{ width: 19, height: 1 },
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("q quit")
+		// With 17 usable cells, the 3-cell indicator plus 14 cells of hints fits
+		// exactly. This guards against rendering an extra spacer that the footer
+		// width math did not reserve.
+		expect(frame).toContain("w wrap")
+		expect(frame).not.toContain("W  q")
+	})
+
+	test("budgets the non-warning status spinner and spacer before fitting hints", async () => {
+		const bindings: readonly KeyBinding<{ readonly ok: boolean }>[] = [
+			{
+				id: "long",
+				group: "Global",
+				description: "Long hint",
+				hint: "abcdefgh",
+				keys: ["x"],
+				run: () => {},
+			},
+		]
+		await act(async () => {
+			setup = await testRender(
+				<Footer
+					bindings={bindings}
+					ctx={{ ok: true }}
+					width={29}
+					discoveryStatus="indexing… 1"
+					discoverySpinnerInitialFrameIndex={0}
+					indicators={[{ id: "wrap", icon: "W", active: false }]}
+				/>,
+				{ width: 29, height: 1 },
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain(" W ⠋ indexing… 1")
+		// The status row reserves the spinner + spacer before fitting hints. Without
+		// that reservation this full hint starts rendering and consumes cells the
+		// width math promised to the status area.
+		expect(frame).not.toContain("x abc")
+	})
 })

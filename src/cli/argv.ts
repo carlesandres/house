@@ -12,6 +12,10 @@ export interface ParsedArgs {
 	readonly tone: string | null
 	/** Value of `--width <N>`, or null. Validated by the boot layer (must be a positive integer). */
 	readonly width: string | null
+	/** Startup reader wrap override. Null means config/env/default decides. */
+	readonly wrap: boolean | null
+	/** True when both `--wrap` and `--no-wrap` were passed. */
+	readonly wrapConflict: boolean
 	/** True when `--serve` was passed: serve the positional path as HTML, skip TUI. */
 	readonly serve: boolean
 	/** Value of `--port <N>`, or null. Validated by the boot layer. */
@@ -22,8 +26,6 @@ export interface ParsedArgs {
 	readonly version: boolean
 	/** True when `--config-path` was passed: print resolved config path and exit. */
 	readonly configPath: boolean
-	/** Value of `--sidebar <mode>` (`auto`, `on`, `off`), or null. Validated by the boot layer. */
-	readonly sidebar: string | null
 	/** True when `--no-update-check` was passed: suppress the npm-registry
 	 *  probe and the "update available" notice. Mirrors the
 	 *  `NO_UPDATE_NOTIFIER` env var so opt-out is reachable without env state. */
@@ -49,10 +51,11 @@ const createProgram = () =>
 		.option("--theme [id]")
 		.option("--tone [mode]")
 		.option("--width [N]")
+		.option("--wrap")
+		.option("--no-wrap")
 		.option("--serve")
 		.option("--port [N]")
 		.option("--config-path")
-		.option("--sidebar [mode]")
 		.option("--no-update-check")
 		.option("--ext [list]")
 		.option("--focus [mode]")
@@ -67,19 +70,20 @@ const VALUE_FLAGS: ReadonlySet<string> = new Set([
 	"--tone",
 	"--width",
 	"--port",
-	"--sidebar",
 	"--focus",
 	"--show",
 	"--root",
 	"--ext",
 ])
 
-const REMOVED_VALUE_FLAGS: ReadonlySet<string> = new Set(["--sort"])
+const REMOVED_VALUE_FLAGS: ReadonlySet<string> = new Set(["--sort", "--sidebar"])
 
 const BOOLEAN_FLAGS: ReadonlySet<string> = new Set([
 	"--serve",
 	"--config-path",
 	"--no-update-check",
+	"--wrap",
+	"--no-wrap",
 	"--help",
 	"-h",
 	"--version",
@@ -114,6 +118,8 @@ export const parseArgv = (argv: readonly string[]): ParsedArgs => {
 	const opts = program.opts<Record<string, unknown>>()
 	const pathArg = findPathArg(argv)
 	const stringOrNull = (value: unknown): string | null => (typeof value === "string" ? value : null)
+	const hasWrap = argv.includes("--wrap")
+	const hasNoWrap = argv.includes("--no-wrap")
 
 	return {
 		path: typeof pathArg === "string" ? pathArg : null,
@@ -121,12 +127,13 @@ export const parseArgv = (argv: readonly string[]): ParsedArgs => {
 		theme: stringOrNull(opts["theme"]),
 		tone: stringOrNull(opts["tone"]),
 		width: stringOrNull(opts["width"]),
+		wrap: hasWrap ? true : hasNoWrap ? false : null,
+		wrapConflict: hasWrap && hasNoWrap,
 		serve: opts["serve"] === true,
 		port: stringOrNull(opts["port"]),
 		help: opts["help"] === true,
 		version: opts["version"] === true,
 		configPath: opts["configPath"] === true,
-		sidebar: stringOrNull(opts["sidebar"]),
 		noUpdateCheck: opts["noUpdateCheck"] === true,
 		extensions: stringOrNull(opts["ext"]),
 		show: stringOrNull(opts["show"]),
@@ -145,12 +152,13 @@ export const usage = `usage:
 options:
   --theme <id>   color theme: ${themeList} (default: opencode)
   --tone <mode>  dark or light (default: dark)
-  --width <N>    cap rendered markdown width at N columns
+  --width <N>    reader wrap width used when wrapping is enabled (default: 80)
+  --wrap         start with reader wrapping enabled
+  --no-wrap      start with reader wrapping disabled
   --show <list>  reveal normally-skipped entries; comma-separated subset of:
                    hidden, gitignored. Use --show "" to clear.
   --root <dir>   discovery root to walk (overrides defaultRoot config/env)
-  --sidebar <m>  initial sidebar visibility: auto (default), on, or off
-  --focus <m>    startup focus: sidebar, reader, or filter (default: filter)
+  --focus <m>    startup focus: sidebar, reader, or filter (default: sidebar)
   --serve        serve the positional path as HTML in the browser (skips TUI)
   --port <N>     port for --serve (default: OS-assigned)
   -h, --help     show this help and exit
@@ -166,6 +174,6 @@ examples:
 
 configuration:
   file: $XDG_CONFIG_HOME/house/config.toml  (default ~/.config/house/config.toml)
-	  keys: theme, tone, extensions, show, focus, defaultRoot
-	  env:  HOUSE_THEME, HOUSE_TONE, HOUSE_EXTENSIONS, HOUSE_SHOW, HOUSE_FOCUS, HOUSE_DEFAULT_ROOT
+	  keys: theme, tone, width, wrap, extensions, show, focus, defaultRoot
+	  env:  HOUSE_THEME, HOUSE_TONE, HOUSE_WIDTH, HOUSE_WRAP, HOUSE_EXTENSIONS, HOUSE_SHOW, HOUSE_FOCUS, HOUSE_DEFAULT_ROOT
   precedence (high → low): flags → env → file → defaults`

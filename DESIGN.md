@@ -50,7 +50,7 @@ v1 ships when:
 3. Selecting a file renders it in the reader pane with support for: headings, paragraphs, lists (ordered, unordered, nested), blockquotes, GFM tables, inline emphasis (bold, italic, and strike — strike rendered as dim/muted because opentui's syntax-style API has no strikethrough attribute), inline code, links (rendered, not followed), images-as-alt-text, horizontal rules, fenced code blocks, including language-tagged fences.
 4. The keymap in §7.2 works end-to-end, including the help overlay.
 5. Dark and light themes ship; `--theme dark|light` selects (default `dark`). Terminal-background auto-detect is deferred to beta (§12).
-6. `--width N` controls word-wrap column.
+6. `width` / `--width N` controls the reader wrap column (default 80), while `wrap` / `--wrap` / `--no-wrap` controls whether the session starts with fixed-width reader wrapping enabled. During a session, `w` toggles between the fixed wrap width and filling the reader pane.
 7. The app builds as a Bun standalone binary (host platform) with a smoke test on the binary. npm package and cross-target binaries are deferred to beta (§10.5).
 8. `README.md` covers install + run; `DESIGN.md` reflects shipped behavior.
 
@@ -110,11 +110,11 @@ resolveSidebarWidth(viewport, preferred) =
 
 Until persistent config (#13) lands, `preferred` is derived from viewport (`floor(width * 0.25)` clamped to `[28, 60]`).
 
-**Launch** — `--sidebar=auto|on|off` initialises `shown`:
-
-- `auto` (default) — `shown=true`. Every viewport boots on the sidebar: narrow as the single visible screen, wide as the focused inline pane.
-- `on` — `shown=true`. Same as `auto` in v1; reserved for future per-pane sticky behaviors.
-- `off` — `shown=false`, focus=reader. Boots into reader (narrow) or reader-only inline (wide). Sidebar still reachable via `s`/`tab`/`/`.
+**Launch** — `shown=true`. Startup sidebar visibility is not a configuration
+surface; every viewport boots with the sidebar visible (narrow: as the single
+visible screen when focused; wide: as the inline navigation pane). After launch,
+`s`, `tab`, and `/` remain the interactive ways to hide, reveal, or focus the
+sidebar.
 
 **Resize** — switching layouts preserves intent:
 
@@ -151,6 +151,7 @@ Conventions follow `ghui` (escape-to-back, return-to-confirm, vim letters as arr
 | `[` / `]`                                                 | Previous / next file in list (from reader)             |
 | `tab`                                                     | Toggle focus between sidebar and reader                |
 | `s`                                                       | Toggle sidebar visibility                              |
+| `w`                                                       | Toggle reader wrap                                     |
 | `/`                                                       | Open filter input (basename-first fuzzy match on path) |
 | `?`                                                       | Help overlay                                           |
 | `q`, `ctrl+c`                                             | Quit                                                   |

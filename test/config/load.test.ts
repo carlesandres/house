@@ -27,8 +27,10 @@ describe("loadConfig", () => {
 			tone: "dark",
 			defaultRoot: "cwd",
 			extensions: [],
+			width: 80,
+			wrap: false,
 			show: [],
-			focus: "filter",
+			focus: "sidebar",
 		})
 	})
 
@@ -38,9 +40,59 @@ describe("loadConfig", () => {
 			loadConfig({
 				filePath: cfgPath,
 				env: { HOUSE_EXTENSIONS: "txt" },
-				cli: { theme: null, tone: null, extensions: ["log"], show: null, focus: null },
+				cli: {
+					theme: null,
+					tone: null,
+					extensions: ["log"],
+					show: null,
+					focus: null,
+					width: null,
+					wrap: null,
+				},
 			}),
 		)
 		expect(cfg.extensions).toEqual(["log"])
+	})
+
+	test("width and wrap resolve from file, env, and CLI by precedence", async () => {
+		await writeFile(cfgPath, "width = 72\nwrap = true\n")
+		const cfg = await run(
+			loadConfig({
+				filePath: cfgPath,
+				env: { HOUSE_WIDTH: "88", HOUSE_WRAP: "false" },
+				cli: {
+					theme: null,
+					tone: null,
+					extensions: null,
+					show: null,
+					focus: null,
+					width: 100,
+					wrap: true,
+				},
+			}),
+		)
+		expect(cfg.width).toBe(100)
+		expect(cfg.wrap).toBe(true)
+	})
+
+	test("rejects invalid env width and wrap values", async () => {
+		await expect(run(loadConfig({ filePath: cfgPath, env: { HOUSE_WIDTH: "0" } }))).rejects.toThrow(
+			/width: expected a positive integer/,
+		)
+		await expect(run(loadConfig({ filePath: cfgPath, env: { HOUSE_WRAP: "1" } }))).rejects.toThrow(
+			/wrap: expected true or false/,
+		)
+	})
+
+	test("rejects invalid TOML width and wrap types", async () => {
+		await writeFile(cfgPath, 'width = "80"\n')
+		await expect(run(loadConfig({ filePath: cfgPath, env: {} }))).rejects.toThrow(
+			/invalid value for width/,
+		)
+
+		await writeFile(cfgPath, 'wrap = "true"\n')
+		await expect(run(loadConfig({ filePath: cfgPath, env: {} }))).rejects.toThrow(
+			/invalid value for wrap/,
+		)
 	})
 })

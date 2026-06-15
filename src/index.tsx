@@ -36,8 +36,6 @@ import { useUpdateNotice } from "./update/useUpdateNotice.ts"
  * `Quit` in Browser tears down the renderer and exits, which propagates
  * naturally — the cleanup effect still fires before process.exit completes.
  */
-export type SidebarMode = "auto" | "on" | "off"
-
 const pathIsDirectory = async (path: string): Promise<boolean> => {
 	try {
 		return (await stat(path)).isDirectory()
@@ -107,8 +105,8 @@ interface DiscoverShellProps {
 	 *  independent everywhere else. */
 	readonly initialShow: readonly ShowCategory[]
 	readonly extensions: readonly string[]
-	readonly maxWidth: number | null
-	readonly sidebarMode: SidebarMode
+	readonly wrapWidth: number
+	readonly initialWrap: boolean
 	readonly startupFocus: StartupFocus
 }
 
@@ -117,8 +115,8 @@ export const DiscoverShell = ({
 	initialQuery,
 	initialShow,
 	extensions,
-	maxWidth,
-	sidebarMode,
+	wrapWidth,
+	initialWrap,
 	startupFocus,
 }: DiscoverShellProps) => {
 	const updateNotice = useUpdateNotice()
@@ -194,10 +192,10 @@ export const DiscoverShell = ({
 		<Browser
 			files={files}
 			initialQuery={initialQuery}
-			maxWidth={maxWidth}
+			wrapWidth={wrapWidth}
+			initialWrap={initialWrap}
 			emptyRootLabel={target}
 			discoveryStatus={discoveryStatus}
-			sidebarMode={sidebarMode}
 			startupFocus={startupFocus}
 			updateNotice={updateNotice}
 			onToggleAll={() => {
@@ -239,6 +237,14 @@ if (import.meta.main) {
 	if (args.help) {
 		console.log(usage)
 		process.exit(0)
+	}
+	if (args.wrapConflict) {
+		console.error("house: --wrap and --no-wrap cannot be used together")
+		process.exit(2)
+	}
+	if (Bun.argv.slice(2).includes("--width") && args.width === null) {
+		console.error("house: --width requires a positive integer")
+		process.exit(2)
 	}
 	if (args.version) {
 		console.log(pkg.version)
@@ -282,13 +288,34 @@ if (import.meta.main) {
 					args.focus === "sidebar" || args.focus === "reader" || args.focus === "filter"
 						? args.focus
 						: null,
+				width:
+					args.width === null
+						? null
+						: (() => {
+								const n = Number.parseInt(args.width, 10)
+								if (!/^\d+$/.test(args.width) || !Number.isSafeInteger(n) || n <= 0) {
+									console.error(`house: --width must be a positive integer, got "${args.width}"`)
+									process.exit(2)
+								}
+								return n
+							})(),
+				wrap: args.wrap,
 			},
 		}),
 	).catch((err: unknown) => {
 		console.error(`house: ${formatConfigError(err)}`)
 		process.exit(2)
 	})
-	const { theme: themeId, tone, extensions, show, focus: startupFocus, defaultRoot } = config
+	const {
+		theme: themeId,
+		tone,
+		extensions,
+		show,
+		focus: startupFocus,
+		defaultRoot,
+		width: wrapWidth,
+		wrap: initialWrap,
+	} = config
 	const themeDef = getThemeDefinition(themeId)
 	if (themeDef === undefined) {
 		// Unreachable: Config.schema validated themeId against themeDefinitions.
@@ -296,16 +323,6 @@ if (import.meta.main) {
 		process.exit(2)
 	}
 	setActiveTheme(themeDef, tone)
-
-	let maxWidth: number | null = null
-	if (args.width !== null) {
-		const n = Number.parseInt(args.width, 10)
-		if (!Number.isFinite(n) || n <= 0) {
-			console.error(`house: --width must be a positive integer, got "${args.width}"`)
-			process.exit(2)
-		}
-		maxWidth = n
-	}
 
 	const cwd = process.cwd()
 	const discoveryRoot = await resolveDiscoveryRoot({ cliRoot: args.root, defaultRoot, cwd })
@@ -349,14 +366,6 @@ if (import.meta.main) {
 		process.on("SIGTERM", shutdown)
 		// Bun.serve keeps the event loop alive until stop().
 	} else {
-		let sidebarMode: SidebarMode = "auto"
-		if (args.sidebar !== null) {
-			if (args.sidebar !== "auto" && args.sidebar !== "on" && args.sidebar !== "off") {
-				console.error(`house: --sidebar must be "auto", "on", or "off", got "${args.sidebar}"`)
-				process.exit(2)
-			}
-			sidebarMode = args.sidebar
-		}
 		if (args.focus !== null) {
 			if (args.focus !== "sidebar" && args.focus !== "reader" && args.focus !== "filter") {
 				console.error(
@@ -370,10 +379,10 @@ if (import.meta.main) {
 			initialQuery,
 			themeId,
 			tone,
-			maxWidth,
+			wrapWidth,
+			initialWrap,
 			show,
 			extensions,
-			sidebarMode,
 			startupFocus,
 			updateCheck: !args.noUpdateCheck,
 		})
@@ -385,10 +394,10 @@ interface TuiBootOptions {
 	readonly initialQuery: string
 	readonly themeId: string
 	readonly tone: "dark" | "light"
-	readonly maxWidth: number | null
+	readonly wrapWidth: number
+	readonly initialWrap: boolean
 	readonly show: readonly ShowCategory[]
 	readonly extensions: readonly string[]
-	readonly sidebarMode: SidebarMode
 	readonly startupFocus: StartupFocus
 	/** Run the npm-registry probe and surface the "update available" notice.
 	 *  False suppresses both the toast and the quit-time print. */
@@ -400,10 +409,10 @@ async function runTui({
 	initialQuery,
 	themeId,
 	tone,
-	maxWidth,
+	wrapWidth,
+	initialWrap,
 	show,
 	extensions,
-	sidebarMode,
 	startupFocus,
 	updateCheck,
 }: TuiBootOptions): Promise<void> {
@@ -446,8 +455,8 @@ async function runTui({
 				initialQuery={initialQuery}
 				initialShow={show}
 				extensions={extensions}
-				maxWidth={maxWidth}
-				sidebarMode={sidebarMode}
+				wrapWidth={wrapWidth}
+				initialWrap={initialWrap}
 				startupFocus={startupFocus}
 			/>
 		</RegistryProvider>,

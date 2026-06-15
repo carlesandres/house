@@ -30,12 +30,7 @@ import { openInEditor, resolveEditor } from "./io/editor.ts"
 import { readFileText } from "./io/readFile.ts"
 import { browserBindings, type BrowserCtx } from "./keymap/browser.ts"
 import { dispatch } from "./keymap/keymap.ts"
-import {
-	canFitInline,
-	defaultPreferredWidth,
-	initialShownForAuto,
-	resolveSidebarWidth,
-} from "./layout/resolve.ts"
+import { canFitInline, defaultPreferredWidth, resolveSidebarWidth } from "./layout/resolve.ts"
 import { fitSidebarEmptyValue } from "./layout/sidebarEmptyState.ts"
 import { formatSidebarRow } from "./layout/sidebarRow.ts"
 import { PromptRow } from "./PromptRow.tsx"
@@ -49,7 +44,6 @@ import { themeDefinitions, getThemeDefinition } from "./theme/registry.ts"
 import { saveThemePreference } from "./config/save.ts"
 import { middleTruncate } from "./ui/middleTruncate.ts"
 
-export type SidebarMode = "auto" | "on" | "off"
 export type StartupFocus = "sidebar" | "reader" | "filter"
 
 export interface BrowserProps {
@@ -57,8 +51,10 @@ export interface BrowserProps {
 	readonly initialIndex?: number
 	/** Initial applied filter query seeded from the CLI positional. */
 	readonly initialQuery?: string
-	/** Cap the rendered markdown's width at N columns. Null = fill the pane. */
-	readonly maxWidth?: number | null
+	/** Reader wrap width used when wrapping is enabled. */
+	readonly wrapWidth?: number
+	/** Initial reader wrap mode. Runtime toggles are session-only. */
+	readonly initialWrap?: boolean
 	/** Discovery root label used in the post-discovery empty-vault sidebar row. */
 	readonly emptyRootLabel?: string
 	/** Persistent footer indicator (e.g. "indexing… 42"). Pass null/undefined
@@ -75,9 +71,6 @@ export interface BrowserProps {
 	readonly renderedPathDebounceMs?: number
 	/** Test seam: disable reader-empty-state tip rotation effect. */
 	readonly disableReaderEmptyStateRotation?: boolean
-	/** Initial sidebar visibility (`--sidebar` flag). `auto` consults the
-	 *  launch viewport bucket once; subsequent visibility goes through `s`. */
-	readonly sidebarMode?: SidebarMode
 	readonly onQuit?: () => void
 	/** Test seam: replaces the file reader. */
 	readonly readFile?: (path: string) => Promise<string>
@@ -192,7 +185,8 @@ export const Browser = ({
 	files,
 	initialIndex = 0,
 	initialQuery = "",
-	maxWidth = null,
+	wrapWidth = 80,
+	initialWrap = false,
 	emptyRootLabel = "current root",
 	discoveryStatus = null,
 	discoverySpinnerIntervalMs,
@@ -201,7 +195,6 @@ export const Browser = ({
 	filterDebounceMs = FILTER_DEBOUNCE_MS,
 	renderedPathDebounceMs = RENDERED_PATH_DEBOUNCE_MS,
 	disableReaderEmptyStateRotation = false,
-	sidebarMode = "auto",
 	onQuit,
 	readFile = defaultReadFile,
 	copyToClipboard = copyTextToClipboard,
@@ -220,24 +213,13 @@ export const Browser = ({
 	const [selectedIndex, setSelectedIndex] = useState(() =>
 		clamp(initialIndex, 0, Math.max(0, files.length - 1)),
 	)
+	const [wrapEnabled, setWrapEnabled] = useState(initialWrap)
 	const [loaded, setLoaded] = useState<{ path: string; content: string } | null>(null)
 	const [error, setError] = useState<string | null>(null)
-	// `shown` is the user's sticky preference. Visibility is derived:
-	// `visible = shown || focus === "sidebar"`. See DESIGN.md §7.1.
-	//
-	// Launch consults the viewport bucket once for `--sidebar=auto`. The
-	// useState initializer pins this to the first render — buckets are
-	// launch-only by design, so resize must NOT re-evaluate.
-	const [shown, setShown] = useState<boolean>(() => {
-		switch (sidebarMode) {
-			case "on":
-				return true
-			case "off":
-				return false
-			case "auto":
-				return initialShownForAuto(width)
-		}
-	})
+	// `shown` is the user's sticky interactive preference. The sidebar starts
+	// visible; after launch, `s`/`tab`/`/` may hide or reveal it. Visibility is
+	// derived: `visible = shown || focus === "sidebar"`. See DESIGN.md §7.1.
+	const [shown, setShown] = useState<boolean>(true)
 	const startInFilter = startupFocus === "filter"
 	const initialFocus: "sidebar" | "reader" =
 		startupFocus === null
@@ -249,13 +231,12 @@ export const Browser = ({
 				: "sidebar"
 	// `filter` mirrors `openFilter`'s focus rule: the filter input lives in
 	// the sidebar, so opening it on mount also forces sidebar focus regardless
-	// of `--sidebar=off` (§7.1's visibility derivation surfaces the sidebar via
-	// focus even when `shown` is false). Plain `sidebar` startup shares the
-	// same pane focus without opening the prompt. When omitted, preserve the
-	// legacy Browser behavior: initial focus follows visibility.
-	const [focus, setFocus] = useState<"sidebar" | "reader">(() =>
-		shown || initialFocus === "sidebar" ? "sidebar" : "reader",
-	)
+	// of the current interactive visibility state (§7.1's visibility derivation
+	// surfaces the sidebar via focus even when `shown` is false). Plain
+	// `sidebar` startup shares the same pane focus without opening the prompt.
+	// When omitted, preserve the legacy Browser behavior: initial focus follows
+	// visibility.
+	const [focus, setFocus] = useState<"sidebar" | "reader">(() => initialFocus)
 	const [sidebarScroll, setSidebarScroll] = useState<number>(0)
 	const [filterOpen, setFilterOpen] = useState<boolean>(startInFilter)
 	const [filterInput, setFilterInput] = useState<string>(initialQuery)
@@ -496,6 +477,7 @@ export const Browser = ({
 		restoreFilterOnSidebarFocus: restoreFilterOnSidebarFocusRef.current,
 		filterQuery: filterInput,
 		paletteOpen,
+		wrapEnabled,
 		setFocus,
 		// Wrapped so any keymap-driven selection move (j/k/g/G/[/], reader
 		// prev/next) clears the pending-restore ref from #145. Internal
@@ -569,6 +551,7 @@ export const Browser = ({
 			setPaletteIndex(0)
 			dispatchFloatingOverlay({ type: "open-command-palette" })
 		},
+		toggleWrap: () => setWrapEnabled((prev) => !prev),
 		cycleTheme,
 		toggleTone,
 		toggleAll: () => {
@@ -884,6 +867,12 @@ export const Browser = ({
 	const isNarrow = !canFitInline(width)
 	const sidebarInline = isNarrow ? sidebarActive : shown || sidebarActive
 	const readerVisible = isNarrow ? readerActive : true
+	// When fixed-width wrapping is enabled, never size markdown wider than the
+	// visible reader body. The scrollbox deliberately disables horizontal
+	// scrolling, so an over-wide markdown node clips instead of wrapping.
+	const readerPaneWidth = isNarrow || !sidebarInline ? width : Math.max(1, width - sidebarWidth)
+	const readerBodyWidth = Math.max(1, readerPaneWidth - 2) // reader padding: 1 left + 1 right
+	const markdownWidth = wrapEnabled ? Math.min(wrapWidth, readerBodyWidth) : "100%"
 	// Currently-selected file shown in the Header (which replaced the
 	// per-pane border title that used to carry this information).
 	const currentFile = selected?.relativePath ?? null
@@ -948,6 +937,15 @@ export const Browser = ({
 		width,
 		notice: footerNotice?.text ?? null,
 		discoveryStatus,
+		indicators: [
+			{
+				id: "wrap",
+				icon: "W",
+				variant: "info",
+				active: wrapEnabled,
+				onMouseUp: () => setWrapEnabled((prev) => !prev),
+			},
+		],
 		...(discoverySpinnerIntervalMs === undefined ? {} : { discoverySpinnerIntervalMs }),
 		...(discoverySpinnerInitialFrameIndex === undefined
 			? {}
@@ -1186,7 +1184,7 @@ export const Browser = ({
 										fg={colors.text}
 										bg={readerActive ? colors.background : colors.backgroundPanel}
 										conceal
-										style={{ width: maxWidth ?? "100%" }}
+										style={{ width: markdownWidth }}
 									/>
 								</scrollbox>
 							)}

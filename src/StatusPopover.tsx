@@ -1,5 +1,6 @@
 import { useTerminalDimensions } from "@opentui/react"
 import { useMemo, useState } from "react"
+import { StatusIndicator, statusIndicatorFg } from "./StatusIndicator.tsx"
 import { colors } from "./theme/colors.ts"
 
 export type StatusPopoverVariant = "info" | "warning" | "error" | "success"
@@ -28,19 +29,6 @@ export interface StatusPopoverPanelProps {
 }
 
 const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n))
-
-const variantFg = (variant: StatusPopoverVariant): string => {
-	switch (variant) {
-		case "info":
-			return colors.info
-		case "warning":
-			return colors.warning
-		case "error":
-			return colors.error
-		case "success":
-			return colors.success
-	}
-}
 
 const measureLine = (line: string): number => line.length
 
@@ -96,22 +84,11 @@ export const StatusPopover = ({
 
 	const linesToRender = wrapped.slice(0, Math.max(0, popoverHeight - 2))
 	while (linesToRender.length < popoverHeight - 2) linesToRender.push("")
-	const triggerFg = variantFg(variant)
-	const borderColor = variantFg(variant)
+	const borderColor = statusIndicatorFg(variant)
 
 	return (
 		<>
-			<box
-				onMouseUp={() => setOpen(!isOpen)}
-				style={{
-					width: 3,
-					height: 1,
-					flexDirection: "row",
-					backgroundColor: colors.backgroundElement,
-				}}
-			>
-				<text content={` ${icon} `} wrapMode="none" style={{ fg: triggerFg, attributes: 1 }} />
-			</box>
+			<StatusIndicator icon={icon} variant={variant} active onMouseUp={() => setOpen(!isOpen)} />
 			{showPanel && isOpen && (
 				<box
 					position="absolute"
@@ -162,7 +139,7 @@ export const StatusPopoverPanel = ({
 	const linesToRender = wrapped.slice(0, Math.max(0, popoverHeight - 2))
 	while (linesToRender.length < popoverHeight - 2) linesToRender.push("")
 
-	const borderColor = variantFg(variant)
+	const borderColor = statusIndicatorFg(variant)
 
 	return (
 		<box
