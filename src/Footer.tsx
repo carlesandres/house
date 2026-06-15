@@ -242,9 +242,6 @@ export const Footer = <C,>({
 	return (
 		<box style={rowStyle}>
 			{renderIndicators()}
-			{contentBudget > 0 && renderedIndicators.length > 0 && (
-				<text content=" " wrapMode="none" style={{ fg: colors.textMuted }} />
-			)}
 			{renderHints()}
 		</box>
 	)
