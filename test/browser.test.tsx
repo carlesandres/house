@@ -1490,14 +1490,7 @@ describe("Browser — footer", () => {
 				{ width: 50, height: 10 },
 			)
 		})
-		for (let i = 0; i < 5; i++) {
-			await act(async () => {
-				await setup!.renderOnce()
-				await new Promise<void>((resolve) => setTimeout(resolve, 20))
-			})
-		}
-
-		const frame = setup!.captureCharFrame()
+		const frame = await waitForFrameContaining("wrap visibly")
 		// Regression guard: with an unclamped 80-col markdown node and scrollX=false,
 		// the middle of this sentence is clipped off-screen instead of wrapping.
 		expect(frame).toContain("wrap visibly")
