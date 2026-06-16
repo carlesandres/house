@@ -11,11 +11,12 @@ const releaseDir = resolve(root, "dist/release")
 const entrypoint = resolve(root, "src/standalone.ts")
 const require = createRequire(import.meta.url)
 
-const usage = `usage: bun run dev/build-standalone.ts [all|target-id]
+const usage = `usage: bun run dev/build-standalone.ts [target-id]
 
 target-id: ${releaseTargets.map((target) => target.id).join(", ")}
 
-Each target requires its matching @opentui/core native package to be installed.`
+Omit target-id to build the host target. Each target requires its matching
+@opentui/core native package to be installed.`
 
 const fail = (message: string): never => {
 	console.error(`build-standalone: ${message}`)
@@ -39,7 +40,6 @@ const targetsFromArg = (arg: string | undefined): readonly ReleaseTarget[] => {
 		fail(`unsupported host ${process.platform}-${process.arch}`)
 		return []
 	}
-	if (arg === "all") return releaseTargets
 	const target = findReleaseTarget(arg)
 	if (target !== undefined) return [target]
 	fail(`unknown target "${arg}"\n\n${usage}`)
