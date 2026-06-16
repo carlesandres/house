@@ -46,6 +46,7 @@
 		"format:check": "oxfmt --check src/",
 		"test": "bun test",
 		"test:pty": "HOUSE_PTY=1 bun test test/pty/",
+		"build:standalone": "bun run dev/build-standalone.ts",
 		"build:themes": "bun run dev/build-themes.ts",
 		"repro:pty-codeblocks": "bun run dev/repro-pty-codeblocks.ts",
 		"prepare": "git config core.hooksPath .githooks 2>/dev/null || true"
