@@ -11,8 +11,8 @@ import { Cause, Duration, Effect, Fiber, Stream } from "effect"
 import { useEffect, useRef, useState } from "react"
 import pkg from "../package.json" with { type: "json" }
 import { Browser, type StartupFocus } from "./Browser.tsx"
-import { parseArgv, usage } from "./cli/argv.ts"
-import { defaultConfigPath, formatConfigError, loadConfig } from "./config/load.ts"
+import { parseAndHandleFastExit } from "./cli/fast-exit.ts"
+import { formatConfigError, loadConfig } from "./config/load.ts"
 import { parseShowList, SHOW_CATEGORIES, type ShowCategory } from "./discovery/show.ts"
 import { formatDiscoveryRootLabel } from "./discovery/rootLabel.ts"
 import { walk, type FileEntry } from "./discovery/walk.ts"
@@ -235,29 +235,8 @@ export const resolveInitialQuery = ({
 
 let updateExitHookRegistered = false
 
-if (import.meta.main) {
-	const args = parseArgv(Bun.argv.slice(2))
-
-	if (args.help) {
-		console.log(usage)
-		process.exit(0)
-	}
-	if (args.wrapConflict) {
-		console.error("house: --wrap and --no-wrap cannot be used together")
-		process.exit(2)
-	}
-	if (Bun.argv.slice(2).includes("--width") && args.width === null) {
-		console.error("house: --width requires a positive integer")
-		process.exit(2)
-	}
-	if (args.version) {
-		console.log(pkg.version)
-		process.exit(0)
-	}
-	if (args.configPath) {
-		console.log(defaultConfigPath())
-		process.exit(0)
-	}
+export async function main(argv: readonly string[] = Bun.argv.slice(2)): Promise<void> {
+	const args = parseAndHandleFastExit(argv)
 
 	// Parse --show eagerly so an invalid token fails fast with the CLI-style
 	// "house: ..." message, before any I/O work in loadConfig kicks off.
@@ -392,6 +371,8 @@ if (import.meta.main) {
 		})
 	}
 }
+
+if (import.meta.main) await main()
 
 interface TuiBootOptions {
 	readonly discoveryRoot: string

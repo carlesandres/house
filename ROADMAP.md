@@ -6,11 +6,26 @@ Architectural rationale, UX rules, and key reservations live in `DESIGN.md`. Pro
 
 ★ marks a confirmed competitive gap (mdcat / frogmouth / mdr — see issue #16).
 
-Beta shipped with v0.4.0. The unified browser model has landed. The public launch goal is now intentionally narrow: only daily-driver essentials stay in scope.
+Beta shipped with v0.4.0. The unified browser model has landed. The public launch goal is now intentionally narrow: only daily-driver essentials stay in scope. Binary distribution is the current distribution initiative because npm install/runtime friction is now a real user-facing problem, not just a future nice-to-have.
 
-## Next up — current focus
+## Current focus — binary distribution
 
-These are the next tasks to work on, in order:
+Goal: make `house` installable and runnable without requiring Bun on `PATH`.
+
+These are the next distribution tasks to work on, in order:
+
+1. Split a lightweight standalone entrypoint for fast `--version` / `--help` ([#131](https://github.com/carlesandres/house/issues/131)).
+2. Add host and matrix standalone binary builds ([#133](https://github.com/carlesandres/house/issues/133)).
+3. Generate per-platform npm binary packages ([#134](https://github.com/carlesandres/house/issues/134)).
+4. Replace the main package bin with a Node shim that resolves the matching binary package ([#135](https://github.com/carlesandres/house/issues/135)).
+5. Clean up the published source package with a bundled `dist/` + `prepack` path ([#132](https://github.com/carlesandres/house/issues/132)).
+6. Add Homebrew distribution after the binary pipeline is proven ([#51](https://github.com/carlesandres/house/issues/51)).
+
+Tracked by the `binary distribution` milestone and the standalone binary epic ([#2](https://github.com/carlesandres/house/issues/2)). Windows support remains separate and blocked on the Windows support epic ([#129](https://github.com/carlesandres/house/issues/129)).
+
+## Public launch — next daily-driver fixes
+
+Once the binary distribution path is moving, return to the remaining public-launch polish:
 
 1. Preserve alpha colours from bundled themes so muted/border tokens keep their intended contrast ([#189](https://github.com/carlesandres/house/issues/189)).
 2. Make footer status-indicator layout display-width aware ([#220](https://github.com/carlesandres/house/issues/220)).
@@ -83,13 +98,8 @@ No commitment to ship. Tracked to remember.
 | Item | Issue |
 |---|---|
 | Active auto-update command (depends on #100) | [#12](https://github.com/carlesandres/house/issues/12) |
-| Standalone binary (no Bun-on-PATH) — epic | [#2](https://github.com/carlesandres/house/issues/2) |
-| Split `src/standalone.ts` entrypoint for fast `--version`/`--help` | [#131](https://github.com/carlesandres/house/issues/131) |
-| Bundle published source via `dev/build-cli.ts` + `prepack` hook | [#132](https://github.com/carlesandres/house/issues/132) |
-| `dev/build-standalone.ts` (`bun build --compile --bytecode`, per-platform) | [#133](https://github.com/carlesandres/house/issues/133) |
-| Per-platform binary npm packages via `dev/build-npm-packages.ts` | [#134](https://github.com/carlesandres/house/issues/134) |
-| `bin/house.js` Node shim with binary-package resolver + Bun fallback | [#135](https://github.com/carlesandres/house/issues/135) |
-| Distribute via Homebrew tap | [#51](https://github.com/carlesandres/house/issues/51) |
+| Standalone binary distribution — current initiative | [#2](https://github.com/carlesandres/house/issues/2) |
+| Distribute via Homebrew tap after binaries land | [#51](https://github.com/carlesandres/house/issues/51) |
 | Windows support (epic; see also #128 PATHEXT) | [#129](https://github.com/carlesandres/house/issues/129) |
 
 ### File handling

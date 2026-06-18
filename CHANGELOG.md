@@ -6,6 +6,11 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 
 ## [Unreleased]
 
+### Added
+
+- Added a lightweight `src/standalone.ts` CLI entrypoint for fast `--help` / `--version` exits and future compiled-binary builds.
+- Added `bun run build:standalone` to compile and package per-platform standalone binaries.
+
 ## [0.4.14] — 2026-06-15
 
 ### Added
