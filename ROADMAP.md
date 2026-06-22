@@ -12,14 +12,15 @@ Beta shipped with v0.4.0. The unified browser model has landed. The public launc
 
 Goal: make `house` installable and runnable without requiring Bun on `PATH`.
 
-These are the next distribution tasks to work on, in order:
+Done: the lightweight standalone entrypoint and host standalone build path have landed
+([#131](https://github.com/carlesandres/house/issues/131), [#133](https://github.com/carlesandres/house/issues/133)).
 
-1. Split a lightweight standalone entrypoint for fast `--version` / `--help` ([#131](https://github.com/carlesandres/house/issues/131)).
-2. Add host and matrix standalone binary builds ([#133](https://github.com/carlesandres/house/issues/133)).
-3. Generate per-platform npm binary packages ([#134](https://github.com/carlesandres/house/issues/134)).
-4. Replace the main package bin with a Node shim that resolves the matching binary package ([#135](https://github.com/carlesandres/house/issues/135)).
-5. Clean up the published source package with a bundled `dist/` + `prepack` path ([#132](https://github.com/carlesandres/house/issues/132)).
-6. Add Homebrew distribution after the binary pipeline is proven ([#51](https://github.com/carlesandres/house/issues/51)).
+These are the remaining distribution tasks to work on, in order:
+
+1. Generate per-platform npm binary packages ([#134](https://github.com/carlesandres/house/issues/134)).
+2. Replace the main package bin with a Node shim that resolves the matching binary package ([#135](https://github.com/carlesandres/house/issues/135)).
+3. Clean up the published source package with a bundled `dist/` + `prepack` path ([#132](https://github.com/carlesandres/house/issues/132)).
+4. Add Homebrew distribution after the binary pipeline is proven ([#51](https://github.com/carlesandres/house/issues/51)).
 
 Tracked by the `binary distribution` milestone and the standalone binary epic ([#2](https://github.com/carlesandres/house/issues/2)). Windows support remains separate and blocked on the Windows support epic ([#129](https://github.com/carlesandres/house/issues/129)).
 

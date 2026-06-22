@@ -2,6 +2,7 @@ export interface ReleaseTarget {
 	readonly id: string
 	readonly os: "darwin" | "linux"
 	readonly arch: "arm64" | "x64"
+	readonly libc?: "glibc"
 	readonly bunTarget: string
 	readonly binaryName: string
 	readonly opentuiNativePackage: string
@@ -28,6 +29,7 @@ export const releaseTargets = [
 		id: "linux-arm64",
 		os: "linux",
 		arch: "arm64",
+		libc: "glibc",
 		bunTarget: "bun-linux-arm64",
 		binaryName: "house",
 		opentuiNativePackage: "@opentui/core-linux-arm64",
@@ -36,6 +38,7 @@ export const releaseTargets = [
 		id: "linux-x64",
 		os: "linux",
 		arch: "x64",
+		libc: "glibc",
 		bunTarget: "bun-linux-x64",
 		binaryName: "house",
 		opentuiNativePackage: "@opentui/core-linux-x64",

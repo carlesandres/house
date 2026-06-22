@@ -10,6 +10,7 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 
 - Added a lightweight `src/standalone.ts` CLI entrypoint for fast `--help` / `--version` exits and future compiled-binary builds.
 - Added `bun run build:standalone` to compile and package per-platform standalone binaries.
+- Added `bun run build:npm-packages` to prepare per-platform binary npm packages.
 
 ## [0.4.14] — 2026-06-15
 

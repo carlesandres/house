@@ -47,9 +47,16 @@
 		"test": "bun test",
 		"test:pty": "HOUSE_PTY=1 bun test test/pty/",
 		"build:standalone": "bun run dev/build-standalone.ts",
+		"build:npm-packages": "bun run dev/build-npm-packages.ts",
 		"build:themes": "bun run dev/build-themes.ts",
 		"repro:pty-codeblocks": "bun run dev/repro-pty-codeblocks.ts",
 		"prepare": "git config core.hooksPath .githooks 2>/dev/null || true"
+	},
+	"optionalDependencies": {
+		"@carlesandres/house-darwin-arm64": "0.4.14",
+		"@carlesandres/house-darwin-x64": "0.4.14",
+		"@carlesandres/house-linux-arm64": "0.4.14",
+		"@carlesandres/house-linux-x64": "0.4.14"
 	},
 	"dependencies": {
 		"@effect/atom-react": "4.0.0-beta.60",
