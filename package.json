@@ -34,7 +34,7 @@
 		"registry": "https://registry.npmjs.org/"
 	},
 	"bin": {
-		"house": "src/standalone.ts"
+		"house": "src/cli/npm-bin.js"
 	},
 	"scripts": {
 		"dev": "bun --watch src/index.tsx",
