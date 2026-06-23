@@ -23,7 +23,7 @@
 		"house"
 	],
 	"files": [
-		"src",
+		"dist",
 		"README.md",
 		"LICENSE",
 		"CHANGELOG.md"
@@ -34,7 +34,7 @@
 		"registry": "https://registry.npmjs.org/"
 	},
 	"bin": {
-		"house": "src/cli/npm-bin.js"
+		"house": "dist/bin.js"
 	},
 	"scripts": {
 		"dev": "bun --watch src/index.tsx",
@@ -46,9 +46,11 @@
 		"format:check": "oxfmt --check src/",
 		"test": "bun test",
 		"test:pty": "HOUSE_PTY=1 bun test test/pty/",
+		"build:cli": "bun run dev/build-cli.ts",
 		"build:standalone": "bun run dev/build-standalone.ts",
 		"build:npm-packages": "bun run dev/build-npm-packages.ts",
 		"build:themes": "bun run dev/build-themes.ts",
+		"prepack": "bun run build:cli",
 		"repro:pty-codeblocks": "bun run dev/repro-pty-codeblocks.ts",
 		"prepare": "git config core.hooksPath .githooks 2>/dev/null || true"
 	},

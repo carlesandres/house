@@ -12,6 +12,7 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 - Added `bun run build:standalone` to compile and package per-platform standalone binaries.
 - Added `bun run build:npm-packages` to prepare per-platform binary npm packages.
 - Switched the published `house` bin to a small Node shim that loads the matching optional binary package.
+- Added `bun run build:cli` + `prepack` to publish a bundled `dist/` package.
 
 ## [0.4.14] — 2026-06-15
 
