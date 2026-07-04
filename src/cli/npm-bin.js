@@ -12,6 +12,7 @@ const supportedTargets = {
 }
 
 const mainBinaryName = "house"
+const fastExitFlags = new Set(["--help", "-h", "--version", "-v", "--config-path"])
 
 export const detectLinuxLibc = () => {
 	if (process.platform !== "linux") return undefined
@@ -34,6 +35,8 @@ export const binaryPackageNameFor = (
 
 export const resolveBinaryPath = (packageName, resolve = require.resolve) =>
 	resolve(`${packageName}/bin/${mainBinaryName}`)
+
+export const shouldCaptureOutput = (argv) => argv.some((arg) => fastExitFlags.has(arg))
 
 export const main = (
 	argv = process.argv.slice(2),
@@ -59,9 +62,15 @@ export const main = (
 		process.exit(1)
 	}
 
+	const captureOutput = shouldCaptureOutput(argv)
 	const result = spawnSync(binaryPath, argv, {
-		stdio: "inherit",
+		stdio: captureOutput ? ["inherit", "pipe", "pipe"] : "inherit",
 	})
+
+	if (captureOutput) {
+		if (result.stdout !== null) process.stdout.write(result.stdout)
+		if (result.stderr !== null) process.stderr.write(result.stderr)
+	}
 
 	if (result.error !== undefined) {
 		console.error(`house: failed to launch ${packageName}: ${result.error.message}`)

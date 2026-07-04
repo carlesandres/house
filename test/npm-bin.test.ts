@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { binaryPackageNameFor, resolveBinaryPath } from "../src/cli/npm-bin.js"
+import { binaryPackageNameFor, resolveBinaryPath, shouldCaptureOutput } from "../src/cli/npm-bin.js"
 
 describe("npm bin shim", () => {
 	test("maps supported platforms to package names", () => {
@@ -18,5 +18,11 @@ describe("npm bin shim", () => {
 		expect(resolveBinaryPath("@carlesandres/house-darwin-x64", (path: string) => path)).toBe(
 			"@carlesandres/house-darwin-x64/bin/house",
 		)
+	})
+
+	test("captures fast-exit output so command substitution sees it", () => {
+		expect(shouldCaptureOutput(["--version"])).toBe(true)
+		expect(shouldCaptureOutput(["--help"])).toBe(true)
+		expect(shouldCaptureOutput(["README.md"])).toBe(false)
 	})
 })

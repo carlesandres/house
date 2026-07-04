@@ -11,6 +11,8 @@ export declare const resolveBinaryPath: (
 	resolve?: (specifier: string) => string,
 ) => string
 
+export declare const shouldCaptureOutput: (argv: readonly string[]) => boolean
+
 export declare const main: (
 	argv?: readonly string[],
 	platform?: NodeJS.Platform,
