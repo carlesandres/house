@@ -44,6 +44,11 @@ export const main = (
 	arch = process.arch,
 	libc = detectLinuxLibc(),
 ) => {
+	if (argv.includes("--version") || argv.includes("-v")) {
+		console.log(pkg.version)
+		process.exit(0)
+	}
+
 	const packageName = binaryPackageNameFor(platform, arch, libc)
 	if (packageName === undefined) {
 		console.error(
