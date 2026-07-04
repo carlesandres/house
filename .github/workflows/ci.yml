@@ -44,8 +44,8 @@ jobs:
         run: |
           bun run build:standalone linux-x64
           bun run build:npm-packages linux-x64
-          npm pack
           npm pack ./dist/npm/binaries/linux-x64 --pack-destination .
+          npm pack
       - name: Enforce engine compatibility
         run: npm config set engine-strict true
       - name: Global install smoke test from tarball
