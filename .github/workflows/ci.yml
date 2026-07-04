@@ -55,4 +55,10 @@ jobs:
             "./carlesandres-house-${version}.tgz" \
             "./carlesandres-house-linux-x64-${version}.tgz" \
             --prefix "${RUNNER_TEMP}/npm-global"
-          test "$("${RUNNER_TEMP}/npm-global/bin/house" --version)" = "${version}"
+          set +e
+          actual="$("${RUNNER_TEMP}/npm-global/bin/house" --version 2>&1)"
+          status="$?"
+          set -e
+          printf 'house --version exit=%s output=%s\n' "${status}" "${actual}"
+          test "${status}" = 0
+          test "${actual}" = "${version}"
