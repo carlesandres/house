@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process"
+import { realpathSync } from "node:fs"
 import { createRequire } from "node:module"
-import { pathToFileURL } from "node:url"
+import { fileURLToPath } from "node:url"
 
 const require = createRequire(import.meta.url)
 const pkg = require("../../package.json")
@@ -86,6 +87,6 @@ export const main = (
 }
 
 const isMain =
-	process.argv[1] !== undefined && pathToFileURL(process.argv[1]).href === import.meta.url
+	process.argv[1] !== undefined && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)
 
 if (isMain) main()
