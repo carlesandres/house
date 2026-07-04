@@ -52,8 +52,10 @@ jobs:
         run: |
           version="$(node -p "require('./package.json').version")"
           npm install -g \
-            "./carlesandres-house-${version}.tgz" \
             "./carlesandres-house-linux-x64-${version}.tgz" \
+            --prefix "${RUNNER_TEMP}/npm-global"
+          npm install -g \
+            "./carlesandres-house-${version}.tgz" \
             --prefix "${RUNNER_TEMP}/npm-global"
           set +e
           actual="$("${RUNNER_TEMP}/npm-global/bin/house" --version 2>&1)"
