@@ -40,11 +40,18 @@ jobs:
         with:
           bun-version: latest
       - name: Build npm tarball
-        run: npm pack
+        run: |
+          bun run build:standalone linux-x64
+          bun run build:npm-packages linux-x64
+          npm pack
+          npm pack ./dist/npm/binaries/linux-x64 --pack-destination .
       - name: Enforce engine compatibility
         run: npm config set engine-strict true
       - name: Global install smoke test from tarball
         run: |
           version="$(node -p "require('./package.json').version")"
-          npm install -g "./carlesandres-house-${version}.tgz" --prefix "${RUNNER_TEMP}/npm-global"
+          npm install -g \
+            "./carlesandres-house-${version}.tgz" \
+            "./carlesandres-house-linux-x64-${version}.tgz" \
+            --prefix "${RUNNER_TEMP}/npm-global"
           test "$("${RUNNER_TEMP}/npm-global/bin/house" --version)" = "${version}"
