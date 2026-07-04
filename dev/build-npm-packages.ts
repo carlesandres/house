@@ -45,9 +45,6 @@ const packageJsonFor = (target: ReleaseTarget): Record<string, unknown> => ({
 	cpu: [target.arch],
 	...(target.libc === undefined ? {} : { libc: [target.libc] }),
 	files: ["bin", "LICENSE"],
-	bin: {
-		house: `bin/${target.binaryName}`,
-	},
 	publishConfig: pkg.publishConfig,
 })
 
