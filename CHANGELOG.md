@@ -2,7 +2,7 @@
 
 All notable changes to house land here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html) from v0.1.0 onward.
 
-The publish workflow (`.github/workflows/publish.yml`) runs on the `release: published` event, runs `npm publish` via Trusted Publisher, and lets GitHub auto-generate release notes from commit subjects; this file is the curated, narrative version.
+The publish workflow (`.github/workflows/publish.yml`) runs on the `release: published` event, builds per-platform binaries, publishes platform packages then the main package via Trusted Publisher, and lets GitHub auto-generate release notes from commit subjects; this file is the curated, narrative version.
 
 ## [Unreleased]
 
@@ -13,6 +13,12 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 - Added `bun run build:npm-packages` to prepare per-platform binary npm packages.
 - Switched the published `house` bin to a small Node shim that loads the matching optional binary package.
 - Added `bun run build:cli` + `prepack` to publish a bundled `dist/` package.
+- Release publish now builds binaries on native runners (macOS arm64/x64, Linux arm64/x64), publishes the four platform npm packages, then the main package, and attaches `house-*.tar.gz` archives to the GitHub Release.
+
+### Fixed
+
+- Published package `files` now lists only `dist/bin.js` and `dist/index.js`, so standalone/npm binary build outputs under `dist/` are not packed into the main tarball.
+- `build:cli` no longer wipes all of `dist/` (preserves `dist/release` and `dist/npm` during `prepack`).
 
 ## [0.4.14] — 2026-06-15
 

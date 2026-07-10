@@ -76,22 +76,38 @@ Release-event-driven. Modeled on ghui, adapted for this repo's branch protection
    ```
 
 7. The `release: published` event fires `.github/workflows/publish.yml`, which:
-   - runs `bun run typecheck`,
-   - asserts `v${package.version}` matches `${GITHUB_REF_NAME}`,
-   - runs `npm pack --dry-run`,
-   - runs `npm publish` (Trusted Publisher / OIDC; no `NPM_TOKEN`).
+   - verifies typecheck + `npm pack --dry-run` and asserts `v${package.version}` matches `${GITHUB_REF_NAME}`,
+   - builds each platform binary on a native runner (`darwin-arm64`, `darwin-x64`, `linux-arm64`, `linux-x64`),
+   - publishes the four `@carlesandres/house-<os>-<arch>` packages first,
+   - publishes `@carlesandres/house` (Node shim + `optionalDependencies`),
+   - attaches `house-*.tar.gz` standalone archives to the GitHub Release.
 
-   If the `npm` GitHub environment has required reviewers, the publish job pauses at "Waiting for reviewer" — approve via the run's web page or `gh run view <id> --web`.
+   If the `npm` GitHub environment has required reviewers, the **publish** job pauses at "Waiting for reviewer" — approve via the run's web page or `gh run view <id> --web`. Matrix build jobs do not use that environment.
 
 8. Watch and verify:
 
    ```bash
    gh run list --workflow publish.yml --limit 3
    gh run watch
-   npm view @carlesandres/house version    # should equal X.Y.Z
+   npm view @carlesandres/house version              # should equal X.Y.Z
+   npm view @carlesandres/house-darwin-arm64 version # same for the other three platform packages
+   npm install -g @carlesandres/house                # no Bun required on supported platforms
+   house --version
    ```
 
-There is no compiled binary, no Homebrew tap yet — both tracked as GitHub issues. Don't add an `NPM_TOKEN`-style secret; the npm-side config uses Trusted Publisher with owner `carlesandres`, repo `house`, workflow `publish.yml`, environment `npm`.
+Don't add an `NPM_TOKEN`-style secret. Publish uses Trusted Publisher / OIDC with owner `carlesandres`, repo `house`, workflow `publish.yml`, environment `npm`.
+
+**Trusted Publisher must be configured for every package name** that the workflow publishes:
+
+- `@carlesandres/house` (already configured)
+- `@carlesandres/house-darwin-arm64`
+- `@carlesandres/house-darwin-x64`
+- `@carlesandres/house-linux-arm64`
+- `@carlesandres/house-linux-x64`
+
+For each new platform package: create it once under the `@carlesandres` scope (or let the first OIDC publish create it if your npm org allows), then add a Trusted Publisher entry pointing at the same owner/repo/workflow/environment as the main package. Until those entries exist, the publish job will fail when publishing the binary packages.
+
+Homebrew tap is still deferred until this npm binary path is proven in a real release (issue #51).
 
 ## Things that are *not* the right move
 
@@ -99,7 +115,7 @@ There is no compiled binary, no Homebrew tap yet — both tracked as GitHub issu
 - Adding a feature on the deferred list (§5.3) without an issue agreeing to do it now.
 - Binding a reserved key (§7.3) — break it and v2 work has to re-train muscle memory.
 - Adding `// TODO`s without the `(revisit: <topic>)` form when they pair with a §12 entry.
-- Compiling to a standalone binary as part of the release flow. We ship JS source via npm; the user brings Bun. Binary distribution is a future option tracked as a GH issue, not a near-term move.
+- Publishing `@carlesandres/house` without first publishing the matching platform binary packages at the same version — the Node shim cannot run without them.
 - Amending or force-pushing commits on `main`.
 
 ## Communication

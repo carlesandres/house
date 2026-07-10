@@ -6,20 +6,18 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   id-token: write
 
 jobs:
-  publish:
+  verify:
     runs-on: ubuntu-latest
-    environment: npm
     steps:
       - uses: actions/checkout@v5
 
       - uses: actions/setup-node@v5
         with:
           node-version: 24
-          registry-url: https://registry.npmjs.org/
 
       - uses: oven-sh/setup-bun@v2
 
@@ -35,4 +33,122 @@ jobs:
 
       - run: npm pack --dry-run
 
-      - run: npm publish
+  build-binary:
+    name: build ${{ matrix.target }}
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: darwin-arm64
+            runner: macos-15
+          - target: darwin-x64
+            runner: macos-15-intel
+          - target: linux-arm64
+            runner: ubuntu-24.04-arm
+          - target: linux-x64
+            runner: ubuntu-24.04
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+
+      - run: bun install --frozen-lockfile
+
+      - name: Build standalone binary
+        run: bun run build:standalone ${{ matrix.target }}
+
+      - name: Package npm binary package
+        run: bun run build:npm-packages ${{ matrix.target }}
+
+      - name: Upload npm binary package
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-binary-${{ matrix.target }}
+          path: dist/npm/binaries/${{ matrix.target }}/
+          if-no-files-found: error
+
+      - name: Upload release tarball
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-tarball-${{ matrix.target }}
+          path: dist/release/house-${{ matrix.target }}.tar.gz
+          if-no-files-found: error
+
+  publish:
+    needs: build-binary
+    runs-on: ubuntu-latest
+    environment: npm
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org/
+
+      - uses: oven-sh/setup-bun@v2
+
+      - run: bun install --frozen-lockfile
+
+      - name: Verify release tag matches package version
+        if: github.event_name == 'release'
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          test "v${version}" = "${GITHUB_REF_NAME}"
+
+      - name: Download npm binary packages
+        uses: actions/download-artifact@v4
+        with:
+          pattern: npm-binary-*
+          path: artifacts/npm-binaries
+
+      - name: Publish npm binary packages
+        run: |
+          set -euo pipefail
+          for package_dir in artifacts/npm-binaries/npm-binary-*; do
+            name="$(node -p "require('./${package_dir}/package.json').name")"
+            version="$(node -p "require('./${package_dir}/package.json').version")"
+            if npm view "${name}@${version}" version >/dev/null 2>&1; then
+              echo "${name}@${version} already published."
+              continue
+            fi
+            echo "Publishing ${name}@${version} from ${package_dir}"
+            npm publish "${package_dir}"
+          done
+
+      - run: npm pack --dry-run
+
+      - name: Publish main npm package
+        run: |
+          set -euo pipefail
+          name="$(node -p "require('./package.json').name")"
+          version="$(node -p "require('./package.json').version")"
+          if npm view "${name}@${version}" version >/dev/null 2>&1; then
+            echo "${name}@${version} already published."
+            exit 0
+          fi
+          npm publish
+
+      - name: Download release tarballs
+        if: github.event_name == 'release'
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-tarball-*
+          path: dist/release
+          merge-multiple: true
+
+      - name: Attach standalone binaries to GitHub Release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          assets=(dist/release/house-*.tar.gz)
+          if [ "${#assets[@]}" -eq 0 ]; then
+            echo "No release tarballs found under dist/release" >&2
+            exit 1
+          fi
+          gh release upload "${GITHUB_REF_NAME}" "${assets[@]}" --clobber
