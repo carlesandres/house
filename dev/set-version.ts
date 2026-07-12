@@ -1,0 +1,50 @@
+#!/usr/bin/env bun
+
+import { readFile, writeFile } from "node:fs/promises"
+import { resolve } from "node:path"
+
+const root = resolve(import.meta.dir, "..")
+const packagePath = resolve(root, "package.json")
+const lockfilePath = resolve(root, "bun.lock")
+const platformPackagePrefix = "@carlesandres/house-"
+const semverPattern =
+	/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/
+
+const fail = (message: string): never => {
+	console.error(`set-version: ${message}`)
+	process.exit(1)
+}
+
+const version = Bun.argv[2]
+if (version === "--help" || version === "-h") {
+	console.log("usage: bun run version:set <version>")
+	process.exit(0)
+}
+if (Bun.argv.length !== 3) fail("usage: bun run version:set <version>")
+const nextVersion = version ?? fail("usage: bun run version:set <version>")
+if (!semverPattern.test(nextVersion)) {
+	fail(`invalid semantic version ${JSON.stringify(nextVersion)}`)
+}
+
+const pkg = JSON.parse(await readFile(packagePath, "utf8")) as {
+	version: string
+	optionalDependencies?: Record<string, string>
+}
+const platformPackages = Object.keys(pkg.optionalDependencies ?? {}).filter((name) =>
+	name.startsWith(platformPackagePrefix),
+)
+if (platformPackages.length === 0) fail("no platform optional dependencies found")
+
+pkg.version = nextVersion
+for (const name of platformPackages) pkg.optionalDependencies![name] = nextVersion
+
+let lockfile = await readFile(lockfilePath, "utf8")
+for (const name of platformPackages) {
+	const dependencyPattern = new RegExp(`("${name}": )"[^"]+"`)
+	if (!dependencyPattern.test(lockfile)) fail(`${name} is missing from bun.lock`)
+	lockfile = lockfile.replace(dependencyPattern, `$1"${nextVersion}"`)
+}
+
+await writeFile(packagePath, `${JSON.stringify(pkg, null, "\t")}\n`)
+await writeFile(lockfilePath, lockfile)
+console.log(`set ${pkg.version} across the main and ${platformPackages.length} platform packages`)

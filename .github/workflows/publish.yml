@@ -107,9 +107,14 @@ jobs:
       - name: Publish npm binary packages
         run: |
           set -euo pipefail
+          main_version="$(node -p "require('./package.json').version")"
           for package_dir in artifacts/npm-binaries/npm-binary-*; do
             name="$(node -p "require('./${package_dir}/package.json').name")"
             version="$(node -p "require('./${package_dir}/package.json').version")"
+            if [ "${version}" != "${main_version}" ]; then
+              echo "Version mismatch: ${name}=${version}, main=${main_version}" >&2
+              exit 1
+            fi
             if npm view "${name}@${version}" version >/dev/null 2>&1; then
               echo "${name}@${version} already published."
               continue

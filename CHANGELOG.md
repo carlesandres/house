@@ -14,6 +14,7 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 - Switched the published `house` bin to a small Node shim that loads the matching optional binary package.
 - Added `bun run build:cli` + `prepack` to publish a bundled `dist/` package.
 - Release publish now builds binaries on native runners (macOS arm64/x64, Linux arm64/x64), publishes the four platform npm packages, then the main package, and attaches `house-*.tar.gz` archives to the GitHub Release.
+- Added `bun run version:set X.Y.Z` and release-time validation to keep the main and platform package versions in sync.
 
 ### Fixed
 

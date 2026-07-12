@@ -1,7 +1,17 @@
 import { describe, expect, test } from "bun:test"
+import pkg from "../package.json" with { type: "json" }
 import { binaryPackageNameFor, resolveBinaryPath, shouldCaptureOutput } from "../src/cli/npm-bin.js"
 
 describe("npm bin shim", () => {
+	test("pins platform packages to the main package version", () => {
+		const platformVersions = Object.entries(pkg.optionalDependencies)
+			.filter(([name]) => name.startsWith(`${pkg.name}-`))
+			.map(([, version]) => version)
+
+		expect(platformVersions).not.toHaveLength(0)
+		expect(platformVersions.every((version) => version === pkg.version)).toBe(true)
+	})
+
 	test("maps supported platforms to package names", () => {
 		expect(binaryPackageNameFor("darwin", "arm64")).toBe("@carlesandres/house-darwin-arm64")
 		expect(binaryPackageNameFor("darwin", "x64")).toBe("@carlesandres/house-darwin-x64")
