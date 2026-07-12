@@ -131,7 +131,7 @@ Release-event-driven. See `.github/workflows/publish.yml` and the more detailed 
 3. Branch off `main` (e.g. `release/vX.Y.Z`), commit `chore: release vX.Y.Z`, push, open a PR into `main`. Wait for CI; merge. Direct commits to `main` are blocked by branch protection.
 4. After merge, pull `main` locally, then `gh release create vX.Y.Z --target main --title vX.Y.Z --generate-notes` — the workflow takes it from there.
 
-The publish workflow (`release: published` / `workflow_dispatch`) verifies the tag, builds each platform binary on a native runner, publishes the four `@carlesandres/house-<os>-<arch>` packages, then publishes `@carlesandres/house` via Trusted Publisher (OIDC, no `NPM_TOKEN`). On release events it also attaches `house-*.tar.gz` archives to the GitHub Release. See `AGENTS.md` for Trusted Publisher setup on the platform package names.
+The publish workflow (`release: published` / `workflow_dispatch`) verifies the tag, builds each platform binary on a native runner, publishes the four `@carlesandres/house-<os>-<arch>` packages, then publishes `@carlesandres/house` via Trusted Publisher (OIDC, no `NPM_TOKEN`). Manual dispatch is restricted to `main` and exists for safe retries. On release events the workflow also attaches `house-*.tar.gz` archives to the GitHub Release. See `AGENTS.md` for Trusted Publisher setup on the platform package names.
 
 ## License
 

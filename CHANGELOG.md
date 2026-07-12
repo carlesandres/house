@@ -18,6 +18,7 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 
 ### Fixed
 
+- Manual publish dispatch now rejects refs other than `main` before building or publishing artifacts.
 - Published package `files` now lists only `dist/bin.js` and `dist/index.js`, so standalone/npm binary build outputs under `dist/` are not packed into the main tarball.
 - `build:cli` no longer wipes all of `dist/` (preserves `dist/release` and `dist/npm` during `prepack`).
 
