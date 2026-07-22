@@ -23,7 +23,8 @@
 		"house"
 	],
 	"files": [
-		"dist",
+		"dist/bin.js",
+		"dist/index.js",
 		"README.md",
 		"LICENSE",
 		"CHANGELOG.md"
@@ -46,6 +47,7 @@
 		"format:check": "oxfmt --check src/",
 		"test": "bun test",
 		"test:pty": "HOUSE_PTY=1 bun test test/pty/",
+		"version:set": "bun run dev/set-version.ts",
 		"build:cli": "bun run dev/build-cli.ts",
 		"build:standalone": "bun run dev/build-standalone.ts",
 		"build:npm-packages": "bun run dev/build-npm-packages.ts",

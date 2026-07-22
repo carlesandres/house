@@ -127,11 +127,11 @@ When a newer published version is available on npm, house prints a one-line noti
 Release-event-driven. See `.github/workflows/publish.yml` and the more detailed step-by-step in `AGENTS.md`. Quick version:
 
 1. Build release notes from `main` commits since the last tag: check `[Unreleased]`, run `git log --first-parent --oneline vX.Y.Z..origin/main`, and ensure every user-visible change is represented. If `[Unreleased]` is empty/incomplete, reconstruct it from that range before moving it under a new dated heading and updating link refs.
-2. Bump `version` in `package.json`.
+2. Run `bun run version:set X.Y.Z` to bump the main package, all platform package pins, and `bun.lock` together.
 3. Branch off `main` (e.g. `release/vX.Y.Z`), commit `chore: release vX.Y.Z`, push, open a PR into `main`. Wait for CI; merge. Direct commits to `main` are blocked by branch protection.
-4. After merge, pull `main` locally, then `gh release create vX.Y.Z --target main --title vX.Y.Z --generate-notes` — the workflow takes it from there (`npm publish` via Trusted Publisher).
+4. After merge, pull `main` locally, then `gh release create vX.Y.Z --target main --title vX.Y.Z --generate-notes` — the workflow takes it from there.
 
-The publish workflow runs on `release: published` and `workflow_dispatch`, then executes `bun run typecheck`, validates `v${package.version}` equals the release tag name, runs `npm pack --dry-run`, and publishes via Trusted Publisher (OIDC, no `NPM_TOKEN`).
+The publish workflow (`release: published` / `workflow_dispatch`) verifies the tag, builds each platform binary on a native runner, publishes the four `@carlesandres/house-<os>-<arch>` packages, then publishes `@carlesandres/house` via Trusted Publisher (OIDC, no `NPM_TOKEN`). Manual dispatch is restricted to `main` and exists for safe retries. On release events the workflow also attaches `house-*.tar.gz` archives to the GitHub Release. See `AGENTS.md` for Trusted Publisher setup on the platform package names.
 
 ## License
 

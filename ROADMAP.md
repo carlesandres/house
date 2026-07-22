@@ -13,14 +13,18 @@ Beta shipped with v0.4.0. The unified browser model has landed. The public launc
 Goal: make `house` installable and runnable without requiring Bun on `PATH`.
 
 Done: the lightweight standalone entrypoint, host standalone build path, npm binary
-package prep, main package bin shim, and bundled published source have landed
+package prep, main package bin shim, bundled published source, and multi-platform
+release publish workflow have landed
 ([#131](https://github.com/carlesandres/house/issues/131), [#132](https://github.com/carlesandres/house/issues/132), [#133](https://github.com/carlesandres/house/issues/133), [#134](https://github.com/carlesandres/house/issues/134), [#135](https://github.com/carlesandres/house/issues/135)).
 
 These are the remaining distribution tasks to work on, in order:
 
-1. Add Homebrew distribution after the binary pipeline is proven ([#51](https://github.com/carlesandres/house/issues/51)).
+1. Cut a release that publishes the four platform packages + main package and proves `npm install -g @carlesandres/house` runs without Bun ([#2](https://github.com/carlesandres/house/issues/2)).
+2. Configure Trusted Publisher on npm for each `@carlesandres/house-<os>-<arch>` package (same workflow/environment as the main package) before that release.
+3. Add Homebrew distribution after the binary pipeline is proven ([#51](https://github.com/carlesandres/house/issues/51)).
 
 Tracked by the `binary distribution` milestone and the standalone binary epic ([#2](https://github.com/carlesandres/house/issues/2)). Windows support remains separate and blocked on the Windows support epic ([#129](https://github.com/carlesandres/house/issues/129)).
+
 
 ## Public launch — next daily-driver fixes
 

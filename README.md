@@ -14,29 +14,29 @@ A terminal markdown reader and navigator — themable and configurable, with a k
 - **Open in browser**
 - **Open in `$EDITOR`**
 
-Requires [Bun](https://bun.sh) on `PATH`.
+Install with npm or Bun. Prebuilt binaries cover macOS and Linux (arm64/x64); no Bun required to *run* on those platforms.
 
 ## Runtime requirements
 
-- Bun: required to install and run `house` today.
-- npm can install the package, but npm evaluates Node engine metadata from transitive dependencies during install. Use `bun add -g` for the supported no-Node install path.
+- **Run:** a prebuilt binary for your platform (pulled in automatically on install). No Bun needed at runtime on supported platforms.
+- **Install:** Node/npm or Bun both work. Prefer `npm install -g` for the normal end-user path.
 
-Supported on macOS and Linux; Windows is unsupported and unvalidated (see [#129](https://github.com/carlesandres/house/issues/129)).
+Supported on macOS and Linux (arm64/x64, glibc Linux). Windows is unsupported and unvalidated (see [#129](https://github.com/carlesandres/house/issues/129)).
 
 ## Install
 
 ```bash
-bun add -g @carlesandres/house
-# npm also works when your local Node/npm combination accepts the dependency graph:
 npm install -g @carlesandres/house
+# or:
+bun add -g @carlesandres/house
 ```
 
 ## Upgrade
 
 ```bash
-bun add -g @carlesandres/house
-# npm also works when your local Node/npm combination accepts the dependency graph:
 npm i -g @carlesandres/house
+# or:
+bun add -g @carlesandres/house
 ```
 
 ## Usage

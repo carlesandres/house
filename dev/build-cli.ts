@@ -64,7 +64,10 @@ if (Bun.argv[2] === "--help" || Bun.argv[2] === "-h") {
 
 if (Bun.argv.length > 3) fail(usage)
 
-await rm(distDir, { force: true, recursive: true })
+// Only replace CLI outputs — leave dist/release and dist/npm alone so local
+// standalone / npm-package builds survive a prepack.
 await mkdir(distDir, { recursive: true })
+await rm(appOutfile, { force: true })
+await rm(binOutfile, { force: true })
 await buildApp()
 await buildBinShim()
