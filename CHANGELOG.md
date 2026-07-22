@@ -6,6 +6,8 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-07-23
+
 ### Added
 
 - Added a lightweight `src/standalone.ts` CLI entrypoint for fast `--help` / `--version` exits and future compiled-binary builds.
@@ -359,7 +361,8 @@ The v1 MVP, published as `@carlesandres/openmdr` on npm.
 
 Search, stdin, URL fetching, cross-file link following, `$EDITOR` hand-off, syntax highlighting, persistent config, OS-appearance auto-detect, single-binary distribution (issue [#2](https://github.com/carlesandres/openmdr/issues/2)), Homebrew tap. All tracked.
 
-[Unreleased]: https://github.com/carlesandres/house/compare/v0.4.14...HEAD
+[Unreleased]: https://github.com/carlesandres/house/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/carlesandres/house/compare/v0.4.14...v0.5.0
 [0.4.14]: https://github.com/carlesandres/house/compare/v0.4.13...v0.4.14
 [0.4.13]: https://github.com/carlesandres/house/compare/v0.4.12...v0.4.13
 [0.4.12]: https://github.com/carlesandres/house/compare/v0.4.11...v0.4.12
