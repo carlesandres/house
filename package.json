@@ -1,6 +1,6 @@
 {
 	"name": "@carlesandres/house",
-	"version": "0.4.14",
+	"version": "0.5.0",
 	"description": "TUI-first markdown reader on opentui",
 	"type": "module",
 	"license": "MIT",
@@ -57,10 +57,10 @@
 		"prepare": "git config core.hooksPath .githooks 2>/dev/null || true"
 	},
 	"optionalDependencies": {
-		"@carlesandres/house-darwin-arm64": "0.4.14",
-		"@carlesandres/house-darwin-x64": "0.4.14",
-		"@carlesandres/house-linux-arm64": "0.4.14",
-		"@carlesandres/house-linux-x64": "0.4.14"
+		"@carlesandres/house-darwin-arm64": "0.5.0",
+		"@carlesandres/house-darwin-x64": "0.5.0",
+		"@carlesandres/house-linux-arm64": "0.5.0",
+		"@carlesandres/house-linux-x64": "0.5.0"
 	},
 	"dependencies": {
 		"@effect/atom-react": "4.0.0-beta.60",
