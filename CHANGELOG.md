@@ -6,6 +6,10 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 
 ## [Unreleased]
 
+### Fixed
+
+- Platform npm packages now preserve an executable `bin/house` after passing through GitHub Actions artifacts.
+
 ## [0.5.0] — 2026-07-23
 
 ### Added
