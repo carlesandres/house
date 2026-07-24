@@ -114,6 +114,9 @@ jobs:
           pattern: npm-binary-*
           path: artifacts/npm-binaries
 
+      - name: Restore binary permissions
+        run: chmod 755 artifacts/npm-binaries/npm-binary-*/bin/house
+
       - name: Publish npm binary packages
         run: |
           set -euo pipefail
