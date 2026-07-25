@@ -19,6 +19,36 @@ const fail = (message: string): never => {
 	console.error(`release: ${message}`)
 	process.exit(1)
 }
+
+type PullRequestCheck = {
+	bucket: string
+	link: string
+	name: string
+	state: string
+}
+
+const waitForPullRequestChecks = async (number: string): Promise<void> => {
+	const deadline = Date.now() + 30 * 60 * 1000
+	while (Date.now() < deadline) {
+		const output = run("gh", ["pr", "checks", number, "--json", "name,state,bucket,link"])
+		const checks = JSON.parse(output) as PullRequestCheck[]
+		if (checks.length === 0) {
+			console.log("waiting for CI checks to be reported...")
+			await Bun.sleep(5000)
+			continue
+		}
+		const failures = checks.filter((check) => check.bucket === "fail" || check.bucket === "cancel")
+		if (failures.length > 0) {
+			throw new Error(
+				`PR checks failed:\n${failures.map((check) => `- ${check.name}: ${check.link}`).join("\n")}`,
+			)
+		}
+		if (checks.every((check) => check.bucket === "pass" || check.bucket === "skipping")) return
+		console.log(`waiting for ${checks.filter((check) => check.bucket === "pending").length} CI checks...`)
+		await Bun.sleep(5000)
+	}
+	throw new Error("timed out waiting for PR checks")
+}
 const args = Bun.argv.slice(2)
 if (args.includes("--help") || args.includes("-h")) {
 	console.log("usage: bun run release -- [patch|minor|major|VERSION] [--dry-run] [--yes]")
@@ -73,7 +103,7 @@ try {
 		`Release v${version}.`,
 	])
 	const number = pr.match(/\/(\d+)$/)?.[1] ?? fail(`could not parse PR URL: ${pr}`)
-	run("gh", ["pr", "checks", number, "--watch"])
+	await waitForPullRequestChecks(number)
 	run("gh", ["pr", "merge", number, "--squash", "--delete-branch"])
 	const mergeSha = run("gh", [
 		"pr",
