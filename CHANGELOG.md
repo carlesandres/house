@@ -11,6 +11,7 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 - Converted the repository to a Turborepo monorepo with house under `apps/house`.
 - CI, npm packaging, standalone builds, and release publishing now run through workspace tasks.
 - Added local GitHub release/API verification with `vercel-labs/emulate`.
+- Extracted the House-specific sidebar pane from Browser without changing behavior.
 
 ## [0.5.1] — 2026-07-25
 

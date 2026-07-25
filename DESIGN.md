@@ -293,7 +293,8 @@ apps/house/src/
 ├── theme/light.ts         GitHub-Light-leaning palette
 ├── theme/registry.ts      themeDefinitions, getThemeDefinition, isThemeId
 ├── theme/colors.ts        mutable singleton `colors` + setActiveTheme
-├── Browser.tsx            two-pane component (sidebar + reader, focus, help overlay)
+├── Browser.tsx            orchestration, focus, filter/selection state, reader, overlays
+├── Sidebar.tsx            House sidebar pane: frame, rows, visible-window rendering
 ├── HelpOverlay.tsx        renders KeyBinding[] grouped by group field
 └── index.tsx              entry: parseArgv → resolve root/query → <Browser> or `--serve`
 ```
