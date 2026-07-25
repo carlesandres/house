@@ -4,7 +4,9 @@ import { FileReadError, readFileText } from "../src/io/readFile.ts"
 
 describe("readFileText", () => {
 	test("reads an existing utf-8 file", async () => {
-		const content = await Effect.runPromise(readFileText("test/fixtures/sample.md"))
+		const content = await Effect.runPromise(
+			readFileText(new URL("./fixtures/sample.md", import.meta.url).pathname),
+		)
 		expect(content).toContain("# Sample")
 		expect(content).toContain("FIXTURE_MARKER_OK")
 	})

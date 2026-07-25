@@ -35,7 +35,7 @@ afterEach(async () => {
 })
 
 const VIEWPORT = { width: 120, height: 30 }
-const README = readFileSync("README.md", "utf8")
+const README = readFileSync(new URL("../../../README.md", import.meta.url), "utf8")
 
 const makeFiles = (relativePaths: readonly string[]): FileEntry[] =>
 	relativePaths.map((rel) => ({

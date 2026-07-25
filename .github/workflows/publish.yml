@@ -32,13 +32,15 @@ jobs:
 
       - run: bun run typecheck
 
+      - run: bun run verify:github
+
       - name: Verify release tag matches package version
         if: github.event_name == 'release'
         run: |
-          version="$(node -p "require('./package.json').version")"
+          version="$(node -p "require('./apps/house/package.json').version")"
           test "v${version}" = "${GITHUB_REF_NAME}"
 
-      - run: npm pack --dry-run
+      - run: bun run npm:pack
 
   build-binary:
     name: build ${{ matrix.target }}
@@ -73,14 +75,14 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: npm-binary-${{ matrix.target }}
-          path: dist/npm/binaries/${{ matrix.target }}/
+          path: apps/house/dist/npm/binaries/${{ matrix.target }}/
           if-no-files-found: error
 
       - name: Upload release tarball
         uses: actions/upload-artifact@v4
         with:
           name: release-tarball-${{ matrix.target }}
-          path: dist/release/house-${{ matrix.target }}.tar.gz
+          path: apps/house/dist/release/house-${{ matrix.target }}.tar.gz
           if-no-files-found: error
 
   publish:
@@ -105,7 +107,7 @@ jobs:
       - name: Verify release tag matches package version
         if: github.event_name == 'release'
         run: |
-          version="$(node -p "require('./package.json').version")"
+          version="$(node -p "require('./apps/house/package.json').version")"
           test "v${version}" = "${GITHUB_REF_NAME}"
 
       - name: Download npm binary packages
@@ -120,7 +122,7 @@ jobs:
       - name: Publish npm binary packages
         run: |
           set -euo pipefail
-          main_version="$(node -p "require('./package.json').version")"
+          main_version="$(node -p "require('./apps/house/package.json').version")"
           for package_dir in artifacts/npm-binaries/npm-binary-*; do
             name="$(node -p "require('./${package_dir}/package.json').name")"
             version="$(node -p "require('./${package_dir}/package.json').version")"
@@ -136,25 +138,27 @@ jobs:
             npm publish "${package_dir}"
           done
 
-      - run: npm pack --dry-run
+      - run: bun run build:npm-main
+
+      - run: npm pack --dry-run apps/house/dist/npm/main
 
       - name: Publish main npm package
         run: |
           set -euo pipefail
-          name="$(node -p "require('./package.json').name")"
-          version="$(node -p "require('./package.json').version")"
+          name="$(node -p "require('./apps/house/package.json').name")"
+          version="$(node -p "require('./apps/house/package.json').version")"
           if npm view "${name}@${version}" version >/dev/null 2>&1; then
             echo "${name}@${version} already published."
             exit 0
           fi
-          npm publish
+          npm publish apps/house/dist/npm/main
 
       - name: Download release tarballs
         if: github.event_name == 'release'
         uses: actions/download-artifact@v4
         with:
           pattern: release-tarball-*
-          path: dist/release
+          path: apps/house/dist/release
           merge-multiple: true
 
       - name: Attach standalone binaries to GitHub Release
@@ -164,9 +168,9 @@ jobs:
         run: |
           set -euo pipefail
           shopt -s nullglob
-          assets=(dist/release/house-*.tar.gz)
+          assets=(apps/house/dist/release/house-*.tar.gz)
           if [ "${#assets[@]}" -eq 0 ]; then
-            echo "No release tarballs found under dist/release" >&2
+            echo "No release tarballs found under apps/house/dist/release" >&2
             exit 1
           fi
           gh release upload "${GITHUB_REF_NAME}" "${assets[@]}" --clobber

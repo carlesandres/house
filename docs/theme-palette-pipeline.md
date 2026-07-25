@@ -3,20 +3,20 @@
 Reference map for how house turns upstream opencode theme palettes into the
 runtime `colors` object used by UI chrome and markdown syntax styling.
 
-This is intentionally descriptive, not a spec. `dev/build-themes.ts`,
-`src/theme/resolve.ts`, and `src/theme/colors.ts` are the source of truth.
+This is intentionally descriptive, not a spec. `apps/house/dev/build-themes.ts`,
+`apps/house/src/theme/resolve.ts`, and `apps/house/src/theme/colors.ts` are the source of truth.
 
 ## End-to-end flow
 
 ```mermaid
 flowchart TD
-	A[opencode repo<br/>theme JSON files] --> B[dev/build-themes.ts<br/>fetch GitHub Contents API]
+	A[opencode repo<br/>theme JSON files] --> B[apps/house/dev/build-themes.ts<br/>fetch GitHub Contents API]
 	B --> C[Fetch each raw JSON file<br/>from upstream dev branch]
 	C --> D[Validate raw theme shape<br/>theme object + color-like values]
 	D --> E[Strip tokens house does not render<br/>diff*, backgroundMenu, thinkingOpacity, ...]
 	E --> F[Rewrite schema + fill display name]
-	F --> G[Write cleaned JSON<br/>src/theme/themes/*.json]
-	G --> H[Regenerate src/theme/loader.ts<br/>static imports + bundled entries]
+	F --> G[Write cleaned JSON<br/>apps/house/src/theme/themes/*.json]
+	G --> H[Regenerate apps/house/src/theme/loader.ts<br/>static imports + bundled entries]
 	H --> I[loadBundledThemes<br/>ThemeDefinition map]
 	I --> J[index.tsx boot config<br/>select theme id + tone]
 	J --> K[setActiveTheme]
@@ -54,7 +54,7 @@ access. `GITHUB_TOKEN` is optional and only raises the GitHub API rate limit.
 
 ## Build-time normalization
 
-`dev/build-themes.ts` performs the local adaptation from opencode's full TUI
+`apps/house/dev/build-themes.ts` performs the local adaptation from opencode's full TUI
 theme surface to house's smaller markdown-reader surface:
 
 1. Validate that the upstream JSON has a `theme` object.
@@ -65,7 +65,7 @@ theme surface to house's smaller markdown-reader surface:
 5. Rewrite `$schema` to house's local schema path.
 6. Fill a human-readable `name` from the filename if upstream does not provide
    one.
-7. Regenerate `src/theme/loader.ts` so bundled themes are static imports.
+7. Regenerate `apps/house/src/theme/loader.ts` so bundled themes are static imports.
 
 At this stage, token values should still describe the upstream colours. The
 build step should not pre-blend or otherwise reinterpret colour values unless
@@ -142,7 +142,7 @@ than a colour token. House does not currently import it.
 
 ## Runtime resolution
 
-At runtime, `src/theme/loader.ts` imports every bundled JSON file and exposes a
+At runtime, `apps/house/src/theme/loader.ts` imports every bundled JSON file and exposes a
 `ThemeDefinition` map. Boot config selects a theme id and tone, then
 `setActiveTheme(definition, tone)` updates the stable `colors` singleton.
 

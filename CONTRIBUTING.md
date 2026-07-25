@@ -19,29 +19,32 @@ bun run lint
 bun run format          # write
 bun run format:check    # check (CI uses this)
 
-npm pack --dry-run      # show exactly what would ship to npm
+bun run npm:pack        # stage the app package and show exactly what would ship to npm
+bun run verify:github   # exercise release APIs against vercel-labs/emulate
 ```
 
-Any PR has to pass `typecheck`, `lint`, `format:check`, `test`, and `npm pack --dry-run` — that's what `.github/workflows/ci.yml` enforces.
+Any PR has to pass `typecheck`, `lint`, `format:check`, `test`, `npm:pack`, and the
+GitHub emulator verification — that's what `.github/workflows/ci.yml` enforces.
 
 Versioned Git hooks live in `.githooks/`. `bun install` activates them (the `prepare` script in `package.json` sets `core.hooksPath`). The pre-commit hook runs `format:check` and `lint` so the cheap CI gates don't bite you on PR review. The pre-push hook fetches `origin/main` and blocks stale branch pushes; it is only a safeguard and does not merge, rebase, or run tests. If a hook blocks, prefer fixing the underlying issue over bypassing it.
 
 ## Project layout
 
-See `DESIGN.md` §9.1 for the module map. In short:
+See `DESIGN.md` §9.1 for the module map. The root is a private Bun workspace and
+Turborepo orchestrator; the publishable app lives in `apps/house`:
 
-- `src/cli/` — argv parsing
-- `src/discovery/` — filesystem walk + `.gitignore`
-- `src/io/` — file reads (Effect)
-- `src/keymap/` — declarative bindings + dispatch
-- `src/theme/` — typed palette + mutable singleton
-- `src/Browser.tsx`, `src/index.tsx` — TUI
-- `test/` — `bun test` runs only files under here (see `bunfig.toml`)
-- `dev/` — build + smoke + bench scripts (not shipped)
+- `apps/house/src/cli/` — argv parsing
+- `apps/house/src/discovery/` — filesystem walk + `.gitignore`
+- `apps/house/src/io/` — file reads (Effect)
+- `apps/house/src/keymap/` — declarative bindings + dispatch
+- `apps/house/src/theme/` — typed palette + mutable singleton
+- `apps/house/src/Browser.tsx`, `apps/house/src/index.tsx` — TUI
+- `apps/house/test/` — tests; the root `bunfig.toml` keeps direct `bun test` scoped here
+- `apps/house/dev/` — build, release, smoke, and benchmark scripts
 
 ## Testing
 
-The headless test pattern is documented in `test/browser.test.tsx`. Use `testRender` + `captureCharFrame` + `mockInput`. When asserting on `<markdown>` body content, prefer asserting on stable surfaces (border titles, sidebar rows) — the markdown body has first-frame quirks in headless render.
+The headless test pattern is documented in `apps/house/test/browser.test.tsx`. Use `testRender` + `captureCharFrame` + `mockInput`. When asserting on `<markdown>` body content, prefer asserting on stable surfaces (border titles, sidebar rows) — the markdown body has first-frame quirks in headless render.
 
 Add tests alongside features. We don't enforce coverage, but every keymap binding should have at least one integration test (see §10.2 of DESIGN.md for the v2 gate).
 
@@ -57,7 +60,7 @@ Three other primitives from `@opentui/core/testing` are worth knowing:
 - `MockTreeSitterClient` — pass it via the `treeSitterClient` prop on `<markdown>` (or any `<code>`) to take the highlighter out of the loop. `setMockResult({ highlights, warning })` controls what `highlightOnce` returns, and `resolveAllHighlightOnce()` releases pending calls on demand. This is how you simulate "no parser for this language" deterministically. Real wasm loading is flaky in tests; mocking it is not.
 - `TestRecorder` — `new TestRecorder(renderer); recorder.rec(); ... recorder.stop()` captures every intermediate frame. Use it when you suspect a "renders then disappears" race, or when you need to compare frame *N* vs. frame *N+1*.
 
-`test/markdown-codeblock.test.tsx` is the worked example. opentui's own `Markdown.code-colors.test.ts` (under `reference/opentui/`) is the canonical pattern reference.
+`apps/house/test/markdown-codeblock.test.tsx` is the worked example. opentui's own `Markdown.code-colors.test.ts` (under `reference/opentui/`) is the canonical pattern reference.
 
 ### When you reach for a PTY, stop
 
@@ -81,30 +84,30 @@ lsof -a -p <pid> -d cwd
 
 Do not replace opentui's markdown renderer wholesale just because a running TUI looks stale. First reproduce in-process with `testRender`, `renderer.idle()`, and `captureSpans()` against the current checkout.
 
-Tagged fenced-code blocks are covered by `test/markdown-codeblock.test.tsx`. If a future opentui upgrade regresses them, prefer a focused upstream-style reproducer over adding a custom parser or custom `renderNode` tree.
+Tagged fenced-code blocks are covered by `apps/house/test/markdown-codeblock.test.tsx`. If a future opentui upgrade regresses them, prefer a focused upstream-style reproducer over adding a custom parser or custom `renderNode` tree.
 
 ## Keymap changes
 
-Bindings are data: `src/keymap/browser.ts` is the single source for `useKeyboard` and command-palette derivation. To add a binding, append a `KeyBinding` to `browserBindings` with `id`, `description`, `keys`, an optional `group`, optional `when` predicate, and `run`. Only add `hint` for the small fixed footer set of essential app controls; otherwise rely on the palette for discoverability.
+Bindings are data: `apps/house/src/keymap/browser.ts` is the single source for `useKeyboard` and command-palette derivation. To add a binding, append a `KeyBinding` to `browserBindings` with `id`, `description`, `keys`, an optional `group`, optional `when` predicate, and `run`. Only add `hint` for the small fixed footer set of essential app controls; otherwise rely on the palette for discoverability.
 
 Do not bind these keys — they are reserved for v2 (DESIGN.md §7.3): `/`, `r`.
 
 ## Themes
 
-A theme resolves from opencode-style JSON into the typed token surface in `src/theme/types.ts`, then into the `ColorPalette` singleton. The exposed UI tokens keep OpenCode's naming (`background`, `backgroundPanel`, `backgroundElement`, `borderSubtle`, `primary`, `secondary`, etc.). To add one: drop a new JSON file in `src/theme/themes/` and register it in `src/theme/loader.ts`.
+A theme resolves from opencode-style JSON into the typed token surface in `apps/house/src/theme/types.ts`, then into the `ColorPalette` singleton. The exposed UI tokens keep OpenCode's naming (`background`, `backgroundPanel`, `backgroundElement`, `borderSubtle`, `primary`, `secondary`, etc.). To add one: drop a new JSON file in `apps/house/src/theme/themes/` and register it in `apps/house/src/theme/loader.ts`.
 
 Before using a token in UI code, check DESIGN.md §7.5's semantic token table. Tokens are role-based: choose by intended meaning, not by the color a single bundled theme happens to render. In particular: section/category headers should usually be `textMuted` (optionally bold), while selected interactive rows should use `backgroundElement` plus `primary`/`selectedListItemText`.
 
 ## Demo recordings
 
-`recordings/` holds the `termctrl` recording workflow used to capture house running for the README hero asset.
+`apps/house/recordings/` holds the `termctrl` recording workflow used to capture house running for the README hero asset.
 
 ```bash
 brew install termctrl ffmpeg          # one-time
-bun run record-demo                   # → recordings/house-demo.mp4
+bun run --cwd apps/house record-demo  # → apps/house/recordings/house-demo.mp4
 ```
 
-The recorder starts from a clean `zsh` session, types `house`, drives the demo via `termctrl send`, and exports `recordings/house-demo.mp4`. Tweak timing, terminal size, or key flow in `recordings/record-demo.sh`. Inside the demo, `t` cycles house's theme.
+The recorder starts from a clean `zsh` session, types `house`, drives the demo via `termctrl send`, and exports `apps/house/recordings/house-demo.mp4`. Tweak timing, terminal size, or key flow in `apps/house/recordings/record-demo.sh`. Inside the demo, `t` cycles house's theme.
 
 After regenerating, commit the asset and update the embed in `README.md`.
 

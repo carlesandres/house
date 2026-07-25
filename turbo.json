@@ -1,0 +1,62 @@
+{
+	"$schema": "https://turborepo.com/schema.json",
+	"tasks": {
+		"build": {
+			"dependsOn": ["^build"],
+			"outputs": ["dist/**"]
+		},
+		"build:cli": {
+			"outputs": ["dist/bin.js", "dist/index.js"]
+		},
+		"build:npm-main": {
+			"dependsOn": ["build:cli"],
+			"outputs": ["dist/npm/main/**"]
+		},
+		"build:npm-packages": {
+			"outputs": ["dist/npm/binaries/**"]
+		},
+		"build:standalone": {
+			"outputs": ["dist/standalone/**", "dist/release/**"]
+		},
+		"build:themes": {
+			"cache": false
+		},
+		"dev": {
+			"cache": false,
+			"persistent": true
+		},
+		"format": {
+			"cache": false
+		},
+		"format:check": {},
+		"lint": {},
+		"npm:pack": {
+			"dependsOn": ["build:npm-main"],
+			"outputs": []
+		},
+		"record-demo": {
+			"cache": false
+		},
+		"release": {
+			"cache": false
+		},
+		"repro:pty-codeblocks": {
+			"cache": false
+		},
+		"start": {
+			"cache": false,
+			"persistent": true
+		},
+		"test": {},
+		"test:pty": {
+			"cache": false
+		},
+		"typecheck": {},
+		"verify:github": {
+			"cache": false
+		},
+		"version:set": {
+			"cache": false
+		}
+	}
+}

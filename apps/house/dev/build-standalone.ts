@@ -7,6 +7,7 @@ import pkg from "../package.json" with { type: "json" }
 import { findReleaseTarget, hostReleaseTarget, releaseTargets, type ReleaseTarget } from "./release-targets.ts"
 
 const root = resolve(import.meta.dir, "..")
+const repoRoot = resolve(root, "../..")
 const releaseDir = resolve(root, "dist/release")
 const entrypoint = resolve(root, "src/standalone.ts")
 const require = createRequire(import.meta.url)
@@ -53,7 +54,9 @@ const sha256 = async (path: string): Promise<string> => {
 
 const assertNativePackagePresent = (target: ReleaseTarget): void => {
 	try {
-		require.resolve(target.opentuiNativePackage)
+		require.resolve(target.opentuiNativePackage, {
+			paths: [resolve(repoRoot, "node_modules/.bun/node_modules")],
+		})
 	} catch {
 		fail(
 			`${target.id} requires ${target.opentuiNativePackage}, but it is not installed. ` +

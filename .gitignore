@@ -3,6 +3,7 @@ reference/
 
 # dependencies
 node_modules/
+.turbo/
 
 # build output
 dist/
@@ -18,12 +19,12 @@ coverage/
 *.log
 
 # generated terminal recordings
-recordings/*.termctrl
+**/recordings/*.termctrl
 
 # editor and OS files
 .DS_Store
 .claude/
 .opencode/
-opencode.json
+/opencode.json
 .idea/
 .vscode/

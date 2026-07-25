@@ -3,6 +3,7 @@
 set -euo pipefail
 
 session_name="house-demo"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 recording_path="recordings/house-demo.termctrl"
 video_path="recordings/house-demo.mp4"
 
@@ -13,7 +14,7 @@ termctrl start \
 	"$session_name" \
 	--cols 112 \
 	--rows 34 \
-	--cwd "." \
+	--cwd "$repo_root" \
 	--host opentui \
 	--record "$recording_path" \
 	-- env -i HOME="$HOME" PATH="$PATH" TERM=xterm-256color zsh -f
