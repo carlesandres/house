@@ -21,9 +21,10 @@ jobs:
       - run: bun run typecheck
       - run: bun run lint
       - run: bun run format:check
-      - run: bun test
+      - run: bun run test
+      - run: bun run verify:github
       - run: bun run build:standalone
-      - run: npm pack --dry-run
+      - run: bun run npm:pack
 
   npm-install-smoke:
     runs-on: ubuntu-latest
@@ -44,13 +45,14 @@ jobs:
         run: |
           bun run build:standalone linux-x64
           bun run build:npm-packages linux-x64
-          npm pack ./dist/npm/binaries/linux-x64 --pack-destination .
-          npm pack
+          bun run build:npm-main
+          npm pack ./apps/house/dist/npm/binaries/linux-x64 --pack-destination .
+          npm pack ./apps/house/dist/npm/main --pack-destination .
       - name: Enforce engine compatibility
         run: npm config set engine-strict true
       - name: Global install smoke test from tarball
         run: |
-          version="$(node -p "require('./package.json').version")"
+          version="$(node -p "require('./apps/house/package.json').version")"
           npm install -g \
             "./carlesandres-house-linux-x64-${version}.tgz" \
             --prefix "${RUNNER_TEMP}/npm-global"

@@ -6,9 +6,10 @@ import pkg from "../package.json" with { type: "json" }
 import { findReleaseTarget, releaseTargets, type ReleaseTarget } from "./release-targets.ts"
 
 const root = resolve(import.meta.dir, "..")
+const repoRoot = resolve(root, "../..")
 const releaseDir = resolve(root, "dist/release")
 const npmDir = resolve(root, "dist/npm/binaries")
-const licensePath = resolve(root, "LICENSE")
+const licensePath = resolve(repoRoot, "LICENSE")
 
 const usage = `usage: bun run dev/build-npm-packages.ts [target-id]
 

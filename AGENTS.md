@@ -17,21 +17,21 @@ Notes for AI assistants (and humans) working in this repo. This file is about *t
 ## Conventions worth knowing
 
 - Format: **tabs, no semicolons, 100-col, trailing commas** (see `.oxfmtrc.json`). `bun run format` writes; CI gates on `format:check`.
-- Test root: `bunfig.toml` pins `[test] root = "test"` so `bun test` doesn't crawl `reference/`.
-- `TODO(revisit: <topic>)` markers in source point back at `DESIGN.md` §12. `grep -r 'TODO(revisit:' src/` lists them.
-- Bindings live in `src/keymap/browser.ts` as data. Adding a key: append a `KeyBinding`, the `?` overlay picks it up. Reserved keys (`/`, `r`) are off-limits in v1.
-- Themes resolve into typed semantic tokens (`src/theme/types.ts`) consumed via the mutable singleton `colors`. Pattern lifted from ghui at small scale; do not introduce React Context for theme. Before adding or changing token usage, check DESIGN.md §7.5's token table and choose by semantic role, not by a single theme's color.
+- Test root: the root `bunfig.toml` pins `[test] root = "apps/house/test"` so direct `bun test` and Turbo both stay inside the app.
+- `TODO(revisit: <topic>)` markers in source point back at `DESIGN.md` §12. `grep -r 'TODO(revisit:' apps/house/src/` lists them.
+- Bindings live in `apps/house/src/keymap/browser.ts` as data. Adding a key: append a `KeyBinding`, the `?` overlay picks it up. Reserved keys (`/`, `r`) are off-limits in v1.
+- Themes resolve into typed semantic tokens (`apps/house/src/theme/types.ts`) consumed via the mutable singleton `colors`. Pattern lifted from ghui at small scale; do not introduce React Context for theme. Before adding or changing token usage, check DESIGN.md §7.5's token table and choose by semantic role, not by a single theme's color.
 - The Browser is the only non-serve render target. Sidebar contents are always `filter(discoveredPool, query)`; do not imperatively push entries into the sidebar. See `DESIGN.md` §7.4 before touching root/query/selection behavior.
 
 ## Headless test pattern
 
-`testRender` + `captureCharFrame` + `mockInput` (see `test/spike.test.tsx`). When asserting on `<markdown>` body content, prefer stable surfaces (border titles, sidebar rows) — the markdown body has first-frame quirks under headless render. Some keys (Escape) need a ~60ms wait after press for opentui's parser to disambiguate `\x1b`.
+`testRender` + `captureCharFrame` + `mockInput` (see `apps/house/test/browser.test.tsx`). When asserting on `<markdown>` body content, prefer stable surfaces (border titles, sidebar rows) — the markdown body has first-frame quirks under headless render. Some keys (Escape) need a ~60ms wait after press for opentui's parser to disambiguate `\x1b`.
 
-For deeper output validation (styled spans, async highlight pipelines, intermediate frames) use `captureSpans()`, `renderer.idle()`, `MockTreeSitterClient`, and `TestRecorder` — all from `@opentui/core/testing`. Worked example: `test/markdown-codeblock.test.tsx`. Full notes in `CONTRIBUTING.md` under "Validating rendered output deeper than text". Don't reach for PTY-based testing — `captureSpans` covers every case we have today.
+For deeper output validation (styled spans, async highlight pipelines, intermediate frames) use `captureSpans()`, `renderer.idle()`, `MockTreeSitterClient`, and `TestRecorder` — all from `@opentui/core/testing`. Worked example: `apps/house/test/markdown-codeblock.test.tsx`. Full notes in `CONTRIBUTING.md` under "Validating rendered output deeper than text". Don't reach for PTY-based testing — `captureSpans` covers every case we have today.
 
 If `bun dev` and `bun run dev` seem to differ, check for stale watcher processes before changing renderer code. Both resolve to the `dev` script, but orphaned `bun --watch src/index.tsx ...` processes can keep showing old behavior. Use `ps ... | rg 'bun (run )?dev|bun --watch src/index.tsx|src/index.tsx'` and `lsof -a -p <pid> -d cwd` to verify.
 
-For fenced code blocks, rely on opentui's built-in `<markdown>` renderer and keep `test/markdown-codeblock.test.tsx` covering tagged fences. Do not replace the markdown renderer or reintroduce a broad `renderNode` override unless DESIGN.md §12's custom-renderer trigger has fired.
+For fenced code blocks, rely on opentui's built-in `<markdown>` renderer and keep `apps/house/test/markdown-codeblock.test.tsx` covering tagged fences. Do not replace the markdown renderer or reintroduce a broad `renderNode` override unless DESIGN.md §12's custom-renderer trigger has fired.
 
 ## termctrl
 
@@ -41,13 +41,14 @@ For fenced code blocks, rely on opentui's built-in `<markdown>` renderer and kee
 
 ```bash
 bun run dev [path]      # watch + run from source; positional seeds filter, use --root <dir> to browse a directory
-bun test                # 75 tests, all headless
+bun test                # house test suite, scoped by the root bunfig.toml
 bun run typecheck
 bun run lint
 bun run format
 bun run format:check
-bun run dev/bench-markdown.ts <dir>   # microbench
-npm pack --dry-run      # show exactly what would land on npm
+bun run --cwd apps/house dev/bench-markdown.ts <dir> # microbench
+bun run npm:pack        # show exactly what would land on npm
+bun run verify:github   # release/API checks against vercel-labs/emulate
 ```
 
 ## Release process
@@ -61,7 +62,7 @@ Release-event-driven. Modeled on ghui, adapted for this repo's branch protection
    - Update the link refs at the bottom of the file.
 2. Run `bun run version:set X.Y.Z` to bump the main package, all platform package pins, and `bun.lock` together.
 3. From `main`, branch off (`git checkout -b release/vX.Y.Z`), commit (`chore: release vX.Y.Z`) — do **not** amend earlier commits — and push the branch.
-4. Open a PR into `main` titled `chore: release vX.Y.Z`. Wait for CI to be green (typecheck + lint + format:check + test + `npm pack --dry-run`). Merge.
+4. Open a PR into `main` titled `chore: release vX.Y.Z`. Wait for CI to be green (typecheck + lint + format:check + test + `bun run npm:pack`). Merge.
 5. Pull `main` locally so the release commit is at `origin/main`'s tip:
 
    ```bash
@@ -76,7 +77,7 @@ Release-event-driven. Modeled on ghui, adapted for this repo's branch protection
    ```
 
 7. The `release: published` event fires `.github/workflows/publish.yml`, which:
-   - verifies typecheck + `npm pack --dry-run` and asserts `v${package.version}` matches `${GITHUB_REF_NAME}`,
+   - verifies typecheck + `bun run npm:pack` and asserts `v${package.version}` matches `${GITHUB_REF_NAME}`,
    - builds each platform binary on a native runner (`darwin-arm64`, `darwin-x64`, `linux-arm64`, `linux-x64`),
    - publishes the four `@carlesandres/house-<os>-<arch>` packages first,
    - publishes `@carlesandres/house` (Node shim + `optionalDependencies`),

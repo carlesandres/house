@@ -3,9 +3,10 @@
 import { readFile, writeFile } from "node:fs/promises"
 import { resolve } from "node:path"
 
-const root = resolve(import.meta.dir, "..")
-const packagePath = resolve(root, "package.json")
-const lockfilePath = resolve(root, "bun.lock")
+const appRoot = resolve(import.meta.dir, "..")
+const repoRoot = resolve(appRoot, "../..")
+const packagePath = resolve(appRoot, "package.json")
+const lockfilePath = resolve(repoRoot, "bun.lock")
 const platformPackagePrefix = "@carlesandres/house-"
 const semverPattern =
 	/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/
@@ -39,6 +40,10 @@ pkg.version = nextVersion
 for (const name of platformPackages) pkg.optionalDependencies![name] = nextVersion
 
 let lockfile = await readFile(lockfilePath, "utf8")
+const workspaceVersionPattern = /("apps\/house": \{[\s\S]*?"version": )"[^"]+"/
+if (!workspaceVersionPattern.test(lockfile)) fail("apps/house version is missing from bun.lock")
+lockfile = lockfile.replace(workspaceVersionPattern, `$1"${nextVersion}"`)
+
 for (const name of platformPackages) {
 	const dependencyPattern = new RegExp(`("${name}": )"[^"]+"`)
 	if (!dependencyPattern.test(lockfile)) fail(`${name} is missing from bun.lock`)

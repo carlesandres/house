@@ -1,86 +1,32 @@
 {
-	"name": "@carlesandres/house",
-	"version": "0.5.1",
-	"description": "TUI-first markdown reader on opentui",
-	"type": "module",
-	"license": "MIT",
-	"repository": {
-		"type": "git",
-		"url": "git+https://github.com/carlesandres/house.git"
-	},
-	"bugs": {
-		"url": "https://github.com/carlesandres/house/issues"
-	},
-	"homepage": "https://github.com/carlesandres/house#readme",
-	"keywords": [
-		"markdown",
-		"reader",
-		"terminal",
-		"tui",
-		"bun",
-		"opentui",
-		"glow",
-		"house"
-	],
-	"files": [
-		"dist/bin.js",
-		"dist/index.js",
-		"README.md",
-		"LICENSE",
-		"CHANGELOG.md"
-	],
-	"publishConfig": {
-		"access": "public",
-		"provenance": true,
-		"registry": "https://registry.npmjs.org/"
-	},
-	"bin": {
-		"house": "dist/bin.js"
-	},
+	"name": "house-monorepo",
+	"private": true,
+	"workspaces": ["apps/*", "packages/*"],
 	"scripts": {
-		"dev": "bun --watch src/index.tsx",
-		"start": "bun run src/index.tsx",
-		"record-demo": "bash recordings/record-demo.sh",
-		"typecheck": "tsc --noEmit",
-		"lint": "oxlint --tsconfig tsconfig.json src/",
-		"format": "oxfmt src/",
-		"format:check": "oxfmt --check src/",
-		"test": "bun test",
-		"test:pty": "HOUSE_PTY=1 bun test test/pty/",
-		"version:set": "bun run dev/set-version.ts",
-		"release": "bun run dev/release.ts",
-		"build:cli": "bun run dev/build-cli.ts",
-		"build:standalone": "bun run dev/build-standalone.ts",
-		"build:npm-packages": "bun run dev/build-npm-packages.ts",
-		"build:themes": "bun run dev/build-themes.ts",
-		"prepack": "bun run build:cli",
-		"repro:pty-codeblocks": "bun run dev/repro-pty-codeblocks.ts",
+		"build": "turbo run build",
+		"build:cli": "turbo run build:cli --filter=@carlesandres/house",
+		"build:npm-main": "turbo run build:npm-main --filter=@carlesandres/house",
+		"build:npm-packages": "turbo run build:npm-packages --filter=@carlesandres/house --",
+		"build:standalone": "turbo run build:standalone --filter=@carlesandres/house --",
+		"build:themes": "turbo run build:themes --filter=@carlesandres/house --",
+		"dev": "turbo run dev --filter=@carlesandres/house --",
+		"format": "turbo run format",
+		"format:check": "turbo run format:check",
+		"lint": "turbo run lint",
+		"npm:pack": "turbo run npm:pack --filter=@carlesandres/house",
+		"record-demo": "turbo run record-demo --filter=@carlesandres/house",
+		"release": "turbo run release --filter=@carlesandres/house --",
+		"repro:pty-codeblocks": "turbo run repro:pty-codeblocks --filter=@carlesandres/house --",
+		"start": "turbo run start --filter=@carlesandres/house --",
+		"test": "turbo run test",
+		"test:pty": "turbo run test:pty --filter=@carlesandres/house",
+		"typecheck": "turbo run typecheck",
+		"verify:github": "turbo run verify:github --filter=@carlesandres/house",
+		"version:set": "turbo run version:set --filter=@carlesandres/house --",
 		"prepare": "git config core.hooksPath .githooks 2>/dev/null || true"
 	},
-	"optionalDependencies": {
-		"@carlesandres/house-darwin-arm64": "0.5.1",
-		"@carlesandres/house-darwin-x64": "0.5.1",
-		"@carlesandres/house-linux-arm64": "0.5.1",
-		"@carlesandres/house-linux-x64": "0.5.1"
-	},
-	"dependencies": {
-		"@effect/atom-react": "4.0.0-beta.60",
-		"@opentui/core": "0.2.15",
-		"@opentui/react": "0.2.15",
-		"commander": "^14.0.3",
-		"effect": "4.0.0-beta.60",
-		"ignore": "^7.0.5",
-		"marked": "^18.0.4",
-		"react": "19.2.6",
-		"scheduler": "0.27.0"
-	},
 	"devDependencies": {
-		"@effect/language-service": "0.86.2",
-		"@types/bun": "1.3.14",
-		"@types/react": "19.2.15",
-		"oxfmt": "0.51.0",
-		"oxlint": "1.66.0",
-		"tuistory": "^0.8.0",
-		"typescript": "6.0.3"
-	}
+		"turbo": "2.10.6"
+	},
+	"packageManager": "bun@1.3.10"
 }

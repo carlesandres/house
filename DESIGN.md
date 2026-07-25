@@ -180,7 +180,7 @@ There is **no separate file-target mode**. The Browser is the only render target
 
 **Invariant 2 — the discovery root and the query are independent inputs.** Discovery root is resolved from (highest wins): `--root <dir>` → `defaultRoot` config → built-in `"cwd"`. `defaultRoot` is string-valued — `"cwd"` (default) or `"git"` (repo root via parent walk, silent cwd fallback). The CLI positional argument never controls discovery root; that surface is reserved for `--root` and config.
 
-**Invariant 3 — the CLI positional is the initial filter query.** `house README.md` → walk the discovery root, seed the filter to `"README.md"`. The fuzzy scorer (`src/discovery/filter.ts`) ranks `README.md` highest by preferring filename hits over folder hits and current-folder files over deeper nested ties, sticky auto-select lands on it, the reader renders it. Clearing the filter (`Esc`) reveals the full tree. The CLI query is _applied_ (live filter, visible in the filter chip), not _consumed_ (silently picks selection and clears) — applied is the only shape that honors Invariant 1.
+**Invariant 3 — the CLI positional is the initial filter query.** `house README.md` → walk the discovery root, seed the filter to `"README.md"`. The fuzzy scorer (`apps/house/src/discovery/filter.ts`) ranks `README.md` highest by preferring filename hits over folder hits and current-folder files over deeper nested ties, sticky auto-select lands on it, the reader renders it. Clearing the filter (`Esc`) reveals the full tree. The CLI query is _applied_ (live filter, visible in the filter chip), not _consumed_ (silently picks selection and clears) — applied is the only shape that honors Invariant 1.
 
 **Invariant 4 — the selected file drives the reader, regardless of focus.** As long as exactly one file is the active selection, that file's content is in the reader pane. Focus determines where keystrokes land, not what is shown. Empty selection → blank reader. There is no separate "open this file in the reader" action distinct from "select it".
 
@@ -198,7 +198,7 @@ There is **no separate file-target mode**. The Browser is the only render target
 
 ### 7.5 Theming
 
-Themes are opencode-derived JSON definitions resolved into the typed token surface in `src/theme/types.ts`, then exposed through the `ColorPalette` singleton consumed by UI components. Selection is via config/CLI and can be cycled at runtime.
+Themes are opencode-derived JSON definitions resolved into the typed token surface in `apps/house/src/theme/types.ts`, then exposed through the `ColorPalette` singleton consumed by UI components. Selection is via config/CLI and can be cycled at runtime.
 
 The semantic tokens are intentionally about UI role, not color names. When styling chrome, pick the token by meaning first and only then check how each bundled theme renders it.
 
@@ -277,10 +277,12 @@ This component contract intentionally does not expose anchor coordinates or plac
 
 ### 9.1 Module map
 
-As shipped in v1 (flatter than the original sketch — top-level components live directly under `src/` until a second view forces a `tui/` subdir):
+House is the publishable app in the repository's Turborepo workspace. Within the app,
+top-level components remain directly under `src/` until a second view forces a `tui/`
+subdirectory:
 
 ```
-src/
+apps/house/src/
 ├── cli/argv.ts            argv parsing + usage string
 ├── discovery/walk.ts      filesystem walk, gitignore (root + nested), hard skips
 ├── io/readFile.ts         Effect.tryPromise wrapper around fs/promises.readFile
@@ -344,11 +346,11 @@ Numbers below are guesses informed by "feels fast" expectations; treat them as t
 | Discovery on a 10k-file monorepo          | <500ms        |
 | Resident memory on a typical repo         | <80MB         |
 
-A `bun run bench` script checks these against a fixture corpus checked into `test/fixtures/`.
+A benchmark script checks these against a fixture corpus checked into `apps/house/test/fixtures/`.
 
 ### 10.2 Tests
 
-- The theme's tree-sitter scope map (`buildSyntaxMap` in `src/theme/colors.ts`) has an entry for every markdown node type §5.1.3 promises. This is the integration surface we own; opentui's own test suite covers the renderer end. Regression-style tests for _our_ uses of `<markdown>` (e.g. the code-block invisibility bug in `test/markdown-codeblock.test.tsx`) are kept as targeted coverage, not blanket per-node snapshots.
+- The theme's tree-sitter scope map (`buildSyntaxMap` in `apps/house/src/theme/colors.ts`) has an entry for every markdown node type §5.1.3 promises. This is the integration surface we own; opentui's own test suite covers the renderer end. Regression-style tests for _our_ uses of `<markdown>` (e.g. the code-block invisibility bug in `apps/house/test/markdown-codeblock.test.tsx`) are kept as targeted coverage, not blanket per-node snapshots.
 - Every keymap binding has at least one integration test (boot TUI, send keys, assert state).
 - Discovery edge cases covered: `.gitignore`, nested `.gitignore`, hidden files, symlinks not followed, missing dir, empty dir.
 - Smoke test on the built standalone binary in CI.
@@ -394,12 +396,12 @@ Approaches we deliberately did _not_ adopt, with the trigger that should bring u
 
 Inline `// TODO(revisit: <topic>)` markers in the code point here from the relevant call sites. Grep for `TODO(revisit:` to enumerate them.
 
-- **Declarative keymap as data — small in-house version landed.** Bindings as values with `{ id, description, keys, when?, run }` and a pure `dispatch` live in `src/keymap/`. The shape is enough to drive `useKeyboard` _and_ the upcoming `?` help overlay from one source of truth.
+- **Declarative keymap as data — small in-house version landed.** Bindings as values with `{ id, description, keys, when?, run }` and a pure `dispatch` live in `apps/house/src/keymap/`. The shape is enough to drive `useKeyboard` _and_ the upcoming `?` help overlay from one source of truth.
   - **Outstanding ghui machinery (still deferred):** chord sequences (`g g`), vim count prefixes (`5j`), scoped contexts via contramap, conflict detection, command-palette routing.
   - Trigger to revisit: a third interactive overlay/modal lands (search, filter, command palette), OR a real need for chord/count input emerges.
   - **Trigger status:** the third-overlay threshold has started to fire. Browser now owns a small single-`floatingOverlay` state machine (§7.6) so floating surfaces do not stack accidentally, but scoped keymap composition remains deferred until keyboard routing itself becomes hard to follow.
 
-- **Theme as a typed token interface — landed.** Implemented in `src/theme/`: `ColorPalette` interface (~12 semantic tokens), a `themeDefinitions` registry, and a mutable singleton `colors` consumers read directly. Modeled on ghui but at our smaller scale.
+- **Theme as a typed token interface — landed.** Implemented in `apps/house/src/theme/`: `ColorPalette` interface (~12 semantic tokens), a `themeDefinitions` registry, and a mutable singleton `colors` consumers read directly. Modeled on ghui but at our smaller scale.
   - **Outstanding ghui machinery (still deferred):** large named-theme set (ghui ships 27), `ThemeConfig` distinguishing fixed-vs-system mode, OS appearance auto-detect, persistent config file, runtime theme switcher.
   - Trigger to revisit (system mode + auto-detect): a user explicitly asks for it, OR when the persistent config file lands. Trigger to revisit (runtime theme switcher / theme version state for re-render): when a "press `t` to cycle themes" UX is on the table.
 

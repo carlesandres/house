@@ -1,0 +1,85 @@
+{
+	"name": "@carlesandres/house",
+	"version": "0.5.1",
+	"description": "TUI-first markdown reader on opentui",
+	"type": "module",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/carlesandres/house.git",
+		"directory": "apps/house"
+	},
+	"bugs": {
+		"url": "https://github.com/carlesandres/house/issues"
+	},
+	"homepage": "https://github.com/carlesandres/house#readme",
+	"keywords": [
+		"markdown",
+		"reader",
+		"terminal",
+		"tui",
+		"bun",
+		"opentui",
+		"glow",
+		"house"
+	],
+	"files": ["dist/bin.js", "dist/index.js", "CHANGELOG.md"],
+	"publishConfig": {
+		"access": "public",
+		"provenance": true,
+		"registry": "https://registry.npmjs.org/"
+	},
+	"bin": {
+		"house": "dist/bin.js"
+	},
+	"scripts": {
+		"build": "bun run build:cli",
+		"build:cli": "bun run dev/build-cli.ts",
+		"build:npm-main": "bun run dev/build-npm-main.ts",
+		"build:npm-packages": "bun run dev/build-npm-packages.ts",
+		"build:standalone": "bun run dev/build-standalone.ts",
+		"build:themes": "bun run dev/build-themes.ts",
+		"dev": "bun --watch src/index.tsx",
+		"format": "oxfmt src/",
+		"format:check": "oxfmt --check src/",
+		"lint": "oxlint --tsconfig tsconfig.json src/ test/ dev/",
+		"npm:pack": "bun run build:npm-main && npm pack --dry-run dist/npm/main",
+		"record-demo": "bash recordings/record-demo.sh",
+		"release": "bun run dev/release.ts",
+		"repro:pty-codeblocks": "bun run dev/repro-pty-codeblocks.ts",
+		"start": "bun run src/index.tsx",
+		"test": "bun test",
+		"test:pty": "HOUSE_PTY=1 bun test test/pty/",
+		"typecheck": "tsc --noEmit",
+		"verify:github": "bun test test/github-emulation.test.ts",
+		"version:set": "bun run dev/set-version.ts"
+	},
+	"optionalDependencies": {
+		"@carlesandres/house-darwin-arm64": "0.5.1",
+		"@carlesandres/house-darwin-x64": "0.5.1",
+		"@carlesandres/house-linux-arm64": "0.5.1",
+		"@carlesandres/house-linux-x64": "0.5.1"
+	},
+	"dependencies": {
+		"@effect/atom-react": "4.0.0-beta.60",
+		"@opentui/core": "0.2.15",
+		"@opentui/react": "0.2.15",
+		"commander": "^14.0.3",
+		"effect": "4.0.0-beta.60",
+		"ignore": "^7.0.5",
+		"marked": "^18.0.4",
+		"react": "19.2.6",
+		"scheduler": "0.27.0",
+		"string-width": "7.2.0"
+	},
+	"devDependencies": {
+		"@effect/language-service": "0.86.2",
+		"@types/bun": "1.3.14",
+		"@types/react": "19.2.15",
+		"emulate": "0.9.0",
+		"oxfmt": "0.51.0",
+		"oxlint": "1.66.0",
+		"tuistory": "^0.8.0",
+		"typescript": "6.0.3"
+	}
+}

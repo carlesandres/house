@@ -4,9 +4,14 @@ import { readFile, writeFile } from "node:fs/promises"
 import { resolve } from "node:path"
 import { bumpStableVersion, isStableVersion, releaseChangelog, type Bump } from "./release-plan.ts"
 
-const root = resolve(import.meta.dir, "..")
+const appRoot = resolve(import.meta.dir, "..")
+const repoRoot = resolve(appRoot, "../..")
 const run = (command: string, args: string[], options: { allowFailure?: boolean } = {}): string => {
-	const result = Bun.spawnSync([command, ...args], { cwd: root, stdout: "pipe", stderr: "pipe" })
+	const result = Bun.spawnSync([command, ...args], {
+		cwd: repoRoot,
+		stdout: "pipe",
+		stderr: "pipe",
+	})
 	const output = new TextDecoder().decode(result.stdout).trim()
 	if (!result.success && !options.allowFailure) {
 		throw new Error(
@@ -67,12 +72,12 @@ try {
 	if (run("git", ["rev-parse", "HEAD"]) !== run("git", ["rev-parse", "origin/main"]))
 		fail("main is not up to date with origin/main")
 	const tag = run("git", ["describe", "--tags", "--abbrev=0"])
-	const pkg = JSON.parse(await readFile(resolve(root, "package.json"), "utf8")) as {
+	const pkg = JSON.parse(await readFile(resolve(appRoot, "package.json"), "utf8")) as {
 		version: string
 	}
 	if (tag !== `v${pkg.version}`)
 		fail(`latest tag ${tag} does not match package version ${pkg.version}`)
-	const changelog = await readFile(resolve(root, "CHANGELOG.md"), "utf8")
+	const changelog = await readFile(resolve(repoRoot, "CHANGELOG.md"), "utf8")
 	const version = isStableVersion(requested)
 		? requested
 		: bumpStableVersion(pkg.version, requested as Bump)
@@ -85,9 +90,9 @@ try {
 		if (prompt("Continue? [y/N]")?.trim().toLowerCase() !== "y") process.exit(0)
 	}
 	run("git", ["switch", "-c", branch])
-	await writeFile(resolve(root, "CHANGELOG.md"), nextChangelog)
+	await writeFile(resolve(repoRoot, "CHANGELOG.md"), nextChangelog)
 	run("bun", ["run", "version:set", version])
-	run("git", ["add", "CHANGELOG.md", "package.json", "bun.lock"])
+	run("git", ["add", "CHANGELOG.md", "apps/house/package.json", "bun.lock"])
 	run("git", ["commit", "-m", `chore: release v${version}`])
 	run("git", ["push", "--set-upstream", "origin", branch])
 	const pr = run("gh", [
