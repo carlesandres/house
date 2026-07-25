@@ -48,6 +48,7 @@
 		"test": "bun test",
 		"test:pty": "HOUSE_PTY=1 bun test test/pty/",
 		"version:set": "bun run dev/set-version.ts",
+		"release": "bun run dev/release.ts",
 		"build:cli": "bun run dev/build-cli.ts",
 		"build:standalone": "bun run dev/build-standalone.ts",
 		"build:npm-packages": "bun run dev/build-npm-packages.ts",
