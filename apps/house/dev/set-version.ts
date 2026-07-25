@@ -2,6 +2,7 @@
 
 import { readFile, writeFile } from "node:fs/promises"
 import { resolve } from "node:path"
+import { updatePlatformVersions } from "./set-version-lockfile.ts"
 
 const appRoot = resolve(import.meta.dir, "..")
 const repoRoot = resolve(appRoot, "../..")
@@ -44,10 +45,10 @@ const workspaceVersionPattern = /("apps\/house": \{[\s\S]*?"version": )"[^"]+"/
 if (!workspaceVersionPattern.test(lockfile)) fail("apps/house version is missing from bun.lock")
 lockfile = lockfile.replace(workspaceVersionPattern, `$1"${nextVersion}"`)
 
-for (const name of platformPackages) {
-	const dependencyPattern = new RegExp(`("${name}": )"[^"]+"`)
-	if (!dependencyPattern.test(lockfile)) fail(`${name} is missing from bun.lock`)
-	lockfile = lockfile.replace(dependencyPattern, `$1"${nextVersion}"`)
+try {
+	lockfile = updatePlatformVersions(lockfile, platformPackages, nextVersion)
+} catch (error) {
+	fail(error instanceof Error ? error.message : String(error))
 }
 
 await writeFile(packagePath, `${JSON.stringify(pkg, null, "\t")}\n`)
