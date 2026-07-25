@@ -82,7 +82,9 @@ Release-event-driven. Modeled on ghui, adapted for this repo's branch protection
    - publishes `@carlesandres/house` (Node shim + `optionalDependencies`),
    - attaches `house-*.tar.gz` standalone archives to the GitHub Release.
 
-   If the `npm` GitHub environment has required reviewers, the **publish** job pauses at "Waiting for reviewer" — approve via the run's web page or `gh run view <id> --web`. Matrix build jobs do not use that environment.
+The guarded one-command equivalent is `bun run release -- patch` (also `minor`, `major`, or an explicit stable version). Add `--dry-run` to plan without changes or `--yes` to skip confirmation. It performs the preflight, release branch/PR, CI wait, merge, GitHub release, and publish workflow watch. Required approval for the `npm` GitHub environment remains manual: approve the publish job in GitHub when it pauses.
+
+If the `npm` GitHub environment has required reviewers, the **publish** job pauses at "Waiting for reviewer" — approve via the run's web page or `gh run view <id> --web`. Matrix build jobs do not use that environment.
 
 8. Watch and verify:
 
