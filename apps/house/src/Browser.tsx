@@ -15,7 +15,7 @@ import type { BorderSides } from "@opentui/core"
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react"
 import { useAtomValue, useAtomSet } from "@effect/atom-react"
 import { Effect } from "effect"
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react"
+import { useEffect, useMemo, useReducer, useRef, useState } from "react"
 import { buildCommands } from "./commands/buildCommands.ts"
 import { clampSelectedIndex, filterCommands } from "./commands/score.ts"
 import { CommandPalette, orderCommandsForPalette } from "./CommandPalette.tsx"
@@ -23,17 +23,15 @@ import { filterFiles } from "./discovery/filter.ts"
 import { type FileEntry } from "./discovery/walk.ts"
 import { parseFrontmatter } from "./markdown/frontmatter.ts"
 import { BRAND, BRAND_NAME } from "./brand.ts"
-import { Footer, FOOTER_HEIGHT, type FooterProps } from "./Footer.tsx"
-import { Header, HEADER_HEIGHT } from "./Header.tsx"
+import { Footer, type FooterProps } from "./Footer.tsx"
+import { Header } from "./Header.tsx"
 import { copyTextToClipboard } from "./io/clipboard.ts"
 import { openInEditor, resolveEditor } from "./io/editor.ts"
 import { readFileText } from "./io/readFile.ts"
 import { browserBindings, type BrowserCtx } from "./keymap/browser.ts"
 import { dispatch } from "./keymap/keymap.ts"
 import { canFitInline, defaultPreferredWidth, resolveSidebarWidth } from "./layout/resolve.ts"
-import { fitSidebarEmptyValue } from "./layout/sidebarEmptyState.ts"
-import { formatSidebarRow } from "./layout/sidebarRow.ts"
-import { PromptRow } from "./PromptRow.tsx"
+import { Sidebar } from "./Sidebar.tsx"
 import { StatusPopoverPanel } from "./StatusPopover.tsx"
 import { buildReaderEmptyStateTips, pickTipByRotation } from "./tips.ts"
 import { openInBrowser } from "./serve/openBrowser.ts"
@@ -42,7 +40,6 @@ import { colors, setActiveTheme } from "./theme/colors.ts"
 import { themeAtom } from "./theme/atom.ts"
 import { themeDefinitions, getThemeDefinition } from "./theme/registry.ts"
 import { saveThemePreference } from "./config/save.ts"
-import { middleTruncate } from "./ui/middleTruncate.ts"
 
 export type StartupFocus = "sidebar" | "reader" | "filter"
 
@@ -149,38 +146,6 @@ const floatingOverlayReducer = (
 	}
 }
 
-const SidebarEmptyMessage = ({
-	label,
-	value,
-	width,
-	withTopSpacer,
-}: {
-	readonly label: string
-	readonly value: string
-	readonly width: number
-	readonly withTopSpacer: boolean
-}) => (
-	<>
-		{withTopSpacer && <text content="" />}
-		<box
-			style={{
-				width,
-				flexDirection: "row",
-				flexWrap: "wrap",
-				justifyContent: "center",
-				gap: 1,
-			}}
-		>
-			<text wrapMode="none">
-				<span style={{ fg: colors.textMuted }}>{label}</span>
-			</text>
-			<text wrapMode="none">
-				<span style={{ fg: colors.textMuted }}>{`"${fitSidebarEmptyValue(value, width)}"`}</span>
-			</text>
-		</box>
-	</>
-)
-
 export const Browser = ({
 	files,
 	initialIndex = 0,
@@ -237,7 +202,6 @@ export const Browser = ({
 	// When omitted, preserve the legacy Browser behavior: initial focus follows
 	// visibility.
 	const [focus, setFocus] = useState<"sidebar" | "reader">(() => initialFocus)
-	const [sidebarScroll, setSidebarScroll] = useState<number>(0)
 	const [filterOpen, setFilterOpen] = useState<boolean>(startInFilter)
 	const [filterInput, setFilterInput] = useState<string>(initialQuery)
 	const [filterApplied, setFilterApplied] = useState<string>(initialQuery)
@@ -895,41 +859,7 @@ export const Browser = ({
 		readerEmptyStateVisibleRef.current = false
 	}, [disableReaderEmptyStateRotation, readerEmptyStateVisible])
 
-	// Sidebar virtualization: render only the visible window. Without this,
-	// every keystroke re-renders all N file rows even though only the bg of
-	// two of them changed (old + new selected). On a 195-file vault that
-	// dominates the per-keystroke cost.
-	// Chrome budget: header + pane top border + pane bottom border + footer.
-	// The filter row eats one more cell when files are present *or* while
-	// discovery is in flight (allocates the row up front so it doesn't pop
-	// in when the first file arrives).
 	const discoveryActive = discoveryStatus !== null && discoveryStatus.length > 0
-	const filterRowVisible = files.length > 0 || discoveryActive
-	const sidebarBodyHeight = Math.max(
-		1,
-		height - FOOTER_HEIGHT - HEADER_HEIGHT - 2 - (filterRowVisible ? 1 : 0),
-	)
-	const maxScroll = Math.max(0, displayedFiles.length - sidebarBodyHeight)
-	const desiredScroll = (() => {
-		let s = sidebarScroll
-		if (selectedIndex < s) s = selectedIndex
-		else if (selectedIndex >= s + sidebarBodyHeight) s = selectedIndex - sidebarBodyHeight + 1
-		return clamp(s, 0, maxScroll)
-	})()
-	useEffect(() => {
-		if (desiredScroll !== sidebarScroll) setSidebarScroll(desiredScroll)
-	}, [desiredScroll, sidebarScroll])
-	const visibleFiles = displayedFiles.slice(desiredScroll, desiredScroll + sidebarBodyHeight)
-	// Available width for sidebar text rows. Wide-inline: sidebarWidth minus
-	// 1-cell left padding and 1-cell right divider border. Narrow-stack: the
-	// sidebar flex-grows to fill the viewport with no right divider, so the
-	// budget is the viewport minus the 1-cell left padding only.
-	const sidebarPaneWidth = isNarrow ? width : sidebarWidth
-	const sidebarTextWidth = Math.max(4, sidebarPaneWidth - (isNarrow ? 1 : 2))
-	const layoutSidebarRow = useCallback(
-		(relativePath: string) => formatSidebarRow(relativePath, sidebarTextWidth),
-		[sidebarTextWidth],
-	)
 
 	const footerProps = {
 		bindings: browserBindings,
@@ -967,84 +897,9 @@ export const Browser = ({
 		[readerEmptyStateTipRotation, readerEmptyStateTips],
 	)
 
-	// One sidebar body for both wide-inline and narrow-stack rendering; only
-	// the wrapper differs (fixed-width sibling vs flex-grow full-pane).
-	const sidebarBody = (
-		<>
-			{filterRowVisible && (
-				<PromptRow
-					query={filterInput}
-					editing={filterOpen}
-					placeholder="type / to filter"
-					width={sidebarTextWidth}
-				/>
-			)}
-			{displayedFiles.length === 0 ? (
-				<SidebarEmptyMessage
-					withTopSpacer={filterRowVisible}
-					width={sidebarTextWidth}
-					label={
-						files.length === 0
-							? discoveryActive
-								? "Scanning"
-								: "No markdown files in"
-							: "No files match"
-					}
-					value={files.length === 0 ? (discoveryActive ? "…" : rootLabel) : filterApplied}
-				/>
-			) : (
-				visibleFiles.map((file, idx) => {
-					const realIdx = desiredScroll + idx
-					const isSelected = realIdx === selectedIndex
-					const { basename, separator, parent } = layoutSidebarRow(file.relativePath)
-					const basenameFg = isSelected ? colors.selectedListItemText : colors.text
-					const rowStyle = {
-						width: sidebarTextWidth,
-						height: 1,
-						flexDirection: "row",
-						...(isSelected ? { backgroundColor: colors.backgroundElement } : {}),
-					} as const
-					return (
-						<box key={file.path} style={rowStyle}>
-							<text wrapMode="none">
-								<span style={{ fg: basenameFg }}>{basename}</span>
-								{parent !== "" && (
-									<span style={{ fg: colors.textMuted }}>
-										{middleTruncate(
-											`${separator}${parent}`,
-											Math.max(0, sidebarTextWidth - basename.length),
-										)}
-									</span>
-								)}
-							</text>
-						</box>
-					)
-				})
-			)}
-		</>
-	)
-
 	// Pane borders draw a connected frame: each pane's top/bottom edges
-	// (the horizontal rules) and the sidebar's right edge (the vertical
-	// divider) are rendered by opentui in one pass, so the junctions
-	// never get painted over by sibling elements. customBorderChars on
-	// the sidebar turns its right-side corners from `┐ ┘` into `┬ ┴` so
-	// they connect cleanly with the reader's top/bottom rules.
-	const sidebarBorderSides: BorderSides[] = ["top", "bottom", "right"]
+	// and the sidebar's right edge are rendered by opentui in one pass.
 	const readerBorderSides: BorderSides[] = ["top", "bottom"]
-	const SIDEBAR_BORDER_CHARS = {
-		topLeft: "┌",
-		topRight: "┬",
-		bottomLeft: "└",
-		bottomRight: "┴",
-		horizontal: "─",
-		vertical: "│",
-		topT: "┬",
-		bottomT: "┴",
-		leftT: "├",
-		rightT: "┤",
-		cross: "┼",
-	} as const
 	const INACTIVE_PANE_OPACITY = 0.62
 
 	return (
@@ -1060,38 +915,21 @@ export const Browser = ({
 					backgroundColor: colors.backgroundPanel,
 				}}
 			>
-				{sidebarInline && (
-					<box
-						style={{
-							// Narrow mode runs single-pane: the sidebar fills the area
-							// and drops its right divider (no neighbour to abut).
-							border: isNarrow ? readerBorderSides : sidebarBorderSides,
-							borderColor: colors.border,
-							...(isNarrow
-								? { flexGrow: 1, flexShrink: 1 }
-								: { width: sidebarWidth, flexShrink: 0 }),
-							flexDirection: "column",
-							// Dim by default. Borders/separators ride on this so they read
-							// as a single connected frame regardless of focus; only the
-							// active pane's inner body overrides to the raised tint below.
-							backgroundColor: colors.backgroundPanel,
-						}}
-						{...(isNarrow ? {} : { customBorderChars: SIDEBAR_BORDER_CHARS })}
-					>
-						<box
-							style={{
-								flexGrow: 1,
-								flexShrink: 1,
-								flexDirection: "column",
-								paddingLeft: 1,
-								backgroundColor: sidebarActive ? colors.background : colors.backgroundPanel,
-								opacity: sidebarActive ? 1 : INACTIVE_PANE_OPACITY,
-							}}
-						>
-							{sidebarBody}
-						</box>
-					</box>
-				)}
+				<Sidebar
+					files={files}
+					displayedFiles={displayedFiles}
+					selectedIndex={selectedIndex}
+					filterInput={filterInput}
+					filterApplied={filterApplied}
+					filterOpen={filterOpen}
+					discoveryActive={discoveryActive}
+					rootLabel={rootLabel}
+					viewportHeight={height}
+					paneWidth={isNarrow ? width : sidebarWidth}
+					narrow={isNarrow}
+					active={sidebarActive}
+					visible={sidebarInline}
+				/>
 				{readerVisible && (
 					<box
 						style={{

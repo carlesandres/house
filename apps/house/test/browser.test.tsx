@@ -1823,6 +1823,44 @@ describe("Browser — sidebar virtualization", () => {
 		expect(frame).not.toContain("f13.md")
 	})
 
+	test("hiding and reopening preserves the retained bottom window", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={TWENTY_FILES}
+					readFile={TWENTY_READER}
+					onQuit={() => {}}
+				/>,
+				TIGHT_VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		await act(async () => {
+			setup!.mockInput.pressKey("g", { shift: true })
+		})
+		await stepFrame(setup!.renderOnce)
+		await act(async () => {
+			setup!.mockInput.pressKey("k")
+			setup!.mockInput.pressKey("k")
+			setup!.mockInput.pressKey("k")
+		})
+		await stepFrame(setup!.renderOnce)
+
+		await act(async () => {
+			setup!.mockInput.pressKey("s")
+		})
+		await stepFrame(setup!.renderOnce)
+		await act(async () => {
+			setup!.mockInput.pressKey("s")
+		})
+		await stepFrame(setup!.renderOnce)
+
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("f14.md")
+		expect(frame).toContain("f19.md")
+		expect(frame).not.toContain("f13.md")
+	})
+
 	test("shift+G then g returns to the top window", async () => {
 		await act(async () => {
 			setup = await renderBrowser(
