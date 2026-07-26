@@ -12,6 +12,7 @@
 
 import { SyntaxStyle } from "@opentui/core"
 import type { BorderSides } from "@opentui/core"
+import { useFileNavigator } from "@house/ui"
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react"
 import { useAtomValue, useAtomSet } from "@effect/atom-react"
 import { Effect } from "effect"
@@ -95,6 +96,9 @@ export interface BrowserProps {
 
 const defaultReadFile = (path: string): Promise<string> => Effect.runPromise(readFileText(path))
 
+const getFileId = (file: FileEntry): string => file.path
+const getFilePath = (file: FileEntry): string => file.relativePath
+
 const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n))
 
 let nextReaderEmptyStateTipRotation = 0
@@ -175,9 +179,6 @@ export const Browser = ({
 	const setTheme = useAtomSet(themeAtom)
 	const syntaxStyle = useMemo(() => SyntaxStyle.fromStyles(colors.syntax), [theme])
 
-	const [selectedIndex, setSelectedIndex] = useState(() =>
-		clamp(initialIndex, 0, Math.max(0, files.length - 1)),
-	)
 	const [wrapEnabled, setWrapEnabled] = useState(initialWrap)
 	const [loaded, setLoaded] = useState<{ path: string; content: string } | null>(null)
 	const [error, setError] = useState<string | null>(null)
@@ -204,7 +205,22 @@ export const Browser = ({
 	const [focus, setFocus] = useState<"sidebar" | "reader">(() => initialFocus)
 	const [filterOpen, setFilterOpen] = useState<boolean>(startInFilter)
 	const [filterInput, setFilterInput] = useState<string>(initialQuery)
-	const [filterApplied, setFilterApplied] = useState<string>(initialQuery)
+	const initialSelectedIdRef = useRef<string | null>(
+		files.length === 0
+			? null
+			: (files[clamp(initialIndex, 0, Math.max(0, files.length - 1))]?.path ?? null),
+	)
+	const navigator = useFileNavigator({
+		files,
+		query: filterInput,
+		getId: getFileId,
+		getPath: getFilePath,
+		filter: filterFiles,
+		initialSelectedId: initialSelectedIdRef.current,
+		debounceMs: filterDebounceMs,
+	})
+	const displayedFiles = navigator.filteredFiles
+	const selected = navigator.selectedFile
 	const [floatingOverlay, dispatchFloatingOverlayState] = useReducer(
 		floatingOverlayReducer,
 		noFloatingOverlay,
@@ -237,8 +253,6 @@ export const Browser = ({
 	// otherwise still observe filterOpen=false through closure).
 	const filterOpenRef = useRef(startInFilter)
 	const filterInputRef = useRef(initialQuery)
-	const filterAppliedRef = useRef(initialQuery)
-	const autoSelectForAppliedFilterRef = useRef(true)
 	const focusRef = useRef<"sidebar" | "reader">(focus)
 	const restoreFilterOnSidebarFocusRef = useRef(startInFilter)
 	const [footerNotice, setFooterNoticeState] = useState<{
@@ -336,37 +350,7 @@ export const Browser = ({
 		pushFooterNotice(`tone: ${nextTone}`)
 	}
 
-	useEffect(() => {
-		if (filterInput === filterApplied) return
-		const timer = setTimeout(() => {
-			filterAppliedRef.current = filterInput
-			setFilterApplied(filterInput)
-		}, filterDebounceMs)
-		return () => clearTimeout(timer)
-	}, [filterApplied, filterDebounceMs, filterInput])
-
-	useEffect(() => {
-		autoSelectForAppliedFilterRef.current = true
-	}, [filterApplied])
-
-	const displayedFiles = useMemo(() => filterFiles(files, filterApplied), [files, filterApplied])
 	const filterHasNoMatches = filterInput.length > 0 && displayedFiles.length === 0
-
-	useEffect(() => {
-		if (filterApplied.length === 0) return
-		if (!autoSelectForAppliedFilterRef.current) return
-		if (displayedFiles.length === 0) return
-		setSelectedIndex(0)
-		autoSelectForAppliedFilterRef.current = false
-	}, [displayedFiles, filterApplied])
-	// When the filtered list shrinks, keep selectedIndex valid. The reset to 0
-	// on every query change happens in the keystroke handler, not here, so a
-	// no-op rerender doesn't snap the cursor back to the top.
-	useEffect(() => {
-		if (selectedIndex >= displayedFiles.length) {
-			setSelectedIndex(displayedFiles.length === 0 ? 0 : displayedFiles.length - 1)
-		}
-	}, [displayedFiles.length, selectedIndex])
 
 	// #145 selection restoration. Runs whenever the displayed file list
 	// changes (re-walk batches, filter changes). If the user has a path
@@ -377,14 +361,12 @@ export const Browser = ({
 	useEffect(() => {
 		const target = pendingSelectionPathRef.current
 		if (target === null) return
-		const idx = displayedFiles.findIndex((f) => f.path === target)
-		if (idx >= 0) {
-			setSelectedIndex(idx)
+		if (displayedFiles.some((file) => file.path === target)) {
+			const snapshot = navigator.selectId(target)
+			if (snapshot.selectedFile?.path !== target) return
 			pendingSelectionPathRef.current = null
 		}
 	}, [displayedFiles])
-
-	const selected = displayedFiles[selectedIndex]
 
 	// Track the path whose content is currently rendered. Updated lazily via
 	// a debounce: rapid j/k presses don't trigger a load+<markdown>-reflow
@@ -445,13 +427,22 @@ export const Browser = ({
 		setFocus,
 		// Wrapped so any keymap-driven selection move (j/k/g/G/[/], reader
 		// prev/next) clears the pending-restore ref from #145. Internal
-		// callers that should NOT clear pending (the filter modal's typing
-		// branch, the post-filter clamp effect, the restoration effect
-		// itself) deliberately use the raw `setSelectedIndex` setter.
-		setSelectedIndex: (updater) => {
+		// callers that should NOT clear pending (filter-modal movement and
+		// restoration) deliberately call the controller directly.
+		moveSelectionBy: (delta) => {
 			pendingSelectionPathRef.current = null
-			autoSelectForAppliedFilterRef.current = false
-			setSelectedIndex(updater)
+			navigator.cancelAutoSelect()
+			navigator.moveBy(delta)
+		},
+		selectFirst: () => {
+			pendingSelectionPathRef.current = null
+			navigator.cancelAutoSelect()
+			navigator.selectFirst()
+		},
+		selectLast: () => {
+			pendingSelectionPathRef.current = null
+			navigator.cancelAutoSelect()
+			navigator.selectLast()
 		},
 		toggleShown: () => {
 			// Two layout shapes, two behaviors:
@@ -496,10 +487,9 @@ export const Browser = ({
 			// shows an empty input and selection lands on the first file in
 			// the (now unfiltered) list.
 			filterInputRef.current = ""
-			filterAppliedRef.current = ""
 			setFilterInput("")
-			setFilterApplied("")
-			setSelectedIndex(() => 0)
+			navigator.flushSearch("")
+			navigator.selectFirst()
 			focusRef.current = "sidebar"
 			if (focus !== "sidebar") setFocus("sidebar")
 			restoreFilterOnSidebarFocusRef.current = true
@@ -524,15 +514,16 @@ export const Browser = ({
 			// and is still waiting to come back). The armed path is the one
 			// the user originally chose; preserving it across a toggle-off /
 			// toggle-on round-trip is the headline ergonomic of #145.
-			// User-driven nav (j/k/g/G via the wrapped setSelectedIndex below)
+			// User-driven nav (j/k/g/G via the wrapped actions above)
 			// clears pending, so a follow-up toggle starts a fresh snapshot.
-			if (pendingSelectionPathRef.current === null && selected) {
-				pendingSelectionPathRef.current = selected.path
+			const current = navigator.getSnapshot().selectedFile
+			if (pendingSelectionPathRef.current === null && current) {
+				pendingSelectionPathRef.current = current.path
 			}
 			onToggleAll?.()
 		},
 		serveCurrent: () => {
-			const file = displayedFiles[selectedIndex]
+			const file = navigator.getSnapshot().selectedFile
 			if (!file) return
 			let handle = serverRef.current
 			if (!handle) {
@@ -565,7 +556,7 @@ export const Browser = ({
 			process.exit(0)
 		},
 		editCurrent: () => {
-			const file = displayedFiles[selectedIndex]
+			const file = navigator.getSnapshot().selectedFile
 			if (!file) return
 			const editor = resolveEditor(process.env)
 			if (!editor) {
@@ -626,7 +617,7 @@ export const Browser = ({
 			})()
 		},
 		copyCurrentContents: () => {
-			const file = displayedFiles[selectedIndex]
+			const file = navigator.getSnapshot().selectedFile
 			if (!file) return
 			void (async () => {
 				let text: string
@@ -727,9 +718,8 @@ export const Browser = ({
 			// the Return semantic (open the match in the reader); false is
 			// Esc (stop typing, keep the applied filter, stay in sidebar).
 			const closeFilter = (commit: boolean) => {
-				filterAppliedRef.current = filterInputRef.current
-				setFilterApplied(filterInputRef.current)
-				const picked = displayedFiles[selectedIndex] ?? null
+				const snapshot = navigator.flushSearch(filterInputRef.current)
+				const picked = snapshot.selectedFile
 				const effectiveCommit = commit && picked !== null
 				restoreFilterOnSidebarFocusRef.current = false
 				filterOpenRef.current = false
@@ -774,10 +764,9 @@ export const Browser = ({
 				// keymap doesn't see keys in filter mode, so this branch is
 				// the in-modal half of that single chord.
 				filterInputRef.current = ""
-				filterAppliedRef.current = ""
 				setFilterInput("")
-				setFilterApplied("")
-				setSelectedIndex(() => 0)
+				navigator.flushSearch("")
+				navigator.selectFirst()
 				return
 			}
 			if (key.name === "backspace" || key.name === "delete") {
@@ -789,15 +778,15 @@ export const Browser = ({
 				}
 				filterInputRef.current = filterInputRef.current.slice(0, -1)
 				setFilterInput(filterInputRef.current)
-				setSelectedIndex(() => 0)
+				navigator.selectIndex(0)
 				return
 			}
 			if (key.name === "up") {
-				setSelectedIndex((i) => Math.max(0, i - 1))
+				navigator.moveBy(-1)
 				return
 			}
 			if (key.name === "down") {
-				setSelectedIndex((i) => Math.min(Math.max(0, displayedFiles.length - 1), i + 1))
+				navigator.moveBy(1)
 				return
 			}
 			if (key.ctrl || key.meta) return
@@ -809,7 +798,7 @@ export const Browser = ({
 			if (char !== null) {
 				filterInputRef.current = filterInputRef.current + char
 				setFilterInput(filterInputRef.current)
-				setSelectedIndex(() => 0)
+				navigator.selectIndex(0)
 			}
 			return
 		}
@@ -917,10 +906,8 @@ export const Browser = ({
 			>
 				<Sidebar
 					files={files}
-					displayedFiles={displayedFiles}
-					selectedIndex={selectedIndex}
+					controller={navigator}
 					filterInput={filterInput}
-					filterApplied={filterApplied}
 					filterOpen={filterOpen}
 					discoveryActive={discoveryActive}
 					rootLabel={rootLabel}

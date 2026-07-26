@@ -11,7 +11,6 @@ import { browserBindings, type BrowserCtx, type BrowserFocus } from "../src/keym
 import { dispatch, type KeyMatch } from "../src/keymap/keymap.ts"
 
 const noop = () => {}
-const noopSetIndex = (_: (prev: number) => number) => {}
 const noopSetFocus = (_: BrowserFocus | ((prev: BrowserFocus) => BrowserFocus)) => {}
 
 const makeFiles = (n: number): readonly FileEntry[] =>
@@ -30,7 +29,7 @@ interface CtxOverrides {
 	readonly paletteOpen?: boolean
 	readonly onServe?: () => void
 	readonly onEdit?: () => void
-	readonly setSelectedIndex?: (u: (prev: number) => number) => void
+	readonly moveSelectionBy?: (delta: number) => void
 }
 
 const makeCtx = (o: CtxOverrides = {}): BrowserCtx => ({
@@ -44,7 +43,9 @@ const makeCtx = (o: CtxOverrides = {}): BrowserCtx => ({
 	paletteOpen: o.paletteOpen ?? false,
 	wrapEnabled: false,
 	setFocus: noopSetFocus,
-	setSelectedIndex: o.setSelectedIndex ?? noopSetIndex,
+	moveSelectionBy: o.moveSelectionBy ?? noop,
+	selectFirst: noop,
+	selectLast: noop,
 	toggleShown: noop,
 	openFilter: noop,
 	clearAndOpenFilter: noop,
@@ -52,12 +53,12 @@ const makeCtx = (o: CtxOverrides = {}): BrowserCtx => ({
 	toggleWrap: noop,
 	cycleTheme: noop,
 	toggleTone: noop,
-		quit: noop,
-		serveCurrent: o.onServe ?? noop,
-		editCurrent: o.onEdit ?? noop,
-		copyCurrentContents: noop,
-		toggleAll: noop,
-	})
+	quit: noop,
+	serveCurrent: o.onServe ?? noop,
+	editCurrent: o.onEdit ?? noop,
+	copyCurrentContents: noop,
+	toggleAll: noop,
+})
 
 const k = (name: string, mods: Partial<KeyMatch> = {}): KeyMatch => ({
 	name,
@@ -108,7 +109,7 @@ describe("File group — `[` / `]` (prev/next file)", () => {
 		const ctx = makeCtx({
 			focus: "sidebar",
 			files: makeFiles(3),
-			setSelectedIndex: () => steps++,
+			moveSelectionBy: () => steps++,
 		})
 		expect(dispatch(browserBindings, ctx, k("["))).toBeNull()
 		expect(dispatch(browserBindings, ctx, k("]"))).toBeNull()
@@ -120,7 +121,7 @@ describe("File group — `[` / `]` (prev/next file)", () => {
 		const ctx = makeCtx({
 			focus: "reader",
 			files: makeFiles(1),
-			setSelectedIndex: () => steps++,
+			moveSelectionBy: () => steps++,
 		})
 		expect(dispatch(browserBindings, ctx, k("["))).toBeNull()
 		expect(dispatch(browserBindings, ctx, k("]"))).toBeNull()
@@ -132,7 +133,7 @@ describe("File group — `[` / `]` (prev/next file)", () => {
 		const ctx = makeCtx({
 			focus: "reader",
 			files: makeFiles(2),
-			setSelectedIndex: () => steps++,
+			moveSelectionBy: () => steps++,
 		})
 		expect(dispatch(browserBindings, ctx, k("]"))?.id).toBe("reader.nextFile")
 		expect(dispatch(browserBindings, ctx, k("["))?.id).toBe("reader.prevFile")
@@ -145,7 +146,7 @@ describe("File group — `[` / `]` (prev/next file)", () => {
 			focus: "reader",
 			files: makeFiles(3),
 			hasSelected: false,
-			setSelectedIndex: () => steps++,
+			moveSelectionBy: () => steps++,
 		})
 		expect(dispatch(browserBindings, ctx, k("]"))).toBeNull()
 		expect(steps).toBe(0)

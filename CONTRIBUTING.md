@@ -13,7 +13,9 @@ If you're an AI assistant pairing on this repo, also read [`AGENTS.md`](./AGENTS
 ```bash
 bun install
 bun run dev [path]      # watch + run from source; positional seeds filter, use --root <dir> to browse a directory
-bun test                # full test suite
+bun test                # House app tests (root bunfig.toml scope)
+bun run test            # all workspace tests through Turbo
+bun run --cwd packages/ui test # reusable UI package tests only
 bun run typecheck
 bun run lint
 bun run format          # write
@@ -30,8 +32,9 @@ Versioned Git hooks live in `.githooks/`. `bun install` activates them (the `pre
 
 ## Project layout
 
-See `DESIGN.md` §9.1 for the module map. The root is a private Bun workspace and
-Turborepo orchestrator; the publishable app lives in `apps/house`:
+See `DESIGN.md` §9.1 for the module map. The root is a private Bun workspace and Turborepo
+orchestrator; the publishable app lives in `apps/house`, while reusable controlled OpenTUI
+components live in the private `packages/ui` source package:
 
 - `apps/house/src/cli/` — argv parsing
 - `apps/house/src/discovery/` — filesystem walk + `.gitignore`
@@ -41,10 +44,16 @@ Turborepo orchestrator; the publishable app lives in `apps/house`:
 - `apps/house/src/Browser.tsx`, `apps/house/src/index.tsx` — TUI
 - `apps/house/test/` — tests; the root `bunfig.toml` keeps direct `bun test` scoped here
 - `apps/house/dev/` — build, release, smoke, and benchmark scripts
+- `packages/ui/src/` — generic controlled navigator state and rendering
+- `packages/ui/test/` — package-local controller and headless render tests
 
 ## Testing
 
 The headless test pattern is documented in `apps/house/test/browser.test.tsx`. Use `testRender` + `captureCharFrame` + `mockInput`. When asserting on `<markdown>` body content, prefer asserting on stable surfaces (border titles, sidebar rows) — the markdown body has first-frame quirks in headless render.
+
+Direct `bun test` remains intentionally scoped to `apps/house/test` by the root `bunfig.toml`. Use
+`bun run test` for the CI-equivalent all-workspace test gate, or
+`bun run --cwd packages/ui test` while iterating on the reusable package.
 
 Add tests alongside features. We don't enforce coverage, but every keymap binding should have at least one integration test (see §10.2 of DESIGN.md for the v2 gate).
 
@@ -52,13 +61,13 @@ For reader empty-state guidance, test the product contract rather than the exact
 
 ### Validating rendered output deeper than text
 
-`captureCharFrame()` returns characters only. For bugs where the character is correct but the *style* isn't — code block rendered with `bg == fg` so it looks invisible, span dropped to zero width, wrong attribute applied — reach for `captureSpans()` instead. It returns `{ cols, rows, cursor, lines: [{ spans: [{ text, fg, bg, attributes, width }] }] }`, which lets you assert on colors and widths.
+`captureCharFrame()` returns characters only. For bugs where the character is correct but the _style_ isn't — code block rendered with `bg == fg` so it looks invisible, span dropped to zero width, wrong attribute applied — reach for `captureSpans()` instead. It returns `{ cols, rows, cursor, lines: [{ spans: [{ text, fg, bg, attributes, width }] }] }`, which lets you assert on colors and widths.
 
 Three other primitives from `@opentui/core/testing` are worth knowing:
 
-- `renderer.idle()` — awaits *all* pending async work (tree-sitter highlights, layout reflow). Prefer this over a loop of `renderOnce()` whenever the component you're testing kicks off async work. `renderOnce()` only flushes one paint; `idle()` waits for the system to actually settle.
+- `renderer.idle()` — awaits _all_ pending async work (tree-sitter highlights, layout reflow). Prefer this over a loop of `renderOnce()` whenever the component you're testing kicks off async work. `renderOnce()` only flushes one paint; `idle()` waits for the system to actually settle.
 - `MockTreeSitterClient` — pass it via the `treeSitterClient` prop on `<markdown>` (or any `<code>`) to take the highlighter out of the loop. `setMockResult({ highlights, warning })` controls what `highlightOnce` returns, and `resolveAllHighlightOnce()` releases pending calls on demand. This is how you simulate "no parser for this language" deterministically. Real wasm loading is flaky in tests; mocking it is not.
-- `TestRecorder` — `new TestRecorder(renderer); recorder.rec(); ... recorder.stop()` captures every intermediate frame. Use it when you suspect a "renders then disappears" race, or when you need to compare frame *N* vs. frame *N+1*.
+- `TestRecorder` — `new TestRecorder(renderer); recorder.rec(); ... recorder.stop()` captures every intermediate frame. Use it when you suspect a "renders then disappears" race, or when you need to compare frame _N_ vs. frame _N+1_.
 
 `apps/house/test/markdown-codeblock.test.tsx` is the worked example. opentui's own `Markdown.code-colors.test.ts` (under `reference/opentui/`) is the canonical pattern reference.
 
@@ -118,7 +127,7 @@ DESIGN.md §12 records design choices we deferred and the trigger that should br
 ## Commits, branches, PRs
 
 - Branch off `main`. Force-pushes to `main` are not allowed.
-- Commit messages: imperative, lowercase prefix (`feat:`, `fix:`, `refactor:`, `docs:`, `ci:`, `chore:`, `build:`, `test:`). The one-line subject is the contract; bodies are encouraged when the *why* isn't obvious.
+- Commit messages: imperative, lowercase prefix (`feat:`, `fix:`, `refactor:`, `docs:`, `ci:`, `chore:`, `build:`, `test:`). The one-line subject is the contract; bodies are encouraged when the _why_ isn't obvious.
 - PR titles match the same shape. Keep PRs small enough to review in one sitting.
 
 ## Update notifier

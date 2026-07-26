@@ -70,16 +70,16 @@ Key reservations for deferred features (search, navigation history, bookmarks, e
 
 ## 6. Discovery Rules
 
-| Rule         | v1 behavior                                                                                                                                                                      |
-| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Root         | `--root <dir>` if given, else `defaultRoot` config/env (`cwd` or `git`), else `cwd`. The positional path does not set the discovery root.                                        |
-| Recursion    | Unbounded depth from root.                                                                                                                                                       |
-| Extensions   | `.md`, `.markdown`, plus user-configured extras. Extra extensions are opt-in via `--ext`, `extensions = []`, or `HOUSE_EXTENSIONS`.      |
-| Ignore files | `.gitignore` honored. Nested `.gitignore` files honored.                                                                                                                         |
-| Hard skips   | `node_modules`, `.git`, `.venv` (always, even with `--show`).                                                                                                                    |
-| Hidden files | Skipped by default; `--show hidden` to include.                                                                                                                                  |
-| Symlinks     | Not followed (loop hazard).                                                                                                                                                      |
-| Sort         | Files before directories, alphabetical within each group. This puts the current directory's files before nested subtrees. |
+| Rule         | v1 behavior                                                                                                                               |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Root         | `--root <dir>` if given, else `defaultRoot` config/env (`cwd` or `git`), else `cwd`. The positional path does not set the discovery root. |
+| Recursion    | Unbounded depth from root.                                                                                                                |
+| Extensions   | `.md`, `.markdown`, plus user-configured extras. Extra extensions are opt-in via `--ext`, `extensions = []`, or `HOUSE_EXTENSIONS`.       |
+| Ignore files | `.gitignore` honored. Nested `.gitignore` files honored.                                                                                  |
+| Hard skips   | `node_modules`, `.git`, `.venv` (always, even with `--show`).                                                                             |
+| Hidden files | Skipped by default; `--show hidden` to include.                                                                                           |
+| Symlinks     | Not followed (loop hazard).                                                                                                               |
+| Sort         | Files before directories, alphabetical within each group. This puts the current directory's files before nested subtrees.                 |
 
 Discovery is a **non-trivial product decision** — users notice when their mental model of "what shows up" doesn't match. Changing these rules is a versioned change.
 
@@ -109,6 +109,10 @@ resolveSidebarWidth(viewport, preferred) =
 ```
 
 Until persistent config (#13) lands, `preferred` is derived from viewport (`floor(width * 0.25)` clamped to `[28, 60]`).
+
+Browser owns responsive visibility and the wide/narrow pane composition. Once it supplies the
+resolved variant, width, height, visibility, and active state, `@house/ui`'s `FileNavigator` owns the
+navigator frame, rows, empty-state placement, and retained visible window.
 
 **Launch** — `shown=true`. Startup sidebar visibility is not a configuration
 surface; every viewport boots with the sidebar visible (narrow: as the single
@@ -180,15 +184,15 @@ There is **no separate file-target mode**. The Browser is the only render target
 
 **Invariant 2 — the discovery root and the query are independent inputs.** Discovery root is resolved from (highest wins): `--root <dir>` → `defaultRoot` config → built-in `"cwd"`. `defaultRoot` is string-valued — `"cwd"` (default) or `"git"` (repo root via parent walk, silent cwd fallback). The CLI positional argument never controls discovery root; that surface is reserved for `--root` and config.
 
-**Invariant 3 — the CLI positional is the initial filter query.** `house README.md` → walk the discovery root, seed the filter to `"README.md"`. The fuzzy scorer (`apps/house/src/discovery/filter.ts`) ranks `README.md` highest by preferring filename hits over folder hits and current-folder files over deeper nested ties, sticky auto-select lands on it, the reader renders it. Clearing the filter (`Esc`) reveals the full tree. The CLI query is _applied_ (live filter, visible in the filter chip), not _consumed_ (silently picks selection and clears) — applied is the only shape that honors Invariant 1.
+**Invariant 3 — the CLI positional is the initial filter query.** `house README.md` → walk the discovery root, seed the filter to `"README.md"`. The fuzzy scorer (`apps/house/src/discovery/filter.ts`) ranks `README.md` highest by preferring filename hits over folder hits and current-folder files over deeper nested ties, sticky auto-select lands on it, the reader renders it. Clearing the filter (`Ctrl+\`) reveals the full tree; `Esc` closes editing without reverting the typed query. The CLI query is _applied_ (live filter, visible in the filter chip), not _consumed_ (silently picks selection and clears) — applied is the only shape that honors Invariant 1.
 
 **Invariant 4 — the selected file drives the reader, regardless of focus.** As long as exactly one file is the active selection, that file's content is in the reader pane. Focus determines where keystrokes land, not what is shown. Empty selection → blank reader. There is no separate "open this file in the reader" action distinct from "select it".
 
 **Invariant 5 — file-scoped actions are gated on `hasSelected`, not on `haveFiles`.** The File keymap group (`O` open-in-browser, `[` prev, `]` next) is available iff `selected !== null`. `haveFiles` (list non-empty) is a sloppy proxy that breaks under debounced filter + sticky select, where the list can be non-empty while no row is the selection. `hasSelected` is the honest predicate.
 
-**Invariant 6 — filter input and applied filter are separated by a 50ms debounce.** `filterInput` (immediate) drives the typed line. `filterApplied` (debounced) drives `filterFiles` and selection. Three flush points bypass the debounce so the UI never feels stuck: launch with a seeded query (`initialQuery` initializes _both_ states), `Esc` clearing the filter, `Return` committing a pick.
+**Invariant 6 — filter input and applied filter are separated by a 50ms debounce.** Browser owns `filterInput` (immediate), the prompt/modal semantics, and House's `filterFiles` ranking strategy. The `@house/ui` controller owns the debounced applied query, filtered snapshot, and ID-based selection. Launch applies a seeded query synchronously; `Esc` flushes the latest input and closes without reverting; `Return` flushes and opens the post-flush selection; `Ctrl+\` flushes an empty query and stays in editing mode.
 
-**Invariant 7 — sticky first-match auto-select.** Once `filterApplied` produces its first non-empty result, selection snaps to index 0 and stays. Later-streamed entries with higher scores never reseat selection under the user. The gate re-arms when `filterApplied` changes.
+**Invariant 7 — sticky first-match auto-select.** Once the applied query produces its first non-empty result, selection snaps to the first file and stays by stable file-path ID. Later-streamed entries with higher scores may change its derived index but never reseat selection under the user. The gate re-arms when the applied query changes.
 
 **Empty states.** Post-discovery, with nothing to select, the sidebar shows a single dim row in place of the file list: `no markdown files in <rootDir>` (empty pool) or `no matches for "<query>"` (pool non-empty, zero matches). The reader stays blank. The footer remains the same fixed essential-control row.
 
@@ -198,7 +202,7 @@ There is **no separate file-target mode**. The Browser is the only render target
 
 ### 7.5 Theming
 
-Themes are opencode-derived JSON definitions resolved into the typed token surface in `apps/house/src/theme/types.ts`, then exposed through the `ColorPalette` singleton consumed by UI components. Selection is via config/CLI and can be cycled at runtime.
+Themes are opencode-derived JSON definitions resolved into the typed token surface in `apps/house/src/theme/types.ts`, then exposed through the `ColorPalette` singleton consumed by House UI components. Selection is via config/CLI and can be cycled at runtime. Reusable package components do not import that singleton: House adapters map its current values into a narrowed semantic theme prop on every render.
 
 The semantic tokens are intentionally about UI role, not color names. When styling chrome, pick the token by meaning first and only then check how each bundled theme renders it.
 
@@ -277,9 +281,9 @@ This component contract intentionally does not expose anchor coordinates or plac
 
 ### 9.1 Module map
 
-House is the publishable app in the repository's Turborepo workspace. Within the app,
-top-level components remain directly under `src/` until a second view forces a `tui/`
-subdirectory:
+House is the publishable app in the repository's Turborepo workspace. `packages/ui` is a private,
+source-exported package for reusable controlled OpenTUI components. Within the app, top-level
+components remain directly under `src/` until a second view forces a `tui/` subdirectory:
 
 ```
 apps/house/src/
@@ -293,10 +297,15 @@ apps/house/src/
 ├── theme/light.ts         GitHub-Light-leaning palette
 ├── theme/registry.ts      themeDefinitions, getThemeDefinition, isThemeId
 ├── theme/colors.ts        mutable singleton `colors` + setActiveTheme
-├── Browser.tsx            orchestration, focus, filter/selection state, reader, overlays
-├── Sidebar.tsx            House sidebar pane: frame, rows, visible-window rendering
+├── Browser.tsx            orchestration, focus, immediate filter input, reader, overlays
+├── Sidebar.tsx            House adapter: product copy, dimensions, theme mapping
 ├── HelpOverlay.tsx        renders KeyBinding[] grouped by group field
 └── index.tsx              entry: parseArgv → resolve root/query → <Browser> or `--serve`
+```
+
+```
+packages/ui/src/
+└── file-navigator/        controlled query/ID selection + complete navigator pane
 ```
 
 A separate `reader/` module did not justify itself in v1: opentui's `<markdown>` plus a `<scrollbox>` wrapper is small enough to live inline in `Browser.tsx`. Extracting it is a follow-up once a second consumer (e.g., URL-fetched markdown, search-result preview) appears.
@@ -307,9 +316,14 @@ A separate `reader/` module did not justify itself in v1: opentui's `<markdown>`
 argv ──► cli ──► (path, options)
                     │
                     ▼
-              discovery ─► file list (signal/atom)
-                                │
-                       user selects ▼
+              discovery ─► file list ─► House filter strategy
+                                        │
+                              @house/ui controller
+                              (applied query + selected ID)
+                                        │
+                              Sidebar adapter ─► FileNavigator
+                                        │
+                             selected file ▼
                           read file → string
                                 │
                                 ▼
