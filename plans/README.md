@@ -8,10 +8,11 @@ every verification gate, and update the status below.
 
 ## Execution order and status
 
-| Plan | Title | Priority | Effort | Depends on | Status |
-| --- | --- | --- | --- | --- | --- |
-| 001 | Extract the local Sidebar component | P1 | M | — | DONE — landed on this branch as `b34d06b` |
-| 002 | Extract the controlled file navigator into `@house/ui` | P2 | L | 001 merged | BLOCKED — scope approved in #235; waiting for Plan 001 to merge |
+| Plan | Title                                                         | Priority | Effort | Depends on                | Status                                                 |
+| ---- | ------------------------------------------------------------- | -------- | ------ | ------------------------- | ------------------------------------------------------ |
+| 001  | Extract the local Sidebar component                           | P1       | M      | —                         | DONE — merged via #236 at `4ef1c7a`                    |
+| 002  | Extract the controlled file navigator into `@house/ui`        | P2       | L      | 001                       | DONE — implementation and repair approved at `f252e47` |
+| 003  | Make the navigator controller commit-safe and debounce-stable | P1       | M      | 002 worktree at `2755a57` | DONE — repair independently approved at `f252e47`      |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line
 rationale).
@@ -24,8 +25,12 @@ rationale).
 - Plan 002 deliberately remains separate because it changes state ownership, fixes selected-file
   identity during streamed reranking, adds a workspace package, and changes the release build.
   [Issue #235](https://github.com/carlesandres/house/issues/235) approves that broader scope.
-- Plan 002 must begin from Plan 001's completed component boundary. Do not combine the plans into
-  one PR; wait until Plan 001 is merged into `main`.
+- Plan 002 began from Plan 001's completed component boundary; the two plans remained separate.
+- Plan 002 was implemented in isolated branch `advisor/002-extract-file-navigator`; its initial advisor
+  review found two high-risk hook defects after the maximum two executor revision rounds. Plan 003
+  repaired both defects and passed executor plus independent advisor review at `f252e47`.
+- The complete range (`90bae4c`, `15362db`, `2755a57`, `f252e47`) remains on the preserved branch and
+  is ready for delivery. The advisor has not cherry-picked or merged it.
 
 ## Findings considered and rejected
 
@@ -39,3 +44,5 @@ rationale).
 - **Publish `@house/ui`:** rejected. The package remains private and is bundled into House.
 - **Adopt scoped keymap composition:** rejected. `DESIGN.md` §12 still defers that pattern; Browser
   remains the only `useKeyboard` owner.
+- **Redo Plan 002 from merged `main`:** rejected. The isolated implementation already passes all
+  functional, packaging, and release gates; a focused controller repair preserves that validated work.

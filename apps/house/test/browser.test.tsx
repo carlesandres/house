@@ -72,7 +72,7 @@ const renderBrowser = (
 ) => {
 	const normalizedElement = React.isValidElement<React.ComponentProps<typeof Browser>>(element)
 		? React.cloneElement(element, {
-				filterDebounceMs: 0,
+				filterDebounceMs: element.props.filterDebounceMs ?? 0,
 				renderedPathDebounceMs: 0,
 			})
 		: element
@@ -323,6 +323,40 @@ const expectSidebarMessageCentered = (frame: string, label: string, value: strin
 }
 
 describe("Browser — selection", () => {
+	test("preserves the selected file when a streamed match ranks ahead of it", async () => {
+		let appendHigherRankedMatch: (() => void) | null = null
+		const StreamedFiles = () => {
+			const [paths, setPaths] = React.useState<readonly string[]>(["docs/readme.md"])
+			appendHigherRankedMatch = () => setPaths(["docs/readme.md", "readme.md"])
+			return (
+				<Browser
+					files={makeFiles(paths)}
+					initialQuery="readme"
+					readFile={makeReader({ "docs/readme.md": "docs", "readme.md": "root" })}
+					onQuit={() => {}}
+				/>
+			)
+		}
+
+		await act(async () => {
+			setup = await renderBrowser(<StreamedFiles />, VIEWPORT)
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(readerTitleContains(setup!.captureCharFrame(), "docs/readme.md")).toBe(true)
+
+		await act(async () => appendHigherRankedMatch?.())
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		const lines = frame.split("\n")
+		const rootIndex = lines.findIndex(
+			(line) => line.includes("readme.md") && !line.includes("docs"),
+		)
+		const docsIndex = lines.findIndex((line) => line.includes("readme.md docs"))
+		expect(rootIndex).toBeGreaterThanOrEqual(0)
+		expect(docsIndex).toBeGreaterThan(rootIndex)
+		expect(readerTitleContains(frame, "docs/readme.md")).toBe(true)
+	})
+
 	test("header shows the selected file and discovery root", async () => {
 		const files = makeFiles(["README.md"])
 		await act(async () => {
@@ -2261,6 +2295,41 @@ describe("Browser — sidebar filter row", () => {
 })
 
 describe("Browser — filter modal", () => {
+	test("return opens a post-flush match before the production debounce elapses", async () => {
+		const files = makeFiles(["README.md", "docs/intro.md"])
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					files={files}
+					initialQuery="zzz"
+					startupFocus="filter"
+					filterDebounceMs={50}
+					readFile={makeReader({ "README.md": "readme", "docs/intro.md": "intro" })}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).toContain("No files match")
+
+		await act(async () => {
+			setup!.mockInput.pressBackspace()
+			setup!.mockInput.pressBackspace()
+			setup!.mockInput.pressBackspace()
+			setup!.mockInput.pressKey("i")
+			setup!.mockInput.pressKey("n")
+			setup!.mockInput.pressKey("t")
+			setup!.mockInput.pressKey("r")
+			setup!.mockInput.pressKey("o")
+			setup!.mockInput.pressEnter()
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(readerTitleContains(frame, "docs/intro.md")).toBe(true)
+		expect(sidebarIsFocused(setup!.captureSpans(), frame)).toBe(false)
+	})
+
 	test("/ opens the filter; typed chars narrow the visible list", async () => {
 		const files = makeFiles(["README.md", "docs/intro.md", "notes.md"])
 		await act(async () => {

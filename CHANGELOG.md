@@ -12,13 +12,19 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 - CI, npm packaging, standalone builds, and release publishing now run through workspace tasks.
 - Added local GitHub release/API verification with `vercel-labs/emulate`.
 - Extracted the House-specific sidebar pane from Browser without changing behavior.
+- Extracted the controlled file navigator into the private `@house/ui` workspace package while
+  keeping House's discovery, fuzzy ranking, keyboard routing, and product copy in the app.
+
+### Fixed
+
+- Streamed matches that rank ahead of the current row no longer change the selected file.
+- Pressing Return before the filter debounce elapses now opens the post-flush matching file.
 
 ## [0.5.1] — 2026-07-25
 
 ### Fixed
 
 - Platform npm packages now preserve an executable `bin/house` after passing through GitHub Actions artifacts.
-
 
 ## [0.5.0] — 2026-07-23
 
@@ -44,6 +50,7 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 ### Added
 
 - Browser header now shows the active discovery root, and empty states reuse the same canonical root label for consistent launch context.
+
 ### Changed
 
 - Footer hints are now limited to essential app controls, leaving other actions discoverable through the command palette.

@@ -25,7 +25,9 @@ export interface BrowserCtx {
 	readonly paletteOpen: boolean
 	readonly wrapEnabled: boolean
 	readonly setFocus: (next: BrowserFocus | ((prev: BrowserFocus) => BrowserFocus)) => void
-	readonly setSelectedIndex: (updater: (prev: number) => number) => void
+	readonly moveSelectionBy: (delta: number) => void
+	readonly selectFirst: () => void
+	readonly selectLast: () => void
 	/** Toggle `shown` and adjust focus per DESIGN.md §7.1 (see s-behavior table). */
 	readonly toggleShown: () => void
 	readonly openFilter: () => void
@@ -58,12 +60,8 @@ export interface BrowserCtx {
  *  later be derived from the visible window height. */
 const JUMP = 8
 
-const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n))
-const lastIndex = (c: BrowserCtx) => Math.max(0, c.files.length - 1)
 const haveFiles = (c: BrowserCtx) => c.files.length > 0
 const hasSelected = (c: BrowserCtx) => c.hasSelected
-const stepBy = (c: BrowserCtx, delta: number) =>
-	c.setSelectedIndex((i) => clamp(i + delta, 0, lastIndex(c)))
 
 const inSidebar = (c: BrowserCtx) => c.focus === "sidebar"
 const filterClosed = (c: BrowserCtx) => !c.filterOpen
@@ -197,7 +195,7 @@ export const browserBindings: readonly KeyBinding<BrowserCtx>[] = [
 		description: "Move selection down",
 		keys: ["j", "down"],
 		when: inSidebarWithFiles,
-		run: (c) => stepBy(c, 1),
+		run: (c) => c.moveSelectionBy(1),
 	},
 	{
 		id: "sidebar.up",
@@ -205,7 +203,7 @@ export const browserBindings: readonly KeyBinding<BrowserCtx>[] = [
 		description: "Move selection up",
 		keys: ["k", "up"],
 		when: inSidebarWithFiles,
-		run: (c) => stepBy(c, -1),
+		run: (c) => c.moveSelectionBy(-1),
 	},
 	{
 		id: "sidebar.jumpDown",
@@ -213,7 +211,7 @@ export const browserBindings: readonly KeyBinding<BrowserCtx>[] = [
 		description: `Jump down ${JUMP}`,
 		keys: ["shift+j"],
 		when: inSidebarWithFiles,
-		run: (c) => stepBy(c, JUMP),
+		run: (c) => c.moveSelectionBy(JUMP),
 	},
 	{
 		id: "sidebar.jumpUp",
@@ -221,7 +219,7 @@ export const browserBindings: readonly KeyBinding<BrowserCtx>[] = [
 		description: `Jump up ${JUMP}`,
 		keys: ["shift+k"],
 		when: inSidebarWithFiles,
-		run: (c) => stepBy(c, -JUMP),
+		run: (c) => c.moveSelectionBy(-JUMP),
 	},
 	{
 		id: "sidebar.pageDown",
@@ -229,7 +227,7 @@ export const browserBindings: readonly KeyBinding<BrowserCtx>[] = [
 		description: "Page down",
 		keys: ["space", "pagedown", "ctrl+d"],
 		when: inSidebarWithFiles,
-		run: (c) => stepBy(c, JUMP),
+		run: (c) => c.moveSelectionBy(JUMP),
 	},
 	{
 		id: "sidebar.pageUp",
@@ -237,7 +235,7 @@ export const browserBindings: readonly KeyBinding<BrowserCtx>[] = [
 		description: "Page up",
 		keys: ["b", "pageup", "ctrl+u"],
 		when: inSidebarWithFiles,
-		run: (c) => stepBy(c, -JUMP),
+		run: (c) => c.moveSelectionBy(-JUMP),
 	},
 	{
 		id: "sidebar.top",
@@ -245,7 +243,7 @@ export const browserBindings: readonly KeyBinding<BrowserCtx>[] = [
 		description: "Jump to first file",
 		keys: ["g"],
 		when: inSidebarWithFiles,
-		run: (c) => c.setSelectedIndex(() => 0),
+		run: (c) => c.selectFirst(),
 	},
 	{
 		id: "sidebar.bottom",
@@ -253,7 +251,7 @@ export const browserBindings: readonly KeyBinding<BrowserCtx>[] = [
 		description: "Jump to last file",
 		keys: ["shift+g"],
 		when: inSidebarWithFiles,
-		run: (c) => c.setSelectedIndex(() => lastIndex(c)),
+		run: (c) => c.selectLast(),
 	},
 	{
 		id: "sidebar.open",
@@ -292,7 +290,7 @@ export const browserBindings: readonly KeyBinding<BrowserCtx>[] = [
 		description: "Prev file",
 		keys: ["["],
 		when: inReaderWithSibling,
-		run: (c) => stepBy(c, -1),
+		run: (c) => c.moveSelectionBy(-1),
 	},
 	{
 		id: "reader.nextFile",
@@ -300,7 +298,7 @@ export const browserBindings: readonly KeyBinding<BrowserCtx>[] = [
 		description: "Next file",
 		keys: ["]"],
 		when: inReaderWithSibling,
-		run: (c) => stepBy(c, 1),
+		run: (c) => c.moveSelectionBy(1),
 	},
 
 	// Reader

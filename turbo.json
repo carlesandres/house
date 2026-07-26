@@ -6,6 +6,7 @@
 			"outputs": ["dist/**"]
 		},
 		"build:cli": {
+			"dependsOn": ["^build"],
 			"outputs": ["dist/bin.js", "dist/index.js"]
 		},
 		"build:npm-main": {
@@ -16,6 +17,7 @@
 			"outputs": ["dist/npm/binaries/**"]
 		},
 		"build:standalone": {
+			"dependsOn": ["^build"],
 			"outputs": ["dist/standalone/**", "dist/release/**"]
 		},
 		"build:themes": {

@@ -1,28 +1,54 @@
 # Plan 002: Extract the controlled file navigator into `@house/ui`
 
-> **Executor instructions**: Do not begin while this plan is BLOCKED in `plans/README.md`. Issue #235
-> approves the broader package/controller scope, but Plan 001 must be merged into `main` first. Once
-> unblocked, follow every step and verification gate. If a STOP condition occurs, stop and report; do
-> not improvise. When done, update this plan's status row in `plans/README.md` unless a reviewer told
-> you they maintain the index.
+> **Executor instructions**: Follow this plan step by step. Issue #235 approves the broader
+> package/controller scope, and prerequisite Plan 001 merged through PR #236. Run every verification
+> command and confirm the expected result before moving on. If a STOP condition occurs, stop and
+> report; do not improvise. When done, update this plan's status row in `plans/README.md` unless a
+> reviewer told you they maintain the index.
 >
 > **Drift check (run first)**:
-> 1. Confirm Plan 001 is DONE and `apps/house/src/Sidebar.tsx` exists.
-> 2. Run
-> `git diff --stat 3049ca9..HEAD -- packages/ui apps/house/src apps/house/test apps/house/dev apps/house/package.json bun.lock bunfig.toml turbo.json DESIGN.md CONTRIBUTING.md CHANGELOG.md plans/README.md`.
-> Changes made by completed Plan 001 are expected. Any other change to filtering, selection,
-> sidebar rendering, packaging, or test topology must be reconciled against this plan; stop if the
-> contracts below no longer match.
+> `git diff --stat 4ef1c7a..HEAD -- packages/ui apps/house/src apps/house/test apps/house/dev apps/house/package.json bun.lock bunfig.toml turbo.json DESIGN.md CONTRIBUTING.md CHANGELOG.md plans/README.md`
+> If an in-scope file changed since this plan was reconciled, compare the current-state descriptions
+> below with live code. Stop if filtering, selection, sidebar rendering, packaging, or test topology
+> no longer matches.
 
 ## Status
 
 - **Priority**: P2
 - **Effort**: L
 - **Risk**: HIGH
-- **Depends on**: Plan 001 merged into `main`
+- **Depends on**: none — Plan 001 merged through PR #236
 - **Category**: migration
-- **Planned at**: commit `3049ca9`, 2026-07-25
+- **Planned at**: commit `4ef1c7a`, 2026-07-26
 - **Issue**: https://github.com/carlesandres/house/issues/235
+
+### Execution status
+
+**DONE after Plan 003 repair and independent advisor approval.** The initial isolated implementation
+through `2755a57` passed all declared gates but was blocked because the hook mutated operational refs
+during render and could indefinitely postpone debounce when callers passed inline callbacks. The
+maximum two revision rounds for that execution had been consumed by test-harness corrections. Plan
+003 repaired both defects at `f252e47` and passed executor plus independent advisor review.
+
+The four implementation commits (`90bae4c`, `15362db`, `2755a57`, `f252e47`) remain on preserved
+branch `advisor/002-extract-file-navigator` and are ready for delivery. The advisor has not
+cherry-picked or merged them.
+
+Required repair:
+
+1. After lazy initialization, do not mutate `stateRef`, latest-input refs, or other operational refs
+   during render. Compute any prop-driven reconciliation as a pure render value, then synchronize the
+   committed state and latest `files`/accessor/filter refs in `useLayoutEffect` (or another
+   commit-phase mechanism) before input can be handled. Event methods and timers must never observe
+   values from an abandoned render.
+2. A pending query debounce must not restart because `filter`, `getId`, or `getPath` receives a new
+   function identity. Keep latest callbacks in commit-synchronized refs, but schedule/cancel the
+   debounce from query and duration changes only. `getPath` must not participate in search-timer
+   lifecycle.
+3. Add a regression test using inline accessors/filter plus repeated unrelated committed rerenders at
+   intervals shorter than `debounceMs`; the query must still apply at the original deadline.
+4. Strengthen hidden-render coverage by changing selection, dimensions, or files while hidden and
+   proving the first visible frame uses the reconciled window.
 
 ## Why this matters
 
@@ -40,17 +66,17 @@ the streamed-selection correction and the Return-before-debounce correction desc
 
 ### Product and state contracts
 
-- `apps/house/src/Browser.tsx:213-243` stores numeric selection plus immediate and applied query
+- `apps/house/src/Browser.tsx:178-207` stores numeric selection plus immediate and applied query
   state.
-- `apps/house/src/Browser.tsx:260-279` keeps synchronous filter/modal refs because multiple keys can
+- `apps/house/src/Browser.tsx:224-257` keeps synchronous filter/modal refs because multiple keys can
   arrive before React commits.
-- `apps/house/src/Browser.tsx:375-423` filters and ranks files, resets first-match selection, clamps
+- `apps/house/src/Browser.tsx:339-387` filters and ranks files, resets first-match selection, clamps
   numeric indices, restores discovery-toggle selection, and derives the selected file.
-- `apps/house/src/Browser.tsx:464-490` deliberately passes the displayed list to `BrowserCtx` and
+- `apps/house/src/Browser.tsx:428-455` deliberately passes the displayed list to `BrowserCtx` and
   wraps keymap-driven selection so it clears pending restoration and disables auto-selection.
-- `apps/house/src/Browser.tsx:686-853` owns keyboard routing. Command palette and filter modal
+- `apps/house/src/Browser.tsx:650-814` owns keyboard routing. Command palette and filter modal
   intercept keys before `dispatch(browserBindings, ...)`; the package must never call `useKeyboard`.
-- `apps/house/src/Browser.tsx:765-780` sets the applied query and immediately reads the prior render's
+- `apps/house/src/Browser.tsx:729-750` sets the applied query and immediately reads the prior render's
   `displayedFiles`. A flush API must return a post-flush snapshot so Return is not stale.
 - `apps/house/src/index.tsx:137-184` streams discovery in batches; the package receives arrays and
   never imports discovery services.
@@ -68,8 +94,8 @@ the streamed-selection correction and the Return-before-debounce correction desc
 
 ### Rendering and package evidence
 
-- After Plan 001, `apps/house/src/Sidebar.tsx` owns the frame, visible-window scroll, prompt slot,
-  empty state, and rows; Browser owns responsive visibility and passes dimensions/state.
+- `apps/house/src/Sidebar.tsx:13-196` owns the frame, visible-window scroll, prompt slot, empty state,
+  and rows; Browser owns responsive visibility and passes dimensions/state.
 - `apps/house/src/PromptRow.tsx` is shared with `CommandPalette`; it stays in House.
 - `apps/house/src/theme/types.ts:90-107` defines the full House palette. The package receives only
   navigator tokens.
@@ -131,10 +157,7 @@ Export these TSDoc-documented types and symbols from `packages/ui/src/index.ts`:
 ```ts
 export type FileId = string | number
 
-export type FileFilterStrategy<TFile> = (
-	files: readonly TFile[],
-	query: string,
-) => readonly TFile[]
+export type FileFilterStrategy<TFile> = (files: readonly TFile[], query: string) => readonly TFile[]
 
 export interface FileNavigatorSnapshot<TFile> {
 	readonly appliedQuery: string
@@ -153,8 +176,10 @@ export interface UseFileNavigatorOptions<TFile, TId extends FileId> {
 	readonly debounceMs?: number
 }
 
-export interface FileNavigatorController<TFile, TId extends FileId>
-	extends FileNavigatorSnapshot<TFile> {
+export interface FileNavigatorController<
+	TFile,
+	TId extends FileId,
+> extends FileNavigatorSnapshot<TFile> {
 	readonly getId: (file: TFile) => TId
 	readonly getPath: (file: TFile) => string
 	readonly getSnapshot: () => FileNavigatorSnapshot<TFile>
@@ -256,19 +281,19 @@ or `FileEntry`.
 
 ## Commands you will need
 
-| Purpose | Command | Expected on success |
-| --- | --- | --- |
-| Install/update lock | `bun install` | exit 0; `bun.lock` records `@house/ui` workspace |
-| Frozen install check | `bun install --frozen-lockfile` | exit 0; no lockfile change |
-| Package tests | `bun run --cwd packages/ui test` | exit 0; package tests pass |
-| House tests | `bun test` | exit 0; House app tests pass |
-| All tests | `bun run test` | exit 0; House and UI workspace tests pass |
-| Typecheck | `bun run typecheck` | exit 0 |
-| Lint | `bun run lint` | exit 0 |
-| Format check | `bun run format:check` | exit 0 |
-| Release API checks | `bun run verify:github` | exit 0 |
-| Standalone | `bun run build:standalone` | exit 0; host binary smoke passes |
-| npm stage | `bun run npm:pack` | exit 0; dry-run package succeeds |
+| Purpose              | Command                          | Expected on success                              |
+| -------------------- | -------------------------------- | ------------------------------------------------ |
+| Install/update lock  | `bun install`                    | exit 0; `bun.lock` records `@house/ui` workspace |
+| Frozen install check | `bun install --frozen-lockfile`  | exit 0; no lockfile change                       |
+| Package tests        | `bun run --cwd packages/ui test` | exit 0; package tests pass                       |
+| House tests          | `bun test`                       | exit 0; House app tests pass                     |
+| All tests            | `bun run test`                   | exit 0; House and UI workspace tests pass        |
+| Typecheck            | `bun run typecheck`              | exit 0                                           |
+| Lint                 | `bun run lint`                   | exit 0                                           |
+| Format check         | `bun run format:check`           | exit 0                                           |
+| Release API checks   | `bun run verify:github`          | exit 0                                           |
+| Standalone           | `bun run build:standalone`       | exit 0; host binary smoke passes                 |
+| npm stage            | `bun run npm:pack`               | exit 0; dry-run package succeeds                 |
 
 ## Suggested executor toolkit
 
@@ -387,8 +412,11 @@ Create the controller under `packages/ui/src/file-navigator/` and export the exa
 from "Target architecture." Keep selection reconciliation in pure internal functions where possible;
 the React hook should primarily own refs, state, effects, and timer lifecycle.
 
-Timer cleanup must occur on query replacement and unmount. Accessors and filter functions must be
-included in relevant memo/effect dependencies rather than assumed stable. Do not mutate caller arrays.
+Timer cleanup must occur on query replacement and unmount. Do not mutate caller arrays. The hook must
+support non-memoized caller callbacks without restarting a pending debounce: synchronize latest
+`files`, `getId`, `getPath`, and `filter` refs at commit, while the debounce scheduling effect responds
+only to query/debounce lifecycle. Except for predictable lazy initialization, do not mutate refs
+during render; derive render output purely and publish it to operational refs in commit phase.
 
 Create `packages/ui/test/use-file-navigator.test.tsx` using a tiny OpenTUI `testRender` harness that
 captures the latest controller. Cover:
@@ -397,6 +425,8 @@ captures the latest controller. Cover:
 - non-empty initial query selects its first result regardless of `initialSelectedId`; empty initial
   query honors a present initial ID and otherwise selects first;
 - an ordinary controlled query change remains unapplied before the delay and applies afterward;
+- repeated unrelated committed rerenders with fresh inline accessors/filter do not postpone the
+  original debounce deadline;
 - `flushSearch` cancels the timer and immediately returns post-flush files and selection;
 - a newly applied query selects its first non-empty result once;
 - appending a higher-ranked result preserves selected ID and changes only derived index;
@@ -442,6 +472,7 @@ Create `packages/ui/test/FileNavigator.test.tsx`. Cover:
 - visible-window limits and selection-following scroll;
 - resize/list shrink scroll clamping;
 - hide/reopen persistence where the retained window differs from a reset window.
+- selection/list/viewport changes made while hidden are reflected in the first visible frame.
 
 **Verify**: `bun run --cwd packages/ui test` → all package tests pass.
 
@@ -500,12 +531,12 @@ Keep `apps/house/src/Sidebar.tsx`, but reduce it to product mapping:
 
 Preserve the exact House state matrix:
 
-| State | Header | Empty copy |
-| --- | --- | --- |
-| Discovery status non-empty, pool empty | reserved | `Scanning`, value `…` |
-| Discovery complete, pool empty | hidden | `No markdown files in`, value root label |
-| Pool non-empty, filtered results empty | visible | `No files match`, value applied query |
-| Filtered results non-empty | visible | none |
+| State                                  | Header   | Empty copy                               |
+| -------------------------------------- | -------- | ---------------------------------------- |
+| Discovery status non-empty, pool empty | reserved | `Scanning`, value `…`                    |
+| Discovery complete, pool empty         | hidden   | `No markdown files in`, value root label |
+| Pool non-empty, filtered results empty | visible  | `No files match`, value applied query    |
+| Filtered results non-empty             | visible  | none                                     |
 
 Preserve inactive opacity `0.62`, neutral borders, selected parent text remaining muted, and selected
 row background in both active and inactive panes.
@@ -622,6 +653,8 @@ Packaging tests:
 - [ ] No sort API or default ranking policy exists in the package.
 - [ ] Selection is ID-based; streamed reranking preserves the selected file.
 - [ ] `flushSearch` returns a synchronous post-flush snapshot used by Return.
+- [ ] Operational refs are not mutated during render after lazy initialization.
+- [ ] Inline callback identity churn cannot restart or starve the query debounce.
 - [ ] Browser remains the only `useKeyboard` owner and retains modal routing.
 - [ ] `Sidebar.tsx` is a thin House adapter; package code owns frame/rows/windowing.
 - [ ] Hiding and reopening the sidebar preserves its retained scroll window.
