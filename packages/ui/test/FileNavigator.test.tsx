@@ -2,7 +2,7 @@ import { afterEach, beforeAll, describe, expect, test } from "bun:test"
 import { RGBA } from "@opentui/core"
 import type { CapturedFrame } from "@opentui/core"
 import { testRender } from "@opentui/react/test-utils"
-import { act, useState } from "react"
+import { act, useLayoutEffect, useState } from "react"
 import { FileNavigator, useFileNavigator } from "../src/index.ts"
 import type {
 	FileNavigatorController,
@@ -243,6 +243,102 @@ describe("FileNavigator", () => {
 		expect(frame).toContain("f6.md")
 		expect(frame).toContain("f9.md")
 		expect(frame).not.toContain("f5.md")
+	})
+
+	test("publishes reconciled public fields in the first visible commit", async () => {
+		interface PublicFieldRecord {
+			readonly generation: number
+			readonly appliedQuery: string
+			readonly filteredFiles: readonly FileItem[]
+			readonly selectedFile: FileItem | null
+			readonly selectedIndex: number | null
+		}
+		interface ProbeState {
+			readonly files: readonly FileItem[]
+			readonly generation: number
+		}
+
+		const records: PublicFieldRecord[] = []
+		const initialFiles = files(10)
+		const nextFiles = files(6)
+		let committedController: FileNavigatorController<FileItem, string> | null = null
+		let setProbeState: ((state: ProbeState) => void) | null = null
+
+		const PublicFieldProbe = ({
+			controller,
+			generation,
+		}: {
+			readonly controller: FileNavigatorController<FileItem, string>
+			readonly generation: number
+		}) => {
+			useLayoutEffect(() => {
+				records.push({
+					generation,
+					appliedQuery: controller.appliedQuery,
+					filteredFiles: controller.filteredFiles,
+					selectedFile: controller.selectedFile,
+					selectedIndex: controller.selectedIndex,
+				})
+			}, [controller, generation])
+			return null
+		}
+		const ProbeHarness = () => {
+			const [state, setState] = useState<ProbeState>({ files: initialFiles, generation: 0 })
+			setProbeState = setState
+			const controller = useFileNavigator({
+				files: state.files,
+				query: "",
+				getId: (item) => item.id,
+				getPath: (item) => item.path,
+				filter: (items) => items,
+			})
+			useLayoutEffect(() => {
+				committedController = controller
+			}, [controller])
+			return (
+				<>
+					<FileNavigator
+						controller={controller}
+						width={28}
+						paneHeight={6}
+						variant="inline"
+						active
+						visible
+						theme={theme}
+					/>
+					<PublicFieldProbe controller={controller} generation={state.generation} />
+				</>
+			)
+		}
+
+		await act(async () => {
+			setup = await testRender(<ProbeHarness />, VIEWPORT)
+		})
+		await act(async () => {
+			committedController!.selectId("f7.md")
+			await setup!.renderOnce()
+		})
+		await act(async () => {
+			setProbeState!({ files: nextFiles, generation: 1 })
+		})
+		await act(async () => {
+			await setup!.renderOnce()
+		})
+
+		const firstUpdateRecord = records.find((record) => record.generation === 1)
+		expect(firstUpdateRecord).toEqual({
+			generation: 1,
+			appliedQuery: "",
+			filteredFiles: nextFiles,
+			selectedFile: nextFiles[5]!,
+			selectedIndex: 5,
+		})
+		expect(firstUpdateRecord!.filteredFiles).toBe(nextFiles)
+		expect(firstUpdateRecord!.selectedFile).toBe(nextFiles[5]!)
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("f2.md")
+		expect(frame).toContain("f5.md")
+		expect(frame).not.toContain("f1.md")
 	})
 
 	test("clamps scroll after resize and list shrink", async () => {

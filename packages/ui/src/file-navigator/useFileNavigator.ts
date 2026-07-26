@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useRef } from "react"
+import { useEffect, useLayoutEffect, useReducer, useRef } from "react"
 import type {
 	FileFilterStrategy,
 	FileId,
@@ -157,13 +157,11 @@ export const useFileNavigator = <TFile, TId extends FileId>({
 	const getIdRef = useRef(getId)
 	const getPathRef = useRef(getPath)
 	const filterRef = useRef<FileFilterStrategy<TFile>>(filter)
-	filesRef.current = files
-	getIdRef.current = getId
-	getPathRef.current = getPath
-	filterRef.current = filter
+	const revisionRef = useRef(0)
+	const renderRevision = revisionRef.current
 
 	assertUniqueIds(files, getId)
-	stateRef.current = reconcile(currentState, filter(files, currentState.appliedQuery), getId)
+	const renderCandidate = reconcile(currentState, filter(files, currentState.appliedQuery), getId)
 
 	const cancelTimer = (): void => {
 		if (timerRef.current === null) return
@@ -188,6 +186,7 @@ export const useFileNavigator = <TFile, TId extends FileId>({
 			filterRef.current(filesRef.current, nextQuery),
 			getIdRef.current,
 		)
+		revisionRef.current += 1
 		render()
 		return getSnapshot()
 	}
@@ -204,6 +203,7 @@ export const useFileNavigator = <TFile, TId extends FileId>({
 				priorIndex: nextIndex,
 			}
 		}
+		revisionRef.current += 1
 		render()
 		return getSnapshot()
 	}
@@ -213,20 +213,33 @@ export const useFileNavigator = <TFile, TId extends FileId>({
 		const index = indexOfId(current.filteredFiles, id, getIdRef.current)
 		if (index < 0) return getSnapshot()
 		stateRef.current = { ...current, selectedId: id, priorIndex: index }
+		revisionRef.current += 1
 		render()
 		return getSnapshot()
 	}
+
+	useLayoutEffect(() => {
+		filesRef.current = files
+		getIdRef.current = getId
+		getPathRef.current = getPath
+		filterRef.current = filter
+		stateRef.current =
+			revisionRef.current === renderRevision
+				? renderCandidate
+				: reconcile(stateRef.current!, filter(files, stateRef.current!.appliedQuery), getId)
+		revisionRef.current += 1
+	})
 
 	useEffect(() => {
 		cancelTimer()
 		if (query === stateRef.current!.appliedQuery) return
 		timerRef.current = setTimeout(() => applySearch(query), debounceMs)
 		return cancelTimer
-	}, [debounceMs, filter, getId, getPath, query])
+	}, [debounceMs, query])
 
 	useEffect(() => cancelTimer, [])
 
-	const snapshot = getSnapshot()
+	const snapshot = snapshotOf(renderCandidate, getId)
 	return {
 		...snapshot,
 		getId,
@@ -235,6 +248,7 @@ export const useFileNavigator = <TFile, TId extends FileId>({
 		flushSearch: applySearch,
 		cancelAutoSelect: () => {
 			stateRef.current = { ...stateRef.current!, autoSelect: false }
+			revisionRef.current += 1
 		},
 		selectIndex,
 		selectId,
