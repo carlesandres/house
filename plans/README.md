@@ -16,7 +16,7 @@ every verification gate, and update the status below.
 | 003  | Make the navigator controller commit-safe and debounce-stable | P1       | M      | 002 worktree at `2755a57` | DONE — merged via #237 at `e7655ac`                  |
 | 004  | Validate File Navigator filesystem backend                    | P1       | M      | 001-003                   | REJECTED — Chokidar crashes Bun in required 10k gate |
 | 004B | Validate Parcel Watcher as the filesystem backend             | P1       | M      | 004                       | DONE — Parcel 2.6.0 approved on 2026-08-01           |
-| 005  | Extract generic Sidebar and isolate package subpaths          | P1       | M      | 004B                      | TODO                                                 |
+| 005  | Extract generic Sidebar and isolate package subpaths          | P1       | M      | 004B                      | DONE                                                 |
 | 006  | Build the policy-aware File Navigator core                    | P1       | L      | 004B, 005                 | TODO                                                 |
 | 007  | Compose and migrate the filesystem File Navigator             | P1       | L      | 004B, 005-006             | TODO                                                 |
 
@@ -51,6 +51,9 @@ rationale).
   and generated-static standalone gates, plus the required native stress evidence. The project owner
   explicitly approved Parcel 2.6.0 and the Linux 60-second consistency policy on 2026-08-01, unblocking
   Plans 005-007.
+- Plan 005 extracted the generic filesystem-free Sidebar subpath while preserving the private root
+  FileNavigator wrapper and House behavior. Fresh-process and clean-build-graph tests prove the
+  Sidebar subpath has no filesystem backend or File Navigator dependency.
 
 ## Decision history
 
