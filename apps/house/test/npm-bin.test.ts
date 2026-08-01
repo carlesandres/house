@@ -3,8 +3,10 @@ import pkg from "../package.json" with { type: "json" }
 import { binaryPackageNameFor, resolveBinaryPath, shouldCaptureOutput } from "../src/cli/npm-bin.js"
 
 describe("npm bin shim", () => {
-	test("pins platform packages to the main package version", () => {
-		const platformVersions = Object.entries(pkg.optionalDependencies)
+	test("published manifest pins platform packages to the main package version", async () => {
+		const { createPublicPackageManifest } = await import("../dev/public-package-manifest.ts")
+		const publicPkg = createPublicPackageManifest(pkg)
+		const platformVersions = Object.entries(publicPkg.optionalDependencies ?? {})
 			.filter(([name]) => name.startsWith(`${pkg.name}-`))
 			.map(([, version]) => version)
 

@@ -1,9 +1,14 @@
 import { describe, expect, test } from "bun:test"
-import pkg from "../package.json" with { type: "json" }
 import { updatePlatformVersions } from "../dev/set-version-lockfile.ts"
 
 const packageName = "@carlesandres/house-linux-x64"
 
+/**
+ * updatePlatformVersions remains available for post-publish lockfile hygiene
+ * (align monorepo optional pins with npm after a release). Release-time
+ * version:set no longer calls it — that chicken-egg broke CI when platform
+ * packages were not yet on the registry.
+ */
 describe("updatePlatformVersions", () => {
 	test("updates workspace dependencies and resolved platform packages together", () => {
 		const lockfile = `{
@@ -32,16 +37,5 @@ describe("updatePlatformVersions", () => {
 		expect(() => updatePlatformVersions(lockfile, [packageName], "0.5.2")).toThrow(
 			`${packageName} package resolution is missing from bun.lock`,
 		)
-	})
-
-	test("updates every platform reference in the repository lockfile", async () => {
-		const lockfile = await Bun.file(new URL("../../../bun.lock", import.meta.url)).text()
-		const platformPackages = Object.keys(pkg.optionalDependencies)
-		const updated = updatePlatformVersions(lockfile, platformPackages, "9.9.9")
-
-		for (const name of platformPackages) {
-			expect(updated).toContain(`"${name}": "9.9.9"`)
-			expect(updated).toContain(`"${name}": ["${name}@9.9.9"`)
-		}
 	})
 })

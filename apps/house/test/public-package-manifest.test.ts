@@ -12,9 +12,33 @@ describe("createPublicPackageManifest", () => {
 		}
 	})
 
-	test("retains every public optional platform dependency", () => {
-		const staged = createPublicPackageManifest(pkg)
-		expect(staged.optionalDependencies).toEqual(pkg.optionalDependencies)
+	test("pins every public optional platform dependency to the package version", () => {
+		const staged = createPublicPackageManifest({
+			...pkg,
+			version: "9.9.9",
+			optionalDependencies: {
+				"@carlesandres/house-darwin-arm64": "0.1.0",
+				"@carlesandres/house-linux-x64": "0.1.0",
+			},
+		})
+		expect(staged.optionalDependencies).toEqual({
+			"@carlesandres/house-darwin-arm64": "9.9.9",
+			"@carlesandres/house-linux-x64": "9.9.9",
+		})
+	})
+
+	test("retains non-platform optional dependencies unchanged", () => {
+		const staged = createPublicPackageManifest({
+			version: "1.2.3",
+			optionalDependencies: {
+				"@carlesandres/house-linux-x64": "0.1.0",
+				"some-other-optional": "2.0.0",
+			},
+		})
+		expect(staged.optionalDependencies).toEqual({
+			"@carlesandres/house-linux-x64": "1.2.3",
+			"some-other-optional": "2.0.0",
+		})
 	})
 
 	test("rejects unexpected workspace protocols in runtime dependencies", () => {

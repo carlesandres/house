@@ -1,6 +1,6 @@
 {
 	"name": "@carlesandres/house",
-	"version": "0.5.1",
+	"version": "0.5.2",
 	"description": "TUI-first markdown reader on opentui",
 	"type": "module",
 	"license": "MIT",
@@ -23,7 +23,11 @@
 		"glow",
 		"house"
 	],
-	"files": ["dist/bin.js", "dist/index.js", "CHANGELOG.md"],
+	"files": [
+		"dist/bin.js",
+		"dist/index.js",
+		"CHANGELOG.md"
+	],
 	"publishConfig": {
 		"access": "public",
 		"provenance": true,

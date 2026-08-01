@@ -10,7 +10,7 @@
     },
     "apps/house": {
       "name": "@carlesandres/house",
-      "version": "0.5.1",
+      "version": "0.5.2",
       "bin": {
         "house": "dist/bin.js",
       },
