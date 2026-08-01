@@ -26,6 +26,7 @@
         "react": "19.2.6",
         "scheduler": "0.27.0",
         "string-width": "7.2.0",
+        "web-tree-sitter": "0.25.10",
       },
       "devDependencies": {
         "@effect/language-service": "0.86.2",

@@ -19,6 +19,9 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 
 - Streamed matches that rank ahead of the current row no longer change the selected file.
 - Pressing Return before the filter debounce elapses now opens the post-flush matching file.
+- Standalone/npm binaries again render markdown with syntax highlighting. The compile step
+  now embeds OpenTUI's tree-sitter parser worker and sets `OTUI_TREE_SITTER_WORKER_PATH`
+  (same approach as OpenCode; see opentui#807).
 
 ## [0.5.1] — 2026-07-25
 
