@@ -17,7 +17,7 @@ every verification gate, and update the status below.
 | 004  | Validate File Navigator filesystem backend                    | P1       | M      | 001-003                   | REJECTED — Chokidar crashes Bun in required 10k gate |
 | 004B | Validate Parcel Watcher as the filesystem backend             | P1       | M      | 004                       | DONE — Parcel 2.6.0 approved on 2026-08-01           |
 | 005  | Extract generic Sidebar and isolate package subpaths          | P1       | M      | 004B                      | DONE                                                 |
-| 006  | Build the policy-aware File Navigator core                    | P1       | L      | 004B, 005                 | TODO                                                 |
+| 006  | Build the policy-aware File Navigator core                    | P1       | L      | 004B, 005                 | DONE                                                 |
 | 007  | Compose and migrate the filesystem File Navigator             | P1       | L      | 004B, 005-006             | TODO                                                 |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line
