@@ -2,7 +2,6 @@
 
 import { readFile, writeFile } from "node:fs/promises"
 import { resolve } from "node:path"
-import { updatePlatformVersions } from "./set-version-lockfile.ts"
 
 const appRoot = resolve(import.meta.dir, "..")
 const repoRoot = resolve(appRoot, "../..")
@@ -37,20 +36,20 @@ const platformPackages = Object.keys(pkg.optionalDependencies ?? {}).filter((nam
 )
 if (platformPackages.length === 0) fail("no platform optional dependencies found")
 
+// Bump only the main package version. Platform optionalDependencies (and their
+// lockfile resolutions) stay on last-published versions so monorepo
+// `bun install --frozen-lockfile` works before those packages exist on npm.
+// createPublicPackageManifest pins published optionalDeps to this version.
 pkg.version = nextVersion
-for (const name of platformPackages) pkg.optionalDependencies![name] = nextVersion
 
 let lockfile = await readFile(lockfilePath, "utf8")
 const workspaceVersionPattern = /("apps\/house": \{[\s\S]*?"version": )"[^"]+"/
 if (!workspaceVersionPattern.test(lockfile)) fail("apps/house version is missing from bun.lock")
 lockfile = lockfile.replace(workspaceVersionPattern, `$1"${nextVersion}"`)
 
-try {
-	lockfile = updatePlatformVersions(lockfile, platformPackages, nextVersion)
-} catch (error) {
-	fail(error instanceof Error ? error.message : String(error))
-}
-
 await writeFile(packagePath, `${JSON.stringify(pkg, null, "\t")}\n`)
 await writeFile(lockfilePath, lockfile)
-console.log(`set ${pkg.version} across the main and ${platformPackages.length} platform packages`)
+console.log(
+	`set ${pkg.version} (main package + lockfile workspace entry; ` +
+		`${platformPackages.length} platform optionalDependencies left unchanged for installability)`,
+)

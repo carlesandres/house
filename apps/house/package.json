@@ -59,10 +59,10 @@
 		"version:set": "bun run dev/set-version.ts"
 	},
 	"optionalDependencies": {
-		"@carlesandres/house-darwin-arm64": "0.5.2",
-		"@carlesandres/house-darwin-x64": "0.5.2",
-		"@carlesandres/house-linux-arm64": "0.5.2",
-		"@carlesandres/house-linux-x64": "0.5.2"
+		"@carlesandres/house-darwin-arm64": "0.5.1",
+		"@carlesandres/house-darwin-x64": "0.5.1",
+		"@carlesandres/house-linux-arm64": "0.5.1",
+		"@carlesandres/house-linux-x64": "0.5.1"
 	},
 	"dependencies": {
 		"@effect/atom-react": "4.0.0-beta.60",

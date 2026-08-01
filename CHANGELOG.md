@@ -24,6 +24,9 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 - Standalone/npm binaries again render markdown with syntax highlighting. The compile step
   now embeds OpenTUI's tree-sitter parser worker and sets `OTUI_TREE_SITTER_WORKER_PATH`
   (same approach as OpenCode; see opentui#807).
+- Release version bumps no longer retarget unpublished platform optionalDependencies in the
+  monorepo lockfile, so CI can install before those packages are on npm. The published main
+  package still pins platform packages to the release version.
 
 
 ## [0.5.1] — 2026-07-25

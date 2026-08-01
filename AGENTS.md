@@ -60,7 +60,7 @@ Release-event-driven. Modeled on ghui, adapted for this repo's branch protection
    - Then run `git log --first-parent --oneline vX.Y.Z..origin/main` (where `vX.Y.Z` is the latest tag) and verify every user-visible change is represented.
    - If `[Unreleased]` is empty or incomplete, reconstruct it from that commit range first, then move it under a new `## [X.Y.Z] — YYYY-MM-DD` heading.
    - Update the link refs at the bottom of the file.
-2. Run `bun run version:set X.Y.Z` to bump the main package, all platform package pins, and `bun.lock` together.
+2. Run `bun run version:set X.Y.Z` to bump the main package version and the `apps/house` workspace entry in `bun.lock`. Platform optionalDependencies stay on last-published versions so monorepo install works before those packages exist on npm; `createPublicPackageManifest` pins them to the release version in the published main package.
 3. From `main`, branch off (`git checkout -b release/vX.Y.Z`), commit (`chore: release vX.Y.Z`) — do **not** amend earlier commits — and push the branch.
 4. Open a PR into `main` titled `chore: release vX.Y.Z`. Wait for CI to be green (typecheck + lint + format:check + test + `bun run npm:pack`). Merge.
 5. Pull `main` locally so the release commit is at `origin/main`'s tip:
