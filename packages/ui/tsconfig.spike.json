@@ -1,0 +1,8 @@
+{
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"allowImportingTsExtensions": true,
+		"noEmit": true
+	},
+	"include": ["dev/**/*.ts", "test/backend-feasibility.test.ts", "test/parcel-feasibility.test.ts"]
+}

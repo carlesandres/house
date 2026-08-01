@@ -281,9 +281,18 @@ This component contract intentionally does not expose anchor coordinates or plac
 
 ### 9.1 Module map
 
-House is the publishable app in the repository's Turborepo workspace. `packages/ui` is a private,
-source-exported package for reusable controlled OpenTUI components. Within the app, top-level
-components remain directly under `src/` until a second view forces a `tui/` subdirectory:
+House is the publishable app in the repository's Turborepo workspace. `packages/ui` is currently a
+private, source-exported package for reusable OpenTUI components, with the explicit intent to move it
+into an independent library later. Its components must have narrow responsibilities and remain
+agnostic to House-specific discovery rules, configuration, product copy, themes, keyboard routing,
+and application state. House supplies such policy through typed inputs rather than package imports or
+embedded assumptions.
+
+The accepted future direction in [`docs/file-navigator-design.md`](./docs/file-navigator-design.md)
+allows a Node-compatible, local-filesystem-aware File Navigator in that independent boundary while
+keeping its policy caller-supplied. That migration is not shipped yet; the module map below describes
+the current architecture. Within the app, top-level components remain directly under `src/` until a
+second view forces a `tui/` subdirectory:
 
 ```
 apps/house/src/
