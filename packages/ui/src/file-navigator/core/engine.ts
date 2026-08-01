@@ -27,8 +27,11 @@ export interface NavigatorOptions {
 	readonly onBatch?: ScanOptions["onBatch"]
 	readonly onSnapshot?: (files: readonly FileRecord[]) => void
 	readonly onPublication?: (publication: Publication) => void
+	readonly onComplete?: () => void
 	readonly onSelectedInvalidation?: (file: FileRecord, event?: ParcelEvent) => void
+	readonly onSelectionChange?: (file: FileRecord | null) => void
 	readonly onDiagnostic?: (diagnostic: Diagnostic) => void
+	readonly initialSelectedPath?: string | null
 }
 
 interface Generation {
@@ -93,6 +96,7 @@ export class FileNavigatorCore {
 	#projection: readonly FileRecord[] = Object.freeze([])
 	#query = ""
 	#selectedPath: string | null = null
+	#selectionReady = false
 	#generation = 0
 	#active: Generation | null = null
 	#candidate: Generation | null = null
@@ -114,6 +118,7 @@ export class FileNavigatorCore {
 		this.#watcher = watcher
 		this.#consistencyInterval = options.consistencyIntervalMs
 		this.#options = options
+		this.#selectedPath = options.initialSelectedPath ?? null
 	}
 
 	get files(): readonly FileRecord[] {
@@ -126,7 +131,13 @@ export class FileNavigatorCore {
 		return this.#projection
 	}
 	get selected(): FileRecord | null {
-		return this.#files.find((file) => file.relativePath === this.#selectedPath) ?? null
+		return this.#files.find((file) => file.absolutePath === this.#selectedPath) ?? null
+	}
+	get selectedIndex(): number | null {
+		const selected = this.#selectedPath
+		if (selected === null) return null
+		const index = this.#projection.findIndex((file) => file.absolutePath === selected)
+		return index < 0 ? null : index
 	}
 	get diagnostics(): readonly Diagnostic[] {
 		return Object.freeze([...this.#diagnostics])
@@ -139,7 +150,12 @@ export class FileNavigatorCore {
 		if (this.#closed) throw new Error("navigator is closed")
 		if (this.#watch) this.#requireWatcher()
 		if (this.#watch) await this.#replaceGeneration(true)
-		else await this.#scanStatic(true)
+		else {
+			await this.#scanStatic(true)
+			this.#restoreInitialSelection()
+			this.#selectionReady = true
+			this.#announceSelection()
+		}
 		this.#startConsistencyTimer()
 	}
 
@@ -156,6 +172,17 @@ export class FileNavigatorCore {
 		this.#reproject()
 	}
 
+	selectIndex(index: number): void {
+		const next =
+			this.#projection.length === 0
+				? null
+				: this.#projection[Math.max(0, Math.min(index, this.#projection.length - 1))]!.absolutePath
+		this.#setSelected(next)
+	}
+	selectPath(path: string): void {
+		if (this.#projection.some((file) => file.absolutePath === path)) this.#setSelected(path)
+	}
+
 	refresh(): Promise<void> {
 		if (this.#refreshPromise) return this.#refreshPromise
 		const generation = this.#active
@@ -168,24 +195,37 @@ export class FileNavigatorCore {
 	}
 
 	async updatePolicy(policy: DiscoveryPolicy): Promise<void> {
-		if (policy.revision === this.#policy.revision) return
+		if (policy.revision === this.#policy.revision && policy.recursive === this.#policy.recursive)
+			return
 		this.#policy = snapshotPolicy(policy)
+		this.#selectionReady = false
 		if (this.#watch) await this.#replaceGeneration(false)
-		else await this.#scanStatic(false)
+		else {
+			await this.#scanStatic(false)
+			this.#selectionReady = true
+			this.#announceSelection()
+		}
 	}
 
 	async updateRoot(root: string): Promise<void> {
 		const next = normalizeRoot(root)
 		if (next === this.#root) return
 		this.#root = next
+		this.#selectedPath = null
+		this.#selectionReady = false
 		if (this.#watch) await this.#replaceGeneration(true)
-		else await this.#scanStatic(true)
+		else {
+			await this.#scanStatic(true)
+			this.#selectionReady = true
+			this.#announceSelection()
+		}
 	}
 
 	async setWatch(watch: boolean, consistencyIntervalMs = this.#consistencyInterval): Promise<void> {
 		const intervalChanged = consistencyIntervalMs !== this.#consistencyInterval
 		if (this.#watch === watch && !intervalChanged) return
 		if (watch) this.#requireWatcher()
+		this.#selectionReady = false
 		this.#watch = watch
 		this.#consistencyInterval = consistencyIntervalMs
 		this.#stopConsistencyTimer()
@@ -198,6 +238,10 @@ export class FileNavigatorCore {
 			if (candidate) await this.#closeGeneration(candidate)
 		}
 		this.#startConsistencyTimer(consistencyIntervalMs)
+		if (!watch) {
+			this.#selectionReady = true
+			this.#announceSelection()
+		}
 	}
 
 	async close(): Promise<void> {
@@ -227,6 +271,7 @@ export class FileNavigatorCore {
 				},
 			})
 			this.#commit(result.files, previous, !initial)
+			this.#options.onComplete?.()
 			this.#clearPhase("scan")
 		} catch (error) {
 			if (initial) {
@@ -242,6 +287,7 @@ export class FileNavigatorCore {
 	}
 
 	async #replaceGeneration(initial: boolean): Promise<void> {
+		this.#selectionReady = false
 		const old = this.#active
 		const abandoned = this.#invalidateCandidate()
 		if (abandoned) void this.#closeGeneration(abandoned)
@@ -324,6 +370,10 @@ export class FileNavigatorCore {
 				generation,
 			)
 			await this.#deliverBatches(generation)
+			if (initial) this.#restoreInitialSelection()
+			this.#options.onComplete?.()
+			this.#selectionReady = true
+			this.#announceSelection()
 			if (old && old !== generation) void this.#closeGeneration(old)
 		} catch (error) {
 			const current = this.#isCurrentGeneration(generation)
@@ -401,6 +451,7 @@ export class FileNavigatorCore {
 				return this.#replaceGeneration(false)
 			}
 			this.#commit(result.files, previous, true)
+			this.#options.onComplete?.()
 			this.#clearPhase("scan")
 		} catch (error) {
 			this.#diagnose("scan", error)
@@ -502,6 +553,7 @@ export class FileNavigatorCore {
 		return path
 	}
 	#reproject(): void {
+		const previousSelection = this.#selectedPath
 		try {
 			this.#projection = projectFiles(this.#files, this.#query, this.#order, this.#search)
 			this.#clearPhase("projection")
@@ -511,9 +563,24 @@ export class FileNavigatorCore {
 		}
 		if (
 			!this.#selectedPath ||
-			!this.#projection.some((file) => file.relativePath === this.#selectedPath)
+			!this.#projection.some((file) => file.absolutePath === this.#selectedPath)
 		)
-			this.#selectedPath = this.#projection[0]?.relativePath ?? null
+			this.#selectedPath = this.#projection[0]?.absolutePath ?? null
+		if (this.#selectionReady && this.#selectedPath !== previousSelection)
+			this.#options.onSelectionChange?.(this.selected)
+	}
+	#setSelected(path: string | null): void {
+		if (path === this.#selectedPath) return
+		this.#selectedPath = path
+		if (this.#selectionReady) this.#options.onSelectionChange?.(this.selected)
+	}
+	#announceSelection(): void {
+		this.#options.onSelectionChange?.(this.selected)
+	}
+	#restoreInitialSelection(): void {
+		const initial = this.#options.initialSelectedPath
+		if (initial && this.#projection.some((file) => file.absolutePath === initial))
+			this.#selectedPath = initial
 	}
 	async #closeGeneration(generation: Generation): Promise<void> {
 		if (!generation.closePromise)

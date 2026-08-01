@@ -29,7 +29,7 @@ export const resolveBrowse = (order: BrowseOrder = "tree"): BrowseStrategy =>
 export const fuzzySearch: SearchStrategy = Object.freeze({
 	id: "fuzzy",
 	score: (query: string, file: FileRecord) => {
-		const result = fuzzysort.single(query, file.relativePath)
+		const result = fuzzysort.single(query.toLowerCase(), file.relativePath.toLowerCase())
 		return result === null ? null : result.score
 	},
 })
