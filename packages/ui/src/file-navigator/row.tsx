@@ -1,4 +1,12 @@
-import type { FileNavigatorTheme } from "./types.ts"
+export interface FileNavigatorTheme {
+	readonly background: string
+	readonly backgroundPanel: string
+	readonly backgroundElement: string
+	readonly text: string
+	readonly textMuted: string
+	readonly border: string
+	readonly selectedListItemText: string
+}
 
 const SEPARATOR = " "
 const MIN_PARENT_BUDGET = 3

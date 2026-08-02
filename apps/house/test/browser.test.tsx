@@ -1,5 +1,5 @@
-import { afterEach, beforeAll, describe, expect, test } from "bun:test"
-import { readFileSync } from "node:fs"
+import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test"
+import { existsSync, mkdirSync, mkdtempSync, unlinkSync, writeFileSync } from "node:fs"
 import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
@@ -15,7 +15,6 @@ import {
 	setReaderEmptyStateTipRotationForTests,
 } from "../src/Browser.tsx"
 import { DiscoverShell } from "../src/index.tsx"
-import type { FileEntry } from "../src/discovery/walk.ts"
 import { colors, setActiveTheme } from "../src/theme/colors.ts"
 import { themeAtom } from "../src/theme/atom.ts"
 import { themeDefinitions } from "../src/theme/registry.ts"
@@ -28,27 +27,52 @@ beforeAll(() => {
 })
 
 let setup: Awaited<ReturnType<typeof testRender>> | null = null
+const fixtureRoots: string[] = []
+const sharedFixtureRoots: string[] = []
 
 afterEach(async () => {
 	await destroyTestRenderer(setup)
 	setup = null
+	await Promise.all(fixtureRoots.splice(0).map((root) => rm(root, { recursive: true, force: true })))
+})
+
+afterAll(async () => {
+	await Promise.all(sharedFixtureRoots.splice(0).map((root) => rm(root, { recursive: true, force: true })))
 })
 
 const VIEWPORT = { width: 120, height: 30 }
-const README = readFileSync(new URL("../../../README.md", import.meta.url), "utf8")
+// Keep the fixture focused on the fenced install examples. Rendering the full
+// repository README makes the headless markdown pipeline slower than the test
+// settle window without adding coverage for this navigation regression.
+const README_FIXTURE = [
+	"## Install",
+	"",
+	"```bash",
+	"npm install -g @carlesandres/house",
+	"bun add -g @carlesandres/house",
+	"```",
+	"",
+].join("\n")
 
-const makeFiles = (relativePaths: readonly string[]): FileEntry[] =>
-	relativePaths.map((rel) => ({
-		path: `/virtual/${rel}`,
-		relativePath: rel,
-		name: rel.split("/").pop() ?? rel,
-	}))
+const makeFiles = (relativePaths: readonly string[], shared = false): string => {
+	const root = mkdtempSync(join(tmpdir(), "house-browser-"))
+	;(shared ? sharedFixtureRoots : fixtureRoots).push(root)
+	for (const relativePath of relativePaths) {
+		const path = join(root, relativePath)
+		mkdirSync(join(path, ".."), { recursive: true })
+		writeFileSync(path, "")
+	}
+	return root
+}
 
 const makeReader =
 	(contents: Record<string, string>) =>
 	(path: string): Promise<string> => {
-		const rel = path.replace("/virtual/", "")
-		const content = contents[rel]
+		const root = [...fixtureRoots, ...sharedFixtureRoots]
+			.filter((candidate) => path.startsWith(`${candidate}/`))
+			.sort((left, right) => right.length - left.length)[0]
+		const rel = root ? path.slice(root.length + 1) : path
+		const content = contents[rel] ?? (path.endsWith("/README.md") ? README_FIXTURE : undefined)
 		return content !== undefined
 			? Promise.resolve(content)
 			: Promise.reject(new Error(`no fixture for ${rel}`))
@@ -58,7 +82,7 @@ const makeReader =
 const stepFrame = async (renderOnce: () => Promise<void>) => {
 	await act(async () => {
 		await renderOnce()
-		await new Promise<void>((resolve) => setTimeout(resolve, 1))
+		await new Promise<void>((resolve) => setTimeout(resolve, 100))
 	})
 }
 
@@ -72,7 +96,6 @@ const renderBrowser = (
 ) => {
 	const normalizedElement = React.isValidElement<React.ComponentProps<typeof Browser>>(element)
 		? React.cloneElement(element, {
-				filterDebounceMs: element.props.filterDebounceMs ?? 0,
 				renderedPathDebounceMs: 0,
 			})
 		: element
@@ -103,7 +126,7 @@ describe("Browser — sidebar", () => {
 		const files = makeFiles(["README.md", "docs/intro.md", "docs/api.md"])
 		await act(async () => {
 			setup = await renderBrowser(
-				<Browser files={files} readFile={makeReader({})} onQuit={() => {}} />,
+				<Browser root={files} readFile={makeReader({})} onQuit={() => {}} />,
 				VIEWPORT,
 			)
 		})
@@ -122,7 +145,7 @@ describe("Browser — sidebar", () => {
 		resetReaderEmptyStateTipRotationForTests()
 		await act(async () => {
 			setup = await renderBrowser(
-				<Browser files={[]} rootLabel="~" readFile={makeReader({})} onQuit={() => {}} />,
+				<Browser root={makeFiles([])} rootLabel="~" readFile={makeReader({})} onQuit={() => {}} />,
 				VIEWPORT,
 			)
 		})
@@ -144,7 +167,7 @@ describe("Browser — sidebar", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={files}
+					root={files}
 					readFile={makeReader({ "README.md": "# Read me" })}
 					onQuit={() => {}}
 				/>,
@@ -278,9 +301,11 @@ const sidebarIsVisible = (frame: string, files?: readonly string[]): boolean => 
 	return hits >= 2
 }
 
-const settleBrowser = async () => {
+const settleBrowser = async (delay = 120) => {
 	await act(async () => {
-		await new Promise<void>((resolve) => setTimeout(resolve, 120))
+		await new Promise<void>((resolve) => setTimeout(resolve, delay))
+		await setup!.renderer.idle()
+		await setup!.renderOnce()
 		await setup!.renderer.idle()
 	})
 	await stepFrame(setup!.renderOnce)
@@ -326,11 +351,13 @@ describe("Browser — selection", () => {
 	test("preserves the selected file when a streamed match ranks ahead of it", async () => {
 		let appendHigherRankedMatch: (() => void) | null = null
 		const StreamedFiles = () => {
-			const [paths, setPaths] = React.useState<readonly string[]>(["docs/readme.md"])
-			appendHigherRankedMatch = () => setPaths(["docs/readme.md", "readme.md"])
+			const [root] = React.useState(() => makeFiles(["docs/readme.md"]))
+			appendHigherRankedMatch = () => {
+				writeFileSync(join(root, "readme.md"), "")
+			}
 			return (
 				<Browser
-					files={makeFiles(paths)}
+					root={root}
 					initialQuery="readme"
 					readFile={makeReader({ "docs/readme.md": "docs", "readme.md": "root" })}
 					onQuit={() => {}}
@@ -362,7 +389,7 @@ describe("Browser — selection", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={files}
+					root={files}
 					rootLabel="~"
 					readFile={makeReader({ "README.md": "x" })}
 					onQuit={() => {}}
@@ -381,7 +408,7 @@ describe("Browser — selection", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={files}
+					root={files}
 					readFile={makeReader({ "a.md": "x", "b.md": "y" })}
 					onQuit={() => {}}
 				/>,
@@ -397,7 +424,7 @@ describe("Browser — selection", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={files}
+					root={files}
 					readFile={makeReader({ "a.md": "x", "b.md": "y" })}
 					onQuit={() => {}}
 				/>,
@@ -418,7 +445,7 @@ describe("Browser — selection", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={files}
+					root={files}
 					initialIndex={1}
 					readFile={makeReader({ "a.md": "x", "b.md": "y" })}
 					onQuit={() => {}}
@@ -441,7 +468,7 @@ describe("Browser — selection", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={files}
+					root={files}
 					initialIndex={1}
 					readFile={makeReader({ "a.md": "x", "b.md": "y" })}
 					onQuit={() => {}}
@@ -465,7 +492,7 @@ describe("Browser — selection", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={files}
+					root={files}
 					readFile={makeReader({ "a.md": "x", "b.md": "y", "c.md": "z" })}
 					onQuit={() => {}}
 				/>,
@@ -492,18 +519,26 @@ describe("Browser — selection", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={files}
-					readFile={makeReader({
-						"README.md": README,
-						"notes.md": "# Notes\n\nNo code here.\n",
-					})}
+					root={files}
+					readFile={(path) =>
+						Promise.resolve(
+							path.endsWith("/README.md")
+								? README_FIXTURE
+								: "# Notes\n\nNo code here.\n",
+						)
+					}
 					onQuit={() => {}}
 				/>,
 				{ width: 160, height: 40 },
 			)
 		})
+		await settleBrowser(500)
+		// The headless scrollbox paints its markdown body when the reader has
+		// focus; return to the sidebar before exercising j/k navigation.
+		await act(async () => setup!.mockInput.pressTab())
 		await settleBrowser()
 		expect(setup!.captureCharFrame()).toContain("npm install -g @carlesandres/house")
+		await act(async () => setup!.mockInput.pressTab())
 
 		await act(async () => {
 			setup!.mockInput.pressKey("j")
@@ -528,7 +563,7 @@ describe("Browser — focus", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["a.md", "b.md"])}
+					root={makeFiles(["a.md", "b.md"])}
 					readFile={makeReader({ "a.md": "x", "b.md": "y" })}
 					onQuit={() => {}}
 				/>,
@@ -546,7 +581,7 @@ describe("Browser — focus", () => {
 		await stepFrame(setup!.renderOnce)
 		spans = setup!.captureSpans()
 		const topRule = setup!.captureCharFrame().split("\n")[1] ?? ""
-		const readerBorderCol = topRule.indexOf("┬") + 1
+		const readerBorderCol = topRule.indexOf("┐") + 1
 
 		expect(fgAt(spans, 1, 1)?.equals(RGBA.fromHex(colors.border))).toBe(true)
 		expect(readerBorderCol).toBeGreaterThan(0)
@@ -557,7 +592,7 @@ describe("Browser — focus", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["a.md", "b.md"])}
+					root={makeFiles(["a.md", "b.md"])}
 					readFile={makeReader({ "a.md": "x", "b.md": "y" })}
 					onQuit={() => {}}
 				/>,
@@ -588,7 +623,7 @@ describe("Browser — focus", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["a.md", "b.md"])}
+					root={makeFiles(["a.md", "b.md"])}
 					readFile={makeReader({ "a.md": "x", "b.md": "y" })}
 					onQuit={() => {}}
 				/>,
@@ -603,7 +638,7 @@ describe("Browser — focus", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["a.md"])}
+					root={makeFiles(["a.md"])}
 					readFile={makeReader({ "a.md": "x" })}
 					onQuit={() => {}}
 				/>,
@@ -630,7 +665,7 @@ describe("Browser — focus", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["a.md"])}
+					root={makeFiles(["a.md"])}
 					readFile={makeReader({ "a.md": "x" })}
 					onQuit={() => {}}
 				/>,
@@ -692,7 +727,7 @@ describe("Browser — focus", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={files}
+					root={files}
 					readFile={makeReader({ "a.md": "x", "b.md": "y" })}
 					onQuit={() => {}}
 				/>,
@@ -720,7 +755,7 @@ describe("Browser — sidebar toggle", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["a.md"])}
+					root={makeFiles(["a.md"])}
 					readFile={makeReader({ "a.md": "x" })}
 					onQuit={() => {}}
 				/>,
@@ -745,7 +780,7 @@ describe("Browser — sidebar toggle", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["a.md"])}
+					root={makeFiles(["a.md"])}
 					readFile={makeReader({ "a.md": "x" })}
 					onQuit={() => {}}
 				/>,
@@ -775,7 +810,7 @@ describe("Browser — #22 layout v2", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["a.md", "b.md"])}
+					root={makeFiles(["a.md", "b.md"])}
 					readFile={makeReader({ "a.md": "x", "b.md": "y" })}
 					onQuit={() => {}}
 				/>,
@@ -792,7 +827,7 @@ describe("Browser — #22 layout v2", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["a.md", "b.md"])}
+					root={makeFiles(["a.md", "b.md"])}
 					readFile={makeReader({ "a.md": "x", "b.md": "y" })}
 					onQuit={() => {}}
 				/>,
@@ -809,7 +844,7 @@ describe("Browser — #22 layout v2", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["a.md", "b.md"])}
+					root={makeFiles(["a.md", "b.md"])}
 					readFile={makeReader({ "a.md": "x", "b.md": "y" })}
 					onQuit={() => {}}
 					startupFocus="filter"
@@ -827,7 +862,7 @@ describe("Browser — #22 layout v2", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["a.md", "b.md"])}
+					root={makeFiles(["a.md", "b.md"])}
 					readFile={makeReader({ "a.md": "x", "b.md": "y" })}
 					onQuit={() => {}}
 					startupFocus="filter"
@@ -861,7 +896,7 @@ describe("Browser — #22 layout v2", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["a.md", "b.md"])}
+					root={makeFiles(["a.md", "b.md"])}
 					readFile={makeReader({ "a.md": "x", "b.md": "y" })}
 					onQuit={() => {}}
 					startupFocus="reader"
@@ -878,7 +913,7 @@ describe("Browser — #22 layout v2", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["a.md", "b.md"])}
+					root={makeFiles(["a.md", "b.md"])}
 					readFile={makeReader({ "a.md": "x", "b.md": "y" })}
 					onQuit={() => {}}
 					startupFocus="sidebar"
@@ -896,7 +931,7 @@ describe("Browser — #22 layout v2", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["a.md"])}
+					root={makeFiles(["a.md"])}
 					readFile={makeReader({ "a.md": "x" })}
 					onQuit={() => {}}
 				/>,
@@ -911,7 +946,7 @@ describe("Browser — #22 layout v2", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["a.md", "b.md"])}
+					root={makeFiles(["a.md", "b.md"])}
 					readFile={makeReader({ "a.md": "x", "b.md": "y" })}
 					onQuit={() => {}}
 				/>,
@@ -942,7 +977,7 @@ describe("Browser — #22 layout v2", () => {
 		await act(async () => {
 			setup = await renderBrowserFast(
 				<Browser
-					files={makeFiles(["alpha.md", "beta.md"])}
+					root={makeFiles(["alpha.md", "beta.md"])}
 					readFile={makeReader({ "alpha.md": "a", "beta.md": "b" })}
 					onQuit={() => {}}
 				/>,
@@ -965,7 +1000,7 @@ describe("Browser — #22 layout v2", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["alpha.md"])}
+					root={makeFiles(["alpha.md"])}
 					readFile={makeReader({ "alpha.md": "a" })}
 					discoveryStatus="indexing… 1"
 					discoverySpinnerIntervalMs={5}
@@ -985,7 +1020,7 @@ describe("Browser — #22 layout v2", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["alpha.md"])}
+					root={makeFiles(["alpha.md"])}
 					readFile={makeReader({ "alpha.md": "a" })}
 					discoveryStatus={"scan failed: boom\nsecond line\n  third line"}
 					onQuit={() => {}}
@@ -1077,7 +1112,7 @@ describe("Browser — #22 layout v2", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["alpha.md"])}
+					root={makeFiles(["alpha.md"])}
 					readFile={makeReader({ "alpha.md": "a" })}
 					discoveryStatus={warning}
 					onQuit={() => {}}
@@ -1107,7 +1142,7 @@ describe("Browser — #22 layout v2", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["alpha.md"])}
+					root={makeFiles(["alpha.md"])}
 					readFile={makeReader({ "alpha.md": "a" })}
 					discoveryStatus={warning}
 					onQuit={() => {}}
@@ -1137,7 +1172,7 @@ describe("Browser — #22 layout v2", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["alpha.md"])}
+					root={makeFiles(["alpha.md"])}
 					readFile={makeReader({
 						"alpha.md": [
 							"---",
@@ -1163,7 +1198,7 @@ describe("Browser — #22 layout v2", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["alpha.md"])}
+					root={makeFiles(["alpha.md"])}
 					readFile={makeReader({
 						"alpha.md": ["---", "not valid", "---", "Body"].join("\n"),
 					})}
@@ -1180,7 +1215,7 @@ describe("Browser — #22 layout v2", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["alpha.md"])}
+					root={makeFiles(["alpha.md"])}
 					readFile={makeReader({ "alpha.md": "a" })}
 					onQuit={() => {}}
 				/>,
@@ -1200,7 +1235,7 @@ describe("Browser — #22 layout v2", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["alpha.md", "beta.md"])}
+					root={makeFiles(["alpha.md", "beta.md"])}
 					readFile={makeReader({ "alpha.md": "a", "beta.md": "b" })}
 					onQuit={() => {}}
 				/>,
@@ -1221,15 +1256,16 @@ describe("Browser — #22 layout v2", () => {
 })
 
 describe("Browser — jump and page keys", () => {
-	const tenFiles = makeFiles(Array.from({ length: 10 }, (_, i) => `f${i}.md`))
+	const tenPaths = Array.from({ length: 10 }, (_, i) => `f${i}.md`)
+	const tenFiles = makeFiles(tenPaths, true)
 	const reader = makeReader(
-		Object.fromEntries(tenFiles.map((f) => [f.relativePath, f.relativePath])),
+		Object.fromEntries(tenPaths.map((path) => [path, path])),
 	)
 
 	test("shift+j jumps 8 lines down", async () => {
 		await act(async () => {
 			setup = await renderBrowser(
-				<Browser files={tenFiles} readFile={reader} onQuit={() => {}} />,
+				<Browser root={tenFiles} readFile={reader} onQuit={() => {}} />,
 				VIEWPORT,
 			)
 		})
@@ -1245,7 +1281,7 @@ describe("Browser — jump and page keys", () => {
 	test("shift+k jumps 8 lines up", async () => {
 		await act(async () => {
 			setup = await renderBrowser(
-				<Browser files={tenFiles} initialIndex={9} readFile={reader} onQuit={() => {}} />,
+				<Browser root={tenFiles} initialIndex={9} readFile={reader} onQuit={() => {}} />,
 				VIEWPORT,
 			)
 		})
@@ -1261,7 +1297,7 @@ describe("Browser — jump and page keys", () => {
 	test("space pages selection down by 8", async () => {
 		await act(async () => {
 			setup = await renderBrowser(
-				<Browser files={tenFiles} readFile={reader} onQuit={() => {}} />,
+				<Browser root={tenFiles} readFile={reader} onQuit={() => {}} />,
 				VIEWPORT,
 			)
 		})
@@ -1278,7 +1314,7 @@ describe("Browser — jump and page keys", () => {
 	test("b pages selection up by 8", async () => {
 		await act(async () => {
 			setup = await renderBrowser(
-				<Browser files={tenFiles} initialIndex={9} readFile={reader} onQuit={() => {}} />,
+				<Browser root={tenFiles} initialIndex={9} readFile={reader} onQuit={() => {}} />,
 				VIEWPORT,
 			)
 		})
@@ -1298,7 +1334,7 @@ describe("Browser — reader [ / ] navigates files", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={files}
+					root={files}
 					readFile={makeReader({ "a.md": "x", "b.md": "y", "c.md": "z" })}
 					onQuit={() => {}}
 				/>,
@@ -1324,7 +1360,7 @@ describe("Browser — reader [ / ] navigates files", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={files}
+					root={files}
 					initialIndex={2}
 					readFile={makeReader({ "a.md": "x", "b.md": "y", "c.md": "z" })}
 					onQuit={() => {}}
@@ -1352,7 +1388,7 @@ describe("Browser — quit", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["a.md"])}
+					root={makeFiles(["a.md"])}
 					readFile={makeReader({ "a.md": "x" })}
 					onQuit={() => {
 						calls++
@@ -1373,7 +1409,7 @@ describe("Browser — quit", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["a.md"])}
+					root={makeFiles(["a.md"])}
 					readFile={makeReader({ "a.md": "x" })}
 					onQuit={() => {
 						calls++
@@ -1395,7 +1431,7 @@ describe("Browser — footer", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["alpha.md", "beta.md"])}
+					root={makeFiles(["alpha.md", "beta.md"])}
 					readFile={makeReader({ "alpha.md": "a", "beta.md": "b" })}
 					onQuit={() => {}}
 				/>,
@@ -1423,7 +1459,7 @@ describe("Browser — footer", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["alpha.md", "beta.md"])}
+					root={makeFiles(["alpha.md", "beta.md"])}
 					readFile={makeReader({ "alpha.md": "a", "beta.md": "b" })}
 					onQuit={() => {}}
 				/>,
@@ -1453,7 +1489,7 @@ describe("Browser — footer", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["a.md"])}
+					root={makeFiles(["a.md"])}
 					readFile={makeReader({ "a.md": "x" })}
 					onQuit={() => {}}
 				/>,
@@ -1478,7 +1514,7 @@ describe("Browser — footer", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["a.md"])}
+					root={makeFiles(["a.md"])}
 					readFile={makeReader({ "a.md": "x" })}
 					initialWrap={false}
 					wrapWidth={80}
@@ -1514,7 +1550,7 @@ describe("Browser — footer", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["a.md"])}
+					root={makeFiles(["a.md"])}
 					readFile={makeReader({ "a.md": content })}
 					initialWrap
 					wrapWidth={80}
@@ -1537,7 +1573,7 @@ describe("Browser — footer", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["a.md", "b.md"])}
+					root={makeFiles(["a.md", "b.md"])}
 					readFile={makeReader({ "a.md": "x", "b.md": "y" })}
 					onQuit={() => {}}
 				/>,
@@ -1567,7 +1603,7 @@ describe("Browser — footer", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["a.md"])}
+					root={makeFiles(["a.md"])}
 					readFile={makeReader({ "a.md": "x" })}
 					onQuit={() => {}}
 				/>,
@@ -1595,7 +1631,7 @@ describe("Browser — footer", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["a.md"])}
+					root={makeFiles(["a.md"])}
 					readFile={makeReader({ "a.md": "x" })}
 					onQuit={() => {}}
 				/>,
@@ -1623,7 +1659,7 @@ describe("Browser — footer", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["a.md"])}
+					root={makeFiles(["a.md"])}
 					readFile={makeReader({ "a.md": "x" })}
 					onQuit={() => {}}
 				/>,
@@ -1671,7 +1707,7 @@ describe("Browser — theme cycling", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["a.md"])}
+					root={makeFiles(["a.md"])}
 					readFile={makeReader({ "a.md": "x" })}
 					onQuit={() => {}}
 				/>,
@@ -1695,7 +1731,7 @@ describe("Browser — theme cycling", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["a.md"])}
+					root={makeFiles(["a.md"])}
 					readFile={makeReader({ "a.md": "x" })}
 					onQuit={() => {}}
 				/>,
@@ -1727,7 +1763,7 @@ describe("Browser — theme cycling", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["a.md"])}
+					root={makeFiles(["a.md"])}
 					readFile={makeReader({ "a.md": "x" })}
 					onQuit={() => {}}
 				/>,
@@ -1760,7 +1796,7 @@ describe("Browser — theme cycling", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["a.md"])}
+					root={makeFiles(["a.md"])}
 					readFile={makeReader({ "a.md": "x" })}
 					onQuit={() => {}}
 				/>,
@@ -1806,18 +1842,17 @@ describe("Browser — sidebar virtualization", () => {
 	// loaded after Esc. Body = 20 - 1 - 1 - 2 - 1 = 15 rows, still smaller
 	// than 20 files so scrolling stays relevant.
 	const TALL_VIEWPORT = { width: 90, height: 20 }
-	const TWENTY_FILES = makeFiles(
-		Array.from({ length: 20 }, (_, i) => `f${String(i).padStart(2, "0")}.md`),
-	)
+	const twentyPaths = Array.from({ length: 20 }, (_, i) => `f${String(i).padStart(2, "0")}.md`)
+	const TWENTY_FILES = makeFiles(twentyPaths, true)
 	const TWENTY_READER = makeReader(
-		Object.fromEntries(TWENTY_FILES.map((f) => [f.relativePath, f.relativePath])),
+		Object.fromEntries(twentyPaths.map((path) => [path, path])),
 	)
 
 	test("initial frame shows only the first window of files", async () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={TWENTY_FILES}
+					root={TWENTY_FILES}
 					readFile={TWENTY_READER}
 					onQuit={() => {}}
 				/>,
@@ -1837,7 +1872,7 @@ describe("Browser — sidebar virtualization", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={TWENTY_FILES}
+					root={TWENTY_FILES}
 					readFile={TWENTY_READER}
 					onQuit={() => {}}
 				/>,
@@ -1861,7 +1896,7 @@ describe("Browser — sidebar virtualization", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={TWENTY_FILES}
+					root={TWENTY_FILES}
 					readFile={TWENTY_READER}
 					onQuit={() => {}}
 				/>,
@@ -1899,7 +1934,7 @@ describe("Browser — sidebar virtualization", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={TWENTY_FILES}
+					root={TWENTY_FILES}
 					readFile={TWENTY_READER}
 					onQuit={() => {}}
 				/>,
@@ -1926,7 +1961,7 @@ describe("Browser — sidebar virtualization", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={TWENTY_FILES}
+					root={TWENTY_FILES}
 					readFile={TWENTY_READER}
 					onQuit={() => {}}
 				/>,
@@ -1951,7 +1986,7 @@ describe("Browser — sidebar virtualization", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={TWENTY_FILES}
+					root={TWENTY_FILES}
 					readFile={TWENTY_READER}
 					onQuit={() => {}}
 				/>,
@@ -1994,7 +2029,7 @@ describe("Browser — sidebar virtualization", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["readme-1.md", "readme-2.md", "readme-extra.md"])}
+					root={makeFiles(["readme-1.md", "readme-2.md", "readme-extra.md"])}
 					readFile={reader}
 					onQuit={() => {}}
 				/>,
@@ -2034,7 +2069,7 @@ describe("Browser — sidebar filter row", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["a.md", "b.md"])}
+					root={makeFiles(["a.md", "b.md"])}
 					readFile={makeReader({ "a.md": "x", "b.md": "y" })}
 					onQuit={() => {}}
 				/>,
@@ -2051,7 +2086,7 @@ describe("Browser — sidebar filter row", () => {
 	test("filter row is suppressed on an empty vault (no 'type / to filter')", async () => {
 		await act(async () => {
 			setup = await renderBrowser(
-				<Browser files={[]} rootLabel="root" readFile={makeReader({})} onQuit={() => {}} />,
+				<Browser root={makeFiles([])} rootLabel="root" readFile={makeReader({})} onQuit={() => {}} />,
 				VIEWPORT,
 			)
 		})
@@ -2066,7 +2101,7 @@ describe("Browser — sidebar filter row", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["README.md", "notes.md"])}
+					root={makeFiles(["README.md", "notes.md"])}
 					readFile={makeReader({ "README.md": "x", "notes.md": "y" })}
 					onQuit={() => {}}
 				/>,
@@ -2090,7 +2125,7 @@ describe("Browser — sidebar filter row", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["README.md", "docs/intro.md", "notes.md"])}
+					root={makeFiles(["README.md", "docs/intro.md", "notes.md"])}
 					readFile={makeReader({
 						"README.md": "x",
 						"docs/intro.md": "y",
@@ -2128,7 +2163,7 @@ describe("Browser — sidebar filter row", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["README.md", "docs/intro.md", "notes.md"])}
+					root={makeFiles(["README.md", "docs/intro.md", "notes.md"])}
 					readFile={makeReader({
 						"README.md": "x",
 						"docs/intro.md": "y",
@@ -2163,7 +2198,7 @@ describe("Browser — sidebar filter row", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["README.md", "docs/intro.md", "notes.md"])}
+					root={makeFiles(["README.md", "docs/intro.md", "notes.md"])}
 					initialQuery="intro"
 					readFile={makeReader({
 						"README.md": "x",
@@ -2187,7 +2222,7 @@ describe("Browser — sidebar filter row", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["README.md", "notes.md"])}
+					root={makeFiles(["README.md", "notes.md"])}
 					initialQuery="zzz"
 					readFile={makeReader({
 						"README.md": "x",
@@ -2213,7 +2248,7 @@ describe("Browser — sidebar filter row", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["README.md", "notes.md"])}
+					root={makeFiles(["README.md", "notes.md"])}
 					readFile={makeReader({
 						"README.md": "x",
 						"notes.md": "y",
@@ -2247,7 +2282,7 @@ describe("Browser — sidebar filter row", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["README.md", "docs/intro.md", "notes.md"])}
+					root={makeFiles(["README.md", "docs/intro.md", "notes.md"])}
 					readFile={makeReader({
 						"README.md": "x",
 						"docs/intro.md": "y",
@@ -2300,7 +2335,7 @@ describe("Browser — filter modal", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={files}
+					root={files}
 					initialQuery="zzz"
 					startupFocus="filter"
 					filterDebounceMs={50}
@@ -2335,7 +2370,7 @@ describe("Browser — filter modal", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={files}
+					root={files}
 					readFile={makeReader({
 						"README.md": "x",
 						"docs/intro.md": "y",
@@ -2378,7 +2413,7 @@ describe("Browser — filter modal", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={files}
+					root={files}
 					readFile={makeReader({ "README.md": "x", "notes.md": "y" })}
 					onQuit={() => {}}
 				/>,
@@ -2412,7 +2447,7 @@ describe("Browser — filter modal", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={files}
+					root={files}
 					readFile={makeReader({
 						"README.md": "x",
 						"docs/intro.md": "y",
@@ -2456,7 +2491,7 @@ describe("Browser — filter modal", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={files}
+					root={files}
 					readFile={makeReader({ "README.md": "x", "notes.md": "y" })}
 					onQuit={() => {}}
 				/>,
@@ -2502,7 +2537,7 @@ describe("Browser — filter modal", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={files}
+					root={files}
 					readFile={makeReader({
 						"alpha.md": "a",
 						"beta.md": "b",
@@ -2556,7 +2591,7 @@ describe("Browser — filter modal", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={files}
+					root={files}
 					readFile={makeReader({
 						"alpha.md": "a",
 						"beta.md": "b",
@@ -2612,7 +2647,7 @@ describe("Browser — filter modal", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={files}
+					root={files}
 					readFile={makeReader({
 						"docs/a.md": "1",
 						"docs/b.md": "2",
@@ -2658,7 +2693,7 @@ describe("Browser — filter modal", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={files}
+					root={files}
 					readFile={makeReader({ "docs/a.md": "1", "docs/b.md": "2" })}
 					onQuit={() => {}}
 				/>,
@@ -2687,7 +2722,7 @@ describe("Browser — filter modal", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={files}
+					root={files}
 					readFile={makeReader({ "README.md": "x", "notes.md": "y" })}
 					onQuit={() => {}}
 				/>,
@@ -2716,7 +2751,7 @@ describe("Browser — filter modal", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={files}
+					root={files}
 					readFile={makeReader({ "README.md": "x", "notes.md": "y" })}
 					onQuit={() => {}}
 				/>,
@@ -2747,7 +2782,7 @@ describe("Browser — filter modal", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={files}
+					root={files}
 					readFile={makeReader({ "README.md": "x", "notes.md": "y" })}
 					onQuit={() => {}}
 				/>,
@@ -2790,7 +2825,7 @@ describe("Browser — filter modal", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={files}
+					root={files}
 					readFile={makeReader({ "README.md": "x", "notes.md": "y" })}
 					onQuit={() => {}}
 				/>,
@@ -2829,7 +2864,7 @@ describe("Browser — filter modal", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={files}
+					root={files}
 					readFile={makeReader({ "README.md": "x", "notes.md": "y" })}
 					onQuit={() => {}}
 				/>,
@@ -2863,7 +2898,7 @@ describe("Browser — filter modal", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={files}
+					root={files}
 					readFile={makeReader({
 						"README.md": "x",
 						"docs/intro.md": "y",
@@ -2916,7 +2951,7 @@ describe("Browser — filter modal", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={files}
+					root={files}
 					readFile={makeReader({ "README.md": "x", "notes.md": "y" })}
 					onQuit={() => {}}
 				/>,
@@ -2959,7 +2994,7 @@ describe("Browser — filter modal", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={files}
+					root={files}
 					readFile={makeReader({ "README.md": "x", "notes.md": "y" })}
 					onQuit={() => {}}
 				/>,
@@ -2992,7 +3027,7 @@ describe("Browser — filter modal", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={files}
+					root={files}
 					readFile={makeReader({
 						"README.md": "x",
 						"notes.md": "y",
@@ -3033,7 +3068,7 @@ describe("Browser — filter modal", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={files}
+					root={files}
 					readFile={makeReader({
 						"README.md": "x",
 						"notes.md": "y",
@@ -3071,7 +3106,7 @@ describe("Browser — filter modal", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={files}
+					root={files}
 					readFile={makeReader({
 						"README.md": "x",
 						"notes.md": "y",
@@ -3108,7 +3143,7 @@ describe("Browser — filter modal", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={files}
+					root={files}
 					readFile={makeReader({
 						"README.md": "x",
 						"notes.md": "y",
@@ -3150,7 +3185,7 @@ describe("Browser — filter modal", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={files}
+					root={files}
 					readFile={makeReader({
 						"README.md": "x",
 						"notes.md": "y",
@@ -3183,7 +3218,7 @@ describe("Browser — filter modal", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={files}
+					root={files}
 					readFile={makeReader({ "README.md": "x", "notes.md": "y" })}
 					onQuit={() => {}}
 				/>,
@@ -3212,7 +3247,7 @@ describe("Browser — filter modal", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={files}
+					root={files}
 					readFile={makeReader({
 						"README.md": "x",
 						"notes.md": "y",
@@ -3256,7 +3291,7 @@ describe("Browser — filter modal", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={files}
+					root={files}
 					readFile={makeReader({
 						"README.md": "x",
 						"notes.md": "y",
@@ -3295,7 +3330,7 @@ describe("Browser — filter modal", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={files}
+					root={files}
 					readFile={makeReader({ "README.md": "x", "notes.md": "y" })}
 					onQuit={() => {}}
 				/>,
@@ -3320,7 +3355,7 @@ describe("Browser — filter modal", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={files}
+					root={files}
 					readFile={makeReader({ "README.md": "x", "notes.md": "y" })}
 					onQuit={() => {}}
 				/>,
@@ -3357,7 +3392,7 @@ describe("Browser — filter modal", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={files}
+					root={files}
 					readFile={makeReader({
 						"README.md": "x",
 						"notes.md": "y",
@@ -3410,7 +3445,7 @@ describe("Browser — filter modal", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={files}
+					root={files}
 					readFile={makeReader({ "README.md": "x", "scripts/build.md": "y" })}
 					onQuit={() => {}}
 				/>,
@@ -3438,7 +3473,7 @@ describe("Browser — command palette", () => {
 		const files = makeFiles(["README.md"])
 		await act(async () => {
 			setup = await renderBrowser(
-				<Browser files={files} readFile={makeReader({ "README.md": "x" })} onQuit={() => {}} />,
+				<Browser root={files} readFile={makeReader({ "README.md": "x" })} onQuit={() => {}} />,
 				VIEWPORT,
 			)
 		})
@@ -3461,7 +3496,7 @@ describe("Browser — command palette", () => {
 		const files = makeFiles(["README.md"])
 		await act(async () => {
 			setup = await renderBrowser(
-				<Browser files={files} readFile={makeReader({ "README.md": "x" })} onQuit={() => {}} />,
+				<Browser root={files} readFile={makeReader({ "README.md": "x" })} onQuit={() => {}} />,
 				{ width: 120, height: 40 },
 			)
 		})
@@ -3480,7 +3515,7 @@ describe("Browser — command palette", () => {
 		const files = makeFiles(["README.md"])
 		await act(async () => {
 			setup = await renderBrowser(
-				<Browser files={files} readFile={makeReader({ "README.md": "x" })} onQuit={() => {}} />,
+				<Browser root={files} readFile={makeReader({ "README.md": "x" })} onQuit={() => {}} />,
 				VIEWPORT,
 			)
 		})
@@ -3510,7 +3545,7 @@ describe("Browser — command palette", () => {
 		const files = makeFiles(["README.md"])
 		await act(async () => {
 			setup = await renderBrowser(
-				<Browser files={files} readFile={makeReader({ "README.md": "x" })} onQuit={() => {}} />,
+				<Browser root={files} readFile={makeReader({ "README.md": "x" })} onQuit={() => {}} />,
 				VIEWPORT,
 			)
 		})
@@ -3536,7 +3571,7 @@ describe("Browser — command palette", () => {
 		const files = makeFiles(["README.md"])
 		await act(async () => {
 			setup = await renderBrowser(
-				<Browser files={files} readFile={makeReader({ "README.md": "x" })} onQuit={() => {}} />,
+				<Browser root={files} readFile={makeReader({ "README.md": "x" })} onQuit={() => {}} />,
 				VIEWPORT,
 			)
 		})
@@ -3564,7 +3599,7 @@ describe("Browser — command palette", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={files}
+					root={files}
 					readFile={makeReader({ "README.md": "x" })}
 					onQuit={() => {
 						quitCalls++
@@ -3597,7 +3632,7 @@ describe("Browser — command palette", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={files}
+					root={files}
 					readFile={makeReader({ "README.md": "# Read me\n\nBody\n" })}
 					copyToClipboard={async (text) => {
 						copied.push(text)
@@ -3631,7 +3666,7 @@ describe("Browser — command palette", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={files}
+					root={files}
 					readFile={makeReader({ "README.md": "# Read me\n" })}
 					copyToClipboard={async () => {
 						throw new Error("no clipboard tool found")
@@ -3662,7 +3697,7 @@ describe("Browser — command palette", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={files}
+					root={files}
 					readFile={async () => Promise.reject(new Error("ENOENT"))}
 					copyToClipboard={async () => {
 						throw new Error("should not reach clipboard")
@@ -3694,7 +3729,7 @@ describe("Browser — command palette", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={files}
+					root={files}
 					readFile={makeReader({ "README.md": "x" })}
 					onQuit={() => {
 						quitCalls++
@@ -3743,7 +3778,7 @@ describe("Browser — command palette", () => {
 		const files = makeFiles(["README.md"])
 		await act(async () => {
 			setup = await renderBrowser(
-				<Browser files={files} readFile={makeReader({ "README.md": "x" })} onQuit={() => {}} />,
+				<Browser root={files} readFile={makeReader({ "README.md": "x" })} onQuit={() => {}} />,
 				VIEWPORT,
 				initialValues,
 			)
@@ -3797,7 +3832,7 @@ describe("Browser — command palette", () => {
 		const files = makeFiles(["README.md"])
 		await act(async () => {
 			setup = await renderBrowser(
-				<Browser files={files} readFile={makeReader({ "README.md": "x" })} onQuit={() => {}} />,
+				<Browser root={files} readFile={makeReader({ "README.md": "x" })} onQuit={() => {}} />,
 				VIEWPORT,
 				initialValues,
 			)
@@ -3831,7 +3866,7 @@ describe("Browser — command palette", () => {
 		const files = makeFiles(["README.md"])
 		await act(async () => {
 			setup = await renderBrowser(
-				<Browser files={files} readFile={makeReader({ "README.md": "x" })} onQuit={() => {}} />,
+				<Browser root={files} readFile={makeReader({ "README.md": "x" })} onQuit={() => {}} />,
 				VIEWPORT,
 			)
 		})
@@ -3866,7 +3901,7 @@ describe("Browser — command palette", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={files}
+					root={files}
 					readFile={makeReader({ "doc.md": longContent })}
 					onQuit={() => {}}
 				/>,
@@ -3926,7 +3961,7 @@ describe("Browser — command palette", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={files}
+					root={files}
 					readFile={makeReader({ "doc.md": longContent })}
 					onQuit={() => {}}
 				/>,
@@ -3974,7 +4009,7 @@ describe("Browser — updateNotice", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["a.md"])}
+					root={makeFiles(["a.md"])}
 					readFile={makeReader({ "a.md": "x" })}
 					onQuit={() => {}}
 					updateNotice={TEXT}
@@ -3982,7 +4017,7 @@ describe("Browser — updateNotice", () => {
 				VIEWPORT,
 			)
 		})
-		await stepFrame(setup!.renderOnce)
+		await setup!.renderOnce()
 		expect(setup!.captureCharFrame()).toContain(TEXT)
 	})
 
@@ -3990,7 +4025,7 @@ describe("Browser — updateNotice", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["a.md"])}
+					root={makeFiles(["a.md"])}
 					readFile={makeReader({ "a.md": "x" })}
 					onQuit={() => {}}
 					updateNotice={TEXT}
@@ -3998,13 +4033,13 @@ describe("Browser — updateNotice", () => {
 				VIEWPORT,
 			)
 		})
-		await stepFrame(setup!.renderOnce)
+		await setup!.renderOnce()
 		expect(setup!.captureCharFrame()).toContain(TEXT)
 
 		await act(async () => {
 			setup!.mockInput.pressKey("t")
 		})
-		await stepFrame(setup!.renderOnce)
+		await settleBrowser()
 		const frame = setup!.captureCharFrame()
 		expect(frame).toContain("theme:")
 		// The longer update text is gone; the slot now carries the theme toast.
@@ -4018,7 +4053,7 @@ describe("Browser — updateNotice", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["a.md"])}
+					root={makeFiles(["a.md"])}
 					readFile={makeReader({ "a.md": "x" })}
 					onQuit={() => {}}
 					updateNotice={TEXT}
@@ -4027,7 +4062,7 @@ describe("Browser — updateNotice", () => {
 				VIEWPORT,
 			)
 		})
-		await stepFrame(setup!.renderOnce)
+		await setup!.renderOnce()
 		expect(setup!.captureCharFrame()).toContain(TEXT)
 
 		await act(async () => {
@@ -4056,10 +4091,17 @@ describe("Browser — discovery toggle (#145)", () => {
 		// exists because the UI keybind is the one place we treat them
 		// as a single thing.
 		const [showAll, setShowAll] = React.useState(initialAll)
-		const files = makeFiles(showAll ? WITH_HIDDEN : VISIBLE)
+		const [root] = React.useState(() => makeFiles(initialAll ? WITH_HIDDEN : VISIBLE))
+		const hiddenPath = join(root, ".hidden.md")
+		if (showAll && !existsSync(hiddenPath)) writeFileSync(hiddenPath, "")
+		if (!showAll && existsSync(hiddenPath)) unlinkSync(hiddenPath)
 		return (
 			<Browser
-				files={files}
+				root={root}
+				policy={{
+					revision: showAll ? "all" : "visible",
+					includeFile: (path) => showAll || !path.split(/[\\/]/).pop()?.startsWith("."),
+				}}
 				readFile={makeReader(
 					Object.fromEntries([...VISIBLE, ...WITH_HIDDEN].map((f) => [f, `# ${f}`])),
 				)}
@@ -4087,7 +4129,7 @@ describe("Browser — discovery toggle (#145)", () => {
 		await act(async () => {
 			setup!.mockInput.pressKey("a", { shift: true })
 		})
-		await stepFrame(setup!.renderOnce)
+		await settleBrowser()
 
 		const frame = setup!.captureCharFrame()
 		// Hidden file is now in the sidebar.
@@ -4137,14 +4179,14 @@ describe("Browser — discovery toggle (#145)", () => {
 		await act(async () => {
 			setup!.mockInput.pressKey("j")
 		})
-		await stepFrame(setup!.renderOnce)
+		await settleBrowser()
 
 		// Toggle back on: hidden file is in the list again, but selection
 		// should NOT snap back to it — pending was cleared by `j`.
 		await act(async () => {
 			setup!.mockInput.pressKey("a", { shift: true })
 		})
-		await stepFrame(setup!.renderOnce)
+		await settleBrowser()
 		const frame = setup!.captureCharFrame()
 		expect(frame).toContain(".hidden.md")
 		expect(readerTitleContains(frame, ".hidden.md")).toBe(false)
@@ -4156,7 +4198,7 @@ describe("Browser — header", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["a.md"])}
+					root={makeFiles(["a.md"])}
 					readFile={makeReader({ "a.md": "x" })}
 					onQuit={() => {}}
 				/>,
@@ -4174,7 +4216,7 @@ describe("Browser — header", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
-					files={makeFiles(["a.md"])}
+					root={makeFiles(["a.md"])}
 					readFile={makeReader({ "a.md": "x" })}
 					onQuit={() => {}}
 				/>,

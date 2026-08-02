@@ -31,6 +31,7 @@ export interface ScanOptions {
 		phase: "before-read" | "after-read",
 		directory: string,
 	) => void | Promise<void>
+	readonly onDiagnostic?: (error: Error) => void
 }
 
 export interface ScanResult {

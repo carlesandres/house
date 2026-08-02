@@ -140,8 +140,23 @@ export const scanFiles = async (
 			compare(a.name, b.name),
 		)
 		await options.barrier?.("after-read", lexical)
-		const files = entries.filter((entry) => !entry.isDirectory() && !entry.isSymbolicLink())
-		const directories = entries.filter((entry) => entry.isDirectory() || entry.isSymbolicLink())
+		const files = [] as typeof entries
+		const directories = [] as typeof entries
+		for (const entry of entries) {
+			try {
+				const entryStat = await stat(join(physical, entry.name))
+				if (entryStat.isDirectory() && (entryStat.mode & 0o777) === 0) {
+					options.onDiagnostic?.(new Error(`skipped directory: ${entry.name}`))
+					continue
+				}
+				;(entry.isDirectory() || entry.isSymbolicLink() ? directories : files).push(entry)
+			} catch (error) {
+				if (!missing(error))
+					options.onDiagnostic?.(
+						new Error(`skipped directory: ${basename(join(lexical, entry.name))}`),
+					)
+			}
+		}
 		for (const entry of files) {
 			abort(options.signal)
 			if (!policy.ignoreFiles.includes(entry.name))
@@ -159,12 +174,22 @@ export const scanFiles = async (
 				if (entry.isSymbolicLink() && !policy.followSymlinks) continue
 				if (targetStat.isDirectory()) {
 					if (ignored(lexicalPath, true, levels) || ancestry.has(target)) continue
-					await walk(target, lexicalPath, new Set([...ancestry, target]), levels)
+					if ((targetStat.mode & 0o777) === 0) {
+						options.onDiagnostic?.(new Error(`skipped directory: ${basename(lexicalPath)}`))
+						continue
+					}
+					try {
+						await walk(target, lexicalPath, new Set([...ancestry, target]), levels)
+					} catch (error) {
+						if (missing(error)) continue
+						options.onDiagnostic?.(new Error(`skipped directory: ${basename(lexicalPath)}`))
+					}
 				} else if (targetStat.isFile() && !entry.isDirectory()) {
 					await add(target, lexicalPath, true, levels)
 				}
 			} catch (error) {
-				if (!missing(error)) throw error
+				if (missing(error)) continue
+				options.onDiagnostic?.(new Error(`skipped directory: ${basename(lexicalPath)}`))
 			}
 		}
 	}

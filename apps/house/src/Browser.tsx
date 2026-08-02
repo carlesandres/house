@@ -12,7 +12,12 @@
 
 import { SyntaxStyle } from "@opentui/core"
 import type { BorderSides } from "@opentui/core"
-import { useFileNavigator } from "@house/ui"
+import {
+	type DiscoveryPolicy,
+	type Diagnostic,
+	type FileNavigatorHandle,
+	type FileNavigatorSnapshot,
+} from "@house/ui/file-navigator"
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react"
 import { useAtomValue, useAtomSet } from "@effect/atom-react"
 import { Effect } from "effect"
@@ -20,8 +25,6 @@ import { useEffect, useMemo, useReducer, useRef, useState } from "react"
 import { buildCommands } from "./commands/buildCommands.ts"
 import { clampSelectedIndex, filterCommands } from "./commands/score.ts"
 import { CommandPalette, orderCommandsForPalette } from "./CommandPalette.tsx"
-import { filterFiles } from "./discovery/filter.ts"
-import { type FileEntry } from "./discovery/walk.ts"
 import { parseFrontmatter } from "./markdown/frontmatter.ts"
 import { BRAND, BRAND_NAME } from "./brand.ts"
 import { Footer, type FooterProps } from "./Footer.tsx"
@@ -45,7 +48,9 @@ import { saveThemePreference } from "./config/save.ts"
 export type StartupFocus = "sidebar" | "reader" | "filter"
 
 export interface BrowserProps {
-	readonly files: readonly FileEntry[]
+	readonly root: string
+	readonly policy?: DiscoveryPolicy
+	readonly watch?: boolean
 	readonly initialIndex?: number
 	/** Initial applied filter query seeded from the CLI positional. */
 	readonly initialQuery?: string
@@ -96,10 +101,11 @@ export interface BrowserProps {
 
 const defaultReadFile = (path: string): Promise<string> => Effect.runPromise(readFileText(path))
 
-const getFileId = (file: FileEntry): string => file.path
-const getFilePath = (file: FileEntry): string => file.relativePath
-
-const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n))
+const defaultDiscoveryPolicy: DiscoveryPolicy = {
+	revision: "house-markdown",
+	ignoreFiles: [".gitignore"],
+	includeFile: (path) => /\.(md|markdown)$/i.test(path),
+}
 
 let nextReaderEmptyStateTipRotation = 0
 
@@ -151,7 +157,9 @@ const floatingOverlayReducer = (
 }
 
 export const Browser = ({
-	files,
+	root,
+	policy = defaultDiscoveryPolicy,
+	watch = true,
 	initialIndex = 0,
 	initialQuery = "",
 	wrapWidth = 80,
@@ -180,8 +188,12 @@ export const Browser = ({
 	const syntaxStyle = useMemo(() => SyntaxStyle.fromStyles(colors.syntax), [theme])
 
 	const [wrapEnabled, setWrapEnabled] = useState(initialWrap)
-	const [loaded, setLoaded] = useState<{ path: string; content: string } | null>(null)
+	const [loaded, setLoaded] = useState<{ path: string; content: string; epoch: number } | null>(
+		null,
+	)
 	const [error, setError] = useState<string | null>(null)
+	const readFileRef = useRef(readFile)
+	readFileRef.current = readFile
 	// `shown` is the user's sticky interactive preference. The sidebar starts
 	// visible; after launch, `s`/`tab`/`/` may hide or reveal it. Visibility is
 	// derived: `visible = shown || focus === "sidebar"`. See DESIGN.md §7.1.
@@ -205,22 +217,77 @@ export const Browser = ({
 	const [focus, setFocus] = useState<"sidebar" | "reader">(() => initialFocus)
 	const [filterOpen, setFilterOpen] = useState<boolean>(startInFilter)
 	const [filterInput, setFilterInput] = useState<string>(initialQuery)
-	const initialSelectedIdRef = useRef<string | null>(
-		files.length === 0
-			? null
-			: (files[clamp(initialIndex, 0, Math.max(0, files.length - 1))]?.path ?? null),
+	const navigatorRef = useRef<FileNavigatorHandle | null>(null)
+	const [navigatorSnapshot, setNavigatorSnapshot] = useState<FileNavigatorSnapshot>(() => ({
+		root,
+		files: [],
+		filteredFiles: [],
+		appliedQuery: initialQuery,
+		selectedFile: null,
+		selectedIndex: null,
+		scanning: true,
+		watching: false,
+		error: null,
+		diagnostics: [],
+	}))
+	const [discoveryErrorStatus, setDiscoveryErrorStatus] = useState<string | null>(null)
+	const liveSnapshot = navigatorRef.current?.getSnapshot() ?? navigatorSnapshot
+	const displayedFiles = liveSnapshot.filteredFiles
+	const selected = liveSnapshot.selectedFile
+	const initialIndexRef = useRef(initialIndex)
+	const readerEpochRef = useRef(0)
+	const [readerEpoch, setReaderEpoch] = useState(0)
+	const syncSnapshot = (next: FileNavigatorSnapshot): FileNavigatorSnapshot => {
+		setNavigatorSnapshot(next)
+		return next
+	}
+	const navigatorAction = <T,>(action: (handle: FileNavigatorHandle) => T): T | null => {
+		const handle = navigatorRef.current
+		if (!handle) return null
+		return action(handle)
+	}
+	const navigator = {
+		getSnapshot: () => navigatorRef.current?.getSnapshot() ?? navigatorSnapshot,
+		flushSearch: (query: string) =>
+			syncSnapshot(navigatorAction((handle) => handle.flushQuery(query)) ?? navigatorSnapshot),
+		selectIndex: (index: number) =>
+			syncSnapshot(navigatorAction((handle) => handle.selectIndex(index)) ?? navigatorSnapshot),
+		selectFirst: () =>
+			syncSnapshot(navigatorAction((handle) => handle.selectFirst()) ?? navigatorSnapshot),
+		selectLast: () =>
+			syncSnapshot(navigatorAction((handle) => handle.selectLast()) ?? navigatorSnapshot),
+		moveBy: (delta: number) =>
+			syncSnapshot(navigatorAction((handle) => handle.moveBy(delta)) ?? navigatorSnapshot),
+		selectPath: (path: string) =>
+			syncSnapshot(navigatorAction((handle) => handle.selectPath(path)) ?? navigatorSnapshot),
+	}
+	const skippedDiagnostics = liveSnapshot.diagnostics.filter((diagnostic) =>
+		diagnostic.error.message.startsWith("skipped directory:"),
 	)
-	const navigator = useFileNavigator({
-		files,
-		query: filterInput,
-		getId: getFileId,
-		getPath: getFilePath,
-		filter: filterFiles,
-		initialSelectedId: initialSelectedIdRef.current,
-		debounceMs: filterDebounceMs,
-	})
-	const displayedFiles = navigator.filteredFiles
-	const selected = navigator.selectedFile
+	const diagnosticStatus =
+		skippedDiagnostics.length > 0
+			? `scan incomplete: skipped ${skippedDiagnostics.length} ${
+					skippedDiagnostics.length === 1 ? "directory" : "directories"
+				}${skippedDiagnostics.length === 1 ? `: ${skippedDiagnostics[0]!.error.message.slice(19)}` : ""}`
+			: liveSnapshot.error
+				? "scan failed: unable to read discovery root"
+				: null
+	const handleSelectionChange = (file: FileNavigatorSnapshot["selectedFile"]) => {
+		const next = navigatorRef.current?.getSnapshot()
+		if (next) {
+			setNavigatorSnapshot(next)
+			return
+		}
+		setNavigatorSnapshot((current) => ({
+			...current,
+			selectedFile: file,
+			selectedIndex: file === null ? null : current.filteredFiles.indexOf(file),
+		}))
+	}
+	const invalidateReader = () => {
+		readerEpochRef.current += 1
+		setReaderEpoch(readerEpochRef.current)
+	}
 	const [floatingOverlay, dispatchFloatingOverlayState] = useReducer(
 		floatingOverlayReducer,
 		noFloatingOverlay,
@@ -234,7 +301,10 @@ export const Browser = ({
 	const closeFloatingOverlay = (): void => dispatchFloatingOverlay({ type: "close" })
 	const paletteOpen = floatingOverlay.kind === "command-palette"
 	const activeStatusPopover = floatingOverlay.kind === "status-popover" ? floatingOverlay : null
-	const discoveryWarningStatus = isPartialDiscoveryWarning(discoveryStatus) ? discoveryStatus : null
+	const effectiveDiscoveryStatus = discoveryStatus ?? discoveryErrorStatus ?? diagnosticStatus
+	const discoveryWarningStatus = isPartialDiscoveryWarning(effectiveDiscoveryStatus)
+		? effectiveDiscoveryStatus
+		: null
 	const [paletteQuery, setPaletteQuery] = useState<string>("")
 	const [paletteIndex, setPaletteIndex] = useState<number>(0)
 	// Synchronous mirrors for the keyboard handler — same reason filterOpenRef
@@ -361,26 +431,32 @@ export const Browser = ({
 	useEffect(() => {
 		const target = pendingSelectionPathRef.current
 		if (target === null) return
-		if (displayedFiles.some((file) => file.path === target)) {
-			const snapshot = navigator.selectId(target)
-			if (snapshot.selectedFile?.path !== target) return
+		if (displayedFiles.some((file) => file.absolutePath === target)) {
+			const snapshot = navigator.selectPath(target)
+			if (snapshot.selectedFile?.absolutePath !== target) return
 			pendingSelectionPathRef.current = null
 		}
-	}, [displayedFiles])
+	}, [displayedFiles, liveSnapshot.files])
+
+	useEffect(() => {
+		if (liveSnapshot.scanning || initialIndexRef.current === 0) return
+		navigator.selectIndex(initialIndexRef.current)
+		initialIndexRef.current = 0
+	}, [liveSnapshot.scanning])
 
 	// Track the path whose content is currently rendered. Updated lazily via
 	// a debounce: rapid j/k presses don't trigger a load+<markdown>-reflow
 	// per keystroke. The reflow is the synchronous, main-thread-blocking
 	// step inside opentui's host commit — useDeferredValue can't yield once
 	// the host begins it. A real debounce gates the load itself.
-	const [renderedPath, setRenderedPath] = useState<string | null>(selected?.path ?? null)
+	const [renderedPath, setRenderedPath] = useState<string | null>(selected?.absolutePath ?? null)
 
 	useEffect(() => {
-		const target = selected?.path ?? null
+		const target = selected?.absolutePath ?? null
 		if (target === renderedPath) return
 		const timer = setTimeout(() => setRenderedPath(target), renderedPathDebounceMs)
 		return () => clearTimeout(timer)
-	}, [selected?.path, renderedPath, renderedPathDebounceMs])
+	}, [selected?.absolutePath, renderedPath, renderedPathDebounceMs])
 
 	useEffect(() => {
 		if (!renderedPath) {
@@ -388,15 +464,16 @@ export const Browser = ({
 			return
 		}
 		let cancelled = false
-		readFile(renderedPath).then(
+		const epoch = readerEpoch
+		readFileRef.current(renderedPath).then(
 			(text) => {
-				if (!cancelled) {
-					setLoaded({ path: renderedPath, content: text })
+				if (!cancelled && epoch === readerEpochRef.current) {
+					setLoaded({ path: renderedPath, content: text, epoch })
 					setError(null)
 				}
 			},
 			(err: unknown) => {
-				if (!cancelled) {
+				if (!cancelled && epoch === readerEpochRef.current) {
 					setLoaded(null)
 					setError(`Cannot read ${renderedPath}: ${String(err)}`)
 				}
@@ -405,7 +482,7 @@ export const Browser = ({
 		return () => {
 			cancelled = true
 		}
-	}, [renderedPath, readFile])
+	}, [renderedPath, readerEpoch])
 
 	// One BrowserCtx per render, reused by the keyboard handler and the
 	// footer's `when`-evaluation. Keeping a single object eliminates the
@@ -431,17 +508,14 @@ export const Browser = ({
 		// restoration) deliberately call the controller directly.
 		moveSelectionBy: (delta) => {
 			pendingSelectionPathRef.current = null
-			navigator.cancelAutoSelect()
 			navigator.moveBy(delta)
 		},
 		selectFirst: () => {
 			pendingSelectionPathRef.current = null
-			navigator.cancelAutoSelect()
 			navigator.selectFirst()
 		},
 		selectLast: () => {
 			pendingSelectionPathRef.current = null
-			navigator.cancelAutoSelect()
 			navigator.selectLast()
 		},
 		toggleShown: () => {
@@ -518,7 +592,7 @@ export const Browser = ({
 			// clears pending, so a follow-up toggle starts a fresh snapshot.
 			const current = navigator.getSnapshot().selectedFile
 			if (pendingSelectionPathRef.current === null && current) {
-				pendingSelectionPathRef.current = current.path
+				pendingSelectionPathRef.current = current.absolutePath
 			}
 			onToggleAll?.()
 		},
@@ -528,7 +602,7 @@ export const Browser = ({
 			let handle = serverRef.current
 			if (!handle) {
 				try {
-					handle = startServer({ path: file.path })
+					handle = startServer({ path: file.absolutePath })
 					serverRef.current = handle
 					openInBrowser(handle.url)
 					pushFooterNotice(`serving at ${handle.url}`)
@@ -537,8 +611,8 @@ export const Browser = ({
 				}
 				return
 			}
-			if (handle.currentTarget() !== file.path) {
-				handle.setTarget(file.path)
+			if (handle.currentTarget() !== file.absolutePath) {
+				handle.setTarget(file.absolutePath)
 			}
 			// Always re-open: if the user closed the tab, retargeting alone
 			// would leave them with nothing visible. `open`/`xdg-open` focus
@@ -578,7 +652,7 @@ export const Browser = ({
 				renderer.currentRenderBuffer.clear()
 				let result
 				try {
-					result = await openInEditor({ editor, filePath: file.path })
+					result = await openInEditor({ editor, filePath: file.absolutePath })
 				} finally {
 					renderer.currentRenderBuffer.clear()
 					renderer.resume()
@@ -589,10 +663,10 @@ export const Browser = ({
 				// the reader hasn't caught up to (debounce in flight) is fine —
 				// the regular load path picks up the new mtime when renderedPath
 				// advances.
-				if (file.path === renderedPath) {
+				if (file.absolutePath === renderedPath) {
 					try {
-						const text = await readFile(file.path)
-						setLoaded({ path: file.path, content: text })
+						const text = await readFile(file.absolutePath)
+						setLoaded({ path: file.absolutePath, content: text, epoch: readerEpochRef.current })
 						setError(null)
 					} catch (err) {
 						const message = String(err)
@@ -600,7 +674,7 @@ export const Browser = ({
 							(err as { code?: string } | null)?.code === "ENOENT" || message.includes("ENOENT")
 						if (enoent) {
 							pushFooterNotice(`${file.relativePath} no longer exists`)
-							setError(`Cannot read ${file.path}: ${message}`)
+							setError(`Cannot read ${file.absolutePath}: ${message}`)
 							setLoaded(null)
 						} else {
 							pushFooterNotice(`reload failed: ${message}`)
@@ -622,7 +696,7 @@ export const Browser = ({
 			void (async () => {
 				let text: string
 				try {
-					text = await readFile(file.path)
+					text = await readFile(file.absolutePath)
 				} catch {
 					pushFooterNotice(`copy failed: cannot read ${file.relativePath}`)
 					return
@@ -834,7 +908,11 @@ export const Browser = ({
 	const readerEmptyStateTitle = filterHasNoMatches
 		? `No files match: ${filterInput}`
 		: `${BRAND} ${BRAND_NAME}`
-	const readerEmptyStateVisible = error == null && renderedPath == null
+	const readerEmptyStateVisible =
+		error == null &&
+		renderedPath == null &&
+		!liveSnapshot.scanning &&
+		(selected === null || liveSnapshot.files.length === 0)
 
 	useEffect(() => {
 		if (disableReaderEmptyStateRotation) return
@@ -848,14 +926,16 @@ export const Browser = ({
 		readerEmptyStateVisibleRef.current = false
 	}, [disableReaderEmptyStateRotation, readerEmptyStateVisible])
 
-	const discoveryActive = discoveryStatus !== null && discoveryStatus.length > 0
+	const discoveryActive =
+		(liveSnapshot.scanning && effectiveDiscoveryStatus === null) ||
+		(effectiveDiscoveryStatus !== null && effectiveDiscoveryStatus.length > 0)
 
 	const footerProps = {
 		bindings: browserBindings,
 		ctx,
 		width,
 		notice: footerNotice?.text ?? null,
-		discoveryStatus,
+		discoveryStatus: effectiveDiscoveryStatus,
 		indicators: [
 			{
 				id: "wrap",
@@ -905,8 +985,12 @@ export const Browser = ({
 				}}
 			>
 				<Sidebar
-					files={files}
-					controller={navigator}
+					root={root}
+					policy={policy}
+					watch={watch}
+					debounceMs={filterDebounceMs}
+					navigatorRef={navigatorRef}
+					snapshot={liveSnapshot}
 					filterInput={filterInput}
 					filterOpen={filterOpen}
 					discoveryActive={discoveryActive}
@@ -916,6 +1000,39 @@ export const Browser = ({
 					narrow={isNarrow}
 					active={sidebarActive}
 					visible={sidebarInline}
+					onSelectionChange={handleSelectionChange}
+					onSnapshot={(files) => {
+						setNavigatorSnapshot((current) => ({ ...current, files, scanning: true }))
+						setTimeout(() => {
+							const handle = navigatorRef.current
+							if (!handle) return
+							const next = handle.getSnapshot()
+							const target = pendingSelectionPathRef.current
+							if (target && next.filteredFiles.some((file) => file.absolutePath === target)) {
+								pendingSelectionPathRef.current = null
+								setNavigatorSnapshot(handle.selectPath(target))
+								return
+							}
+							setNavigatorSnapshot(next.error ? { ...next, scanning: false } : next)
+						}, 0)
+					}}
+					onSelectedFileInvalidated={(_file, _event) => invalidateReader()}
+					onDiagnostic={(diagnostic: Diagnostic) => {
+						if (!diagnostic.error.message.startsWith("skipped directory:"))
+							setDiscoveryErrorStatus("scan failed: unable to read discovery root")
+						setNavigatorSnapshot((current) => ({
+							...current,
+							scanning: false,
+							diagnostics: [...current.diagnostics, diagnostic],
+							error: diagnostic.error.message.startsWith("skipped directory:")
+								? null
+								: diagnostic.error,
+						}))
+						setTimeout(() => {
+							const next = navigatorRef.current?.getSnapshot()
+							if (next) setNavigatorSnapshot(next)
+						}, 0)
+					}}
 				/>
 				{readerVisible && (
 					<box

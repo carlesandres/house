@@ -114,7 +114,12 @@ const snapshotOf = (
 	selectedIndex: core?.selectedIndex ?? null,
 	scanning,
 	watching: core?.watching ?? false,
-	error: core?.diagnostics.at(-1)?.error ?? (core ? null : error),
+	error:
+		core && !core.diagnostics.at(-1)?.error.message.startsWith("skipped directory:")
+			? (core.diagnostics.at(-1)?.error ?? null)
+			: core
+				? null
+				: error,
 	diagnostics: core?.diagnostics ?? Object.freeze([]),
 })
 
@@ -173,8 +178,7 @@ const Component = (props: FileNavigatorProps, ref: Ref<FileNavigatorHandle>) => 
 	)
 	useLayoutEffect(() => {
 		callbacks.current = { onSelectionChange, onSelectedFileInvalidated, onDiagnostic, onSnapshot }
-		queryRef.current = query
-	}, [onSelectionChange, onSelectedFileInvalidated, onDiagnostic, onSnapshot, query])
+	}, [onSelectionChange, onSelectedFileInvalidated, onDiagnostic, onSnapshot])
 
 	const getSnapshot = (): FileNavigatorSnapshot =>
 		snapshotOf(
@@ -189,14 +193,7 @@ const Component = (props: FileNavigatorProps, ref: Ref<FileNavigatorHandle>) => 
 	const currentEngine = (): FileNavigatorCore | null => {
 		const engine = engineRef.current
 		const config = configRef.current
-		return engine &&
-			config?.root === normalizedRoot &&
-			config.policyRevision === policy.revision &&
-			config.recursive === (policy.recursive ?? true) &&
-			config.watch === watch &&
-			config.consistencyIntervalMs === consistencyIntervalMs
-			? engine
-			: null
+		return engine && config?.root === normalizedRoot ? engine : null
 	}
 	const flushQuery = (next: string): FileNavigatorSnapshot => {
 		if (timerRef.current !== null) clearTimeout(timerRef.current)
@@ -283,12 +280,15 @@ const Component = (props: FileNavigatorProps, ref: Ref<FileNavigatorHandle>) => 
 						},
 						onComplete: () => {
 							scanningRef.current = false
+							callbacks.current.onSnapshot?.(engine.files)
 							redrawRef.current()
 						},
 						onSelectedInvalidation: (file, event) =>
 							callbacks.current.onSelectedFileInvalidated?.(file, event),
 						onDiagnostic: (diagnostic) => {
-							errorRef.current = diagnostic.error
+							if (!diagnostic.error.message.startsWith("skipped directory:"))
+								errorRef.current = diagnostic.error
+							scanningRef.current = false
 							callbacks.current.onDiagnostic?.(diagnostic)
 							redraw()
 						},

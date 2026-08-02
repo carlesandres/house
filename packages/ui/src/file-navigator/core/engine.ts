@@ -256,12 +256,14 @@ export class FileNavigatorCore {
 
 	async #scanStatic(initial: boolean): Promise<void> {
 		const previous = byPath(this.#files)
+		this.#clearPhase("scan")
 		try {
 			const streamed: FileRecord[] = []
 			const result = await scanFiles(this.#root, this.#policy, {
 				...(this.#options.batchSize === undefined ? {} : { batchSize: this.#options.batchSize }),
 				...(this.#options.metadata === undefined ? {} : { metadata: this.#options.metadata }),
 				...(this.#options.barrier === undefined ? {} : { barrier: this.#options.barrier }),
+				onDiagnostic: (error) => this.#diagnose("scan", error),
 				onBatch: async (files, complete) => {
 					if (initial && !complete) {
 						streamed.push(...files)
@@ -272,7 +274,6 @@ export class FileNavigatorCore {
 			})
 			this.#commit(result.files, previous, !initial)
 			this.#options.onComplete?.()
-			this.#clearPhase("scan")
 		} catch (error) {
 			if (initial) {
 				await this.#options.onBatch?.([], true, true)
@@ -288,6 +289,7 @@ export class FileNavigatorCore {
 
 	async #replaceGeneration(initial: boolean): Promise<void> {
 		this.#selectionReady = false
+		this.#clearPhase("scan")
 		const old = this.#active
 		const abandoned = this.#invalidateCandidate()
 		if (abandoned) void this.#closeGeneration(abandoned)
@@ -316,14 +318,14 @@ export class FileNavigatorCore {
 		}
 		this.#candidate = generation
 		try {
-			const initialTopology = await scanFiles(
-				generation.root,
-				generation.policy,
-				this.#options.metadata ? { metadata: this.#options.metadata } : {},
-			)
+			const initialTopology = await scanFiles(generation.root, generation.policy, {
+				...(this.#options.metadata ? { metadata: this.#options.metadata } : {}),
+				onDiagnostic: (error) => this.#diagnose("scan", error),
+			})
 			let topology = initialTopology.watchDirectories
 			generation.watchRoots = initialTopology.watchRoots
 			await this.#subscribe(generation, generation.watchRoots)
+			this.#clearPhase("scan")
 			let finalFiles: readonly FileRecord[] = []
 			for (;;) {
 				generation.invalidated = false
@@ -338,6 +340,7 @@ export class FileNavigatorCore {
 						: {}),
 					...(this.#options.metadata === undefined ? {} : { metadata: this.#options.metadata }),
 					...(this.#options.barrier === undefined ? {} : { barrier: this.#options.barrier }),
+					onDiagnostic: (error) => this.#diagnose("scan", error),
 					onBatch: async (files, complete) => {
 						if (initial && this.#isCurrentCandidate(generation)) {
 							generation.streamed.push(...files)
@@ -443,6 +446,7 @@ export class FileNavigatorCore {
 			const result = await scanFiles(this.#root, generation.policy, {
 				...(this.#options.metadata === undefined ? {} : { metadata: this.#options.metadata }),
 				...(this.#options.barrier === undefined ? {} : { barrier: this.#options.barrier }),
+				onDiagnostic: (error) => this.#diagnose("scan", error),
 			})
 			if (generation.invalidated) {
 				return this.#reconcile(generation)
@@ -452,7 +456,6 @@ export class FileNavigatorCore {
 			}
 			this.#commit(result.files, previous, true)
 			this.#options.onComplete?.()
-			this.#clearPhase("scan")
 		} catch (error) {
 			this.#diagnose("scan", error)
 			throw error
@@ -596,7 +599,14 @@ export class FileNavigatorCore {
 		await generation.closePromise
 	}
 	#diagnose(phase: Diagnostic["phase"], value: unknown): void {
-		const diagnostic = { phase, sequence: ++this.#diagnosticSequence, error: errorValue(value) }
+		const error = errorValue(value)
+		if (
+			this.#diagnostics.some(
+				(entry) => entry.phase === phase && entry.error.message === error.message,
+			)
+		)
+			return
+		const diagnostic = { phase, sequence: ++this.#diagnosticSequence, error }
 		this.#diagnostics = [...this.#diagnostics, diagnostic]
 		this.#options.onDiagnostic?.(diagnostic)
 	}

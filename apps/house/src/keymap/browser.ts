@@ -2,13 +2,13 @@
  * Browser keymap — the data backing `Browser.tsx`'s `useKeyboard` handler.
  */
 
-import type { FileEntry } from "../discovery/walk.ts"
+import type { FileRecord } from "@house/ui/file-navigator"
 import type { KeyBinding } from "./keymap.ts"
 
 export type BrowserFocus = "sidebar" | "reader"
 
 export interface BrowserCtx {
-	readonly files: readonly FileEntry[]
+	readonly files: readonly FileRecord[]
 	/** True iff `files[selectedIndex]` resolves to an entry. The honest
 	 *  predicate for File-group actions (`O`, `E`, `[`, `]`): with debounced
 	 *  filter and sticky auto-select, `files.length > 0` can be true while
