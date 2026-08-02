@@ -1,18 +1,18 @@
 # Filesystem-aware File Navigator design
 
-**Status:** Approved for implementation
+**Status:** Implemented and shipped
 **Date:** 2026-07-26
 
 `@parcel/watcher` 2.6.0 was explicitly approved by the project owner on 2026-08-01 after the
 four-target empirical gate passed. Physical watcher pruning is not required; scanner traversal and
 collection membership remain strict.
 
-This document records decisions from the File Navigator design interview. It describes intended
-behavior, not the currently shipped component API.
+This document records decisions from the File Navigator design interview and the shipped component
+API. Research notes and rejected alternatives remain part of the historical record.
 
 ## Library boundary
 
-`@house/ui` is intended to become an independent library. Its components may use Node-compatible
+`@house/ui` is a private workspace package bundled into House. Its components may use Node-compatible
 local-filesystem APIs but must not encode House-specific policy, copy, configuration, themes, keyboard
 routing, or application state.
 
@@ -25,9 +25,8 @@ Portable presentation and filesystem-aware behavior use separate public subpath 
   Node/Bun consumers.
 
 Sidebar never imports File Navigator. File Navigator may import Sidebar. Tests must prove that loading
-the Sidebar entry point does not load the filesystem backend or Node filesystem modules. Temporary root
-re-exports may ease the private workspace migration, but subpaths are the intended independent-library
-API.
+the Sidebar entry point does not load the filesystem backend or Node filesystem modules. There is no
+package-root export or compatibility alias; these subpaths are the public package boundary used by House.
 
 ## Component responsibilities
 
@@ -285,8 +284,8 @@ The feasibility choice passed these adoption gates:
 3. Verify the scanner and backend through actual discovery and mutation in standalone binaries on the
    four target combinations, not only `--version`.
 
-The production standalone and installed-package mutation smokes remain release integration gates for
-Plan 007; they do not reopen the approved backend decision when the exact approved build path is used.
+The production standalone and installed-package mutation smokes passed as Plan 007 release integration
+gates. They do not reopen the approved backend decision when the exact approved build path is used.
 
 Chokidar 5.0.0 remains rejected after Bun 1.3.10 crashed in a required 10k event-mode cell. Parcel
 Watcher passed all 11 correctness scenarios and 3/3 repeats on darwin-arm64 native, darwin-x64 under
@@ -408,9 +407,10 @@ The change may be staged in reviewable commits, but the final package exposes on
 does not retain compatibility code for its old fuzzy order. User-visible live synchronization and
 search-order changes are recorded in the changelog.
 
-## Remaining implementation constraints
+## Shipped implementation notes
 
-The design interview is complete. Implementation planning must still specify and test:
+The design interview and Plan 007 implementation are complete. The following remain the exact contracts
+and operational constraints of the shipped implementation:
 
 - Concrete custom order/search strategy type shapes and error behavior.
 - Generation-linearized scan/event handoff and callback commit ordering.
@@ -419,6 +419,10 @@ The design interview is complete. Implementation planning must still specify and
 - Exact snapshot error clearing and diagnostic ordering.
 - Carry the approved Parcel adapter handoff and Linux consistency behavior into implementation tests.
 - Generate a host-static Parcel native binding on every standalone release runner.
-- Standalone and installed-package tests that exercise real discovery and mutation.
-- Updates to `DESIGN.md`, current ranking tests, and architecture diagrams when the new implementation
-  replaces the shipped architecture.
+- Standalone and installed-package tests exercise real discovery and mutation through the smoke commands
+  `bun run --cwd apps/house smoke:file-navigator:standalone` and
+  `bun run --cwd apps/house smoke:file-navigator:installed`.
+- House adopts the package through `@house/ui/file-navigator`; the filesystem-free presentation boundary
+  remains `@house/ui/sidebar`.
+- The supported distribution is four-target npm platform packages plus standalone archives. Each
+  standalone runner uses a host-static Parcel native binding and Parcel's `createWrapper`.

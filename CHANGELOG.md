@@ -12,8 +12,16 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 - CI, npm packaging, standalone builds, and release publishing now run through workspace tasks.
 - Added local GitHub release/API verification with `vercel-labs/emulate`.
 - Extracted the House-specific sidebar pane from Browser without changing behavior.
-- Extracted the controlled file navigator into the private `@house/ui` workspace package while
-  keeping House's discovery, fuzzy ranking, keyboard routing, and product copy in the app.
+- House now uses the filesystem-aware File Navigator from `@house/ui/file-navigator` and the generic
+  `@house/ui/sidebar` presentation boundary.
+- File discovery now stays synchronized with live filesystem changes, with strict extension, hidden,
+  ignore, and hard-skip policy applied to scanner membership.
+- File navigation uses the package's fuzzy default behavior, including debounced query projection and
+  stable selection through streaming and reordering.
+- Selected-file updates, explicit refreshes, and stale reads are coordinated through reader invalidation
+  epochs.
+- Standalone and installed npm artifacts now have mutation smoke coverage, including static Parcel hosts
+  for the four supported targets.
 
 ### Fixed
 

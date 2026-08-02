@@ -21,6 +21,10 @@ bun run lint
 bun run format          # write
 bun run format:check    # check (CI uses this)
 
+bun run --cwd apps/house bench:file-navigator
+bun run build:standalone
+bun run --cwd apps/house smoke:file-navigator:standalone
+bun run --cwd apps/house smoke:file-navigator:installed
 bun run npm:pack        # stage the app package and show exactly what would ship to npm
 bun run verify:github   # exercise release APIs against vercel-labs/emulate
 ```
@@ -37,15 +41,16 @@ orchestrator; the publishable app lives in `apps/house`, while reusable controll
 components live in the private `packages/ui` source package:
 
 - `apps/house/src/cli/` — argv parsing
-- `apps/house/src/discovery/` — filesystem walk + `.gitignore`
+- `apps/house/src/discovery/` — root resolution, show policy, and root labels
 - `apps/house/src/io/` — file reads (Effect)
 - `apps/house/src/keymap/` — declarative bindings + dispatch
 - `apps/house/src/theme/` — typed palette + mutable singleton
 - `apps/house/src/Browser.tsx`, `apps/house/src/index.tsx` — TUI
 - `apps/house/test/` — tests; the root `bunfig.toml` keeps direct `bun test` scoped here
 - `apps/house/dev/` — build, release, smoke, and benchmark scripts
-- `packages/ui/src/` — generic controlled navigator state and rendering
-- `packages/ui/test/` — package-local controller and headless render tests
+- `packages/ui/src/sidebar/` — filesystem-free generic sidebar presentation
+- `packages/ui/src/file-navigator/` — policy-aware scanner, watcher, projection, selection, and rendering
+- `packages/ui/test/` — package-local navigator and headless render tests
 
 ## Testing
 

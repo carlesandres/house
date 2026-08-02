@@ -18,7 +18,7 @@ every verification gate, and update the status below.
 | 004B | Validate Parcel Watcher as the filesystem backend             | P1       | M      | 004                       | DONE — Parcel 2.6.0 approved on 2026-08-01           |
 | 005  | Extract generic Sidebar and isolate package subpaths          | P1       | M      | 004B                      | DONE                                                 |
 | 006  | Build the policy-aware File Navigator core                    | P1       | L      | 004B, 005                 | DONE                                                 |
-| 007  | Compose and migrate the filesystem File Navigator             | P1       | L      | 004B, 005-006             | TODO                                                 |
+| 007  | Compose and migrate the filesystem File Navigator             | P1       | L      | 004B, 005-006             | DONE — migration `2fcfc68`; static Parcel hosts `d537a3c` |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line
 rationale).
@@ -54,6 +54,9 @@ rationale).
 - Plan 005 extracted the generic filesystem-free Sidebar subpath while preserving the private root
   FileNavigator wrapper and House behavior. Fresh-process and clean-build-graph tests prove the
   Sidebar subpath has no filesystem backend or File Navigator dependency.
+- Plan 007 completed the migration and distribution gates: full tests, UI tests, typecheck, lint,
+  format, standalone build, npm pack, GitHub verification, and standalone/installed mutation smokes
+  passed. The migration is `2fcfc68`; static Parcel hosts are `d537a3c`.
 
 ## Decision history
 

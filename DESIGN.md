@@ -41,7 +41,8 @@ Out of scope for both: scripts piping markdown through a CLI formatter (glow's o
 
 ### 5.1 v1 — MVP
 
-v1 is a personal-use MVP. It may never be published to npm, GitHub, or Homebrew. It exists to prove the architecture and the UX.
+v1 began as a personal-use MVP to prove the architecture and UX. The current supported distribution is
+the four-target npm binary path and standalone archives; Homebrew remains deferred.
 
 v1 ships when:
 
@@ -51,10 +52,11 @@ v1 ships when:
 4. The keymap in §7.2 works end-to-end, including the help overlay.
 5. Dark and light themes ship; `--theme dark|light` selects (default `dark`). Terminal-background auto-detect is deferred to beta (§12).
 6. `width` / `--width N` controls the reader wrap column (default 80), while `wrap` / `--wrap` / `--no-wrap` controls whether the session starts with fixed-width reader wrapping enabled. During a session, `w` toggles between the fixed wrap width and filling the reader pane.
-7. The app builds as a Bun standalone binary (host platform) with a smoke test on the binary. npm package and cross-target binaries are deferred to beta (§10.5).
+7. The app ships as Bun standalone archives and through four-target npm platform packages. Supported
+   npm installs run without Bun on `PATH`; standalone runners use the matching static Parcel host.
 8. `README.md` covers install + run; `DESIGN.md` reflects shipped behavior.
 
-**v1 status: shipped** (see `LICENSE`, `README.md`, and the commit log up to and including the LICENSE commit). Subsequent work targets §10 beta gates and the deferred items listed in [`ROADMAP.md`](./ROADMAP.md) (overview in §5.3).
+**v1 status: shipped** (see `LICENSE`, `README.md`, and the commit log up to and including the LICENSE commit). Subsequent work targets the release quality gates in §10 and the deferred items listed in [`ROADMAP.md`](./ROADMAP.md) (overview in §5.3).
 
 There is no performance gate, no coverage gate, and no public release in v1.
 
@@ -176,7 +178,8 @@ Do not bind these in v1:
 
 ### 7.4 Unified browser model
 
-**Status: planned (umbrella [#118](https://github.com/carlesandres/house/issues/118)).** The principles below are committed; the implementation is sequenced across #109–#117. Any agent picking up one of those issues must read this section first — it is the contract the individual diffs are working towards.
+**Status: implemented and shipped.** The principles below describe the current Browser and File
+Navigator contract.
 
 There is **no separate file-target mode**. The Browser is the only render target. Whatever the user passes on the CLI, the resulting UI is Browser + sidebar + reader. The differences between "I named a file" and "I named a directory" collapse into a single axis: what filter query is preloaded.
 
@@ -184,13 +187,22 @@ There is **no separate file-target mode**. The Browser is the only render target
 
 **Invariant 2 — the discovery root and the query are independent inputs.** Discovery root is resolved from (highest wins): `--root <dir>` → `defaultRoot` config → built-in `"cwd"`. `defaultRoot` is string-valued — `"cwd"` (default) or `"git"` (repo root via parent walk, silent cwd fallback). The CLI positional argument never controls discovery root; that surface is reserved for `--root` and config.
 
-**Invariant 3 — the CLI positional is the initial filter query.** `house README.md` → walk the discovery root, seed the filter to `"README.md"`. The fuzzy scorer (`apps/house/src/discovery/filter.ts`) ranks `README.md` highest by preferring filename hits over folder hits and current-folder files over deeper nested ties, sticky auto-select lands on it, the reader renders it. Clearing the filter (`Ctrl+\`) reveals the full tree; `Esc` closes editing without reverting the typed query. The CLI query is _applied_ (live filter, visible in the filter chip), not _consumed_ (silently picks selection and clears) — applied is the only shape that honors Invariant 1.
+**Invariant 3 — the CLI positional is the initial filter query.** `house README.md` → the package
+File Navigator scans the discovery root and receives `"README.md"` as its initial query. Its built-in
+fuzzy search ranks the result, sticky auto-select lands on it, and the reader renders it. Clearing the
+filter (`Ctrl+\`) reveals the full tree; `Esc` closes editing without reverting the typed query. The
+CLI query is _applied_ (live filter, visible in the filter chip), not _consumed_ (silently picks
+selection and clears) — applied is the only shape that honors Invariant 1.
 
 **Invariant 4 — the selected file drives the reader, regardless of focus.** As long as exactly one file is the active selection, that file's content is in the reader pane. Focus determines where keystrokes land, not what is shown. Empty selection → blank reader. There is no separate "open this file in the reader" action distinct from "select it".
 
 **Invariant 5 — file-scoped actions are gated on `hasSelected`, not on `haveFiles`.** The File keymap group (`O` open-in-browser, `[` prev, `]` next) is available iff `selected !== null`. `haveFiles` (list non-empty) is a sloppy proxy that breaks under debounced filter + sticky select, where the list can be non-empty while no row is the selection. `hasSelected` is the honest predicate.
 
-**Invariant 6 — filter input and applied filter are separated by a 50ms debounce.** Browser owns `filterInput` (immediate), the prompt/modal semantics, and House's `filterFiles` ranking strategy. The `@house/ui` controller owns the debounced applied query, filtered snapshot, and ID-based selection. Launch applies a seeded query synchronously; `Esc` flushes the latest input and closes without reverting; `Return` flushes and opens the post-flush selection; `Ctrl+\` flushes an empty query and stays in editing mode.
+**Invariant 6 — filter input and applied filter are separated by a 50ms debounce.** Browser owns
+`filterInput` (immediate), prompt/modal semantics, and key routing. `@house/ui/file-navigator` owns
+the debounced applied query, fuzzy filtering, filtered snapshot, and ID-based selection. Launch applies
+a seeded query synchronously; `Esc` flushes the latest input and closes without reverting; `Return`
+flushes and opens the post-flush selection; `Ctrl+\` flushes an empty query and stays in editing mode.
 
 **Invariant 7 — sticky first-match auto-select.** Once the applied query produces its first non-empty result, selection snaps to the first file and stays by stable file-path ID. Later-streamed entries with higher scores may change its derived index but never reseat selection under the user. The gate re-arms when the applied query changes.
 
@@ -273,7 +285,7 @@ This component contract intentionally does not expose anchor coordinates or plac
 | Linter             | `oxlint`                                                 | Matches `ghui`.                                                                                                                                                                                                                         |
 | Formatter          | `oxfmt`                                                  | Matches `ghui`.                                                                                                                                                                                                                         |
 | Tests              | `bun test`                                               | Stays in-runtime.                                                                                                                                                                                                                       |
-| Distribution       | Bun standalone binary + npm package                      | Brew tap deferred to post-beta.                                                                                                                                                                                                         |
+| Distribution       | Four-target npm platform packages + standalone archives  | Brew tap deferred until the npm binary path is proven in a real release.                                                                                                                                                               |
 
 **Note on Effect.** The author has not shipped Effect before. Some early code will read like "Effect by way of Promises" until the patterns settle. That is expected and acceptable; refactors-toward-idiomatic-Effect are tracked as work in v1→beta.
 
@@ -281,23 +293,21 @@ This component contract intentionally does not expose anchor coordinates or plac
 
 ### 9.1 Module map
 
-House is the publishable app in the repository's Turborepo workspace. `packages/ui` is currently a
-private, source-exported package for reusable OpenTUI components, with the explicit intent to move it
-into an independent library later. Its components must have narrow responsibilities and remain
+House is the publishable app in the repository's Turborepo workspace. `packages/ui` is a private
+workspace package for reusable OpenTUI components, bundled into House through its public `./sidebar`
+and `./file-navigator` subpaths. Its components must have narrow responsibilities and remain
 agnostic to House-specific discovery rules, configuration, product copy, themes, keyboard routing,
 and application state. House supplies such policy through typed inputs rather than package imports or
 embedded assumptions.
 
-The accepted future direction in [`docs/file-navigator-design.md`](./docs/file-navigator-design.md)
-allows a Node-compatible, local-filesystem-aware File Navigator in that independent boundary while
-keeping its policy caller-supplied. That migration is not shipped yet; the module map below describes
-the current architecture. Within the app, top-level components remain directly under `src/` until a
+The shipped architecture in [`docs/file-navigator-design.md`](./docs/file-navigator-design.md) places
+the Node-compatible, local-filesystem-aware File Navigator in that boundary while keeping House policy
+caller-supplied. Within the app, top-level components remain directly under `src/` until a
 second view forces a `tui/` subdirectory:
 
 ```
 apps/house/src/
 ├── cli/argv.ts            argv parsing + usage string
-├── discovery/walk.ts      filesystem walk, gitignore (root + nested), hard skips
 ├── io/readFile.ts         Effect.tryPromise wrapper around fs/promises.readFile
 ├── keymap/keymap.ts       KeyBinding<C> + parseChord/dispatch
 ├── keymap/browser.ts      browserBindings + BrowserCtx (single source for bindings + help)
@@ -307,14 +317,14 @@ apps/house/src/
 ├── theme/registry.ts      themeDefinitions, getThemeDefinition, isThemeId
 ├── theme/colors.ts        mutable singleton `colors` + setActiveTheme
 ├── Browser.tsx            orchestration, focus, immediate filter input, reader, overlays
-├── Sidebar.tsx            House adapter: product copy, dimensions, theme mapping
 ├── HelpOverlay.tsx        renders KeyBinding[] grouped by group field
 └── index.tsx              entry: parseArgv → resolve root/query → <Browser> or `--serve`
 ```
 
 ```
 packages/ui/src/
-└── file-navigator/        controlled query/ID selection + complete navigator pane
+├── sidebar/               filesystem-free generic sidebar presentation
+└── file-navigator/        scanner, Parcel watcher, fuzzy query, selection, and navigator pane
 ```
 
 A separate `reader/` module did not justify itself in v1: opentui's `<markdown>` plus a `<scrollbox>` wrapper is small enough to live inline in `Browser.tsx`. Extracting it is a follow-up once a second consumer (e.g., URL-fetched markdown, search-result preview) appears.
@@ -322,17 +332,14 @@ A separate `reader/` module did not justify itself in v1: opentui's `<markdown>`
 ### 9.2 Data flow
 
 ```
-argv ──► cli ──► (path, options)
+argv ──► cli/config ──► (root, query, policy)
                     │
                     ▼
-              discovery ─► file list ─► House filter strategy
-                                        │
-                              @house/ui controller
-                              (applied query + selected ID)
-                                        │
-                              Sidebar adapter ─► FileNavigator
-                                        │
-                             selected file ▼
+               @house/ui/file-navigator
+               (scanner + Parcel watcher + policy)
+               (fuzzy applied query + selected ID)
+                                         │
+                              selected file ▼
                           read file → string
                                 │
                                 ▼
@@ -342,20 +349,24 @@ argv ──► cli ──► (path, options)
                           rendered pane (inside scrollbox)
 ```
 
-Discovery, parsing, and rendering are pure (Effect-y) functions of their inputs. The TUI layer wires them to user input and screen output. Keeping these layers strictly separated is what lets us add search, link-following, and live-reload later without touching the renderer.
+House resolves the root and supplies discovery policy, copy, theme, dimensions, and keyboard actions.
+The package owns scanner membership, live reconciliation, fuzzy projection, selection, and the generic
+Sidebar presentation. Browser owns the immediate filter input and reader; its reader invalidation epoch
+rejects stale reads after selection, selected-file updates, explicit refresh, or teardown.
 
 ### 9.3 Effect layering (sketch)
 
-- `Discovery` service — `walk(path, opts) → Stream<FileEntry>`.
+- `File Navigator` service — policy-aware scan and Parcel-backed live reconciliation.
 - `FileReader` service — `read(path) → Effect<string, ReadError>`.
 - `Theme` service — `detect() → Effect<Theme, never>`; produces a `SyntaxStyle` for `<markdown>`.
 - App `Layer` composes these and hands the live runtime to the React tree via `@effect/atom-react`.
 
 Errors are tagged unions. No `throw` in domain code; errors-as-values flow up to the TUI layer, which renders them inline (e.g., a "couldn't parse this file" box).
 
-## 10. beta Quality Gates
+## 10. Release Quality Gates
 
-These are gates for _calling it beta and shipping publicly_, not blockers for individual PRs.
+These are the release and regression gates for the supported public distribution, not blockers for
+individual documentation changes.
 
 ### 10.1 Performance (targets to validate)
 

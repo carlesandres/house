@@ -7,7 +7,7 @@
 
 ## Metadata
 
-- **Status:** TODO
+- **Status:** DONE
 - **Priority:** P1
 - **Effort:** L
 - **Risk:** HIGH
@@ -285,3 +285,14 @@ House and removes old paths together and must itself be green. Distribution and 
 green commits in the same PR, but the PR does not merge without all of them. Roll back the entire
 migration commit (and its distribution/docs followers) rather than restoring compatibility aliases or
 running old and new discovery in parallel.
+
+## Execution Record
+
+- Migration completed in `2fcfc68` (`refactor: migrate House to FileNavigator`). Static Parcel host
+  generation completed in `d537a3c` (`build: add static Parcel watcher hosts`).
+- Verification passed: full `bun test` (398 passed, 7 skipped), UI tests (59 passed), typecheck,
+  lint, format, standalone build, npm pack, GitHub verification, and both standalone and installed
+  mutation smoke scripts.
+- The shipped result uses `@house/ui/sidebar` and `@house/ui/file-navigator`, with strict scanner
+  membership, root-driven House policy, fuzzy default search, reader invalidation epochs, and
+  four-target npm/standalone distribution.
