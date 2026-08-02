@@ -19,6 +19,7 @@
         "@house/ui": "workspace:*",
         "@opentui/core": "0.2.15",
         "@opentui/react": "0.2.15",
+        "@parcel/watcher": "2.6.0",
         "commander": "^14.0.3",
         "effect": "4.0.0-beta.60",
         "ignore": "^7.0.5",

@@ -5,16 +5,14 @@
  * Usage:
  *   bun run dev/bench-markdown.ts <path-to-md-file> [...more-files]
  *
- * Walks the given files (or .md files in a directory), creates one
+ * Reads the given files (or recursively finds .md files in a directory), creates one
  * MarkdownRenderable, swaps `content` to each in turn, and reports
  * milliseconds per swap.
  */
 
-import { readFile, stat } from "node:fs/promises"
+import { readdir, readFile, stat } from "node:fs/promises"
 import { MarkdownRenderable, parseColor, SyntaxStyle } from "@opentui/core"
 import { createTestRenderer } from "@opentui/core/testing"
-import { Effect } from "effect"
-import { walkToArray } from "../src/discovery/walk.ts"
 
 const args = Bun.argv.slice(2)
 if (args.length === 0) {
@@ -24,11 +22,20 @@ if (args.length === 0) {
 
 const collectFiles = async (paths: readonly string[]): Promise<string[]> => {
 	const out: string[] = []
+	const collectDirectory = async (directory: string): Promise<void> => {
+		const entries = (await readdir(directory, { withFileTypes: true })).sort((a, b) =>
+			a.name.localeCompare(b.name),
+		)
+		for (const entry of entries) {
+			const path = `${directory}/${entry.name}`
+			if (entry.isDirectory()) await collectDirectory(path)
+			else if (entry.isFile() && /\.(?:md|markdown)$/i.test(entry.name)) out.push(path)
+		}
+	}
 	for (const p of paths) {
 		const s = await stat(p)
 		if (s.isDirectory()) {
-			const found = await Effect.runPromise(walkToArray(p))
-			out.push(...found.map((f) => f.path))
+			await collectDirectory(p)
 		} else {
 			out.push(p)
 		}

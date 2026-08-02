@@ -6,6 +6,7 @@ export interface ReleaseTarget {
 	readonly bunTarget: string
 	readonly binaryName: string
 	readonly opentuiNativePackage: string
+	readonly parcelNativePackage: string
 }
 
 export const releaseTargets = [
@@ -16,6 +17,7 @@ export const releaseTargets = [
 		bunTarget: "bun-darwin-arm64",
 		binaryName: "house",
 		opentuiNativePackage: "@opentui/core-darwin-arm64",
+		parcelNativePackage: "@parcel/watcher-darwin-arm64",
 	},
 	{
 		id: "darwin-x64",
@@ -24,6 +26,7 @@ export const releaseTargets = [
 		bunTarget: "bun-darwin-x64",
 		binaryName: "house",
 		opentuiNativePackage: "@opentui/core-darwin-x64",
+		parcelNativePackage: "@parcel/watcher-darwin-x64",
 	},
 	{
 		id: "linux-arm64",
@@ -33,6 +36,7 @@ export const releaseTargets = [
 		bunTarget: "bun-linux-arm64",
 		binaryName: "house",
 		opentuiNativePackage: "@opentui/core-linux-arm64",
+		parcelNativePackage: "@parcel/watcher-linux-arm64-glibc",
 	},
 	{
 		id: "linux-x64",
@@ -42,6 +46,7 @@ export const releaseTargets = [
 		bunTarget: "bun-linux-x64",
 		binaryName: "house",
 		opentuiNativePackage: "@opentui/core-linux-x64",
+		parcelNativePackage: "@parcel/watcher-linux-x64-glibc",
 	},
 ] as const satisfies readonly ReleaseTarget[]
 

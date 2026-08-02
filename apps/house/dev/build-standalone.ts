@@ -1,15 +1,20 @@
 #!/usr/bin/env bun
 
-import { mkdir, rm, writeFile } from "node:fs/promises"
+import { mkdir, rm, symlink, writeFile } from "node:fs/promises"
 import { createRequire } from "node:module"
 import { basename, relative, resolve } from "node:path"
 import pkg from "../package.json" with { type: "json" }
-import { findReleaseTarget, hostReleaseTarget, releaseTargets, type ReleaseTarget } from "./release-targets.ts"
+import {
+	findReleaseTarget,
+	hostReleaseTarget,
+	releaseTargets,
+	type ReleaseTarget,
+} from "./release-targets.ts"
+import { generateStandaloneHost } from "./standalone-host.ts"
 
 const root = resolve(import.meta.dir, "..")
 const repoRoot = resolve(root, "../..")
 const releaseDir = resolve(root, "dist/release")
-const entrypoint = resolve(root, "src/standalone.ts")
 const require = createRequire(import.meta.url)
 
 const usage = `usage: bun run dev/build-standalone.ts [target-id]
@@ -17,7 +22,7 @@ const usage = `usage: bun run dev/build-standalone.ts [target-id]
 target-id: ${releaseTargets.map((target) => target.id).join(", ")}
 
 Omit target-id to build the host target. Each target requires its matching
-@opentui/core native package to be installed.`
+@opentui/core and Parcel native packages to be installed.`
 
 const fail = (message: string): never => {
 	console.error(`build-standalone: ${message}`)
@@ -63,30 +68,60 @@ const assertNativePackagePresent = (target: ReleaseTarget): void => {
 				"Build this target on its native GitHub Actions runner.",
 		)
 	}
+	try {
+		require.resolve(target.parcelNativePackage, {
+			paths: [resolve(repoRoot, "node_modules/.bun/node_modules")],
+		})
+	} catch {
+		fail(
+			`${target.id} requires ${target.parcelNativePackage}, but it is not installed. ` +
+				"Build this target on its native GitHub Actions runner.",
+		)
+	}
 }
 
-const buildTarget = async (target: ReleaseTarget): Promise<{ readonly archive: string; readonly hash: string }> => {
+const buildTarget = async (
+	target: ReleaseTarget,
+): Promise<{ readonly archive: string; readonly hash: string }> => {
 	assertNativePackagePresent(target)
 
 	const targetDir = resolve(releaseDir, target.id)
 	const outfile = resolve(targetDir, target.binaryName)
 	const archive = resolve(releaseDir, `house-${target.id}.tar.gz`)
+	const tempDir = resolve(releaseDir, `.host-${target.id}`)
+	const generatedEntrypoint = resolve(tempDir, "standalone-host.ts")
 
 	await rm(targetDir, { force: true, recursive: true })
 	await rm(archive, { force: true })
+	await rm(tempDir, { force: true, recursive: true })
 	await mkdir(targetDir, { recursive: true })
+	await mkdir(tempDir, { recursive: true })
+	await mkdir(resolve(tempDir, "node_modules/@parcel"), { recursive: true })
+	await symlink(
+		resolve(repoRoot, "node_modules/.bun/node_modules/@parcel/watcher"),
+		resolve(tempDir, "node_modules/@parcel/watcher"),
+	)
+	await symlink(
+		resolve(repoRoot, "node_modules/.bun/node_modules", target.parcelNativePackage),
+		resolve(tempDir, "node_modules", target.parcelNativePackage),
+	)
+	await writeFile(generatedEntrypoint, generateStandaloneHost(target))
 
 	console.log(`building ${target.id}`)
-	run([
-		"bun",
-		"build",
-		"--compile",
-		"--bytecode",
-		"--format=esm",
-		`--target=${target.bunTarget}`,
-		`--outfile=${outfile}`,
-		entrypoint,
-	])
+	try {
+		run([
+			"bun",
+			"build",
+			"--compile",
+			"--bytecode",
+			"--format=esm",
+			`--target=${target.bunTarget}`,
+			`--outfile=${outfile}`,
+			generatedEntrypoint,
+		])
+	} finally {
+		await rm(tempDir, { force: true, recursive: true })
+	}
 
 	const host = hostReleaseTarget()
 	if (host?.id === target.id) {

@@ -8,9 +8,9 @@
 	},
 	"scripts": {
 		"build": "tsc --noEmit",
-		"format": "oxfmt src/ test/",
-		"format:check": "oxfmt --check src/ test/",
-		"lint": "oxlint --tsconfig tsconfig.json src/ test/",
+		"format": "oxfmt src/ test/ dev/",
+		"format:check": "oxfmt --check src/ test/ dev/",
+		"lint": "oxlint --tsconfig tsconfig.json src/ test/ dev/",
 		"test": "bun test",
 		"typecheck": "tsc --noEmit"
 	},
