@@ -1,6 +1,6 @@
 {
 	"name": "@carlesandres/house",
-	"version": "0.5.1",
+	"version": "0.5.2",
 	"description": "TUI-first markdown reader on opentui",
 	"type": "module",
 	"license": "MIT",
@@ -23,7 +23,11 @@
 		"glow",
 		"house"
 	],
-	"files": ["dist/bin.js", "dist/index.js", "CHANGELOG.md"],
+	"files": [
+		"dist/bin.js",
+		"dist/index.js",
+		"CHANGELOG.md"
+	],
 	"publishConfig": {
 		"access": "public",
 		"provenance": true,
@@ -75,7 +79,8 @@
 		"marked": "^18.0.4",
 		"react": "19.2.6",
 		"scheduler": "0.27.0",
-		"string-width": "7.2.0"
+		"string-width": "7.2.0",
+		"web-tree-sitter": "0.25.10"
 	},
 	"devDependencies": {
 		"@effect/language-service": "0.86.2",

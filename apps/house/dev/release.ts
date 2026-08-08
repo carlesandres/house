@@ -35,8 +35,24 @@ type PullRequestCheck = {
 const waitForPullRequestChecks = async (number: string): Promise<void> => {
 	const deadline = Date.now() + 30 * 60 * 1000
 	while (Date.now() < deadline) {
-		const output = run("gh", ["pr", "checks", number, "--json", "name,state,bucket,link"])
-		const checks = JSON.parse(output) as PullRequestCheck[]
+		// `gh pr checks` exits non-zero when no checks are reported yet; treat that
+		// as "still waiting" rather than a hard failure.
+		const result = Bun.spawnSync(["gh", "pr", "checks", number, "--json", "name,state,bucket,link"], {
+			cwd: repoRoot,
+			stdout: "pipe",
+			stderr: "pipe",
+		})
+		const output = new TextDecoder().decode(result.stdout).trim()
+		const stderr = new TextDecoder().decode(result.stderr).trim()
+		if (!result.success && /no checks reported/i.test(stderr)) {
+			console.log("waiting for CI checks to be reported...")
+			await Bun.sleep(5000)
+			continue
+		}
+		if (!result.success) {
+			throw new Error(`gh pr checks ${number} failed: ${stderr || output}`)
+		}
+		const checks = JSON.parse(output || "[]") as PullRequestCheck[]
 		if (checks.length === 0) {
 			console.log("waiting for CI checks to be reported...")
 			await Bun.sleep(5000)

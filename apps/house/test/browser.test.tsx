@@ -97,6 +97,7 @@ const renderBrowser = (
 	const normalizedElement = React.isValidElement<React.ComponentProps<typeof Browser>>(element)
 		? React.cloneElement(element, {
 				renderedPathDebounceMs: 0,
+				watch: element.props.watch ?? false,
 			})
 		: element
 	const wrapped = React.createElement(
@@ -320,6 +321,15 @@ const waitForFrameContaining = async (text: string): Promise<string> => {
 	return setup!.captureCharFrame()
 }
 
+const waitForFrame = async (predicate: (frame: string) => boolean): Promise<string> => {
+	for (let i = 0; i < 10; i++) {
+		await settleBrowser()
+		const frame = setup!.captureCharFrame()
+		if (predicate(frame)) return frame
+	}
+	return setup!.captureCharFrame()
+}
+
 const expectSidebarBlankLineBetween = (frame: string, before: string, after: string): void => {
 	const lines = frame.split("\n")
 	const beforeIndex = lines.findIndex((line) => line.includes(before))
@@ -351,13 +361,20 @@ describe("Browser — selection", () => {
 	test("preserves the selected file when a streamed match ranks ahead of it", async () => {
 		let appendHigherRankedMatch: (() => void) | null = null
 		const StreamedFiles = () => {
-			const [root] = React.useState(() => makeFiles(["docs/readme.md"]))
+			const [root] = React.useState(() => makeFiles(["readme.md", "docs/readme.md"]))
+			const [includeHigherRankedMatch, setIncludeHigherRankedMatch] = React.useState(false)
 			appendHigherRankedMatch = () => {
-				writeFileSync(join(root, "readme.md"), "")
+				setIncludeHigherRankedMatch(true)
 			}
 			return (
 				<Browser
 					root={root}
+					watch={false}
+					policy={{
+						revision: includeHigherRankedMatch ? 1 : 0,
+						includeFile: (path) =>
+							includeHigherRankedMatch || path.endsWith("/docs/readme.md"),
+					}}
 					initialQuery="readme"
 					readFile={makeReader({ "docs/readme.md": "docs", "readme.md": "root" })}
 					onQuit={() => {}}
@@ -368,17 +385,23 @@ describe("Browser — selection", () => {
 		await act(async () => {
 			setup = await renderBrowser(<StreamedFiles />, VIEWPORT)
 		})
-		await stepFrame(setup!.renderOnce)
-		expect(readerTitleContains(setup!.captureCharFrame(), "docs/readme.md")).toBe(true)
+		const initialFrame = await waitForFrame((frame) => readerTitleContains(frame, "docs/readme.md"))
+		expect(readerTitleContains(initialFrame, "docs/readme.md")).toBe(true)
 
 		await act(async () => appendHigherRankedMatch?.())
-		await stepFrame(setup!.renderOnce)
-		const frame = setup!.captureCharFrame()
+		const frame = await waitForFrame((candidate) => {
+			const lines = candidate.split("\n").map((line) => line.split("│")[0] ?? line)
+			return (
+				lines.some((line) => line.includes("readme.md") && !line.includes("docs")) &&
+				lines.some((line) => line.includes("readme.md docs"))
+			)
+		})
 		const lines = frame.split("\n")
-		const rootIndex = lines.findIndex(
+		const sidebarRows = lines.map((line) => line.split("│")[0] ?? line)
+		const rootIndex = sidebarRows.findIndex(
 			(line) => line.includes("readme.md") && !line.includes("docs"),
 		)
-		const docsIndex = lines.findIndex((line) => line.includes("readme.md docs"))
+		const docsIndex = sidebarRows.findIndex((line) => line.includes("readme.md docs"))
 		expect(rootIndex).toBeGreaterThanOrEqual(0)
 		expect(docsIndex).toBeGreaterThan(rootIndex)
 		expect(readerTitleContains(frame, "docs/readme.md")).toBe(true)
@@ -1951,10 +1974,14 @@ describe("Browser — sidebar virtualization", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
-		expect(frame).toContain("f00.md")
-		expect(frame).toContain("f05.md")
-		expect(frame).not.toContain("f06.md")
-		expect(frame).not.toContain("f19.md")
+		const sidebar = frame
+			.split("\n")
+			.map((line) => line.split("│")[0] ?? line)
+			.join("\n")
+		expect(sidebar).toContain("f00.md")
+		expect(sidebar).toContain("f05.md")
+		expect(sidebar).not.toContain("f06.md")
+		expect(sidebar).not.toContain("f19.md")
 	})
 
 	test("j past the bottom of the visible window scrolls one row at a time", async () => {
@@ -4098,6 +4125,7 @@ describe("Browser — discovery toggle (#145)", () => {
 		return (
 			<Browser
 				root={root}
+				watch={false}
 				policy={{
 					revision: showAll ? "all" : "visible",
 					includeFile: (path) => showAll || !path.split(/[\\/]/).pop()?.startsWith("."),
@@ -4158,8 +4186,7 @@ describe("Browser — discovery toggle (#145)", () => {
 		await act(async () => {
 			setup!.mockInput.pressKey("a", { shift: true })
 		})
-		await stepFrame(setup!.renderOnce)
-		const frame = setup!.captureCharFrame()
+		const frame = await waitForFrame((candidate) => readerTitleContains(candidate, ".hidden.md"))
 		expect(frame).toContain(".hidden.md")
 		expect(readerTitleContains(frame, ".hidden.md")).toBe(true)
 	})

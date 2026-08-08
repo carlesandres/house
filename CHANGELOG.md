@@ -6,6 +6,8 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 
 ## [Unreleased]
 
+## [0.5.2] — 2026-08-01
+
 ### Changed
 
 - Converted the repository to a Turborepo monorepo with house under `apps/house`.
@@ -27,6 +29,13 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 
 - Streamed matches that rank ahead of the current row no longer change the selected file.
 - Pressing Return before the filter debounce elapses now opens the post-flush matching file.
+- Standalone/npm binaries again render markdown with syntax highlighting. The compile step
+  now embeds OpenTUI's tree-sitter parser worker and sets `OTUI_TREE_SITTER_WORKER_PATH`
+  (same approach as OpenCode; see opentui#807).
+- Release version bumps no longer retarget unpublished platform optionalDependencies in the
+  monorepo lockfile, so CI can install before those packages are on npm. The published main
+  package still pins platform packages to the release version.
+
 
 ## [0.5.1] — 2026-07-25
 
@@ -390,7 +399,8 @@ The v1 MVP, published as `@carlesandres/openmdr` on npm.
 
 Search, stdin, URL fetching, cross-file link following, `$EDITOR` hand-off, syntax highlighting, persistent config, OS-appearance auto-detect, single-binary distribution (issue [#2](https://github.com/carlesandres/openmdr/issues/2)), Homebrew tap. All tracked.
 
-[Unreleased]: https://github.com/carlesandres/house/compare/v0.5.1...HEAD
+[Unreleased]: https://github.com/carlesandres/house/compare/v0.5.2...HEAD
+[0.5.2]: https://github.com/carlesandres/house/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/carlesandres/house/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/carlesandres/house/compare/v0.4.14...v0.5.0
 [0.4.14]: https://github.com/carlesandres/house/compare/v0.4.13...v0.4.14
