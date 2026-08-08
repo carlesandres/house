@@ -424,7 +424,7 @@ const runNodeProbe = async (
 			tsc,
 			["-p", resolve(packageRoot, "tsconfig.node-probe.json"), "--outDir", outputRoot],
 			packageRoot,
-			timeoutMs,
+			120_000,
 		)
 		let output: NodeProcessResult
 		if (probe === "imports") {
