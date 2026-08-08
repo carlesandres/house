@@ -2038,9 +2038,13 @@ describe("Browser — sidebar virtualization", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
+		const sidebar = frame
+			.split("\n")
+			.map((line) => line.split("│")[0] ?? line)
+			.join("\n")
 		// Filtered list shows only f03.md.
-		expect(frame).toContain("f03.md")
-		expect(frame).not.toContain("f19.md")
+		expect(sidebar).toContain("f03.md")
+		expect(sidebar).not.toContain("f19.md")
 		// On Esc the cursor should return to f03 (the highlighted match), not
 		// f19, because closeFilter translates by path, not by numeric index.
 		await act(async () => {
