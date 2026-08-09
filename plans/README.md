@@ -55,9 +55,8 @@ rationale).
   FileNavigator wrapper and House behavior. Fresh-process and clean-build-graph tests prove the
   Sidebar subpath has no filesystem backend or File Navigator dependency.
 - Plan 007 completed the migration at `2fcfc68` and static Parcel hosts at `d537a3c`. The package-owned
-  mutation harness runs in CI and the native publish matrix, but production batching evidence, an
-  artifact-coupled mutation seam, and the remaining React commit-safety regressions are still required
-  before the plan returns to `DONE`.
+  mutation harness runs in CI and the native publish matrix, but an artifact-coupled mutation seam and
+  the production batching comparison are still required before the plan returns to `DONE`.
 
 ## Decision history
 

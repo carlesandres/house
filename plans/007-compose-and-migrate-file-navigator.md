@@ -302,6 +302,9 @@ running old and new discovery in parallel.
 - The UI package release suite passed five consecutive runs. Native Chokidar probes remain available as
   rejected-backend evidence but no longer make the Parcel-backed release gate depend on that abandoned
   backend's event batching.
+- Public component regressions cover callback churn, abandoned renders, synchronous actions, root and
+  watcher generation replacement, late callbacks, shutdown, selected invalidation, custom/default rows,
+  basename-first truncation, appearance/header forwarding, and all four empty reasons.
 - Remaining before `DONE`: record and review the old/new production batching comparison; decide and
   implement how mutations run through the installed House artifact rather than only the package-owned
-  compiled host; complete the outstanding React commit-safety regression matrix.
+  compiled host.
