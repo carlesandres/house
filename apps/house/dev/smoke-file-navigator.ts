@@ -2,7 +2,7 @@
 
 import { access, mkdir, rm, symlink, writeFile } from "node:fs/promises"
 import { createRequire } from "node:module"
-import { resolve } from "node:path"
+import { delimiter, dirname, resolve } from "node:path"
 import pkg from "../package.json" with { type: "json" }
 import { hostReleaseTarget } from "./release-targets.ts"
 
@@ -25,9 +25,10 @@ try {
 }
 
 const binary =
-	mode === "standalone"
+	process.env.HOUSE_FILE_NAVIGATOR_SMOKE_BINARY ??
+	(mode === "standalone"
 		? resolve(appRoot, "dist/release", target.id, "house")
-		: resolve(appRoot, "dist/npm/main/dist/bin.js")
+		: resolve(appRoot, "dist/npm/main/dist/bin.js"))
 try {
 	await access(binary)
 } catch {
@@ -35,7 +36,19 @@ try {
 	process.exit(1)
 }
 
-const version = Bun.spawnSync({ cmd: [binary, "--version"], stderr: "pipe", stdout: "pipe" })
+const sanitizedPath = [
+	dirname(binary),
+	...(process.env.PATH ?? "")
+		.split(delimiter)
+		.filter((entry) => entry.length > 0 && entry !== dirname(process.execPath) && !entry.includes(".bun")),
+].join(delimiter)
+const smokeEnv = { ...process.env, PATH: sanitizedPath }
+const version = Bun.spawnSync({
+	cmd: [binary, "--version"],
+	env: smokeEnv,
+	stderr: "pipe",
+	stdout: "pipe",
+})
 const stdout = new TextDecoder().decode(version.stdout).trim()
 const stderr = new TextDecoder().decode(version.stderr).trim()
 if (!version.success || stdout !== pkg.version || stderr !== "") {
@@ -89,7 +102,7 @@ try {
 	const result = Bun.spawnSync({
 		cmd: [host],
 		cwd: mode === "installed" ? resolve(appRoot, "dist/npm/main") : smokeRoot,
-		env: { ...process.env, PATH: "/usr/bin:/bin" },
+		env: smokeEnv,
 		stderr: "inherit",
 		stdout: "inherit",
 	})

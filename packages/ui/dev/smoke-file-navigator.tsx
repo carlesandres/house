@@ -149,11 +149,12 @@ export const runFileNavigatorSmoke = async (): Promise<void> => {
 			"atomic replacement",
 		)
 
-		await writeFile(join(root, "child.md"), "child")
+		await mkdir(join(root, "new-directory"))
+		await writeFile(join(root, "new-directory", "child.md"), "child")
 		await waitFor(
 			setup,
 			navigator,
-			(snapshot) => names(snapshot).includes("child.md"),
+			(snapshot) => names(snapshot).includes("new-directory/child.md"),
 			"immediate child",
 		)
 		const snapshotsBeforeIgnore = snapshotCount
@@ -167,6 +168,20 @@ export const runFileNavigatorSmoke = async (): Promise<void> => {
 				!snapshot.scanning,
 			"ignored file",
 		)
+		await writeFile(join(root, ".gitignore"), "")
+		await waitFor(
+			setup,
+			navigator,
+			(snapshot) => names(snapshot).includes("ignored.md"),
+			"ignore removal",
+		)
+		await writeFile(join(root, ".gitignore"), "ignored.md\n")
+		await waitFor(
+			setup,
+			navigator,
+			(snapshot) => !names(snapshot).includes("ignored.md"),
+			"ignore restoration",
+		)
 
 		await rm(join(root, "created.md"))
 		const removed = await waitFor(
@@ -175,7 +190,13 @@ export const runFileNavigatorSmoke = async (): Promise<void> => {
 			(snapshot) => !names(snapshot).includes("created.md"),
 			"removed file",
 		)
-		expectFiles(removed, ["atomic.md", "child.md", "equal.md", "initial.md", "nested/deep.md"])
+		expectFiles(removed, [
+			"atomic.md",
+			"equal.md",
+			"initial.md",
+			"nested/deep.md",
+			"new-directory/child.md",
+		])
 		if (diagnostics.length > 0)
 			throw new Error(
 				`unexpected diagnostics: ${diagnostics.map((item) => item.error.message).join(", ")}`,

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import { readFileSync } from "node:fs"
 import { bumpStableVersion, isStableVersion, releaseChangelog } from "../dev/release-plan.ts"
 import { generateStandaloneHost } from "../dev/standalone-host.ts"
 import { releaseTargets } from "../dev/release-targets.ts"
@@ -41,5 +42,16 @@ describe("release plan", () => {
 		expect(source).toContain('import { createWrapper } from "@parcel/watcher/wrapper"')
 		expect(source.indexOf("createWrapper")).toBeLessThan(source.indexOf("await import"))
 		expect(source).toContain("__house_file_navigator_watcher_factory__")
+	})
+
+	test("pins CI and publish jobs to the approved Bun runtime", () => {
+		const ci = readFileSync(new URL("../../../.github/workflows/ci.yml", import.meta.url), "utf8")
+		const publish = readFileSync(
+			new URL("../../../.github/workflows/publish.yml", import.meta.url),
+			"utf8",
+		)
+		expect(ci.match(/bun-version: 1\.3\.10/g)).toHaveLength(2)
+		expect(publish.match(/bun-version: 1\.3\.10/g)).toHaveLength(3)
+		expect(`${ci}\n${publish}`).not.toContain("bun-version: latest")
 	})
 })
