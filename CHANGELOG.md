@@ -22,13 +22,14 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
   stable selection through streaming and reordering.
 - Selected-file updates, explicit refreshes, and stale reads are coordinated through reader invalidation
   epochs.
-- Standalone and installed npm artifacts now have mutation smoke coverage, including static Parcel hosts
-  for the four supported targets.
+- Release builds now run package-owned filesystem mutation coverage with static Parcel hosts for the
+  four supported targets.
 
 ### Fixed
 
 - Streamed matches that rank ahead of the current row no longer change the selected file.
 - Pressing Return before the filter debounce elapses now opens the post-flush matching file.
+- A stable File Navigator ref now switches to the committed root instead of retaining its first root.
 - Standalone/npm binaries again render markdown with syntax highlighting. The compile step
   now embeds OpenTUI's tree-sitter parser worker and sets `OTUI_TREE_SITTER_WORKER_PATH`
   (same approach as OpenCode; see opentui#807).

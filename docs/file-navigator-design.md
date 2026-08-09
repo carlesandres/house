@@ -284,8 +284,9 @@ The feasibility choice passed these adoption gates:
 3. Verify the scanner and backend through actual discovery and mutation in standalone binaries on the
    four target combinations, not only `--version`.
 
-The production standalone and installed-package mutation smokes passed as Plan 007 release integration
-gates. They do not reopen the approved backend decision when the exact approved build path is used.
+The package-owned mutation host passes against the standalone and installed build paths and runs on
+native release runners. Plan 007 still requires a decision on coupling those mutations to the installed
+House artifact itself. This remaining integration gate does not reopen the approved backend decision.
 
 Chokidar 5.0.0 remains rejected after Bun 1.3.10 crashed in a required 10k event-mode cell. Parcel
 Watcher passed all 11 correctness scenarios and 3/3 repeats on darwin-arm64 native, darwin-x64 under

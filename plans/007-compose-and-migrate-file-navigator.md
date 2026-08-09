@@ -7,7 +7,8 @@
 
 ## Metadata
 
-- **Status:** DONE
+- **Status:** IN PROGRESS — migration complete; production benchmark and artifact-coupled mutation
+  evidence remain
 - **Priority:** P1
 - **Effort:** L
 - **Risk:** HIGH
@@ -290,9 +291,12 @@ running old and new discovery in parallel.
 
 - Migration completed in `2fcfc68` (`refactor: migrate House to FileNavigator`). Static Parcel host
   generation completed in `d537a3c` (`build: add static Parcel watcher hosts`).
-- Verification passed: full `bun test` (398 passed, 7 skipped), UI tests (59 passed), typecheck,
-  lint, format, standalone build, npm pack, GitHub verification, and both standalone and installed
-  mutation smoke scripts.
+- Verification passed for the migration: full tests, UI tests, typecheck, lint, format, standalone
+  build, npm pack, GitHub verification, and the package-owned standalone/installed mutation smoke
+  scripts. CI and publish runners are pinned to Bun 1.3.10; native publish runners execute that smoke.
 - The shipped result uses `@house/ui/sidebar` and `@house/ui/file-navigator`, with strict scanner
   membership, root-driven House policy, fuzzy default search, reader invalidation epochs, and
   four-target npm/standalone distribution.
+- Remaining before `DONE`: record and review the old/new production batching comparison; decide and
+  implement how mutations run through the installed House artifact rather than only the package-owned
+  compiled host; complete the outstanding React commit-safety and reader-epoch regression matrix.
