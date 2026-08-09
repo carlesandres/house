@@ -60,6 +60,11 @@ Direct `bun test` remains intentionally scoped to `apps/house/test` by the root 
 `bun run test` for the CI-equivalent all-workspace test gate, or
 `bun run --cwd packages/ui test` while iterating on the reusable package.
 
+The native Chokidar probes that preserve the rejected backend evidence are intentionally outside the
+release gate. Run `bun run --cwd packages/ui evidence:rejected-backend` when reproducing or extending
+that historical evidence; the command may fail by reproducing a rejected backend contract violation.
+The normal package suite still validates its deterministic evidence parser and orchestration logic.
+
 Add tests alongside features. We don't enforce coverage, but every keymap binding should have at least one integration test (see §10.2 of DESIGN.md for the v2 gate).
 
 For reader empty-state guidance, test the product contract rather than the exact source shape: the footer should continue to reflect currently actionable controls, while the reader tips should read like short English guidance about features/workflows and usually mention the relevant key inside the sentence. Only one reader tip should appear at a time; tips are ordered by relevance and rotate each time the reader empty state appears. Prefer asserting on representative sentences in the generic empty state and the zero-match filtered state, plus at least one leave/re-enter rotation check.

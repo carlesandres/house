@@ -92,6 +92,8 @@ const runNodeProbe = async (args: readonly string[], evidencePath?: string): Pro
 		child.once("exit", (code) => resolveExit(code ?? -1))
 	})
 
+const evidenceTest = process.env.HOUSE_UI_RUN_REJECTED_BACKEND_EVIDENCE === "1" ? test : test.skip
+
 const emptyEvidenceMarkdown = `# Test Evidence
 
 <!-- backend-feasibility:evidence:start -->
@@ -182,29 +184,41 @@ describe("backend feasibility orchestration", () => {
 		}
 	})
 
-	test("proves real event-mode filesystem correctness", async () => {
-		const report = await runCorrectness(false)
-		expect(report.usePolling).toBe(false)
-		expect(report.scenarios).toContain("symlink-root-and-followed-external-cycle")
-	}, 30_000)
+	evidenceTest(
+		"proves real event-mode filesystem correctness",
+		async () => {
+			const report = await runCorrectness(false)
+			expect(report.usePolling).toBe(false)
+			expect(report.scenarios).toContain("symlink-root-and-followed-external-cycle")
+		},
+		30_000,
+	)
 
-	test("forces every initial handoff phase in polling mode", async () => {
-		await runPhaseInterleavingCorrectness(true)
-	}, 10_000)
+	evidenceTest(
+		"forces every initial handoff phase in polling mode",
+		async () => {
+			await runPhaseInterleavingCorrectness(true)
+		},
+		10_000,
+	)
 
-	test("proves readiness-bearing replacement phases in event and polling modes", async () => {
-		for (const usePolling of [false, true]) {
-			const proof = await runReplacementPhaseCorrectness(usePolling)
-			expect(proof.generation).toMatchObject({
-				kind: "replacement",
-				committed: true,
-			})
-			expect(proof.generation.generationId).toMatch(/^generation-\d+$/)
-			expect(proof.generation.parentInvalidations).toHaveLength(1)
-			expect(proof.logicalPublication.added).toEqual(proof.expectedAdditions)
-			expect(proof.postReadyPublication.added).toEqual([proof.postReadyAddition])
-		}
-	}, 20_000)
+	evidenceTest(
+		"proves readiness-bearing replacement phases in event and polling modes",
+		async () => {
+			for (const usePolling of [false, true]) {
+				const proof = await runReplacementPhaseCorrectness(usePolling)
+				expect(proof.generation).toMatchObject({
+					kind: "replacement",
+					committed: true,
+				})
+				expect(proof.generation.generationId).toMatch(/^generation-\d+$/)
+				expect(proof.generation.parentInvalidations).toHaveLength(1)
+				expect(proof.logicalPublication.added).toEqual(proof.expectedAdditions)
+				expect(proof.postReadyPublication.added).toEqual([proof.postReadyAddition])
+			}
+		},
+		20_000,
+	)
 
 	test("recognizes the durable evidence as truthful and rejected", async () => {
 		expect(await validateEvidence()).toMatchObject({
@@ -521,66 +535,74 @@ describe("backend feasibility orchestration", () => {
 		expect(polling?.missingArtifacts).toContain("complete-benchmark-matrix")
 	})
 
-	test("serializes concurrent recorded Node probes without output collisions", async () => {
-		const directory = await mkdtemp(join(tmpdir(), "house-ui-concurrent-evidence-"))
-		const evidencePath = join(directory, "evidence.md")
-		try {
-			await writeFile(evidencePath, emptyEvidenceMarkdown)
-			const exitCodes = await Promise.all([
-				runNodeProbe(["imports", "--record"], evidencePath),
-				runNodeProbe(["correctness", "--record"], evidencePath),
-				runNodeProbe(["correctness", "--polling", "--record"], evidencePath),
-			])
-			expect(exitCodes).toEqual([0, 0, 0])
-			const evidence = await parseEvidenceMarkdown(evidencePath)
-			expect(evidence.artifacts).toHaveLength(3)
-			expect(evidence.artifacts.map((entry) => `${entry.kind}:${entry.mode}`).sort()).toEqual([
-				"node-baseline:event",
-				"node-baseline:polling",
-				"node-import:imports",
-			])
-			expect(validateEvidenceDocument(evidence).valid).toBe(true)
-			const cacheEntries = await readdir(join(process.cwd(), "node_modules/.cache"))
-			expect(cacheEntries.filter((entry) => entry.startsWith("house-ui-node-probe-"))).toEqual([])
-		} finally {
-			await rm(directory, { recursive: true, force: true })
-		}
-	}, 30_000)
-
-	test("times out a hanging Node child, records failure, and leaves no child or output", async () => {
-		const directory = await mkdtemp(join(tmpdir(), "house-ui-timeout-evidence-"))
-		const evidencePath = join(directory, "evidence.md")
-		const pidPath = join(directory, "child.pid")
-		try {
-			await writeFile(evidencePath, emptyEvidenceMarkdown)
-			const startedAt = performance.now()
-			const exitCode = await runNodeProbe(
-				["imports", "--hang", "--pid-file", pidPath, "--timeout-ms", "1000", "--record"],
-				evidencePath,
-			)
-			expect(exitCode).not.toBe(0)
-			expect(performance.now() - startedAt).toBeLessThan(10_000)
-			const childPid = Number(await readFile(pidPath, "utf8"))
-			let childAlive = true
+	evidenceTest(
+		"serializes concurrent recorded Node probes without output collisions",
+		async () => {
+			const directory = await mkdtemp(join(tmpdir(), "house-ui-concurrent-evidence-"))
+			const evidencePath = join(directory, "evidence.md")
 			try {
-				process.kill(childPid, 0)
-			} catch {
-				childAlive = false
+				await writeFile(evidencePath, emptyEvidenceMarkdown)
+				const exitCodes = await Promise.all([
+					runNodeProbe(["imports", "--record"], evidencePath),
+					runNodeProbe(["correctness", "--record"], evidencePath),
+					runNodeProbe(["correctness", "--polling", "--record"], evidencePath),
+				])
+				expect(exitCodes).toEqual([0, 0, 0])
+				const evidence = await parseEvidenceMarkdown(evidencePath)
+				expect(evidence.artifacts).toHaveLength(3)
+				expect(evidence.artifacts.map((entry) => `${entry.kind}:${entry.mode}`).sort()).toEqual([
+					"node-baseline:event",
+					"node-baseline:polling",
+					"node-import:imports",
+				])
+				expect(validateEvidenceDocument(evidence).valid).toBe(true)
+				const cacheEntries = await readdir(join(process.cwd(), "node_modules/.cache"))
+				expect(cacheEntries.filter((entry) => entry.startsWith("house-ui-node-probe-"))).toEqual([])
+			} finally {
+				await rm(directory, { recursive: true, force: true })
 			}
-			expect(childAlive).toBe(false)
-			const evidence = await parseEvidenceMarkdown(evidencePath)
-			expect(evidence.artifacts).toHaveLength(1)
-			expect(evidence.artifacts[0]).toMatchObject({
-				kind: "node-import",
-				provenance: "emitted-node",
-				mode: "imports",
-				result: null,
-			})
-			expect(evidence.artifacts[0]?.failure).toContain("timed out after 1000ms")
-			const cacheEntries = await readdir(join(process.cwd(), "node_modules/.cache"))
-			expect(cacheEntries.filter((entry) => entry.startsWith("house-ui-node-probe-"))).toEqual([])
-		} finally {
-			await rm(directory, { recursive: true, force: true })
-		}
-	}, 15_000)
+		},
+		30_000,
+	)
+
+	evidenceTest(
+		"times out a hanging Node child, records failure, and leaves no child or output",
+		async () => {
+			const directory = await mkdtemp(join(tmpdir(), "house-ui-timeout-evidence-"))
+			const evidencePath = join(directory, "evidence.md")
+			const pidPath = join(directory, "child.pid")
+			try {
+				await writeFile(evidencePath, emptyEvidenceMarkdown)
+				const startedAt = performance.now()
+				const exitCode = await runNodeProbe(
+					["imports", "--hang", "--pid-file", pidPath, "--timeout-ms", "1000", "--record"],
+					evidencePath,
+				)
+				expect(exitCode).not.toBe(0)
+				expect(performance.now() - startedAt).toBeLessThan(10_000)
+				const childPid = Number(await readFile(pidPath, "utf8"))
+				let childAlive = true
+				try {
+					process.kill(childPid, 0)
+				} catch {
+					childAlive = false
+				}
+				expect(childAlive).toBe(false)
+				const evidence = await parseEvidenceMarkdown(evidencePath)
+				expect(evidence.artifacts).toHaveLength(1)
+				expect(evidence.artifacts[0]).toMatchObject({
+					kind: "node-import",
+					provenance: "emitted-node",
+					mode: "imports",
+					result: null,
+				})
+				expect(evidence.artifacts[0]?.failure).toContain("timed out after 1000ms")
+				const cacheEntries = await readdir(join(process.cwd(), "node_modules/.cache"))
+				expect(cacheEntries.filter((entry) => entry.startsWith("house-ui-node-probe-"))).toEqual([])
+			} finally {
+				await rm(directory, { recursive: true, force: true })
+			}
+		},
+		15_000,
+	)
 })

@@ -299,6 +299,9 @@ running old and new discovery in parallel.
   four-target npm/standalone distribution.
 - Browser reader regressions cover equal-public-metadata rewrites, coalesced reloads, invalidation while
   selection is ahead of reader debounce, stale same-path completion, and stale root completion.
+- The UI package release suite passed five consecutive runs. Native Chokidar probes remain available as
+  rejected-backend evidence but no longer make the Parcel-backed release gate depend on that abandoned
+  backend's event batching.
 - Remaining before `DONE`: record and review the old/new production batching comparison; decide and
   implement how mutations run through the installed House artifact rather than only the package-owned
   compiled host; complete the outstanding React commit-safety regression matrix.
