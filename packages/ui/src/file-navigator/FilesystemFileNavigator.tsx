@@ -152,6 +152,7 @@ const Component = (props: FileNavigatorProps, ref: Ref<FileNavigatorHandle>) => 
 		appearance,
 	} = props
 	const normalizedRoot = normalizeRoot(root)
+	const activeRootRef = useRef(normalizedRoot)
 	const engineRef = useRef<FileNavigatorCore | null>(null)
 	const configRef = useRef<{
 		root: string
@@ -177,24 +178,28 @@ const Component = (props: FileNavigatorProps, ref: Ref<FileNavigatorHandle>) => 
 		snapshotOf(null, normalizedRoot, true, null),
 	)
 	useLayoutEffect(() => {
+		activeRootRef.current = normalizedRoot
 		callbacks.current = { onSelectionChange, onSelectedFileInvalidated, onDiagnostic, onSnapshot }
-	}, [onSelectionChange, onSelectedFileInvalidated, onDiagnostic, onSnapshot])
+	}, [normalizedRoot, onSelectionChange, onSelectedFileInvalidated, onDiagnostic, onSnapshot])
 
-	const getSnapshot = (): FileNavigatorSnapshot =>
+	const getSnapshotForRoot = (snapshotRoot: string): FileNavigatorSnapshot =>
 		snapshotOf(
-			currentEngine(),
-			normalizedRoot,
+			currentEngineForRoot(snapshotRoot),
+			snapshotRoot,
 			scanningRef.current ||
-				(currentEngine() === null && (engineRef.current !== null || configRef.current === null)),
+				(currentEngineForRoot(snapshotRoot) === null &&
+					(engineRef.current !== null || configRef.current === null)),
 			errorRef.current,
 		)
+	const getSnapshot = (): FileNavigatorSnapshot => getSnapshotForRoot(activeRootRef.current)
 	const redraw = (): void => render()
 	redrawRef.current = redraw
-	const currentEngine = (): FileNavigatorCore | null => {
+	const currentEngineForRoot = (snapshotRoot: string): FileNavigatorCore | null => {
 		const engine = engineRef.current
 		const config = configRef.current
-		return engine && config?.root === normalizedRoot ? engine : null
+		return engine && config?.root === snapshotRoot ? engine : null
 	}
+	const currentEngine = (): FileNavigatorCore | null => currentEngineForRoot(activeRootRef.current)
 	const flushQuery = (next: string): FileNavigatorSnapshot => {
 		if (timerRef.current !== null) clearTimeout(timerRef.current)
 		timerRef.current = null
@@ -397,7 +402,7 @@ const Component = (props: FileNavigatorProps, ref: Ref<FileNavigatorHandle>) => 
 		}
 	}, [query, debounceMs])
 
-	const snapshot = getSnapshot()
+	const snapshot = getSnapshotForRoot(normalizedRoot)
 	const emptyReason: FileNavigatorEmptyReason = snapshot.scanning
 		? "scanning"
 		: snapshot.error && snapshot.files.length === 0

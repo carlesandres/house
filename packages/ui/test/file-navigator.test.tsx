@@ -5,7 +5,7 @@ import { tmpdir } from "node:os"
 import { testRender } from "@opentui/react/test-utils"
 import { act, createRef, useState } from "react"
 import { FileNavigator } from "../src/file-navigator/index.ts"
-import type { FileNavigatorHandle } from "../src/file-navigator/index.ts"
+import type { FileNavigatorHandle, FileNavigatorSnapshot } from "../src/file-navigator/index.ts"
 
 beforeAll(() => {
 	// @ts-expect-error React's act environment flag is intentionally global.
@@ -59,8 +59,11 @@ describe("public FileNavigator", () => {
 		const snapshot = handle.current!.getSnapshot()
 		expect(snapshot.files.map((file) => file.relativePath)).toEqual(["README.md", "docs/guide.md"])
 		expect(snapshot.selectedFile?.relativePath).toBe("README.md")
-		const selected = handle.current!.selectLast()
-		expect(selected.selectedFile?.relativePath).toBe("docs/guide.md")
+		let selected: FileNavigatorSnapshot | null = null
+		await act(async () => {
+			selected = handle.current!.selectLast()
+		})
+		expect(selected!.selectedFile?.relativePath).toBe("docs/guide.md")
 		expect(setup!.captureCharFrame()).toContain("guide.md")
 	})
 
@@ -89,10 +92,98 @@ describe("public FileNavigator", () => {
 		})
 		await act(async () => setup!.renderer.idle())
 		expect(handle.current!.getSnapshot().appliedQuery).toBe("guide")
-		await act(async () => setQuery!("README"))
-		const flushed = handle.current!.flushQuery("README")
-		expect(flushed.appliedQuery).toBe("README")
-		expect(flushed.filteredFiles.map((file) => file.relativePath)).toEqual(["README.md"])
+		await act(async () => setQuery!(""))
+		expect(handle.current!.getSnapshot().appliedQuery).toBe("")
+		await act(async () => setQuery!("guide"))
+		let flushed: FileNavigatorSnapshot | null = null
+		await act(async () => {
+			flushed = handle.current!.flushQuery("README")
+		})
+		expect(flushed!.appliedQuery).toBe("README")
+		expect(flushed!.filteredFiles.map((file) => file.relativePath)).toEqual(["README.md"])
+		await act(async () => new Promise((resolve) => setTimeout(resolve, 75)))
+		expect(handle.current!.getSnapshot().appliedQuery).toBe("README")
+	})
+
+	test("applies synchronous selection actions against the preceding result", async () => {
+		const directory = await createRoot()
+		const handle = createRef<FileNavigatorHandle>()
+		await act(async () => {
+			setup = await testRender(
+				<FileNavigator
+					ref={handle}
+					root={directory}
+					query=""
+					watch={false}
+					width={32}
+					height={8}
+					active
+					visible
+				/>,
+				{ width: 32, height: 8 },
+			)
+		})
+		await act(async () => setup!.renderer.idle())
+
+		let selected: FileNavigatorSnapshot[] = []
+		await act(async () => {
+			selected = [
+				handle.current!.selectLast(),
+				handle.current!.moveBy(-1),
+				handle.current!.selectIndex(99),
+				handle.current!.selectFirst(),
+			]
+		})
+		expect(selected.map((snapshot) => snapshot.selectedIndex)).toEqual([1, 0, 1, 0])
+	})
+
+	test("keeps the public handle operational after a root change", async () => {
+		root = await mkdtemp(join(tmpdir(), "house-file-navigator-ui-roots-"))
+		const first = join(root, "first")
+		const second = join(root, "second")
+		await mkdir(first)
+		await mkdir(second)
+		await writeFile(join(first, "old.md"), "old")
+		await writeFile(join(second, "a.md"), "a")
+		await writeFile(join(second, "b.md"), "b")
+		const handle = createRef<FileNavigatorHandle>()
+		let setRoot: ((root: string) => void) | null = null
+		const Harness = () => {
+			const [directory, updateRoot] = useState(first)
+			setRoot = updateRoot
+			return (
+				<FileNavigator
+					ref={handle}
+					root={directory}
+					query=""
+					watch={false}
+					width={32}
+					height={8}
+					active
+					visible
+				/>
+			)
+		}
+		await act(async () => {
+			setup = await testRender(<Harness />, { width: 32, height: 8 })
+		})
+		await act(async () => setup!.renderer.idle())
+		expect(handle.current!.getSnapshot().files.map((file) => file.relativePath)).toEqual(["old.md"])
+
+		await act(async () => setRoot!(second))
+		const pending = handle.current!.getSnapshot()
+		expect(pending.root).toBe(second)
+		expect(pending.files).toEqual([])
+		await act(async () => setup!.renderer.idle())
+		expect(handle.current!.getSnapshot().files.map((file) => file.relativePath)).toEqual([
+			"a.md",
+			"b.md",
+		])
+		let selected: FileNavigatorSnapshot | null = null
+		await act(async () => {
+			selected = handle.current!.selectLast()
+		})
+		expect(selected!.selectedFile?.relativePath).toBe("b.md")
 	})
 
 	test("restores absolute selection before notifying and redraws after refresh", async () => {
@@ -123,12 +214,16 @@ describe("public FileNavigator", () => {
 		)
 
 		await writeFile(join(directory, "new.md"), "new")
-		const refresh = handle.current!.refresh()
-		expect(handle.current!.getSnapshot().scanning).toBe(true)
-		await act(async () => refresh)
+		await act(async () => {
+			const refresh = handle.current!.refresh()
+			expect(handle.current!.getSnapshot().scanning).toBe(true)
+			await refresh
+		})
 		expect(handle.current!.getSnapshot().files.map((file) => file.relativePath)).toContain("new.md")
-		expect(handle.current!.selectPath(join(directory, "new.md")).selectedFile?.absolutePath).toBe(
-			join(directory, "new.md"),
-		)
+		let selectedNew: FileNavigatorSnapshot | null = null
+		await act(async () => {
+			selectedNew = handle.current!.selectPath(join(directory, "new.md"))
+		})
+		expect(selectedNew!.selectedFile?.absolutePath).toBe(join(directory, "new.md"))
 	})
 })
