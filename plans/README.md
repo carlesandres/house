@@ -56,8 +56,8 @@ rationale).
   Sidebar subpath has no filesystem backend or File Navigator dependency.
 - Plan 007 completed the migration at `2fcfc68` and static Parcel hosts at `d537a3c`. The package-owned
   mutation harness runs in CI and the native publish matrix, but production batching evidence, an
-  artifact-coupled mutation seam, and the remaining commit-safety/reader-epoch regressions are still
-  required before the plan returns to `DONE`.
+  artifact-coupled mutation seam, and the remaining React commit-safety regressions are still required
+  before the plan returns to `DONE`.
 
 ## Decision history
 

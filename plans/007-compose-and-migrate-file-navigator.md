@@ -297,6 +297,8 @@ running old and new discovery in parallel.
 - The shipped result uses `@house/ui/sidebar` and `@house/ui/file-navigator`, with strict scanner
   membership, root-driven House policy, fuzzy default search, reader invalidation epochs, and
   four-target npm/standalone distribution.
+- Browser reader regressions cover equal-public-metadata rewrites, coalesced reloads, invalidation while
+  selection is ahead of reader debounce, stale same-path completion, and stale root completion.
 - Remaining before `DONE`: record and review the old/new production batching comparison; decide and
   implement how mutations run through the installed House artifact rather than only the package-owned
-  compiled host; complete the outstanding React commit-safety and reader-epoch regression matrix.
+  compiled host; complete the outstanding React commit-safety regression matrix.

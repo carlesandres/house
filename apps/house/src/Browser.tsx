@@ -21,7 +21,7 @@ import {
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react"
 import { useAtomValue, useAtomSet } from "@effect/atom-react"
 import { Effect } from "effect"
-import { useEffect, useMemo, useReducer, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react"
 import { buildCommands } from "./commands/buildCommands.ts"
 import { clampSelectedIndex, filterCommands } from "./commands/score.ts"
 import { CommandPalette, orderCommandsForPalette } from "./CommandPalette.tsx"
@@ -236,7 +236,19 @@ export const Browser = ({
 	const selected = liveSnapshot.selectedFile
 	const initialIndexRef = useRef(initialIndex)
 	const readerEpochRef = useRef(0)
-	const [readerEpoch, setReaderEpoch] = useState(0)
+	const [renderedPath, setRenderedPath] = useState<string | null>(selected?.absolutePath ?? null)
+	const activeReaderPathRef = useRef<string | null>(renderedPath)
+	const selectedReaderPathRef = useRef<string | null>(selected?.absolutePath ?? null)
+	const pendingReaderInvalidationsRef = useRef(new Set<string>())
+	const readerRootRef = useRef(root)
+	const [readerRequest, setReaderRequest] = useState<{ path: string; epoch: number } | null>(null)
+	const advanceReaderEpoch = (): number => {
+		readerEpochRef.current += 1
+		return readerEpochRef.current
+	}
+	const requestReaderRead = (path: string, epoch = advanceReaderEpoch()): void => {
+		setReaderRequest({ path, epoch })
+	}
 	const syncSnapshot = (next: FileNavigatorSnapshot): FileNavigatorSnapshot => {
 		setNavigatorSnapshot(next)
 		return next
@@ -273,6 +285,9 @@ export const Browser = ({
 				? "scan failed: unable to read discovery root"
 				: null
 	const handleSelectionChange = (file: FileNavigatorSnapshot["selectedFile"]) => {
+		pendingReaderInvalidationsRef.current.clear()
+		selectedReaderPathRef.current = file?.absolutePath ?? null
+		advanceReaderEpoch()
 		const next = navigatorRef.current?.getSnapshot()
 		if (next) {
 			setNavigatorSnapshot(next)
@@ -284,9 +299,16 @@ export const Browser = ({
 			selectedIndex: file === null ? null : current.filteredFiles.indexOf(file),
 		}))
 	}
-	const invalidateReader = () => {
-		readerEpochRef.current += 1
-		setReaderEpoch(readerEpochRef.current)
+	const invalidateSelectedReader = (file: NonNullable<FileNavigatorSnapshot["selectedFile"]>) => {
+		const epoch = advanceReaderEpoch()
+		if (file.absolutePath === activeReaderPathRef.current) {
+			pendingReaderInvalidationsRef.current.delete(file.absolutePath)
+			requestReaderRead(file.absolutePath, epoch)
+			return
+		}
+		if (file.absolutePath === selectedReaderPathRef.current) {
+			pendingReaderInvalidationsRef.current.add(file.absolutePath)
+		}
 	}
 	const [floatingOverlay, dispatchFloatingOverlayState] = useReducer(
 		floatingOverlayReducer,
@@ -339,6 +361,26 @@ export const Browser = ({
 	// ref stays armed so toggling back later re-selects it. Any user-driven
 	// selection move (j/k/g/G/click) clears it — user intent has moved on.
 	const pendingSelectionPathRef = useRef<string | null>(null)
+
+	useLayoutEffect(() => {
+		if (readerRootRef.current === root) return
+		readerRootRef.current = root
+		advanceReaderEpoch()
+		selectedReaderPathRef.current = null
+		activeReaderPathRef.current = null
+		pendingReaderInvalidationsRef.current.clear()
+		setRenderedPath(null)
+		setReaderRequest(null)
+		setLoaded(null)
+		setError(null)
+	}, [root])
+
+	useLayoutEffect(
+		() => () => {
+			advanceReaderEpoch()
+		},
+		[],
+	)
 
 	// Stop the preview server on unmount so re-mounts (tests) and clean
 	// shutdowns don't leak a listening socket.
@@ -449,40 +491,53 @@ export const Browser = ({
 	// per keystroke. The reflow is the synchronous, main-thread-blocking
 	// step inside opentui's host commit — useDeferredValue can't yield once
 	// the host begins it. A real debounce gates the load itself.
-	const [renderedPath, setRenderedPath] = useState<string | null>(selected?.absolutePath ?? null)
-
 	useEffect(() => {
 		const target = selected?.absolutePath ?? null
 		if (target === renderedPath) return
-		const timer = setTimeout(() => setRenderedPath(target), renderedPathDebounceMs)
+		const timer = setTimeout(() => {
+			const epoch = advanceReaderEpoch()
+			if (target) pendingReaderInvalidationsRef.current.delete(target)
+			activeReaderPathRef.current = target
+			setRenderedPath(target)
+			if (target) requestReaderRead(target, epoch)
+			else {
+				setReaderRequest(null)
+				setLoaded(null)
+			}
+		}, renderedPathDebounceMs)
 		return () => clearTimeout(timer)
 	}, [selected?.absolutePath, renderedPath, renderedPathDebounceMs])
 
 	useEffect(() => {
-		if (!renderedPath) {
-			setLoaded(null)
-			return
-		}
+		if (!readerRequest) return
 		let cancelled = false
-		const epoch = readerEpoch
-		readFileRef.current(renderedPath).then(
+		const { path, epoch } = readerRequest
+		readFileRef.current(path).then(
 			(text) => {
-				if (!cancelled && epoch === readerEpochRef.current) {
-					setLoaded({ path: renderedPath, content: text, epoch })
+				if (
+					!cancelled &&
+					epoch === readerEpochRef.current &&
+					path === activeReaderPathRef.current
+				) {
+					setLoaded({ path, content: text, epoch })
 					setError(null)
 				}
 			},
 			(err: unknown) => {
-				if (!cancelled && epoch === readerEpochRef.current) {
+				if (
+					!cancelled &&
+					epoch === readerEpochRef.current &&
+					path === activeReaderPathRef.current
+				) {
 					setLoaded(null)
-					setError(`Cannot read ${renderedPath}: ${String(err)}`)
+					setError(`Cannot read ${path}: ${String(err)}`)
 				}
 			},
 		)
 		return () => {
 			cancelled = true
 		}
-	}, [renderedPath, readerEpoch])
+	}, [readerRequest])
 
 	// One BrowserCtx per render, reused by the keyboard handler and the
 	// footer's `when`-evaluation. Keeping a single object eliminates the
@@ -663,12 +718,23 @@ export const Browser = ({
 				// the reader hasn't caught up to (debounce in flight) is fine —
 				// the regular load path picks up the new mtime when renderedPath
 				// advances.
-				if (file.absolutePath === renderedPath) {
+				if (file.absolutePath === activeReaderPathRef.current) {
+					const epoch = advanceReaderEpoch()
 					try {
-						const text = await readFile(file.absolutePath)
-						setLoaded({ path: file.absolutePath, content: text, epoch: readerEpochRef.current })
+						const text = await readFileRef.current(file.absolutePath)
+						if (
+							epoch !== readerEpochRef.current ||
+							file.absolutePath !== activeReaderPathRef.current
+						)
+							return
+						setLoaded({ path: file.absolutePath, content: text, epoch })
 						setError(null)
 					} catch (err) {
+						if (
+							epoch !== readerEpochRef.current ||
+							file.absolutePath !== activeReaderPathRef.current
+						)
+							return
 						const message = String(err)
 						const enoent =
 							(err as { code?: string } | null)?.code === "ENOENT" || message.includes("ENOENT")
@@ -1016,7 +1082,7 @@ export const Browser = ({
 							setNavigatorSnapshot(next.error ? { ...next, scanning: false } : next)
 						}, 0)
 					}}
-					onSelectedFileInvalidated={(_file, _event) => invalidateReader()}
+					onSelectedFileInvalidated={(file) => invalidateSelectedReader(file)}
 					onDiagnostic={(diagnostic: Diagnostic) => {
 						if (!diagnostic.error.message.startsWith("skipped directory:"))
 							setDiscoveryErrorStatus("scan failed: unable to read discovery root")

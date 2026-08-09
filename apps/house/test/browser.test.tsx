@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test"
 import { existsSync, mkdirSync, mkdtempSync, unlinkSync, writeFileSync } from "node:fs"
-import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
+import { chmod, mkdir, mkdtemp, rm, stat, utimes, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { act } from "react"
@@ -29,8 +29,47 @@ beforeAll(() => {
 let setup: Awaited<ReturnType<typeof testRender>> | null = null
 const fixtureRoots: string[] = []
 const sharedFixtureRoots: string[] = []
+const WATCHER_FACTORY_KEY = "__house_file_navigator_watcher_factory__"
+
+type FakeWatcherEvent = {
+	readonly type: "create" | "update" | "delete"
+	readonly path: string
+}
+
+class FakeBrowserWatcher {
+	readonly callbacks = new Set<(error: Error | null, events: readonly FakeWatcherEvent[]) => void>()
+
+	subscribe(
+		_directory: string,
+		callback: (error: Error | null, events: readonly FakeWatcherEvent[]) => void,
+	) {
+		this.callbacks.add(callback)
+		return Promise.resolve({ unsubscribe: async () => this.callbacks.delete(callback) })
+	}
+
+	emit(events: readonly FakeWatcherEvent[]): void {
+		for (const callback of this.callbacks) callback(null, events)
+	}
+}
+
+const installFakeWatcher = (): FakeBrowserWatcher => {
+	const watcher = new FakeBrowserWatcher()
+	;(globalThis as Record<string, unknown>)[WATCHER_FACTORY_KEY] = () => watcher
+	return watcher
+}
+
+const deferred = <T,>() => {
+	let resolve!: (value: T | PromiseLike<T>) => void
+	let reject!: (reason?: unknown) => void
+	const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+		resolve = resolvePromise
+		reject = rejectPromise
+	})
+	return { promise, reject, resolve }
+}
 
 afterEach(async () => {
+	delete (globalThis as Record<string, unknown>)[WATCHER_FACTORY_KEY]
 	await destroyTestRenderer(setup)
 	setup = null
 	await Promise.all(fixtureRoots.splice(0).map((root) => rm(root, { recursive: true, force: true })))
@@ -96,7 +135,7 @@ const renderBrowser = (
 ) => {
 	const normalizedElement = React.isValidElement<React.ComponentProps<typeof Browser>>(element)
 		? React.cloneElement(element, {
-				renderedPathDebounceMs: 0,
+				renderedPathDebounceMs: element.props.renderedPathDebounceMs ?? 0,
 				watch: element.props.watch ?? false,
 			})
 		: element
@@ -328,6 +367,17 @@ const waitForFrame = async (predicate: (frame: string) => boolean): Promise<stri
 		if (predicate(frame)) return frame
 	}
 	return setup!.captureCharFrame()
+}
+
+const waitForCondition = async (predicate: () => boolean, label: string): Promise<void> => {
+	for (let i = 0; i < 20; i++) {
+		if (predicate()) return
+		await act(async () => {
+			await new Promise<void>((resolve) => setTimeout(resolve, 25))
+			await setup!.renderOnce()
+		})
+	}
+	throw new Error(`timed out waiting for ${label}`)
 }
 
 const expectSidebarBlankLineBetween = (frame: string, before: string, after: string): void => {
@@ -578,6 +628,160 @@ describe("Browser — selection", () => {
 		expect(readerTitleContains(frame, "README.md")).toBe(true)
 		expect(frame).toContain("npm install -g @carlesandres/house")
 		expect(frame).toContain("bun add -g @carlesandres/house")
+	})
+})
+
+describe("Browser — reader invalidation", () => {
+	test("coalesces an equal-metadata selected-file burst into one fresh read", async () => {
+		const root = makeFiles(["selected.md"])
+		const path = join(root, "selected.md")
+		const watcher = installFakeWatcher()
+		const reads: string[] = []
+		let content = "VALUE OLD"
+		const fixedTime = new Date("2026-01-01T00:00:00.000Z")
+		await writeFile(path, content)
+		await utimes(path, fixedTime, fixedTime)
+		const metadataBefore = await stat(path)
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					root={root}
+					watch
+					readFile={(readPath) => {
+						reads.push(readPath)
+						return Promise.resolve(content)
+					}}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await waitForFrameContaining("VALUE OLD")
+		expect(reads).toEqual([path])
+		await writeFile(path, "VALUE NEW")
+		await utimes(path, fixedTime, fixedTime)
+		content = "VALUE NEW"
+		const metadataAfter = await stat(path)
+		expect({ size: metadataAfter.size, mtimeMs: metadataAfter.mtimeMs }).toEqual({
+			size: metadataBefore.size,
+			mtimeMs: metadataBefore.mtimeMs,
+		})
+
+		watcher.emit([
+			{ type: "update", path },
+			{ type: "update", path },
+			{ type: "update", path },
+		])
+		await waitForCondition(() => reads.length === 2, "coalesced reader reload")
+		const frame = await waitForFrameContaining("VALUE NEW")
+		expect(frame).not.toContain("VALUE OLD")
+		expect(reads).toEqual([path, path])
+	})
+
+	test("rejects an older selected-file read that resolves last", async () => {
+		const root = makeFiles(["selected.md"])
+		const path = join(root, "selected.md")
+		const watcher = installFakeWatcher()
+		const reads: Array<ReturnType<typeof deferred<string>>> = []
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					root={root}
+					watch
+					readFile={() => {
+						const read = deferred<string>()
+						reads.push(read)
+						return read.promise
+					}}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await waitForCondition(() => reads.length === 1 && watcher.callbacks.size === 1, "initial read")
+		await writeFile(path, "newest")
+		watcher.emit([{ type: "update", path }])
+		await waitForCondition(() => reads.length === 2, "replacement read")
+
+		await act(async () => reads[1]!.resolve("NEWEST CONTENT"))
+		expect(await waitForFrameContaining("NEWEST CONTENT")).toContain("NEWEST CONTENT")
+		await act(async () => reads[0]!.resolve("STALE CONTENT"))
+		await settleBrowser()
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("NEWEST CONTENT")
+		expect(frame).not.toContain("STALE CONTENT")
+	})
+
+	test("does not reload the old reader when the selected file changes ahead of debounce", async () => {
+		const root = makeFiles(["a.md", "b.md"])
+		const aPath = join(root, "a.md")
+		const bPath = join(root, "b.md")
+		const watcher = installFakeWatcher()
+		const reads: string[] = []
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					root={root}
+					watch
+					renderedPathDebounceMs={300}
+					readFile={(path) => {
+						reads.push(path)
+						return Promise.resolve(path === aPath ? "FILE A" : "FILE B UPDATED")
+					}}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await waitForCondition(
+			() => reads.length === 1 && watcher.callbacks.size === 1,
+			"initial reader",
+		)
+		expect(reads).toEqual([aPath])
+		await writeFile(bPath, "updated")
+		await act(async () => {
+			setup!.mockInput.pressKey("j")
+			watcher.emit([{ type: "update", path: bPath }])
+		})
+		await waitForCondition(() => reads.includes(bPath), "debounced selected reader")
+		expect(reads.filter((path) => path === aPath)).toHaveLength(1)
+		expect(reads.filter((path) => path === bPath)).toHaveLength(1)
+	})
+
+	test("rejects a read from the previous root", async () => {
+		const first = makeFiles(["same.md"])
+		const second = makeFiles(["same.md"])
+		const oldRead = deferred<string>()
+		const reads: string[] = []
+		let setRoot: ((root: string) => void) | null = null
+		const Harness = () => {
+			const [root, updateRoot] = React.useState(first)
+			setRoot = updateRoot
+			return (
+				<Browser
+					root={root}
+					watch={false}
+					renderedPathDebounceMs={0}
+					readFile={(path) => {
+						reads.push(path)
+						return path.startsWith(second) ? Promise.resolve("ROOT B CONTENT") : oldRead.promise
+					}}
+					onQuit={() => {}}
+				/>
+			)
+		}
+
+		await act(async () => {
+			setup = await renderBrowser(<Harness />, VIEWPORT)
+		})
+		await waitForCondition(() => reads.some((path) => path.startsWith(first)), "first-root read")
+		await act(async () => setRoot!(second))
+		expect(await waitForFrameContaining("ROOT B CONTENT")).toContain("ROOT B CONTENT")
+		await act(async () => oldRead.resolve("ROOT A STALE"))
+		await settleBrowser()
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("ROOT B CONTENT")
+		expect(frame).not.toContain("ROOT A STALE")
 	})
 })
 
