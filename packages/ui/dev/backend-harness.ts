@@ -1125,7 +1125,9 @@ export const runReplacementPhaseCorrectness = async (
 				)
 			assertCondition(
 				logicalPublications.length === 1,
-				"replacement phases did not produce one exact logical publication",
+				`replacement phases did not produce one exact logical publication: ${JSON.stringify(
+					watcher.publications.slice(publicationStart),
+				)}`,
 			)
 			for (const path of expectedAdditions) {
 				assertCondition(
