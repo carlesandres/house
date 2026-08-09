@@ -183,13 +183,20 @@ describe("Parcel watcher feasibility", () => {
 			})
 			await watcher.start()
 			try {
-				const observedBefore = watcher.observedEvents.length
-				watcher.injectEvents([
-					{ type: "create", path: join(root, "nested", "phantom.txt") },
-					{ type: "create", path: join(root, "excluded", "phantom.txt") },
-				])
+				const injectedPaths = [
+					join(root, "nested", "phantom.txt"),
+					join(root, "excluded", "phantom.txt"),
+				]
+				watcher.injectEvents(injectedPaths.map((path) => ({ type: "create", path })))
 				await watcher.waitForSettled()
-				expect(watcher.observedEvents).toHaveLength(observedBefore + 2)
+				expect(
+					watcher.observedEvents
+						.filter(
+							(event) => event.source === "simulated" && injectedPaths.includes(event.physicalPath),
+						)
+						.map((event) => event.physicalPath)
+						.sort(),
+				).toEqual(injectedPaths.sort())
 				expect([...pathsIn(watcher)]).toEqual(["root.txt"])
 				expect(watcher.publications).toEqual([])
 			} finally {
