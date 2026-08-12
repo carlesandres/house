@@ -193,7 +193,7 @@ describe("public FileNavigator", () => {
 		}
 		await act(async () => new Promise<void>((resolve) => setTimeout(resolve, 30)))
 		expect(handle.current!.getSnapshot().appliedQuery).toBe("guide")
-		expect(callbackRevisions.at(-1)).toBe(3)
+		await waitFor(() => callbackRevisions.at(-1) === 3, "latest committed callback")
 
 		await act(async () => setRevision!(4))
 		await act(async () => {
@@ -221,7 +221,7 @@ describe("public FileNavigator", () => {
 				{ width: 32, height: 8 },
 			)
 		})
-		await act(async () => setup!.renderer.idle())
+		await waitFor(() => handle.current!.getSnapshot().files.length === 2, "selection action files")
 
 		let selected: FileNavigatorSnapshot[] = []
 		await act(async () => {
@@ -265,14 +265,17 @@ describe("public FileNavigator", () => {
 		await act(async () => {
 			setup = await testRender(<Harness />, { width: 32, height: 8 })
 		})
-		await act(async () => setup!.renderer.idle())
+		await waitFor(
+			() => handle.current!.getSnapshot().files.some((file) => file.relativePath === "old.md"),
+			"first root files",
+		)
 		expect(handle.current!.getSnapshot().files.map((file) => file.relativePath)).toEqual(["old.md"])
 
 		await act(async () => setRoot!(second))
 		const pending = handle.current!.getSnapshot()
 		expect(pending.root).toBe(second)
 		expect(pending.files).toEqual([])
-		await act(async () => setup!.renderer.idle())
+		await waitFor(() => handle.current!.getSnapshot().files.length === 2, "second root files")
 		expect(handle.current!.getSnapshot().files.map((file) => file.relativePath)).toEqual([
 			"a.md",
 			"b.md",

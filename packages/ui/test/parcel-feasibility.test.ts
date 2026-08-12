@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test"
+import { describe, expect, test as bunTest } from "bun:test"
 import { spawn } from "node:child_process"
 import { join } from "node:path"
 import { tmpdir } from "node:os"
@@ -17,6 +17,8 @@ import {
 } from "../dev/parcel-harness.ts"
 import { recordParcelEvidence, validateParcelEvidenceDocument } from "../dev/parcel-evidence.ts"
 import type { ParcelEvidenceArtifact, ParcelEvidenceDocument } from "../dev/parcel-evidence.ts"
+
+const test = process.env.HOUSE_UI_RUN_PARCEL_EVIDENCE === "1" ? bunTest : bunTest.skip
 
 const runStartCloseChild = async (): Promise<{
 	readonly exitCode: number
@@ -151,7 +153,7 @@ const benchmarkReport = (
 })
 
 describe("Parcel watcher feasibility", () => {
-	test("derives broad configured and external physical roots with lexical mapping", async () => {
+	bunTest("derives broad configured and external physical roots with lexical mapping", async () => {
 		await withTempDirectory(async (container) => {
 			const physical = join(container, "physical")
 			const lexical = join(container, "lexical")
@@ -272,7 +274,7 @@ describe("Parcel watcher feasibility", () => {
 		expect(report.observedExcludedEvents).toBeGreaterThan(0)
 	}, 60_000)
 
-	test("validates compact evidence and enforces the required 10k broad sample", () => {
+	bunTest("validates compact evidence and enforces the required 10k broad sample", () => {
 		const correctness = {
 			command: "correctness",
 			scenarios: Array.from({ length: 11 }, (_, index) => `scenario-${index}`),
@@ -313,7 +315,7 @@ describe("Parcel watcher feasibility", () => {
 		expect(validateParcelEvidenceDocument(invalid)).toMatchObject({ valid: false })
 	})
 
-	test("requires the complete matrix, Linux policy, and owner decision for approval", () => {
+	bunTest("requires the complete matrix, Linux policy, and owner decision for approval", () => {
 		const approved: ParcelEvidenceDocument = {
 			schemaVersion: 1,
 			conclusion: "approved",
@@ -352,7 +354,7 @@ describe("Parcel watcher feasibility", () => {
 		}
 	})
 
-	test("keeps legacy incomplete and rejected evidence representable", () => {
+	bunTest("keeps legacy incomplete and rejected evidence representable", () => {
 		const incomplete: ParcelEvidenceDocument = {
 			schemaVersion: 1,
 			conclusion: "incomplete",
@@ -375,28 +377,31 @@ describe("Parcel watcher feasibility", () => {
 		})
 	})
 
-	test("atomically replaces same-cell evidence instead of accumulating raw samples", async () => {
-		await withTempDirectory(async (root) => {
-			const path = join(root, "evidence.md")
-			await writeFile(
-				path,
-				`# Evidence\n\n<!-- parcel-feasibility:evidence:start -->\n\n\`\`\`json\n{"schemaVersion":1,"conclusion":"incomplete","updatedAt":"1970-01-01T00:00:00.000Z","artifacts":[]}\n\`\`\`\n\n<!-- parcel-feasibility:evidence:end -->\n`,
-			)
-			const previous = process.env.HOUSE_UI_PARCEL_EVIDENCE_PATH
-			process.env.HOUSE_UI_PARCEL_EVIDENCE_PATH = path
-			try {
-				await recordParcelEvidence("benchmark", benchmarkReport(1_000, "broad", 1, 20))
-				await recordParcelEvidence("benchmark", benchmarkReport(1_000, "broad", 1, 20))
-				const markdown = await readFile(path, "utf8")
-				const json = markdown.match(/```json\n([^\n]+)\n```/)?.[1]
-				expect(json).toBeDefined()
-				const evidence = JSON.parse(json!) as ParcelEvidenceDocument
-				expect(evidence.artifacts).toHaveLength(1)
-				expect(validateParcelEvidenceDocument(evidence).valid).toBe(true)
-			} finally {
-				if (previous === undefined) delete process.env.HOUSE_UI_PARCEL_EVIDENCE_PATH
-				else process.env.HOUSE_UI_PARCEL_EVIDENCE_PATH = previous
-			}
-		})
-	})
+	bunTest(
+		"atomically replaces same-cell evidence instead of accumulating raw samples",
+		async () => {
+			await withTempDirectory(async (root) => {
+				const path = join(root, "evidence.md")
+				await writeFile(
+					path,
+					`# Evidence\n\n<!-- parcel-feasibility:evidence:start -->\n\n\`\`\`json\n{"schemaVersion":1,"conclusion":"incomplete","updatedAt":"1970-01-01T00:00:00.000Z","artifacts":[]}\n\`\`\`\n\n<!-- parcel-feasibility:evidence:end -->\n`,
+				)
+				const previous = process.env.HOUSE_UI_PARCEL_EVIDENCE_PATH
+				process.env.HOUSE_UI_PARCEL_EVIDENCE_PATH = path
+				try {
+					await recordParcelEvidence("benchmark", benchmarkReport(1_000, "broad", 1, 20))
+					await recordParcelEvidence("benchmark", benchmarkReport(1_000, "broad", 1, 20))
+					const markdown = await readFile(path, "utf8")
+					const json = markdown.match(/```json\n([^\n]+)\n```/)?.[1]
+					expect(json).toBeDefined()
+					const evidence = JSON.parse(json!) as ParcelEvidenceDocument
+					expect(evidence.artifacts).toHaveLength(1)
+					expect(validateParcelEvidenceDocument(evidence).valid).toBe(true)
+				} finally {
+					if (previous === undefined) delete process.env.HOUSE_UI_PARCEL_EVIDENCE_PATH
+					else process.env.HOUSE_UI_PARCEL_EVIDENCE_PATH = previous
+				}
+			})
+		},
+	)
 })

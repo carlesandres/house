@@ -12,6 +12,7 @@
 		"format:check": "oxfmt --check src/ test/ dev/",
 		"lint": "oxlint --tsconfig tsconfig.json src/ test/ dev/",
 		"test": "bun test",
+		"evidence:parcel": "HOUSE_UI_RUN_PARCEL_EVIDENCE=1 bun test test/parcel-feasibility.test.ts",
 		"evidence:rejected-backend": "HOUSE_UI_RUN_REJECTED_BACKEND_EVIDENCE=1 bun test test/backend-feasibility.test.ts",
 		"typecheck": "tsc --noEmit"
 	},

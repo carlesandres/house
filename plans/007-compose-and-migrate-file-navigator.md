@@ -299,12 +299,15 @@ running old and new discovery in parallel.
   four-target npm/standalone distribution.
 - Browser reader regressions cover equal-public-metadata rewrites, coalesced reloads, invalidation while
   selection is ahead of reader debounce, stale same-path completion, and stale root completion.
-- The UI package release suite passed five consecutive runs. Native Chokidar probes remain available as
-  rejected-backend evidence but no longer make the Parcel-backed release gate depend on that abandoned
-  backend's event batching.
+- The UI package release suite passed five consecutive runs. Native feasibility experiments remain
+  available through explicit Parcel and rejected-Chokidar evidence commands; the release gate validates
+  their durable evidence, deterministic core, and exact artifact mutation path instead of depending on
+  fresh OS event timing.
 - Public component regressions cover callback churn, abandoned renders, synchronous actions, root and
   watcher generation replacement, late callbacks, shutdown, selected invalidation, custom/default rows,
   basename-first truncation, appearance/header forwarding, and all four empty reasons.
-- Remaining before `DONE`: record and review the old/new production batching comparison; decide and
-  implement how mutations run through the installed House artifact rather than only the package-owned
-  compiled host.
+- Standalone and installed smoke commands now execute the mutation matrix inside the exact House
+  artifact through a private environment-controlled mode. Installed execution enters through the npm
+  shim with Bun removed from `PATH`; native publish runners cover all four targets. Embedding the
+  headless renderer added 181,632 bytes (0.20%) to the darwin-arm64 binary.
+- Remaining before `DONE`: record and review the old/new production batching comparison.

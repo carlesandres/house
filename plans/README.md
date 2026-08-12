@@ -54,9 +54,10 @@ rationale).
 - Plan 005 extracted the generic filesystem-free Sidebar subpath while preserving the private root
   FileNavigator wrapper and House behavior. Fresh-process and clean-build-graph tests prove the
   Sidebar subpath has no filesystem backend or File Navigator dependency.
-- Plan 007 completed the migration at `2fcfc68` and static Parcel hosts at `d537a3c`. The package-owned
-  mutation harness runs in CI and the native publish matrix, but an artifact-coupled mutation seam and
-  the production batching comparison are still required before the plan returns to `DONE`.
+- Plan 007 completed the migration at `2fcfc68` and static Parcel hosts at `d537a3c`. The House-owned
+  mutation matrix now runs inside exact standalone and installed House artifacts in CI and the native
+  publish matrix. The production batching comparison is the only remaining gate before the plan returns
+  to `DONE`.
 
 ## Decision history
 

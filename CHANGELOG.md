@@ -22,8 +22,8 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
   stable selection through streaming and reordering.
 - Selected-file updates, explicit refreshes, and stale reads are coordinated through reader invalidation
   epochs.
-- Release builds now run package-owned filesystem mutation coverage with static Parcel hosts for the
-  four supported targets.
+- Release builds now run filesystem mutation coverage inside the exact House artifact, with static
+  Parcel hosts for the four supported targets and installed npm execution without Bun on `PATH`.
 
 ### Fixed
 

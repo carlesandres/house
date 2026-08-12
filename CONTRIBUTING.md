@@ -32,6 +32,11 @@ bun run verify:github   # exercise release APIs against vercel-labs/emulate
 Any PR has to pass `typecheck`, `lint`, `format:check`, `test`, `npm:pack`, and the
 GitHub emulator verification — that's what `.github/workflows/ci.yml` enforces.
 
+The File Navigator smoke commands invoke the built House artifact's private headless mode; they do not
+compile a workspace-only substitute. Installed mode packs the staged main and host platform packages
+into a temporary npm prefix unless CI supplies its already-installed `house` path. Artifact execution
+removes Bun from `PATH` and exercises the embedded static Parcel binding through filesystem mutations.
+
 Versioned Git hooks live in `.githooks/`. `bun install` activates them (the `prepare` script in `package.json` sets `core.hooksPath`). The pre-commit hook runs `format:check` and `lint` so the cheap CI gates don't bite you on PR review. The pre-push hook fetches `origin/main` and blocks stale branch pushes; it is only a safeguard and does not merge, rebase, or run tests. If a hook blocks, prefer fixing the underlying issue over bypassing it.
 
 ## Project layout
@@ -60,10 +65,12 @@ Direct `bun test` remains intentionally scoped to `apps/house/test` by the root 
 `bun run test` for the CI-equivalent all-workspace test gate, or
 `bun run --cwd packages/ui test` while iterating on the reusable package.
 
-The native Chokidar probes that preserve the rejected backend evidence are intentionally outside the
-release gate. Run `bun run --cwd packages/ui evidence:rejected-backend` when reproducing or extending
-that historical evidence; the command may fail by reproducing a rejected backend contract violation.
-The normal package suite still validates its deterministic evidence parser and orchestration logic.
+Native backend feasibility probes are intentionally outside the release gate now that their durable
+evidence is recorded and exact House artifacts run the mutation matrix. Use
+`bun run --cwd packages/ui evidence:parcel` for the approved Parcel experiments or
+`bun run --cwd packages/ui evidence:rejected-backend` for Chokidar; either empirical command can fail
+when the host does not reproduce its recorded result. The normal suite still validates topology,
+evidence parsing, core synchronization, and the active release path.
 
 Add tests alongside features. We don't enforce coverage, but every keymap binding should have at least one integration test (see §10.2 of DESIGN.md for the v2 gate).
 

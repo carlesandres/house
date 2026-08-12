@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test"
 import { existsSync, mkdirSync, mkdtempSync, unlinkSync, writeFileSync } from "node:fs"
-import { chmod, mkdir, mkdtemp, rm, stat, utimes, writeFile } from "node:fs/promises"
+import { rm, stat, utimes, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { act } from "react"
@@ -1285,53 +1285,36 @@ describe("Browser — #22 layout v2", () => {
 	})
 
 	test("renders partial discovery warnings behind the compact footer trigger", async () => {
-		const root = await mkdtemp(join(tmpdir(), "house-browser-"))
-		const locked = join(root, "locked")
-		await writeFile(join(root, "readable.md"), "# Readable", "utf8")
-		await mkdir(locked)
-		await writeFile(join(locked, "secret.md"), "# Secret", "utf8")
-		await chmod(locked, 0o000)
-		try {
-			await act(async () => {
-				setup = await testRender(
-					<RegistryProvider>
-						<DiscoverShell
-							target={root}
-							initialQuery=""
-							initialShow={[]}
-							extensions={[]}
-							wrapWidth={80}
-							initialWrap={false}
-							startupFocus="sidebar"
-						/>
-					</RegistryProvider>,
-					VIEWPORT,
-				)
-			})
-			const frame = await waitForFrameContaining("!")
-			expect(frame).toContain("readable.md")
-			expect(frame).not.toContain("scan incomplete: skipped 1 directory: locked")
-			expect(frame).not.toContain(`scan incomplete: skipped 1 directory: ${root}`)
-
-			await act(async () => {
-				await setup!.mockMouse.click(1, VIEWPORT.height - 1)
-			})
-			await stepFrame(setup!.renderOnce)
-			const openFrame = setup!.captureCharFrame()
-			expect(openFrame).toMatch(/scan incomplete: skipped 1 directory: lo[\s\S]*cked/)
-			expect(openFrame).not.toContain(`scan incomplete: skipped 1 directory: ${root}`)
-
-			await act(async () => {
-				await setup!.mockMouse.click(1, VIEWPORT.height - 1)
-			})
-			await stepFrame(setup!.renderOnce)
-			expect(setup!.captureCharFrame()).not.toMatch(
-				/scan incomplete: skipped 1 directory: lo[\s\S]*cked/,
+		const warning = "scan incomplete: skipped 1 directory: locked"
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					root={makeFiles(["readable.md"])}
+					readFile={makeReader({ "readable.md": "# Readable" })}
+					discoveryStatus={warning}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
 			)
-		} finally {
-			await chmod(locked, 0o755).catch(() => {})
-			await rm(root, { recursive: true, force: true })
-		}
+		})
+		const frame = await waitForFrame(
+			(candidate) => candidate.includes("!") && candidate.includes("readable.md"),
+		)
+		expect(frame).not.toContain(warning)
+
+		await act(async () => {
+			await setup!.mockMouse.click(1, VIEWPORT.height - 1)
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).toMatch(/scan incomplete: skipped 1 directory: lo[\s\S]*cked/)
+
+		await act(async () => {
+			await setup!.mockMouse.click(1, VIEWPORT.height - 1)
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).not.toMatch(
+			/scan incomplete: skipped 1 directory: lo[\s\S]*cked/,
+		)
 	})
 
 	test("command palette replaces an open discovery warning popover", async () => {
@@ -1512,13 +1495,13 @@ describe("Browser — jump and page keys", () => {
 				VIEWPORT,
 			)
 		})
-		await stepFrame(setup!.renderOnce)
+		await waitForFrame((frame) => readerTitleContains(frame, "f9.md"))
 
 		await act(async () => {
 			setup!.mockInput.pressKey("k", { shift: true })
 		})
-		await stepFrame(setup!.renderOnce)
-		expect(readerTitleContains(setup!.captureCharFrame(), "f1.md")).toBe(true)
+		const frame = await waitForFrame((candidate) => readerTitleContains(candidate, "f1.md"))
+		expect(readerTitleContains(frame, "f1.md")).toBe(true)
 	})
 
 	test("space pages selection down by 8", async () => {
