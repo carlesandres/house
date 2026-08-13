@@ -56,9 +56,8 @@ jobs:
           version="$(node -p "require('./apps/house/package.json').version")"
           npm install -g \
             "./carlesandres-house-linux-x64-${version}.tgz" \
-            --prefix "${RUNNER_TEMP}/npm-global"
-          npm install -g \
             "./carlesandres-house-${version}.tgz" \
+            --omit=optional \
             --prefix "${RUNNER_TEMP}/npm-global"
           test "$("${RUNNER_TEMP}/npm-global/bin/house" --version)" = "${version}"
           HOUSE_FILE_NAVIGATOR_SMOKE_BINARY="${RUNNER_TEMP}/npm-global/bin/house" \
