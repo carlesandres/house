@@ -6,22 +6,25 @@
  */
 
 import { describe, expect, test } from "bun:test"
-import type { FileEntry } from "../src/discovery/walk.ts"
+import type { FileRecord } from "@house/ui/file-navigator"
 import { browserBindings, type BrowserCtx, type BrowserFocus } from "../src/keymap/browser.ts"
 import { dispatch, type KeyMatch } from "../src/keymap/keymap.ts"
 
 const noop = () => {}
 const noopSetFocus = (_: BrowserFocus | ((prev: BrowserFocus) => BrowserFocus)) => {}
 
-const makeFiles = (n: number): readonly FileEntry[] =>
+const makeFiles = (n: number): readonly FileRecord[] =>
 	Array.from({ length: n }, (_, i) => ({
-		path: `/v/${i}.md`,
+		absolutePath: `/v/${i}.md`,
 		relativePath: `${i}.md`,
-		name: `${i}.md`,
+		basename: `${i}.md`,
+		extension: ".md",
+		size: 0,
+		mtimeMs: 0,
 	}))
 
 interface CtxOverrides {
-	readonly files?: readonly FileEntry[]
+	readonly files?: readonly FileRecord[]
 	readonly hasSelected?: boolean
 	readonly focus?: BrowserFocus
 	readonly filterOpen?: boolean

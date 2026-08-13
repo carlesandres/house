@@ -3,19 +3,19 @@
 
 import { stat } from "node:fs/promises"
 import { homedir } from "node:os"
-import { dirname, isAbsolute, relative, resolve } from "node:path"
+import { basename, dirname, isAbsolute, relative, resolve } from "node:path"
 import { createCliRenderer } from "@opentui/core"
 import { createRoot } from "@opentui/react"
 import { RegistryProvider } from "@effect/atom-react"
-import { Cause, Duration, Effect, Fiber, Stream } from "effect"
-import { useEffect, useRef, useState } from "react"
+import { Effect } from "effect"
+import { useState } from "react"
 import pkg from "../package.json" with { type: "json" }
 import { Browser, type StartupFocus } from "./Browser.tsx"
 import { parseAndHandleFastExit } from "./cli/fast-exit.ts"
 import { formatConfigError, loadConfig } from "./config/load.ts"
 import { parseShowList, SHOW_CATEGORIES, type ShowCategory } from "./discovery/show.ts"
 import { formatDiscoveryRootLabel } from "./discovery/rootLabel.ts"
-import { walk, type FileEntry } from "./discovery/walk.ts"
+import type { DiscoveryPolicy } from "@house/ui/file-navigator"
 import { openInBrowser } from "./serve/openBrowser.ts"
 import { startServer } from "./serve/server.ts"
 import { setActiveTheme } from "./theme/colors.ts"
@@ -98,6 +98,36 @@ export const formatPartialDiscoveryStatus = ({
 
 export const formatFatalDiscoveryStatus = (): string => "scan failed: unable to read discovery root"
 
+const buildDiscoveryPolicy = (
+	show: readonly ShowCategory[],
+	extensions: readonly string[],
+): DiscoveryPolicy => {
+	const showHidden = show.includes("hidden")
+	const allowed = new Set([
+		".md",
+		".markdown",
+		...extensions.map((ext) => (ext.startsWith(".") ? ext : `.${ext}`).toLowerCase()),
+	])
+	const hardSkips = new Set(["node_modules", ".git", ".venv"])
+	const visiblePath = (path: string): boolean =>
+		showHidden || !path.split(/[\\/]/).some((part) => part.startsWith("."))
+	return {
+		revision: `${show.join(",")}|${[...allowed].sort().join(",")}`,
+		recursive: true,
+		followSymlinks: false,
+		ignoreFiles: show.includes("gitignored") ? [] : [".gitignore"],
+		includeFile: (path) => {
+			const name = basename(path)
+			return (
+				allowed.has(name.slice(name.lastIndexOf(".")).toLowerCase()) &&
+				visiblePath(path) &&
+				!path.split(/[\\/]/).some((part) => hardSkips.has(part))
+			)
+		},
+		includeDirectory: (path) => !hardSkips.has(basename(path)) && visiblePath(path),
+	}
+}
+
 interface DiscoverShellProps {
 	readonly target: string
 	readonly initialQuery: string
@@ -125,81 +155,15 @@ export const DiscoverShell = ({
 }: DiscoverShellProps) => {
 	const updateNotice = useUpdateNotice()
 	const [show, setShow] = useState<readonly ShowCategory[]>(initialShow)
-	const [files, setFiles] = useState<readonly FileEntry[]>([])
-	const [scanning, setScanning] = useState<boolean>(true)
-	const [scanError, setScanError] = useState<string | null>(null)
-	const [skippedDirCount, setSkippedDirCount] = useState<number>(0)
-	const [lastSkippedDir, setLastSkippedDir] = useState<string | null>(null)
-	// Files arrive in a ref-tracked count so the status string can show
-	// "indexing… N" even when React hasn't yet flushed the latest setFiles.
-	const countRef = useRef(0)
-
-	useEffect(() => {
-		// Restart from a clean slate every time the discovery set changes.
-		// Required for the `all` toggle (#145): without this, a flip would
-		// concatenate the new walk onto stale entries and leave `scanning`
-		// stuck on whatever the previous walk last set it to.
-		setFiles([])
-		setScanning(true)
-		setScanError(null)
-		setSkippedDirCount(0)
-		setLastSkippedDir(null)
-		countRef.current = 0
-		const warnedProgram = walk(target, {
-			show,
-			extensions,
-			onWarning: ({ path }) => {
-				const relativePath = relative(resolve(target), path)
-				setSkippedDirCount((prev) => prev + 1)
-				setLastSkippedDir(
-					relativePath.length > 0 && !relativePath.startsWith("..") && !isAbsolute(relativePath)
-						? relativePath
-						: path,
-				)
-			},
-		}).pipe(
-			Stream.groupedWithin(64, Duration.millis(60)),
-			Stream.runForEach((chunk) =>
-				Effect.sync(() => {
-					const arr = Array.from(chunk)
-					if (arr.length === 0) return
-					countRef.current += arr.length
-					setFiles((prev) => [...prev, ...arr])
-				}),
-			),
-			Effect.matchCauseEffect({
-				onSuccess: () => Effect.sync(() => setScanning(false)),
-				onFailure: (cause) =>
-					Effect.sync(() => {
-						if (Cause.hasInterrupts(cause)) return
-						setScanError(formatFatalDiscoveryStatus())
-						setScanning(false)
-					}),
-			}),
-		)
-		const fiber = Effect.runFork(warnedProgram)
-		return () => {
-			Effect.runFork(Fiber.interrupt(fiber))
-		}
-	}, [target, show, extensions])
-
-	const discoveryStatus =
-		scanError ??
-		(scanning
-			? `indexing… ${countRef.current}`
-			: formatPartialDiscoveryStatus({
-					skippedCount: skippedDirCount,
-					lastSkippedPath: lastSkippedDir,
-				}))
-
+	const policy = buildDiscoveryPolicy(show, extensions)
 	return (
 		<Browser
-			files={files}
+			root={target}
+			policy={policy}
 			initialQuery={initialQuery}
 			wrapWidth={wrapWidth}
 			initialWrap={initialWrap}
 			rootLabel={rootLabel}
-			discoveryStatus={discoveryStatus}
 			startupFocus={startupFocus}
 			updateNotice={updateNotice}
 			onToggleAll={() => {

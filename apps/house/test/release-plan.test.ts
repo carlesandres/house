@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test"
+import { readFileSync } from "node:fs"
 import { bumpStableVersion, isStableVersion, releaseChangelog } from "../dev/release-plan.ts"
+import { generateStandaloneHost } from "../dev/standalone-host.ts"
+import { releaseTargets } from "../dev/release-targets.ts"
 
 describe("release plan", () => {
 	test("bumps stable versions", () => {
@@ -22,5 +25,33 @@ describe("release plan", () => {
 		expect(output).toContain(
 			"[1.1.0]: https://github.com/carlesandres/house/compare/v1.0.0...v1.1.0",
 		)
+	})
+
+	test("maps every release target to its exact Parcel native package", () => {
+		expect(releaseTargets.map((target) => target.parcelNativePackage)).toEqual([
+			"@parcel/watcher-darwin-arm64",
+			"@parcel/watcher-darwin-x64",
+			"@parcel/watcher-linux-arm64-glibc",
+			"@parcel/watcher-linux-x64-glibc",
+		])
+	})
+
+	test("generates a static Parcel host before importing House", () => {
+		const source = generateStandaloneHost(releaseTargets[0]!)
+		expect(source).toContain('import binding from "@parcel/watcher-darwin-arm64"')
+		expect(source).toContain('import { createWrapper } from "@parcel/watcher/wrapper"')
+		expect(source.indexOf("createWrapper")).toBeLessThan(source.indexOf("await import"))
+		expect(source).toContain("__house_file_navigator_watcher_factory__")
+	})
+
+	test("pins CI and publish jobs to the approved Bun runtime", () => {
+		const ci = readFileSync(new URL("../../../.github/workflows/ci.yml", import.meta.url), "utf8")
+		const publish = readFileSync(
+			new URL("../../../.github/workflows/publish.yml", import.meta.url),
+			"utf8",
+		)
+		expect(ci.match(/bun-version: 1\.3\.10/g)).toHaveLength(2)
+		expect(publish.match(/bun-version: 1\.3\.10/g)).toHaveLength(3)
+		expect(`${ci}\n${publish}`).not.toContain("bun-version: latest")
 	})
 })

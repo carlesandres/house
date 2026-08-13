@@ -1,0 +1,505 @@
+{
+	"schemaVersion": 1,
+	"recordedAt": "2026-08-13T23:43:26.646Z",
+	"runtime": {
+		"bun": "1.3.10",
+		"platform": "darwin",
+		"arch": "arm64"
+	},
+	"dependencies": {
+		"house": "0.5.2",
+		"react": "19.2.6",
+		"opentui": "0.2.15",
+		"parcelWatcher": "2.6.0"
+	},
+	"methodology": {
+		"viewport": {
+			"width": 80,
+			"height": 10
+		},
+		"runs": 3,
+		"mutationsPerCurrentTrial": 20,
+		"watcherInput": "one deterministic Parcel-shaped event batch per completed mixed burst",
+		"settlementBarrier": "public FileNavigator refresh after each event batch",
+		"oldMutationMetrics": "unsupported: pre-migration production had no filesystem watcher"
+	},
+	"cells": [
+		{
+			"fixture": {
+				"files": 1000,
+				"shape": "broad",
+				"manifestHash": "e8c29ca7ca08432c3b284b7c575d2ecbb40761df57b0ff66199587cd2b6e1815"
+			},
+			"old": {
+				"productionCommit": "429aa7aa8b26aedb82ef5e2e1f5b8ca24919678e",
+				"batching": {
+					"maxEntries": 64,
+					"maxWindowMs": 60
+				},
+				"liveMutationSupport": false,
+				"trials": [
+					{
+						"firstVisibleBatchMs": 19.534875,
+						"completionMs": 25.960459000000014,
+						"scanTransactions": 16,
+						"reactSnapshots": 16,
+						"reactCommits": 17,
+						"eventBatches": null,
+						"readerReads": 1,
+						"cpuUserMs": 29.349,
+						"cpuSystemMs": 8.441,
+						"peakRssDeltaBytes": 10797056,
+						"publications": null,
+						"mutationLatencyMs": null,
+						"atomicSaveLatencyMs": null
+					},
+					{
+						"firstVisibleBatchMs": 3.622792000000004,
+						"completionMs": 8.915624999999977,
+						"scanTransactions": 16,
+						"reactSnapshots": 16,
+						"reactCommits": 17,
+						"eventBatches": null,
+						"readerReads": 1,
+						"cpuUserMs": 9.995,
+						"cpuSystemMs": 4.666,
+						"peakRssDeltaBytes": 933888,
+						"publications": null,
+						"mutationLatencyMs": null,
+						"atomicSaveLatencyMs": null
+					},
+					{
+						"firstVisibleBatchMs": 1.9106249999999818,
+						"completionMs": 9.221332999999959,
+						"scanTransactions": 16,
+						"reactSnapshots": 16,
+						"reactCommits": 17,
+						"eventBatches": null,
+						"readerReads": 1,
+						"cpuUserMs": 10.687,
+						"cpuSystemMs": 4.697,
+						"peakRssDeltaBytes": 917504,
+						"publications": null,
+						"mutationLatencyMs": null,
+						"atomicSaveLatencyMs": null
+					}
+				]
+			},
+			"current": {
+				"productionCommit": "working-tree",
+				"liveMutationSupport": true,
+				"trials": [
+					{
+						"firstVisibleBatchMs": 18.480541000000017,
+						"completionMs": 45.16883300000001,
+						"scanTransactions": 17,
+						"reactSnapshots": 30,
+						"reactCommits": 28,
+						"eventBatches": 6,
+						"readerReads": 2,
+						"cpuUserMs": 69.229,
+						"cpuSystemMs": 22.917,
+						"peakRssDeltaBytes": 35848192,
+						"publications": 12,
+						"mutationLatencyMs": [
+							11.575040999999999,
+							13.782792000000029,
+							12.336333000000025,
+							11.010249999999985,
+							12.025750000000016
+						],
+						"atomicSaveLatencyMs": [
+							11.575040999999999,
+							13.782792000000029,
+							12.336333000000025,
+							11.010249999999985,
+							12.025750000000016
+						]
+					},
+					{
+						"firstVisibleBatchMs": 11.934582999999975,
+						"completionMs": 31.682082999999977,
+						"scanTransactions": 17,
+						"reactSnapshots": 30,
+						"reactCommits": 28,
+						"eventBatches": 6,
+						"readerReads": 2,
+						"cpuUserMs": 44.013,
+						"cpuSystemMs": 18.664,
+						"peakRssDeltaBytes": 11124736,
+						"publications": 12,
+						"mutationLatencyMs": [
+							10.447500000000048,
+							13.036625000000015,
+							11.852708000000007,
+							10.342790999999977,
+							12.099958000000015
+						],
+						"atomicSaveLatencyMs": [
+							10.447500000000048,
+							13.036625000000015,
+							11.852708000000007,
+							10.342790999999977,
+							12.099958000000015
+						]
+					},
+					{
+						"firstVisibleBatchMs": 8.800749999999994,
+						"completionMs": 29.998958000000016,
+						"scanTransactions": 17,
+						"reactSnapshots": 30,
+						"reactCommits": 28,
+						"eventBatches": 6,
+						"readerReads": 2,
+						"cpuUserMs": 41.659,
+						"cpuSystemMs": 16.56,
+						"peakRssDeltaBytes": 14712832,
+						"publications": 12,
+						"mutationLatencyMs": [
+							11.760374999999954,
+							13.475708000000054,
+							10.427333999999973,
+							12.895750000000021,
+							13.050542000000064
+						],
+						"atomicSaveLatencyMs": [
+							11.760374999999954,
+							13.475708000000054,
+							10.427333999999973,
+							12.895750000000021,
+							13.050542000000064
+						]
+					}
+				],
+				"mutationLatencyMs": {
+					"p50": 12.025750000000016,
+					"p95": 13.782792000000029,
+					"max": 13.782792000000029
+				},
+				"atomicSaveLatencyMs": {
+					"p50": 12.025750000000016,
+					"p95": 13.782792000000029,
+					"max": 13.782792000000029
+				}
+			}
+		},
+		{
+			"fixture": {
+				"files": 5000,
+				"shape": "broad",
+				"manifestHash": "c9db637358ed4ea7d843de3048c30a6bf74647bb13db2806494ca2993c9a8508"
+			},
+			"old": {
+				"productionCommit": "429aa7aa8b26aedb82ef5e2e1f5b8ca24919678e",
+				"batching": {
+					"maxEntries": 64,
+					"maxWindowMs": 60
+				},
+				"liveMutationSupport": false,
+				"trials": [
+					{
+						"firstVisibleBatchMs": 2.351374999999962,
+						"completionMs": 28.093999999999824,
+						"scanTransactions": 79,
+						"reactSnapshots": 79,
+						"reactCommits": 79,
+						"eventBatches": null,
+						"readerReads": 1,
+						"cpuUserMs": 29.773,
+						"cpuSystemMs": 17.426,
+						"peakRssDeltaBytes": 1327104,
+						"publications": null,
+						"mutationLatencyMs": null,
+						"atomicSaveLatencyMs": null
+					},
+					{
+						"firstVisibleBatchMs": 4.07554099999993,
+						"completionMs": 29.39170799999988,
+						"scanTransactions": 79,
+						"reactSnapshots": 79,
+						"reactCommits": 79,
+						"eventBatches": null,
+						"readerReads": 1,
+						"cpuUserMs": 23.805,
+						"cpuSystemMs": 16.7,
+						"peakRssDeltaBytes": 835584,
+						"publications": null,
+						"mutationLatencyMs": null,
+						"atomicSaveLatencyMs": null
+					},
+					{
+						"firstVisibleBatchMs": 2.314624999999978,
+						"completionMs": 30.080875000000106,
+						"scanTransactions": 79,
+						"reactSnapshots": 79,
+						"reactCommits": 79,
+						"eventBatches": null,
+						"readerReads": 1,
+						"cpuUserMs": 28.588,
+						"cpuSystemMs": 16.199,
+						"peakRssDeltaBytes": 1540096,
+						"publications": null,
+						"mutationLatencyMs": null,
+						"atomicSaveLatencyMs": null
+					}
+				]
+			},
+			"current": {
+				"productionCommit": "working-tree",
+				"liveMutationSupport": true,
+				"trials": [
+					{
+						"firstVisibleBatchMs": 30.023541999999907,
+						"completionMs": 208.67629199999988,
+						"scanTransactions": 80,
+						"reactSnapshots": 93,
+						"reactCommits": 91,
+						"eventBatches": 6,
+						"readerReads": 2,
+						"cpuUserMs": 211.439,
+						"cpuSystemMs": 75.639,
+						"peakRssDeltaBytes": 77348864,
+						"publications": 12,
+						"mutationLatencyMs": [
+							51.87858300000016,
+							61.54429200000004,
+							61.49075000000016,
+							63.23624999999993,
+							60.691125000000056
+						],
+						"atomicSaveLatencyMs": [
+							51.87858300000016,
+							61.54429200000004,
+							61.49075000000016,
+							63.23624999999993,
+							60.691125000000056
+						]
+					},
+					{
+						"firstVisibleBatchMs": 29.19162500000016,
+						"completionMs": 209.50004200000012,
+						"scanTransactions": 80,
+						"reactSnapshots": 93,
+						"reactCommits": 91,
+						"eventBatches": 6,
+						"readerReads": 2,
+						"cpuUserMs": 232.526,
+						"cpuSystemMs": 73.893,
+						"peakRssDeltaBytes": 44302336,
+						"publications": 12,
+						"mutationLatencyMs": [
+							57.50087500000018,
+							64.58116700000028,
+							60.92166600000019,
+							61.843832999999904,
+							63.13683399999991
+						],
+						"atomicSaveLatencyMs": [
+							57.50087500000018,
+							64.58116700000028,
+							60.92166600000019,
+							61.843832999999904,
+							63.13683399999991
+						]
+					},
+					{
+						"firstVisibleBatchMs": 30.435958000000028,
+						"completionMs": 220.06925,
+						"scanTransactions": 80,
+						"reactSnapshots": 93,
+						"reactCommits": 91,
+						"eventBatches": 6,
+						"readerReads": 2,
+						"cpuUserMs": 209.933,
+						"cpuSystemMs": 78.942,
+						"peakRssDeltaBytes": 6963200,
+						"publications": 12,
+						"mutationLatencyMs": [
+							55.22320800000034,
+							65.32137499999999,
+							61.50812500000029,
+							62.79608300000018,
+							61.115082999999686
+						],
+						"atomicSaveLatencyMs": [
+							55.22320800000034,
+							65.32137499999999,
+							61.50812500000029,
+							62.79608300000018,
+							61.115082999999686
+						]
+					}
+				],
+				"mutationLatencyMs": {
+					"p50": 61.50812500000029,
+					"p95": 65.32137499999999,
+					"max": 65.32137499999999
+				},
+				"atomicSaveLatencyMs": {
+					"p50": 61.50812500000029,
+					"p95": 65.32137499999999,
+					"max": 65.32137499999999
+				}
+			}
+		},
+		{
+			"fixture": {
+				"files": 10000,
+				"shape": "broad",
+				"manifestHash": "e9711ff4d9d661e36466da2ef1b503b68d8c6aacc0014a525426edbc5cda7860"
+			},
+			"old": {
+				"productionCommit": "429aa7aa8b26aedb82ef5e2e1f5b8ca24919678e",
+				"batching": {
+					"maxEntries": 64,
+					"maxWindowMs": 60
+				},
+				"liveMutationSupport": false,
+				"trials": [
+					{
+						"firstVisibleBatchMs": 2.6475829999999405,
+						"completionMs": 53.95533299999988,
+						"scanTransactions": 157,
+						"reactSnapshots": 157,
+						"reactCommits": 158,
+						"eventBatches": null,
+						"readerReads": 1,
+						"cpuUserMs": 51.37,
+						"cpuSystemMs": 33.246,
+						"peakRssDeltaBytes": 950272,
+						"publications": null,
+						"mutationLatencyMs": null,
+						"atomicSaveLatencyMs": null
+					},
+					{
+						"firstVisibleBatchMs": 4.087750000000597,
+						"completionMs": 50.91924999999992,
+						"scanTransactions": 157,
+						"reactSnapshots": 157,
+						"reactCommits": 158,
+						"eventBatches": null,
+						"readerReads": 1,
+						"cpuUserMs": 32.254,
+						"cpuSystemMs": 30.818,
+						"peakRssDeltaBytes": 737280,
+						"publications": null,
+						"mutationLatencyMs": null,
+						"atomicSaveLatencyMs": null
+					},
+					{
+						"firstVisibleBatchMs": 3.485000000000582,
+						"completionMs": 52.67733399999997,
+						"scanTransactions": 157,
+						"reactSnapshots": 157,
+						"reactCommits": 158,
+						"eventBatches": null,
+						"readerReads": 1,
+						"cpuUserMs": 33.526,
+						"cpuSystemMs": 31.698,
+						"peakRssDeltaBytes": 458752,
+						"publications": null,
+						"mutationLatencyMs": null,
+						"atomicSaveLatencyMs": null
+					}
+				]
+			},
+			"current": {
+				"productionCommit": "working-tree",
+				"liveMutationSupport": true,
+				"trials": [
+					{
+						"firstVisibleBatchMs": 51.51941600000009,
+						"completionMs": 677.3607910000001,
+						"scanTransactions": 158,
+						"reactSnapshots": 171,
+						"reactCommits": 169,
+						"eventBatches": 6,
+						"readerReads": 2,
+						"cpuUserMs": 687.338,
+						"cpuSystemMs": 153.51,
+						"peakRssDeltaBytes": 31178752,
+						"publications": 12,
+						"mutationLatencyMs": [
+							110.44508400000086,
+							123.56816699999945,
+							123.88645900000029,
+							128.01529200000004,
+							128.95358300000044
+						],
+						"atomicSaveLatencyMs": [
+							110.44508400000086,
+							123.56816699999945,
+							123.88645900000029,
+							128.01529200000004,
+							128.95358300000044
+						]
+					},
+					{
+						"firstVisibleBatchMs": 53.33537500000057,
+						"completionMs": 674.167708,
+						"scanTransactions": 158,
+						"reactSnapshots": 171,
+						"reactCommits": 169,
+						"eventBatches": 6,
+						"readerReads": 2,
+						"cpuUserMs": 652.975,
+						"cpuSystemMs": 157.723,
+						"peakRssDeltaBytes": 4161536,
+						"publications": 12,
+						"mutationLatencyMs": [
+							106.28104199999962,
+							123.17758400000002,
+							126.62879100000009,
+							131.77049999999963,
+							121.75
+						],
+						"atomicSaveLatencyMs": [
+							106.28104199999962,
+							123.17758400000002,
+							126.62879100000009,
+							131.77049999999963,
+							121.75
+						]
+					},
+					{
+						"firstVisibleBatchMs": 50.229208000000654,
+						"completionMs": 631.5188330000001,
+						"scanTransactions": 158,
+						"reactSnapshots": 171,
+						"reactCommits": 169,
+						"eventBatches": 6,
+						"readerReads": 2,
+						"cpuUserMs": 614.455,
+						"cpuSystemMs": 149.1,
+						"peakRssDeltaBytes": 4177920,
+						"publications": 12,
+						"mutationLatencyMs": [
+							119.74420800000007,
+							126.59145900000021,
+							125.16879199999948,
+							124.90262500000063,
+							132.05216699999983
+						],
+						"atomicSaveLatencyMs": [
+							119.74420800000007,
+							126.59145900000021,
+							125.16879199999948,
+							124.90262500000063,
+							132.05216699999983
+						]
+					}
+				],
+				"mutationLatencyMs": {
+					"p50": 124.90262500000063,
+					"p95": 132.05216699999983,
+					"max": 132.05216699999983
+				},
+				"atomicSaveLatencyMs": {
+					"p50": 124.90262500000063,
+					"p95": 132.05216699999983,
+					"max": 132.05216699999983
+				}
+			}
+		}
+	]
+}

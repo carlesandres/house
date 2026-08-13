@@ -21,7 +21,10 @@ Notes for AI assistants (and humans) working in this repo. This file is about *t
 - `TODO(revisit: <topic>)` markers in source point back at `DESIGN.md` §12. `grep -r 'TODO(revisit:' apps/house/src/` lists them.
 - Bindings live in `apps/house/src/keymap/browser.ts` as data. Adding a key: append a `KeyBinding`, the `?` overlay picks it up. Reserved keys (`/`, `r`) are off-limits in v1.
 - Themes resolve into typed semantic tokens (`apps/house/src/theme/types.ts`) consumed via the mutable singleton `colors`. Pattern lifted from ghui at small scale; do not introduce React Context for theme. Before adding or changing token usage, check DESIGN.md §7.5's token table and choose by semantic role, not by a single theme's color.
-- The Browser is the only non-serve render target. Sidebar contents are always `filter(discoveredPool, query)`; do not imperatively push entries into the sidebar. See `DESIGN.md` §7.4 before touching root/query/selection behavior.
+- The Browser is the only non-serve render target. `@house/ui/file-navigator` owns scanner membership,
+  filtering, and selection; its rendered collection is always the projection of the discovered pool and
+  query. Do not imperatively push entries into the generic `@house/ui/sidebar`. See `DESIGN.md` §7.4
+  before touching root/query/selection behavior.
 
 ## Headless test pattern
 

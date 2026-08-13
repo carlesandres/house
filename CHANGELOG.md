@@ -14,13 +14,26 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 - CI, npm packaging, standalone builds, and release publishing now run through workspace tasks.
 - Added local GitHub release/API verification with `vercel-labs/emulate`.
 - Extracted the House-specific sidebar pane from Browser without changing behavior.
-- Extracted the controlled file navigator into the private `@house/ui` workspace package while
-  keeping House's discovery, fuzzy ranking, keyboard routing, and product copy in the app.
+- House now uses the filesystem-aware File Navigator from `@house/ui/file-navigator` and the generic
+  `@house/ui/sidebar` presentation boundary.
+- File discovery now stays synchronized with live filesystem changes, with strict extension, hidden,
+  ignore, and hard-skip policy applied to scanner membership.
+- File navigation uses the package's fuzzy default behavior, including debounced query projection and
+  stable selection through streaming and reordering.
+- Selected-file updates, explicit refreshes, and stale reads are coordinated through reader invalidation
+  epochs.
+- Release builds now run filesystem mutation coverage inside the exact House artifact, with static
+  Parcel hosts for the four supported targets and installed npm execution without Bun on `PATH`.
+- Large-tree File Navigator startup now avoids redundant entry lookups and metadata work, uses a
+  topology-only readiness pass, and preserves scanner order while streaming built-in tree projections.
 
 ### Fixed
 
 - Streamed matches that rank ahead of the current row no longer change the selected file.
 - Pressing Return before the filter debounce elapses now opens the post-flush matching file.
+- A stable File Navigator ref now switches to the committed root instead of retaining its first root.
+- Reader loads now reject stale path/epoch completions across selection, root, watcher, editor, and
+  teardown changes; coalesced selected-file events trigger one fresh read.
 - Standalone/npm binaries again render markdown with syntax highlighting. The compile step
   now embeds OpenTUI's tree-sitter parser worker and sets `OTUI_TREE_SITTER_WORKER_PATH`
   (same approach as OpenCode; see opentui#807).

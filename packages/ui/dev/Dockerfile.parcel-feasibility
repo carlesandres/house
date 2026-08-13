@@ -1,0 +1,45 @@
+FROM oven/bun:1.3.10 AS base
+
+WORKDIR /work
+COPY . .
+RUN bun install --frozen-lockfile
+
+ENTRYPOINT ["bun", "packages/ui/dev/parcel-feasibility.ts"]
+
+FROM base AS standalone-builder
+
+ARG TARGETARCH
+RUN mkdir -p packages/ui/node_modules/.cache
+RUN parcel_arch="$(if [ "$TARGETARCH" = "amd64" ]; then printf x64; else printf '%s' "$TARGETARCH"; fi)" \
+	&& native_path="$(cd packages/ui && PARCEL_ARCH="$parcel_arch" bun -e \
+	'import { dirname } from "node:path"; const wrapper = require.resolve("@parcel/watcher"); const name = `@parcel/watcher-linux-${process.env.PARCEL_ARCH}-glibc`; process.stdout.write(require.resolve(name, { paths: [dirname(wrapper)] }))')" \
+	&& printf '%s\n' \
+		"import binding from \"${native_path}\"" \
+		'import { createWrapper } from "@parcel/watcher/wrapper"' \
+		'import { mkdtemp, rm, writeFile } from "node:fs/promises"' \
+		'import { join } from "node:path"' \
+		'import { tmpdir } from "node:os"' \
+		'const watcher = createWrapper(binding)' \
+		'const root = await mkdtemp(join(tmpdir(), "house-ui-parcel-static-"))' \
+		'let resolveMutation' \
+		'let timer' \
+		'const mutation = new Promise((resolve) => { resolveMutation = resolve })' \
+		'const subscription = await watcher.subscribe(root, (error, events) => {' \
+		'  if (error) throw error' \
+		'  if (events.some((event) => event.path.endsWith("standalone-static.txt"))) resolveMutation()' \
+		'})' \
+		'await writeFile(join(root, "standalone-static.txt"), "static")' \
+		'await Promise.race([mutation, new Promise((_, reject) => { timer = setTimeout(() => reject(new Error("static mutation timed out")), 5000) })])' \
+		'clearTimeout(timer)' \
+		'await subscription.unsubscribe()' \
+		'await rm(root, { recursive: true, force: true })' \
+		'console.log(JSON.stringify({ mutationObserved: true, processExit: true }))' \
+		> packages/ui/node_modules/.cache/parcel-linux-static.ts
+RUN bun_arch="$(if [ "$TARGETARCH" = "amd64" ]; then printf x64; else printf '%s' "$TARGETARCH"; fi)" \
+	&& bun build --compile --bytecode --format=esm --target="bun-linux-${bun_arch}" \
+		--outfile=/parcel-standalone packages/ui/node_modules/.cache/parcel-linux-static.ts
+
+FROM debian:bookworm-slim AS standalone-linux
+
+COPY --from=standalone-builder /parcel-standalone /usr/local/bin/parcel-standalone
+ENTRYPOINT ["/usr/local/bin/parcel-standalone"]

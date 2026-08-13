@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import type { FileRecord } from "@house/ui/file-navigator"
 import { browserBindings, type BrowserCtx } from "../src/keymap/browser.ts"
 import { dispatch, type KeyBinding, type KeyMatch } from "../src/keymap/keymap.ts"
 
@@ -10,6 +11,15 @@ const k = (
 	shift: mods.shift ?? false,
 	ctrl: mods.ctrl ?? false,
 	meta: mods.meta ?? false,
+})
+
+const file = (name: string): FileRecord => ({
+	absolutePath: `/v/${name}`,
+	relativePath: name,
+	basename: name,
+	extension: ".md",
+	size: 0,
+	mtimeMs: 0,
 })
 
 describe("dispatch — basic matching", () => {
@@ -189,10 +199,7 @@ describe("browserBindings — discovery.toggleAll", () => {
 
 	test("all currently enabled actions are available in the palette except palette.open", async () => {
 		const { buildCommands } = await import("../src/commands/buildCommands.ts")
-		const files = [
-			{ path: "/v/0.md", relativePath: "0.md", name: "0.md" },
-			{ path: "/v/1.md", relativePath: "1.md", name: "1.md" },
-		] as const
+		const files = [file("0.md"), file("1.md")] as const
 		const readerIds = new Set(
 			buildCommands(
 				stubCtx({
@@ -243,10 +250,7 @@ describe("browserBindings — discovery.toggleAll", () => {
 	test("palette commands use the supported intent categories", async () => {
 		const { buildCommands } = await import("../src/commands/buildCommands.ts")
 		const allowed = new Set(["Navigation", "View", "File", "Appearance", "App"])
-		const files = [
-			{ path: "/v/0.md", relativePath: "0.md", name: "0.md" },
-			{ path: "/v/1.md", relativePath: "1.md", name: "1.md" },
-		] as const
+		const files = [file("0.md"), file("1.md")] as const
 		const commands = [
 			...buildCommands(stubCtx({ files, hasSelected: true, focus: "reader", filterQuery: "abc" })),
 			...buildCommands(stubCtx({ files, hasSelected: true, focus: "sidebar", filterQuery: "abc" })),
@@ -261,7 +265,7 @@ describe("browserBindings — discovery.toggleAll", () => {
 	test("palette-only copy command is hidden when there is no selected file", async () => {
 		const { buildCommands } = await import("../src/commands/buildCommands.ts")
 		const ids = new Set(
-			buildCommands(stubCtx({ files: [{ path: "/v/0.md", relativePath: "0.md", name: "0.md" }], hasSelected: false })).map(
+			buildCommands(stubCtx({ files: [file("0.md")], hasSelected: false })).map(
 				(c) => c.id,
 			),
 		)

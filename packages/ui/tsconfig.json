@@ -17,5 +17,5 @@
 		"skipLibCheck": true,
 		"types": ["bun"]
 	},
-	"include": ["src/**/*.ts", "src/**/*.tsx", "test/**/*.ts", "test/**/*.tsx"]
+	"include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.d.ts", "test/**/*.ts", "test/**/*.tsx", "dev/**/*.ts", "dev/**/*.tsx"]
 }

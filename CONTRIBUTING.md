@@ -21,12 +21,27 @@ bun run lint
 bun run format          # write
 bun run format:check    # check (CI uses this)
 
+bun run --cwd apps/house bench:file-navigator
+bun run build:standalone
+bun run --cwd apps/house smoke:file-navigator:standalone
+bun run --cwd apps/house smoke:file-navigator:installed
 bun run npm:pack        # stage the app package and show exactly what would ship to npm
 bun run verify:github   # exercise release APIs against vercel-labs/emulate
 ```
 
+`bench:file-navigator --record` rewrites
+`apps/house/recordings/file-navigator-production-benchmark.json` with raw old/current 1k, 5k, and 10k
+trials. Keep the deterministic fixture and report first-visible/completion, scan transactions, React
+snapshots/commits, reader reads, event batches/snapshot publications, CPU/RSS, and mixed-burst latency. Old live
+mutation metrics remain unsupported because pre-migration production had no watcher.
+
 Any PR has to pass `typecheck`, `lint`, `format:check`, `test`, `npm:pack`, and the
 GitHub emulator verification — that's what `.github/workflows/ci.yml` enforces.
+
+The File Navigator smoke commands invoke the built House artifact's private headless mode; they do not
+compile a workspace-only substitute. Installed mode packs the staged main and host platform packages
+into a temporary npm prefix unless CI supplies its already-installed `house` path. Artifact execution
+removes Bun from `PATH` and exercises the embedded static Parcel binding through filesystem mutations.
 
 Versioned Git hooks live in `.githooks/`. `bun install` activates them (the `prepare` script in `package.json` sets `core.hooksPath`). The pre-commit hook runs `format:check` and `lint` so the cheap CI gates don't bite you on PR review. The pre-push hook fetches `origin/main` and blocks stale branch pushes; it is only a safeguard and does not merge, rebase, or run tests. If a hook blocks, prefer fixing the underlying issue over bypassing it.
 
@@ -37,15 +52,16 @@ orchestrator; the publishable app lives in `apps/house`, while reusable controll
 components live in the private `packages/ui` source package:
 
 - `apps/house/src/cli/` — argv parsing
-- `apps/house/src/discovery/` — filesystem walk + `.gitignore`
+- `apps/house/src/discovery/` — root resolution, show policy, and root labels
 - `apps/house/src/io/` — file reads (Effect)
 - `apps/house/src/keymap/` — declarative bindings + dispatch
 - `apps/house/src/theme/` — typed palette + mutable singleton
 - `apps/house/src/Browser.tsx`, `apps/house/src/index.tsx` — TUI
 - `apps/house/test/` — tests; the root `bunfig.toml` keeps direct `bun test` scoped here
 - `apps/house/dev/` — build, release, smoke, and benchmark scripts
-- `packages/ui/src/` — generic controlled navigator state and rendering
-- `packages/ui/test/` — package-local controller and headless render tests
+- `packages/ui/src/sidebar/` — filesystem-free generic sidebar presentation
+- `packages/ui/src/file-navigator/` — policy-aware scanner, watcher, projection, selection, and rendering
+- `packages/ui/test/` — package-local navigator and headless render tests
 
 ## Testing
 
@@ -54,6 +70,13 @@ The headless test pattern is documented in `apps/house/test/browser.test.tsx`. U
 Direct `bun test` remains intentionally scoped to `apps/house/test` by the root `bunfig.toml`. Use
 `bun run test` for the CI-equivalent all-workspace test gate, or
 `bun run --cwd packages/ui test` while iterating on the reusable package.
+
+Native backend feasibility probes are intentionally outside the release gate now that their durable
+evidence is recorded and exact House artifacts run the mutation matrix. Use
+`bun run --cwd packages/ui evidence:parcel` for the approved Parcel experiments or
+`bun run --cwd packages/ui evidence:rejected-backend` for Chokidar; either empirical command can fail
+when the host does not reproduce its recorded result. The normal suite still validates topology,
+evidence parsing, core synchronization, and the active release path.
 
 Add tests alongside features. We don't enforce coverage, but every keymap binding should have at least one integration test (see §10.2 of DESIGN.md for the v2 gate).
 

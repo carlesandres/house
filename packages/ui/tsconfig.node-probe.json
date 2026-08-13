@@ -1,0 +1,17 @@
+{
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"allowImportingTsExtensions": false,
+		"declaration": false,
+		"noEmit": false,
+		"outDir": "./node_modules/.cache/house-ui-node-probe",
+		"rootDir": "./dev"
+	},
+	"include": [
+		"dev/backend-harness.ts",
+		"dev/dependency-import-probe.ts",
+		"dev/dependency-import-probe-entry.ts",
+		"dev/evidence.ts",
+		"dev/node-watch-baseline-entry.ts"
+	]
+}

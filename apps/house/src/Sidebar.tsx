@@ -1,6 +1,11 @@
-import { FileNavigator } from "@house/ui"
-import type { FileNavigatorController, FileNavigatorEmptyState } from "@house/ui"
-import type { FileEntry } from "./discovery/walk.ts"
+import { FileNavigator } from "@house/ui/file-navigator"
+import type {
+	DiscoveryPolicy,
+	FileNavigatorHandle,
+	FileNavigatorProps,
+	FileNavigatorSnapshot,
+} from "@house/ui/file-navigator"
+import type { Ref } from "react"
 import { FOOTER_HEIGHT } from "./Footer.tsx"
 import { HEADER_HEIGHT } from "./Header.tsx"
 import { PromptRow } from "./PromptRow.tsx"
@@ -8,8 +13,12 @@ import { colors } from "./theme/colors.ts"
 
 /** Inputs for the House-specific file navigator adapter. */
 export interface SidebarProps {
-	readonly files: readonly FileEntry[]
-	readonly controller: FileNavigatorController<FileEntry, string>
+	readonly root: string
+	readonly policy: DiscoveryPolicy
+	readonly watch: boolean
+	readonly debounceMs: number
+	readonly navigatorRef: Ref<FileNavigatorHandle>
+	readonly snapshot: FileNavigatorSnapshot
 	readonly filterInput: string
 	readonly filterOpen: boolean
 	readonly discoveryActive: boolean
@@ -19,12 +28,20 @@ export interface SidebarProps {
 	readonly narrow: boolean
 	readonly active: boolean
 	readonly visible: boolean
+	readonly onSelectionChange: NonNullable<FileNavigatorProps["onSelectionChange"]>
+	readonly onSnapshot: NonNullable<FileNavigatorProps["onSnapshot"]>
+	readonly onSelectedFileInvalidated: NonNullable<FileNavigatorProps["onSelectedFileInvalidated"]>
+	readonly onDiagnostic: NonNullable<FileNavigatorProps["onDiagnostic"]>
 }
 
 /** Maps House product copy, dimensions, and theme tokens into the shared navigator. */
 export const Sidebar = ({
-	files,
-	controller,
+	root,
+	policy,
+	watch,
+	debounceMs,
+	navigatorRef,
+	snapshot,
 	filterInput,
 	filterOpen,
 	discoveryActive,
@@ -34,35 +51,38 @@ export const Sidebar = ({
 	narrow,
 	active,
 	visible,
+	onSelectionChange,
+	onSnapshot,
+	onSelectedFileInvalidated,
+	onDiagnostic,
 }: SidebarProps) => {
-	const headerVisible = files.length > 0 || discoveryActive
-	const emptyState: FileNavigatorEmptyState | undefined =
-		controller.filteredFiles.length > 0
+	const headerVisible = snapshot.files.length > 0 || discoveryActive
+	const emptyState =
+		snapshot.filteredFiles.length > 0
 			? undefined
-			: files.length === 0
+			: snapshot.files.length === 0
 				? discoveryActive
 					? { label: "Scanning", value: "…" }
 					: { label: "No markdown files in", value: rootLabel }
-				: { label: "No files match", value: controller.appliedQuery }
+				: { label: "No files match", value: snapshot.appliedQuery }
 	const rowWidth = Math.max(4, paneWidth - (narrow ? 1 : 2))
 
 	return (
 		<FileNavigator
-			controller={controller}
+			root={root}
+			query={filterInput}
+			policy={policy}
+			watch={watch}
+			debounceMs={debounceMs}
+			ref={navigatorRef}
 			width={paneWidth}
-			paneHeight={Math.max(1, viewportHeight - HEADER_HEIGHT - FOOTER_HEIGHT)}
-			variant={narrow ? "stacked" : "inline"}
+			height={Math.max(1, viewportHeight - HEADER_HEIGHT - FOOTER_HEIGHT)}
 			active={active}
 			visible={visible}
-			theme={{
-				background: colors.background,
-				backgroundPanel: colors.backgroundPanel,
-				backgroundElement: colors.backgroundElement,
-				text: colors.text,
-				textMuted: colors.textMuted,
-				border: colors.border,
-				selectedListItemText: colors.selectedListItemText,
-			}}
+			onSelectionChange={onSelectionChange}
+			onSnapshot={onSnapshot}
+			onSelectedFileInvalidated={onSelectedFileInvalidated}
+			onDiagnostic={onDiagnostic}
 			{...(headerVisible
 				? {
 						header: (
@@ -75,7 +95,27 @@ export const Sidebar = ({
 						),
 					}
 				: {})}
-			{...(emptyState === undefined ? {} : { emptyState })}
+			{...(emptyState === undefined
+				? {}
+				: {
+						renderEmpty: () => (
+							<box style={{ width: "100%", alignItems: "center", paddingTop: 1 }}>
+								<text
+									content={`${emptyState.label}: "${emptyState.value}"`}
+									style={{ fg: colors.textMuted }}
+								/>
+							</box>
+						),
+					})}
+			appearance={{
+				border: narrow ? (["top", "bottom"] as const) : (["top", "bottom", "right"] as const),
+				borderColor: colors.border,
+				backgroundColor: colors.background,
+				panelColor: colors.backgroundPanel,
+				selectedColor: colors.backgroundElement,
+				selectedTextColor: colors.selectedListItemText,
+				horizontalPadding: 1,
+			}}
 		/>
 	)
 }
