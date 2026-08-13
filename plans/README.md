@@ -18,7 +18,7 @@ every verification gate, and update the status below.
 | 004B | Validate Parcel Watcher as the filesystem backend             | P1       | M      | 004                       | DONE — Parcel 2.6.0 approved on 2026-08-01           |
 | 005  | Extract generic Sidebar and isolate package subpaths          | P1       | M      | 004B                      | DONE                                                 |
 | 006  | Build the policy-aware File Navigator core                    | P1       | L      | 004B, 005                 | DONE                                                 |
-| 007  | Compose and migrate the filesystem File Navigator             | P1       | L      | 004B, 005-006             | IN PROGRESS — migration complete; final evidence pending  |
+| 007  | Compose and migrate the filesystem File Navigator             | P1       | L      | 004B, 005-006             | DONE — optimized benchmark accepted with #242 follow-up   |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line
 rationale).
@@ -56,8 +56,9 @@ rationale).
   Sidebar subpath has no filesystem backend or File Navigator dependency.
 - Plan 007 completed the migration at `2fcfc68` and static Parcel hosts at `d537a3c`. The House-owned
   mutation matrix now runs inside exact standalone and installed House artifacts in CI and the native
-  publish matrix. The production batching comparison is the only remaining gate before the plan returns
-  to `DONE`.
+  publish matrix. The owner accepted the optimized production batching comparison with the explicit
+  caveat that large-tree startup remains paramount follow-up work in
+  [issue #242](https://github.com/carlesandres/house/issues/242).
 
 ## Decision history
 

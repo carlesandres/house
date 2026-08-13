@@ -319,7 +319,7 @@ export class FileNavigatorCore {
 		this.#candidate = generation
 		try {
 			const initialTopology = await scanFiles(generation.root, generation.policy, {
-				...(this.#options.metadata ? { metadata: this.#options.metadata } : {}),
+				topologyOnly: true,
 				onDiagnostic: (error) => this.#diagnose("scan", error),
 			})
 			let topology = initialTopology.watchDirectories
@@ -485,7 +485,10 @@ export class FileNavigatorCore {
 
 	#publishFiles(files: readonly FileRecord[], streaming: boolean): void {
 		this.#files = Object.freeze([...files])
-		this.#reproject()
+		if (streaming && this.#query === "" && this.#order === "tree") {
+			this.#projection = this.#files
+			this.#syncSelection()
+		} else this.#reproject()
 		if (streaming) this.#options.onSnapshot?.(this.#files)
 	}
 	#isCurrentCandidate(generation: Generation): boolean {
@@ -556,7 +559,6 @@ export class FileNavigatorCore {
 		return path
 	}
 	#reproject(): void {
-		const previousSelection = this.#selectedPath
 		try {
 			this.#projection = projectFiles(this.#files, this.#query, this.#order, this.#search)
 			this.#clearPhase("projection")
@@ -564,6 +566,10 @@ export class FileNavigatorCore {
 			this.#diagnose("projection", error)
 			return
 		}
+		this.#syncSelection()
+	}
+	#syncSelection(): void {
+		const previousSelection = this.#selectedPath
 		if (
 			!this.#selectedPath ||
 			!this.#projection.some((file) => file.absolutePath === this.#selectedPath)

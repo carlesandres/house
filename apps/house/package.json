@@ -43,7 +43,7 @@
 		"build:npm-packages": "bun run dev/build-npm-packages.ts",
 		"build:standalone": "bun run dev/build-standalone.ts",
 		"build:themes": "bun run dev/build-themes.ts",
-		"bench:file-navigator": "bun run dev/bench-file-navigator.ts",
+		"bench:file-navigator": "bun run dev/bench-file-navigator.tsx",
 		"dev": "bun --watch src/index.tsx",
 		"format": "oxfmt src/",
 		"format:check": "oxfmt --check src/",

@@ -8,6 +8,14 @@ Architectural rationale, UX rules, and key reservations live in `DESIGN.md`. Pro
 
 Beta shipped with v0.4.0. The unified browser model has landed. The public launch goal is now intentionally narrow: only daily-driver essentials stay in scope. Binary distribution is the current distribution initiative because npm install/runtime friction is now a real user-facing problem, not just a future nice-to-have.
 
+## Paramount follow-up — File Navigator performance
+
+Optimize large-tree File Navigator startup again as soon as the current release path is complete
+([#242](https://github.com/carlesandres/house/issues/242)). Plan 007 accepted the capability-driven
+tradeoff only with this caveat. The optimized 10k broad-tree baseline is approximately 53 ms to first
+visible batch and 667 ms to completion versus 3 ms and 55 ms before migration; preserve the recorded
+fixture and improve startup CPU/RSS without weakening authoritative discovery or live synchronization.
+
 ## Current focus — binary distribution
 
 Goal: make `house` installable and runnable without requiring Bun on `PATH`.

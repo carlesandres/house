@@ -20,6 +20,7 @@ export interface DiscoveryPolicy {
 
 export interface ScanOptions {
 	readonly signal?: AbortSignal
+	readonly topologyOnly?: boolean
 	readonly metadata?: (path: string) => Promise<{ readonly size: number; readonly mtimeMs: number }>
 	readonly onBatch?: (
 		files: readonly FileRecord[],

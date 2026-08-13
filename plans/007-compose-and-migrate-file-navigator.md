@@ -310,4 +310,13 @@ running old and new discovery in parallel.
   artifact through a private environment-controlled mode. Installed execution enters through the npm
   shim with Bun removed from `PATH`; native publish runners cover all four targets. Embedding the
   headless renderer added 181,632 bytes (0.20%) to the darwin-arm64 binary.
-- Remaining before `DONE`: record and review the old/new production batching comparison.
+- The permanent production benchmark records three old/current trials on deterministic 1k, 5k, and 10k
+  broad fixtures. Before approval, scanner classification lookups were removed, metadata was parallelized
+  in deterministic batch windows, the readiness scan became topology-only, and built-in tree-order
+  streaming stopped repeatedly sorting already ordered batches.
+- On Bun 1.3.10/darwin-arm64, the accepted 10k medians are approximately 53 ms to first visible batch
+  and 667 ms to completion, versus 3 ms and 55 ms for old production. Scan transactions remain 158;
+  React commits are 169 versus 158. Current mixed create/rewrite/atomic/delete bursts settle at 123 ms
+  p50 and 128 ms p95. Old production had no live mutation support.
+- The owner approved this capability-driven tradeoff on 2026-08-14 with the explicit caveat that another
+  optimization pass is paramount. Follow-up is tracked in issue #242 and at the top of `ROADMAP.md`.

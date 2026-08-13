@@ -29,6 +29,12 @@ bun run npm:pack        # stage the app package and show exactly what would ship
 bun run verify:github   # exercise release APIs against vercel-labs/emulate
 ```
 
+`bench:file-navigator --record` rewrites
+`apps/house/recordings/file-navigator-production-benchmark.json` with raw old/current 1k, 5k, and 10k
+trials. Keep the deterministic fixture and report first-visible/completion, scan transactions, React
+snapshots/commits, reader reads, event batches/snapshot publications, CPU/RSS, and mixed-burst latency. Old live
+mutation metrics remain unsupported because pre-migration production had no watcher.
+
 Any PR has to pass `typecheck`, `lint`, `format:check`, `test`, `npm:pack`, and the
 GitHub emulator verification — that's what `.github/workflows/ci.yml` enforces.
 

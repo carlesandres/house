@@ -105,21 +105,35 @@ export const scanFiles = async (
 		const next = batches.splice(0, batches.length)
 		await options.onBatch?.(Object.freeze(next), complete, withdrawn)
 	}
-	const add = async (
+	const record = async (
 		path: string,
 		lexical: string,
 		isFile: boolean,
 		levels: readonly IgnoreLevel[],
-	): Promise<void> => {
+	): Promise<FileRecord | null> => {
 		abort(options.signal)
-		if (ignored(lexical, false, levels)) return
-		if (!(await (isFile ? policy.includeFile(lexical) : policy.includeDirectory(lexical)))) return
-		if (!isFile) return
-		const record = frozenRecord(lexical, root, await metadata(path))
-		if (!inside(root, record.absolutePath)) return
-		topology.files.set(record.relativePath, record)
-		batches.push(record)
+		if (ignored(lexical, false, levels)) return null
+		if (!(await (isFile ? policy.includeFile(lexical) : policy.includeDirectory(lexical))))
+			return null
+		if (!isFile) return null
+		const next = frozenRecord(lexical, root, await metadata(path))
+		return inside(root, next.absolutePath) ? next : null
+	}
+	const add = async (next: FileRecord | null): Promise<void> => {
+		if (!next) return
+		topology.files.set(next.relativePath, next)
+		batches.push(next)
 		if (batches.length >= (options.batchSize ?? 64)) await publish(false)
+	}
+	const eligible: { path: string; lexical: string }[] = []
+	const flushEligible = async (): Promise<void> => {
+		const records = await Promise.all(
+			eligible.splice(0).map(async ({ path, lexical }) => {
+				const next = frozenRecord(lexical, root, await metadata(path))
+				return inside(root, next.absolutePath) ? next : null
+			}),
+		)
+		for (const next of records) await add(next)
 	}
 	const walk = async (
 		physical: string,
@@ -143,24 +157,25 @@ export const scanFiles = async (
 		const files = [] as typeof entries
 		const directories = [] as typeof entries
 		for (const entry of entries) {
-			try {
-				const entryStat = await stat(join(physical, entry.name))
-				if (entryStat.isDirectory() && (entryStat.mode & 0o777) === 0) {
-					options.onDiagnostic?.(new Error(`skipped directory: ${entry.name}`))
-					continue
-				}
-				;(entry.isDirectory() || entry.isSymbolicLink() ? directories : files).push(entry)
-			} catch (error) {
-				if (!missing(error))
-					options.onDiagnostic?.(
-						new Error(`skipped directory: ${basename(join(lexical, entry.name))}`),
-					)
-			}
+			;(entry.isDirectory() || entry.isSymbolicLink() ? directories : files).push(entry)
 		}
 		for (const entry of files) {
-			abort(options.signal)
-			if (!policy.ignoreFiles.includes(entry.name))
-				await add(join(physical, entry.name), join(lexical, entry.name), true, levels)
+			if (options.topologyOnly) continue
+			const path = join(physical, entry.name)
+			const lexicalPath = join(lexical, entry.name)
+			try {
+				if (
+					!policy.ignoreFiles.includes(entry.name) &&
+					!ignored(lexicalPath, false, levels) &&
+					(await policy.includeFile(lexicalPath))
+				)
+					eligible.push({ path, lexical: lexicalPath })
+			} catch (error) {
+				await flushEligible()
+				throw error
+			}
+			if (eligible.length < (options.batchSize ?? 64)) continue
+			await flushEligible()
 		}
 		if (!policy.recursive) return
 		for (const entry of directories) {
@@ -169,9 +184,9 @@ export const scanFiles = async (
 			const physicalPath = join(physical, entry.name)
 			const lexicalPath = join(lexical, entry.name)
 			try {
-				const target = await realpath(physicalPath)
-				const targetStat = await stat(target)
 				if (entry.isSymbolicLink() && !policy.followSymlinks) continue
+				const target = entry.isSymbolicLink() ? await realpath(physicalPath) : physicalPath
+				const targetStat = await stat(target)
 				if (targetStat.isDirectory()) {
 					if (ignored(lexicalPath, true, levels) || ancestry.has(target)) continue
 					if ((targetStat.mode & 0o777) === 0) {
@@ -185,7 +200,7 @@ export const scanFiles = async (
 						options.onDiagnostic?.(new Error(`skipped directory: ${basename(lexicalPath)}`))
 					}
 				} else if (targetStat.isFile() && !entry.isDirectory()) {
-					await add(target, lexicalPath, true, levels)
+					if (!options.topologyOnly) await add(await record(target, lexicalPath, true, levels))
 				}
 			} catch (error) {
 				if (missing(error)) continue
@@ -196,6 +211,7 @@ export const scanFiles = async (
 	try {
 		if (await policy.includeDirectory(root))
 			await walk(physicalRoot, root, new Set([physicalRoot]), [], true)
+		await flushEligible()
 		await publish(true)
 	} catch (error) {
 		if (batches.length) batches.splice(0, batches.length)

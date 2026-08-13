@@ -24,6 +24,8 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
   epochs.
 - Release builds now run filesystem mutation coverage inside the exact House artifact, with static
   Parcel hosts for the four supported targets and installed npm execution without Bun on `PATH`.
+- Large-tree File Navigator startup now avoids redundant entry lookups and metadata work, uses a
+  topology-only readiness pass, and preserves scanner order while streaming built-in tree projections.
 
 ### Fixed
 
