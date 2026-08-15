@@ -54,66 +54,191 @@ bun run npm:pack        # show exactly what would land on npm
 bun run verify:github   # release/API checks against vercel-labs/emulate
 ```
 
-## Release process
+## Release runbook
 
-Release-event-driven. Modeled on ghui, adapted for this repo's branch protection (direct commits to `main` are blocked, every change goes through a PR).
+Use this when publishing a new version. Releases are event-driven: you prepare a
+release PR, merge it, then create a GitHub Release. The GitHub Release triggers
+`.github/workflows/publish.yml`, which builds binaries and publishes npm packages.
+Direct commits to `main` are blocked, so even version bumps go through a PR.
 
-1. Build release notes from `main` commits since the last tag before touching versions.
-   - Start with `[Unreleased]` in `CHANGELOG.md`.
-   - Then run `git log --first-parent --oneline vX.Y.Z..origin/main` (where `vX.Y.Z` is the latest tag) and verify every user-visible change is represented.
-   - If `[Unreleased]` is empty or incomplete, reconstruct it from that commit range first, then move it under a new `## [X.Y.Z] — YYYY-MM-DD` heading.
-   - Update the link refs at the bottom of the file.
-2. Run `bun run version:set X.Y.Z` to bump the main package version and the `apps/house` workspace entry in `bun.lock`. Platform optionalDependencies stay on last-published versions so monorepo install works before those packages exist on npm; `createPublicPackageManifest` pins them to the release version in the published main package.
-3. From `main`, branch off (`git checkout -b release/vX.Y.Z`), commit (`chore: release vX.Y.Z`) — do **not** amend earlier commits — and push the branch.
-4. Open a PR into `main` titled `chore: release vX.Y.Z`. Wait for CI to be green (typecheck + lint + format:check + test + `bun run npm:pack`). Merge.
-5. Pull `main` locally so the release commit is at `origin/main`'s tip:
+Maintainer docs live here first. `CONTRIBUTING.md` has the short contributor
+summary. `apps/house/dev/release.ts` and `.github/workflows/publish.yml` are the
+executable sources of truth.
 
-   ```bash
-   git checkout main && git pull --ff-only
-   ```
+### What gets published
 
-6. Create a GitHub release at tag `vX.Y.Z` (auto-generated notes are fine; you can curate before publishing):
+Each release publishes:
 
-   ```bash
-   gh release create vX.Y.Z --target main --title "vX.Y.Z" \
-     --generate-notes
-   ```
+- `@carlesandres/house-<os>-<arch>` npm packages, each containing one native
+  `bin/house` binary.
+- `@carlesandres/house`, the main npm package. This contains the Node shim
+  and bundled application source, but no native executable. Its
+  `optionalDependencies` select a same-version platform package.
+- GitHub Release assets named `house-*.tar.gz` for the four supported targets.
+  npm installs use the optional platform packages.
 
-7. The `release: published` event fires `.github/workflows/publish.yml`, which:
-   - verifies typecheck + `bun run npm:pack` and asserts `v${package.version}` matches `${GITHUB_REF_NAME}`,
-   - builds each platform binary on a native runner (`darwin-arm64`, `darwin-x64`, `linux-arm64`, `linux-x64`),
-   - publishes the four `@carlesandres/house-<os>-<arch>` packages first,
-   - publishes `@carlesandres/house` (Node shim + `optionalDependencies`),
-   - attaches `house-*.tar.gz` standalone archives to the GitHub Release.
+Linux packages target glibc. Windows remains unsupported.
 
-The guarded one-command equivalent is `bun run release -- patch` (also `minor`, `major`, or an explicit stable version). Add `--dry-run` to plan without changes or `--yes` to skip confirmation. It performs the preflight, release branch/PR, CI wait, merge, GitHub release, and publish workflow watch. Required approval for the `npm` GitHub environment remains manual: approve the publish job in GitHub when it pauses.
+### 1. Prepare release notes
 
-If the `npm` GitHub environment has required reviewers, the **publish** job pauses at "Waiting for reviewer" — approve via the run's web page or `gh run view <id> --web`. Matrix build jobs do not use that environment.
+Start from a clean, current `main` and fetch the tags:
 
-8. Watch and verify:
+```bash
+git checkout main
+git pull --ff-only
+git status --short
+git fetch origin --tags
+```
 
-   ```bash
-   gh run list --workflow publish.yml --limit 3
-   gh run watch
-   npm view @carlesandres/house version              # should equal X.Y.Z
-   npm view @carlesandres/house-darwin-arm64 version # same for the other three platform packages
-   npm install -g @carlesandres/house                # no Bun required on supported platforms
-   house --version
-   ```
+`git status --short` must print nothing. The latest tag must equal `v` plus the
+version in `apps/house/package.json`; the release command checks both conditions.
 
-Don't add an `NPM_TOKEN`-style secret. Publish uses Trusted Publisher / OIDC with owner `carlesandres`, repo `house`, workflow `publish.yml`, environment `npm`.
+Inspect every first-parent commit since the latest tag:
 
-**Trusted Publisher must be configured for every package name** that the workflow publishes:
+```bash
+previous="$(git tag --sort=-v:refname | head -1)"
+echo "${previous}"
+git log --first-parent --oneline "${previous}..origin/main"
+```
 
-- `@carlesandres/house` (already configured)
-- `@carlesandres/house-darwin-arm64`
-- `@carlesandres/house-darwin-x64`
-- `@carlesandres/house-linux-arm64`
-- `@carlesandres/house-linux-x64`
+Make sure each user- or maintainer-visible change is represented under
+`[Unreleased]` in `CHANGELOG.md`. Use this filter:
 
-For each new platform package: create it once under the `@carlesandres` scope (or let the first OIDC publish create it if your npm org allows), then add a Trusted Publisher entry pointing at the same owner/repo/workflow/environment as the main package. Until those entries exist, the publish job will fail when publishing the binary packages.
+| Commit kind | Include in changelog? | Heading |
+|---|---:|---|
+| New command, install path, workflow, platform, or visible feature | Yes | `### Added` |
+| Behavior/default/output changed for users or maintainers | Yes | `### Changed` |
+| User-visible or release-blocking bug fixed | Yes | `### Fixed` |
+| Supported behavior removed | Yes | `### Removed` |
+| Security fix | Yes | `### Security` |
+| Release commit, typo, formatting, internal refactor, test-only change | No, unless maintainer-visible | — |
 
-Homebrew tap is still deferred until this npm binary path is proven in a real release (issue #51).
+For every included commit, write one bullet using this shape:
+
+```markdown
+- <User or maintainer-visible thing> now <outcome>, so <why it matters>.
+```
+
+Examples:
+
+- Good: `- npm installs now use a native binary package, so Bun is no longer required at runtime.`
+- Good: `- Release publishing now uploads standalone binary archives for direct downloads.`
+- Too internal: `- Added src/cli/npm-bin.js.`
+- Too internal: `- Refactored build scripts.`
+
+Group bullets under Keep a Changelog headings, using only headings that have
+entries: `### Added`, `### Changed`, `### Fixed`, `### Removed`, `### Security`.
+Keep bullets outcome-focused rather than describing file names or implementation
+details. Do not create the dated version section yourself when using the release
+command: it moves the non-empty `[Unreleased]` body and updates compare links.
+
+### 2. Run the guarded release command
+
+Dry-run the selected stable version or bump first:
+
+```bash
+bun run release -- patch --dry-run
+```
+
+Then run `patch`, `minor`, `major`, or an explicit stable version. Omit `--yes`
+for an interactive confirmation:
+
+```bash
+bun run release -- patch --yes
+```
+
+The command validates the changelog and preflight, creates `release/vX.Y.Z`,
+moves the changelog notes, bumps the version, opens a release PR, waits for CI,
+squash-merges, pulls `main`, creates the GitHub Release at the exact merge SHA,
+and watches `publish.yml`.
+
+`version:set` changes only `apps/house/package.json` and the `apps/house`
+workspace version in `bun.lock`. Platform `optionalDependencies` remain on the
+last-published version so a frozen monorepo install works before the new packages
+exist. `createPublicPackageManifest` pins them to the release version in the
+published main package. Do not hand-edit those pins to an unpublished version.
+
+PR CI is the release gate: typecheck, lint, format check, all-workspace tests,
+GitHub API emulation, standalone build/mutation smoke, npm package staging, and
+Node 22/24 install smokes. Use `bun run npm:pack`, not root `npm pack`, to inspect
+the staged public package.
+
+### 3. Approve and watch publishing
+
+The `release: published` event starts `.github/workflows/publish.yml`. It:
+
+1. runs typecheck, GitHub API emulation, `bun run npm:pack`, and tag/version checks,
+2. builds each native target and runs its File Navigator mutation smoke,
+3. publishes the platform packages before the main package, and
+4. uploads the four standalone archives to the GitHub Release.
+
+If the run pauses at **Waiting for reviewer**, approve the `npm` environment in
+GitHub. This approval is intentionally manual:
+
+```bash
+gh run list --workflow publish.yml --limit 3
+gh run view <run-id> --web
+gh run watch <run-id>
+```
+
+The platform build jobs do not use the `npm` environment. Only the final publish
+job does.
+
+### 4. Verify the published release
+
+After the publish run is green:
+
+```bash
+npm view @carlesandres/house version
+npm view @carlesandres/house-darwin-arm64 version
+npm view @carlesandres/house-darwin-x64 version
+npm view @carlesandres/house-linux-arm64 version
+npm view @carlesandres/house-linux-x64 version
+gh release view vX.Y.Z --json assets
+```
+
+All npm versions should be `X.Y.Z`. The GitHub Release should list four
+`house-*.tar.gz` assets.
+
+Finally smoke-test an install on a supported platform:
+
+```bash
+npm install -g @carlesandres/house
+house --version
+```
+
+`house --version` should print `X.Y.Z` and should not require Bun on `PATH`.
+
+### Recovery and retry rules
+
+If the guarded command stops, inspect the branch, PR, release, and workflow it
+already created before continuing. Follow the same remaining sequence from
+`apps/house/dev/release.ts`; do not create another version or amend/force-push
+`main`. A manual release must target the release PR's exact merge SHA rather than
+whatever `main` points to later.
+
+Manual dispatch is allowed only from `main`. Before using it, confirm that
+`apps/house/package.json` on `main` is still the version you intend to publish:
+
+```bash
+gh workflow run publish.yml --ref main
+```
+
+The npm publish steps skip package versions that already exist. A manual dispatch
+does **not** attach archives because it has no release event; rerun the failed
+original release workflow when release assets need recovery. Release-event asset
+upload uses `--clobber`.
+
+### Trusted Publisher and Homebrew status
+
+Don't add an `NPM_TOKEN`-style secret. Publish uses Trusted Publisher / OIDC with
+owner `carlesandres`, repo `house`, workflow `publish.yml`, environment `npm`.
+All five current package names are configured. Any future package name needs its
+own Trusted Publisher entry before the workflow can publish it.
+
+The native npm path and standalone assets have shipped successfully. Homebrew is
+still unimplemented and tracked by issue #51; its former binary-proof prerequisite
+has been satisfied.
 
 ## Things that are *not* the right move
 
