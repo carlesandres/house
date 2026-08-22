@@ -127,31 +127,44 @@ export type EditorRunResult =
 
 export interface OpenInEditorOptions {
 	readonly editor: ResolvedEditor
-	readonly filePath: string
+	readonly filePath?: string
+	readonly cwd?: string
+}
+
+export interface EditorLaunch {
+	readonly argv: readonly string[]
+	readonly cwd?: string
+}
+
+/** Build the spawn argv (and optional cwd) for an editor hand-off.
+ *  A file path is appended only when given; a new-file launch passes
+ *  `cwd` and omits the path so the editor opens in the Discovery Root. */
+export const planEditorLaunch = ({ editor, filePath, cwd }: OpenInEditorOptions): EditorLaunch => {
+	const argv =
+		filePath !== undefined ? [editor.cmd, ...editor.args, filePath] : [editor.cmd, ...editor.args]
+	return cwd !== undefined ? { argv, cwd } : { argv }
 }
 
 /**
- * Launch the resolved editor on `filePath`, inheriting stdio so the
- * editor takes over the TTY. Caller is responsible for suspending /
- * resuming the renderer around this call (see Browser.tsx).
+ * Launch the resolved editor, inheriting stdio so the editor takes over
+ * the TTY. Caller is responsible for suspending / resuming the renderer
+ * around this call (see Browser.tsx).
  *
- * The file path is passed as a separate argv element — never interpolated
- * into a shell string — so paths with shell metacharacters can't be
- * misinterpreted.
+ * The file path, when present, is passed as a separate argv element —
+ * never interpolated into a shell string — so paths with shell
+ * metacharacters can't be misinterpreted.
  *
  * Windows is unsupported (see #129). The PATHEXT gap that breaks `.cmd`
  * shims (`code.cmd`, `nvim.cmd`) is tracked specifically in #128.
  */
-export const openInEditor = async ({
-	editor,
-	filePath,
-}: OpenInEditorOptions): Promise<EditorRunResult> => {
-	const argv = [editor.cmd, ...editor.args, filePath]
+export const openInEditor = async (options: OpenInEditorOptions): Promise<EditorRunResult> => {
+	const { argv, cwd } = planEditorLaunch(options)
 	try {
-		const proc = Bun.spawn(argv, {
+		const proc = Bun.spawn([...argv], {
 			stdin: "inherit",
 			stdout: "inherit",
 			stderr: "inherit",
+			...(cwd !== undefined && { cwd }),
 		})
 		const exitCode = await proc.exited
 		if (exitCode === 0) return { ok: true, exitCode }

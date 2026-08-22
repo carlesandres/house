@@ -6,6 +6,10 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 
 ## [Unreleased]
 
+### Added
+
+- `N` opens `$EDITOR` / `$VISUAL` in the discovery root with no file path, so a new file can be created there without changing the current selection or filter.
+
 ## [0.5.2] — 2026-08-01
 
 ### Changed

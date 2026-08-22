@@ -1,12 +1,12 @@
 /**
  * Tests for the `$VISUAL` / `$EDITOR` resolver and POSIX shell-split.
  *
- * Spawn behavior is intentionally out of scope — exercised by the PTY
- * smoke test once `E` is wired into Browser.
+ * Spawn argv/cwd construction is covered via `planEditorLaunch`. The
+ * actual TTY hand-off is exercised by the PTY smoke tests.
  */
 
 import { describe, expect, test } from "bun:test"
-import { resolveEditor, splitEditorString } from "../src/io/editor.ts"
+import { planEditorLaunch, resolveEditor, splitEditorString } from "../src/io/editor.ts"
 
 describe("splitEditorString", () => {
 	test("bare command", () => {
@@ -99,5 +99,34 @@ describe("resolveEditor", () => {
 			cmd: "vim",
 			args: ["--noplugin"],
 		})
+	})
+})
+
+describe("planEditorLaunch", () => {
+	test("edit current file appends the path and has no cwd", () => {
+		expect(
+			planEditorLaunch({
+				editor: { cmd: "nvim", args: [] },
+				filePath: "/vault/a.md",
+			}),
+		).toEqual({ argv: ["nvim", "/vault/a.md"] })
+	})
+
+	test("new file at discovery root uses cwd and omits a path", () => {
+		expect(
+			planEditorLaunch({
+				editor: { cmd: "nvim", args: [] },
+				cwd: "/vault",
+			}),
+		).toEqual({ argv: ["nvim"], cwd: "/vault" })
+	})
+
+	test("preserves editor args when opening a new file", () => {
+		expect(
+			planEditorLaunch({
+				editor: { cmd: "code", args: ["--wait"] },
+				cwd: "/vault",
+			}),
+		).toEqual({ argv: ["code", "--wait"], cwd: "/vault" })
 	})
 })

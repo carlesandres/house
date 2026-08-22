@@ -45,6 +45,9 @@ export interface BrowserCtx {
 	/** Suspend the TUI, hand the TTY to `$EDITOR`, resume and re-read on
 	 *  exit. No-op when nothing is selected; gating is the binding's job. */
 	readonly editCurrent: () => void
+	/** Suspend the TUI, hand the TTY to `$EDITOR` with cwd = Discovery Root
+	 *  and no file path, then resume. Selection and query stay put. */
+	readonly editNewInRoot: () => void
 	/** Copy the currently-selected file's raw contents to the system
 	 *  clipboard. No-op when nothing is selected; palette gating is the
 	 *  primary availability control. */
@@ -280,6 +283,13 @@ export const browserBindings: readonly KeyBinding<BrowserCtx>[] = [
 		keys: ["shift+e"],
 		when: hasSelected,
 		run: (c) => c.editCurrent(),
+	},
+	{
+		id: "file.new",
+		group: "File",
+		description: "New file in $EDITOR at discovery root",
+		keys: ["shift+n"],
+		run: (c) => c.editNewInRoot(),
 	},
 	{
 		// `[`/`]` keep the `inReader` clause so they're only typed from the

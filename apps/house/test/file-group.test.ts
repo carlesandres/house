@@ -32,6 +32,7 @@ interface CtxOverrides {
 	readonly paletteOpen?: boolean
 	readonly onServe?: () => void
 	readonly onEdit?: () => void
+	readonly onEditNew?: () => void
 	readonly moveSelectionBy?: (delta: number) => void
 }
 
@@ -59,6 +60,7 @@ const makeCtx = (o: CtxOverrides = {}): BrowserCtx => ({
 	quit: noop,
 	serveCurrent: o.onServe ?? noop,
 	editCurrent: o.onEdit ?? noop,
+	editNewInRoot: o.onEditNew ?? noop,
 	copyCurrentContents: noop,
 	toggleAll: noop,
 })
@@ -183,9 +185,49 @@ describe("File group — `E` (open in $EDITOR)", () => {
 	})
 })
 
+describe("File group — `N` (new file in $EDITOR at discovery root)", () => {
+	test("fires when hasSelected", () => {
+		let fired = false
+		const ctx = makeCtx({ hasSelected: true, onEditNew: () => (fired = true) })
+		expect(dispatch(browserBindings, ctx, k("n", { shift: true }))?.id).toBe("file.new")
+		expect(fired).toBe(true)
+	})
+
+	test("fires when !hasSelected", () => {
+		let fired = false
+		const ctx = makeCtx({ hasSelected: false, onEditNew: () => (fired = true) })
+		expect(dispatch(browserBindings, ctx, k("n", { shift: true }))?.id).toBe("file.new")
+		expect(fired).toBe(true)
+	})
+
+	test("plain `n` does not fire", () => {
+		let fired = false
+		const ctx = makeCtx({ onEditNew: () => (fired = true) })
+		expect(dispatch(browserBindings, ctx, k("n"))).toBeNull()
+		expect(fired).toBe(false)
+	})
+
+	test("fires from the reader too (focus-agnostic)", () => {
+		let fired = false
+		const ctx = makeCtx({
+			focus: "reader",
+			hasSelected: false,
+			onEditNew: () => (fired = true),
+		})
+		expect(dispatch(browserBindings, ctx, k("n", { shift: true }))?.id).toBe("file.new")
+		expect(fired).toBe(true)
+	})
+})
+
 describe("File group — array layout", () => {
-	test('`O`, `E`, `[`, `]` all carry group="File"', () => {
-		const ids = ["serve.current", "file.edit", "reader.prevFile", "reader.nextFile"] as const
+	test('`O`, `E`, `N`, `[`, `]` all carry group="File"', () => {
+		const ids = [
+			"serve.current",
+			"file.edit",
+			"file.new",
+			"reader.prevFile",
+			"reader.nextFile",
+		] as const
 		for (const id of ids) {
 			const b = browserBindings.find((x) => x.id === id)
 			expect(b?.group).toBe("File")

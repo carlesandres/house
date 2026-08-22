@@ -272,6 +272,7 @@ export const Browser = ({
 			syncSnapshot(navigatorAction((handle) => handle.moveBy(delta)) ?? navigatorSnapshot),
 		selectPath: (path: string) =>
 			syncSnapshot(navigatorAction((handle) => handle.selectPath(path)) ?? navigatorSnapshot),
+		refresh: () => navigatorRef.current?.refresh() ?? Promise.resolve(),
 	}
 	const skippedDiagnostics = liveSnapshot.diagnostics.filter((diagnostic) =>
 		diagnostic.error.message.startsWith("skipped directory:"),
@@ -683,6 +684,37 @@ export const Browser = ({
 			}
 			renderer?.destroy()
 			process.exit(0)
+		},
+		editNewInRoot: () => {
+			const editor = resolveEditor(process.env)
+			if (!editor) {
+				pushFooterNotice("set $EDITOR or $VISUAL to use N")
+				return
+			}
+			if (!renderer) {
+				pushFooterNotice("editor unavailable in this environment")
+				return
+			}
+			void (async () => {
+				renderer.suspend()
+				renderer.currentRenderBuffer.clear()
+				let result
+				try {
+					result = await openInEditor({ editor, cwd: root })
+				} finally {
+					renderer.currentRenderBuffer.clear()
+					renderer.resume()
+					renderer.requestRender()
+				}
+				void navigator.refresh()
+				if (!result.ok) {
+					if (result.reason === "spawn-failed") {
+						pushFooterNotice(`editor not found: ${editor.cmd}`)
+					} else if (result.reason === "non-zero") {
+						pushFooterNotice(`editor exited ${result.detail}`)
+					}
+				}
+			})()
 		},
 		editCurrent: () => {
 			const file = navigator.getSnapshot().selectedFile

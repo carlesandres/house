@@ -72,11 +72,15 @@ afterEach(async () => {
 	delete (globalThis as Record<string, unknown>)[WATCHER_FACTORY_KEY]
 	await destroyTestRenderer(setup)
 	setup = null
-	await Promise.all(fixtureRoots.splice(0).map((root) => rm(root, { recursive: true, force: true })))
+	await Promise.all(
+		fixtureRoots.splice(0).map((root) => rm(root, { recursive: true, force: true })),
+	)
 })
 
 afterAll(async () => {
-	await Promise.all(sharedFixtureRoots.splice(0).map((root) => rm(root, { recursive: true, force: true })))
+	await Promise.all(
+		sharedFixtureRoots.splice(0).map((root) => rm(root, { recursive: true, force: true })),
+	)
 })
 
 const VIEWPORT = { width: 120, height: 30 }
@@ -422,8 +426,7 @@ describe("Browser — selection", () => {
 					watch={false}
 					policy={{
 						revision: includeHigherRankedMatch ? 1 : 0,
-						includeFile: (path) =>
-							includeHigherRankedMatch || path.endsWith("/docs/readme.md"),
+						includeFile: (path) => includeHigherRankedMatch || path.endsWith("/docs/readme.md"),
 					}}
 					initialQuery="readme"
 					readFile={makeReader({ "docs/readme.md": "docs", "readme.md": "root" })}
@@ -595,9 +598,7 @@ describe("Browser — selection", () => {
 					root={files}
 					readFile={(path) =>
 						Promise.resolve(
-							path.endsWith("/README.md")
-								? README_FIXTURE
-								: "# Notes\n\nNo code here.\n",
+							path.endsWith("/README.md") ? README_FIXTURE : "# Notes\n\nNo code here.\n",
 						)
 					}
 					onQuit={() => {}}
@@ -1468,9 +1469,7 @@ describe("Browser — #22 layout v2", () => {
 describe("Browser — jump and page keys", () => {
 	const tenPaths = Array.from({ length: 10 }, (_, i) => `f${i}.md`)
 	const tenFiles = makeFiles(tenPaths, true)
-	const reader = makeReader(
-		Object.fromEntries(tenPaths.map((path) => [path, path])),
-	)
+	const reader = makeReader(Object.fromEntries(tenPaths.map((path) => [path, path])))
 
 	test("shift+j jumps 8 lines down", async () => {
 		await act(async () => {
@@ -1718,6 +1717,36 @@ describe("Browser — footer", () => {
 		expect(frame).not.toContain("[ prev")
 		expect(frame).not.toContain("] next")
 		expect(frame).not.toContain("w wrap")
+		expect(frame).not.toContain("N ")
+		expect(frame).not.toMatch(/\bN\b/)
+	})
+
+	test("N without $EDITOR shows a footer notice even with no selected file", async () => {
+		const prevEditor = process.env.EDITOR
+		const prevVisual = process.env.VISUAL
+		delete process.env.EDITOR
+		delete process.env.VISUAL
+		try {
+			await act(async () => {
+				setup = await renderBrowser(
+					<Browser root={makeFiles([])} readFile={makeReader({})} onQuit={() => {}} />,
+					VIEWPORT,
+				)
+			})
+			await stepFrame(setup!.renderOnce)
+
+			await act(async () => {
+				setup!.mockInput.pressKey("n", { shift: true })
+			})
+			await stepFrame(setup!.renderOnce)
+
+			expect(setup!.captureCharFrame()).toContain("set $EDITOR or $VISUAL to use N")
+		} finally {
+			if (prevEditor === undefined) delete process.env.EDITOR
+			else process.env.EDITOR = prevEditor
+			if (prevVisual === undefined) delete process.env.VISUAL
+			else process.env.VISUAL = prevVisual
+		}
 	})
 
 	test("shows a persistent wrap indicator and toggles it with w", async () => {
@@ -2054,18 +2083,12 @@ describe("Browser — sidebar virtualization", () => {
 	const TALL_VIEWPORT = { width: 90, height: 20 }
 	const twentyPaths = Array.from({ length: 20 }, (_, i) => `f${String(i).padStart(2, "0")}.md`)
 	const TWENTY_FILES = makeFiles(twentyPaths, true)
-	const TWENTY_READER = makeReader(
-		Object.fromEntries(twentyPaths.map((path) => [path, path])),
-	)
+	const TWENTY_READER = makeReader(Object.fromEntries(twentyPaths.map((path) => [path, path])))
 
 	test("initial frame shows only the first window of files", async () => {
 		await act(async () => {
 			setup = await renderBrowser(
-				<Browser
-					root={TWENTY_FILES}
-					readFile={TWENTY_READER}
-					onQuit={() => {}}
-				/>,
+				<Browser root={TWENTY_FILES} readFile={TWENTY_READER} onQuit={() => {}} />,
 				TIGHT_VIEWPORT,
 			)
 		})
@@ -2081,11 +2104,7 @@ describe("Browser — sidebar virtualization", () => {
 	test("shift+G scrolls to the bottom; last file visible, first not", async () => {
 		await act(async () => {
 			setup = await renderBrowser(
-				<Browser
-					root={TWENTY_FILES}
-					readFile={TWENTY_READER}
-					onQuit={() => {}}
-				/>,
+				<Browser root={TWENTY_FILES} readFile={TWENTY_READER} onQuit={() => {}} />,
 				TIGHT_VIEWPORT,
 			)
 		})
@@ -2105,11 +2124,7 @@ describe("Browser — sidebar virtualization", () => {
 	test("hiding and reopening preserves the retained bottom window", async () => {
 		await act(async () => {
 			setup = await renderBrowser(
-				<Browser
-					root={TWENTY_FILES}
-					readFile={TWENTY_READER}
-					onQuit={() => {}}
-				/>,
+				<Browser root={TWENTY_FILES} readFile={TWENTY_READER} onQuit={() => {}} />,
 				TIGHT_VIEWPORT,
 			)
 		})
@@ -2143,11 +2158,7 @@ describe("Browser — sidebar virtualization", () => {
 	test("shift+G then g returns to the top window", async () => {
 		await act(async () => {
 			setup = await renderBrowser(
-				<Browser
-					root={TWENTY_FILES}
-					readFile={TWENTY_READER}
-					onQuit={() => {}}
-				/>,
+				<Browser root={TWENTY_FILES} readFile={TWENTY_READER} onQuit={() => {}} />,
 				TIGHT_VIEWPORT,
 			)
 		})
@@ -2174,11 +2185,7 @@ describe("Browser — sidebar virtualization", () => {
 	test("j past the bottom of the visible window scrolls one row at a time", async () => {
 		await act(async () => {
 			setup = await renderBrowser(
-				<Browser
-					root={TWENTY_FILES}
-					readFile={TWENTY_READER}
-					onQuit={() => {}}
-				/>,
+				<Browser root={TWENTY_FILES} readFile={TWENTY_READER} onQuit={() => {}} />,
 				TIGHT_VIEWPORT,
 			)
 		})
@@ -2199,11 +2206,7 @@ describe("Browser — sidebar virtualization", () => {
 	test("filter that shrinks the list past selectedIndex clamps without crashing", async () => {
 		await act(async () => {
 			setup = await renderBrowser(
-				<Browser
-					root={TWENTY_FILES}
-					readFile={TWENTY_READER}
-					onQuit={() => {}}
-				/>,
+				<Browser root={TWENTY_FILES} readFile={TWENTY_READER} onQuit={() => {}} />,
 				TALL_VIEWPORT,
 			)
 		})
@@ -2304,7 +2307,12 @@ describe("Browser — sidebar filter row", () => {
 	test("filter row is suppressed on an empty vault (no 'type / to filter')", async () => {
 		await act(async () => {
 			setup = await renderBrowser(
-				<Browser root={makeFiles([])} rootLabel="root" readFile={makeReader({})} onQuit={() => {}} />,
+				<Browser
+					root={makeFiles([])}
+					rootLabel="root"
+					readFile={makeReader({})}
+					onQuit={() => {}}
+				/>,
 				VIEWPORT,
 			)
 		})
@@ -4118,11 +4126,7 @@ describe("Browser — command palette", () => {
 		const files = makeFiles(["doc.md"])
 		await act(async () => {
 			setup = await renderBrowser(
-				<Browser
-					root={files}
-					readFile={makeReader({ "doc.md": longContent })}
-					onQuit={() => {}}
-				/>,
+				<Browser root={files} readFile={makeReader({ "doc.md": longContent })} onQuit={() => {}} />,
 				VIEWPORT,
 			)
 		})
@@ -4178,11 +4182,7 @@ describe("Browser — command palette", () => {
 		const files = makeFiles(["doc.md"])
 		await act(async () => {
 			setup = await renderBrowser(
-				<Browser
-					root={files}
-					readFile={makeReader({ "doc.md": longContent })}
-					onQuit={() => {}}
-				/>,
+				<Browser root={files} readFile={makeReader({ "doc.md": longContent })} onQuit={() => {}} />,
 				VIEWPORT,
 			)
 		})
