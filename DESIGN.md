@@ -408,7 +408,7 @@ A benchmark script checks these against a fixture corpus checked into `apps/hous
 
 - **Distribution path: npm prebuilt binaries.** `@carlesandres/house` exposes a small Node shim; `optionalDependencies` pull the matching platform package (`@carlesandres/house-darwin-arm64`, `house-darwin-x64`, `house-linux-arm64`, `house-linux-x64`). End users on supported platforms do not need Bun on `PATH`. Windows remains out of scope until the Windows support epic is resolved.
 - **Release publish:** `release: published` → `publish.yml` builds each binary on a native runner, publishes the four platform packages, then publishes the main package via Trusted Publisher. GitHub Release also receives `house-*.tar.gz` archives for direct download / future Homebrew.
-- **Homebrew tap** waits until the npm binary path is proven in a real release.
+- **Homebrew tap** remains deferred ([#51](https://github.com/carlesandres/house/issues/51)).
 
 - Semver from v0.1.0 onward; pre-v0.1 may break.
 - Manual `CHANGELOG.md` (Keep-a-Changelog). Changesets remains an option if/when contributors land.

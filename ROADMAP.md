@@ -6,40 +6,30 @@ Architectural rationale, UX rules, and key reservations live in `DESIGN.md`. Pro
 
 ★ marks a confirmed competitive gap (mdcat / frogmouth / mdr — see issue #16).
 
-Beta shipped with v0.4.0. The unified browser model has landed. The public launch goal is now intentionally narrow: only daily-driver essentials stay in scope. Binary distribution is the current distribution initiative because npm install/runtime friction is now a real user-facing problem, not just a future nice-to-have.
+Beta shipped with v0.4.0. The unified browser model has landed. The public launch goal is now intentionally narrow: only daily-driver essentials stay in scope. Binary distribution landed in v0.5.2: `npm install -g @carlesandres/house` runs without Bun on supported macOS/Linux platforms ([#2](https://github.com/carlesandres/house/issues/2)). Homebrew remains deferred ([#51](https://github.com/carlesandres/house/issues/51)).
 
 ## Paramount follow-up — File Navigator performance
 
-Optimize large-tree File Navigator startup again as soon as the current release path is complete
+Optimize large-tree File Navigator startup
 ([#242](https://github.com/carlesandres/house/issues/242)). Plan 007 accepted the capability-driven
 tradeoff only with this caveat. The optimized 10k broad-tree baseline is approximately 53 ms to first
 visible batch and 667 ms to completion versus 3 ms and 55 ms before migration; preserve the recorded
 fixture and improve startup CPU/RSS without weakening authoritative discovery or live synchronization.
 
-## Current focus — binary distribution
+## Binary distribution — landed
 
 Goal: make `house` installable and runnable without requiring Bun on `PATH`.
 
-Done: the lightweight standalone entrypoint, host standalone build path, npm binary
-package prep, main package bin shim, bundled published source, and multi-platform
-release publish workflow have landed
-([#131](https://github.com/carlesandres/house/issues/131), [#132](https://github.com/carlesandres/house/issues/132), [#133](https://github.com/carlesandres/house/issues/133), [#134](https://github.com/carlesandres/house/issues/134), [#135](https://github.com/carlesandres/house/issues/135)).
+v0.5.2 published `@carlesandres/house` and the four platform packages via Trusted Publisher
+([#131](https://github.com/carlesandres/house/issues/131), [#132](https://github.com/carlesandres/house/issues/132), [#133](https://github.com/carlesandres/house/issues/133), [#134](https://github.com/carlesandres/house/issues/134), [#135](https://github.com/carlesandres/house/issues/135), [#2](https://github.com/carlesandres/house/issues/2)).
 
-These are the remaining distribution tasks to work on, in order:
-
-1. Cut a release that publishes the four platform packages + main package and proves `npm install -g @carlesandres/house` runs without Bun ([#2](https://github.com/carlesandres/house/issues/2)).
-2. Configure Trusted Publisher on npm for each `@carlesandres/house-<os>-<arch>` package (same workflow/environment as the main package) before that release.
-3. Add Homebrew distribution after the binary pipeline is proven ([#51](https://github.com/carlesandres/house/issues/51)).
-
-Tracked by the `binary distribution` milestone and the standalone binary epic ([#2](https://github.com/carlesandres/house/issues/2)). Windows support remains separate and blocked on the Windows support epic ([#129](https://github.com/carlesandres/house/issues/129)).
-
+Follow-ups, not current: publish release checksums ([#229](https://github.com/carlesandres/house/issues/229)), Homebrew tap ([#51](https://github.com/carlesandres/house/issues/51)). Windows support remains a separate epic ([#129](https://github.com/carlesandres/house/issues/129)).
 
 ## Public launch — next daily-driver fixes
 
-Once the binary distribution path is moving, return to the remaining public-launch polish:
+Remaining public-launch polish:
 
 1. Preserve alpha colours from bundled themes so muted/border tokens keep their intended contrast ([#189](https://github.com/carlesandres/house/issues/189)).
-2. Make footer status-indicator layout display-width aware ([#220](https://github.com/carlesandres/house/issues/220)).
 
 ## Public launch — daily-driver essentials
 
@@ -47,9 +37,7 @@ An item belongs here only if its absence is a clear blocker or papercut for regu
 
 | Theme | Item | Issue |
 |---|---|---|
-| Sidebar | Sidebar display-width polish | [#207](https://github.com/carlesandres/house/issues/207) |
 | Theming | Theme fidelity fixes | [#189](https://github.com/carlesandres/house/issues/189) |
-| Chrome | Footer/status layout polish | [#220](https://github.com/carlesandres/house/issues/220) |
 | Browser preview | Relative assets for local README previews | [#75](https://github.com/carlesandres/house/issues/75) |
 
 ## Far future — spikes and nice-to-haves
@@ -98,19 +86,13 @@ No commitment to ship. Tracked to remember.
 | Theming v2 — user stylesheets, named theme sets | [#34](https://github.com/carlesandres/house/issues/34) |
 | Opt out of automatic theme persistence | [#206](https://github.com/carlesandres/house/issues/206) |
 
-### Tooling
-
-| Item | Issue |
-|---|---|
-| One-command release flow (`bun run release`) | [#121](https://github.com/carlesandres/house/issues/121) |
-
 ### Distribution
 
 | Item | Issue |
 |---|---|
 | Active auto-update command (depends on #100) | [#12](https://github.com/carlesandres/house/issues/12) |
-| Standalone binary distribution — current initiative | [#2](https://github.com/carlesandres/house/issues/2) |
-| Distribute via Homebrew tap after binaries land | [#51](https://github.com/carlesandres/house/issues/51) |
+| Publish release checksums | [#229](https://github.com/carlesandres/house/issues/229) |
+| Distribute via Homebrew tap | [#51](https://github.com/carlesandres/house/issues/51) |
 | Windows support (epic; see also #128 PATHEXT) | [#129](https://github.com/carlesandres/house/issues/129) |
 
 ### File handling
@@ -150,7 +132,6 @@ No commitment to ship. Tracked to remember.
 
 | Item | Issue |
 |---|---|
-| Extract `Sidebar.tsx` from `Browser.tsx` | [#66](https://github.com/carlesandres/house/issues/66) |
 | Mouse interaction on the sidebar filter row | [#67](https://github.com/carlesandres/house/issues/67) |
 | Filter-row behaviour in the tight viewport bucket | [#68](https://github.com/carlesandres/house/issues/68) |
 | Enter from reader returns to sidebar (extra key on `reader.back`) | [#78](https://github.com/carlesandres/house/issues/78) |
