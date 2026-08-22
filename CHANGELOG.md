@@ -10,6 +10,12 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 
 - `N` opens `$EDITOR` / `$VISUAL` in the discovery root with no file path, so a new file can be created there without changing the current selection or filter.
 
+### Changed
+
+- Large-tree File Navigator startup no longer waits for a topology-only warmup: the watcher
+  subscribes before the first authoritative scan, missing ignore files are not probed, and the first
+  visible batch can paint while the rest of the tree is still scanning.
+
 ## [0.5.2] — 2026-08-01
 
 ### Changed

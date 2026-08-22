@@ -12,9 +12,11 @@ Beta shipped with v0.4.0. The unified browser model has landed. The public launc
 
 Optimize large-tree File Navigator startup
 ([#242](https://github.com/carlesandres/house/issues/242)). Plan 007 accepted the capability-driven
-tradeoff only with this caveat. The optimized 10k broad-tree baseline is approximately 53 ms to first
-visible batch and 667 ms to completion versus 3 ms and 55 ms before migration; preserve the recorded
-fixture and improve startup CPU/RSS without weakening authoritative discovery or live synchronization.
+tradeoff only with this caveat. The recorded 10k broad-tree medians on darwin-arm64/Bun 1.3.10 are
+approximately 5 ms to first visible batch and 278 ms to completion versus 7 ms and 60 ms before
+migration (Plan 007's accepted post-migration baseline was 52 ms and 674 ms). Preserve the recorded
+fixture and keep improving completion CPU/RSS without weakening authoritative discovery or live
+synchronization.
 
 ## Binary distribution — landed
 

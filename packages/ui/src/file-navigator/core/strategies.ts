@@ -3,10 +3,17 @@ import type { BrowseOrder, BrowseStrategy, FileRecord, SearchStrategy } from "./
 
 const pathCompare = (a: FileRecord, b: FileRecord): number =>
 	a.relativePath < b.relativePath ? -1 : a.relativePath > b.relativePath ? 1 : 0
-const segments = (path: string): string[] => path.split("/")
+const segmentCache = new WeakMap<FileRecord, readonly string[]>()
+const segmentsOf = (file: FileRecord): readonly string[] => {
+	const cached = segmentCache.get(file)
+	if (cached) return cached
+	const value = file.relativePath.split("/")
+	segmentCache.set(file, value)
+	return value
+}
 const treeCompare = (a: FileRecord, b: FileRecord): number => {
-	const left = segments(a.relativePath)
-	const right = segments(b.relativePath)
+	const left = segmentsOf(a)
+	const right = segmentsOf(b)
 	const limit = Math.min(left.length, right.length)
 	for (let index = 0; index < limit; index++) {
 		if (left[index] === right[index]) continue

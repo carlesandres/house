@@ -18,15 +18,21 @@ export interface DiscoveryPolicy {
 	readonly includeDirectory?: (path: string) => boolean | Promise<boolean>
 }
 
+export interface FileMetadata {
+	readonly size: number
+	readonly mtimeMs: number
+}
+
 export interface ScanOptions {
 	readonly signal?: AbortSignal
 	readonly topologyOnly?: boolean
-	readonly metadata?: (path: string) => Promise<{ readonly size: number; readonly mtimeMs: number }>
+	readonly metadata?: (path: string) => FileMetadata | Promise<FileMetadata>
 	readonly onBatch?: (
 		files: readonly FileRecord[],
 		complete: boolean,
 		withdrawn?: boolean,
 	) => void | Promise<void>
+	readonly onWatchRoot?: (physicalPath: string) => void | Promise<void>
 	readonly batchSize?: number
 	readonly barrier?: (
 		phase: "before-read" | "after-read",

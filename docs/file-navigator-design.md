@@ -247,9 +247,9 @@ collection, clears `scanning`, exposes and diagnoses the refresh error, and reje
 No mature npm package combines deterministic streaming, arbitrary directory policy, nested ignore
 files, depth control, metadata, cancellation, and a reusable live matcher. The implementation
 therefore owns a small generic cascade scanner built on Node-compatible directory reads and the
-established `ignore` parser. The scanner loads each directory's active policy files before sorting and
-descending, streams deterministic structural entries, and is authoritative for initial discovery,
-static mode, explicit refresh, and subtree reconciliation.
+established `ignore` parser. The scanner reads each directory, loads any present policy files from that listing, then streams
+deterministic structural entries. It is authoritative for initial discovery, static mode, explicit
+refresh, and subtree reconciliation.
 
 `@parcel/watcher` 2.6.0 is the approved event source. It normalizes create, update, and delete events
 and provides async teardown. Backend events are invalidation hints rather than authoritative
@@ -257,8 +257,9 @@ membership changes. A directory-create or ignore-policy-file event schedules pol
 reconciliation. The adapter subscribes to the configured root's physical path and any minimal external
 physical targets needed for followed lexical symlinks, then maps events back to lexical identities.
 
-In live mode the backend subscription and authoritative scanner use a reconciliation handoff that
-accounts for mutations during subscription startup and scanning. Native subscriptions may observe a
+In live mode the backend subscribes to the physical root before the first authoritative scan. Extra
+external targets for followed lexical symlinks are subscribed as the scanner discovers them. The
+subscribe/buffer/scan handoff accounts for mutations during subscription startup and scanning. Native subscriptions may observe a
 broader root than Discovery Scope; only policy-approved scanner results can enter the collection. The
 File Navigator does not wrap raw `fs.watch` or create a generalized watcher framework. It retains the
 last valid collection if the backend reports an error and exposes the error to its caller.
