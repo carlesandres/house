@@ -200,4 +200,118 @@ describe("defineOptions.createSession", () => {
 		await expect(session.set("theme", "neon")).rejects.toThrow(/expected one of/)
 		expect(session.get("width")).toBe(80)
 	})
+
+	test("set rejects unknown keys", async () => {
+		const session = catalog.createSession(catalog.defaults)
+		await expect(session.set("missing" as "wrap", true)).rejects.toThrow(/unknown option "missing"/)
+	})
+
+	test("set updates keys that omit persist without writing", async () => {
+		const session = catalog.createSession(catalog.defaults)
+		await session.set("width", 72)
+		await session.set("theme", "nord")
+		expect(session.get("width")).toBe(72)
+		expect(session.get("theme")).toBe("nord")
+	})
+})
+
+describe("formatResolveError", () => {
+	const envError = (received: unknown): Parameters<typeof formatResolveError>[0] => ({
+		key: "wrap",
+		layer: "env",
+		message: "expected true or false",
+		received,
+	})
+
+	test("stringifies numbers, booleans, null, and other types", () => {
+		expect(formatResolveError(envError(1))).toBe("wrap: expected true or false, got 1")
+		expect(formatResolveError(envError(true))).toBe("wrap: expected true or false, got true")
+		expect(formatResolveError(envError(null))).toBe("wrap: expected true or false, got null")
+		expect(formatResolveError(envError({}))).toBe("wrap: expected true or false, got object")
+	})
+
+	test("omits the path when a file error has none", () => {
+		expect(
+			formatResolveError({
+				key: "wrap",
+				layer: "file",
+				message: "expected true or false",
+				received: "true",
+			}),
+		).toBe("invalid value for wrap: expected true or false")
+	})
+})
+
+describe("decode variants beyond the House-shaped catalog", () => {
+	const variants = defineOptions({
+		count: {
+			type: "number",
+			default: 0,
+			integer: true,
+		},
+		rate: {
+			type: "number",
+			default: 1.5,
+		},
+		volume: {
+			type: "number",
+			default: 5,
+			min: 0,
+			max: 10,
+		},
+		label: {
+			type: "string",
+			default: "ok",
+		},
+		theme: {
+			type: "string",
+			default: "nord",
+			choices: ["nord", "dark"],
+		},
+	})
+
+	test("integer numbers reject env floats and non-numeric strings", () => {
+		const float = variants.resolve({ env: { count: "1.5" } })
+		expect(float.ok).toBe(false)
+		if (float.ok) throw new Error("expected failure")
+		expect(float.error.message).toBe("expected an integer")
+
+		const garbage = variants.resolve({ env: { count: "abc" } })
+		expect(garbage.ok).toBe(false)
+
+		const notString = variants.resolve({ env: { count: 3 } })
+		expect(notString.ok).toBe(false)
+	})
+
+	test("unbounded numbers parse env floats and reject non-finite file values", () => {
+		expect(variants.resolve({ env: { rate: "3.14" } })).toEqual({
+			ok: true,
+			value: { count: 0, rate: 3.14, volume: 5, label: "ok", theme: "nord" },
+		})
+		const infinite = variants.resolve({ file: { rate: Number.POSITIVE_INFINITY } })
+		expect(infinite.ok).toBe(false)
+		if (infinite.ok) throw new Error("expected failure")
+		expect(infinite.error.message).toBe("expected a number")
+	})
+
+	test("min and max reject out-of-range file numbers", () => {
+		const high = variants.resolve({ file: { volume: 11 } })
+		expect(high.ok).toBe(false)
+		const low = variants.resolve({ file: { volume: -1 } })
+		expect(low.ok).toBe(false)
+	})
+
+	test("unconstrained strings reject non-strings", () => {
+		const result = variants.resolve({ file: { label: 12 } })
+		expect(result.ok).toBe(false)
+		if (result.ok) throw new Error("expected failure")
+		expect(result.error.message).toBe("expected a string")
+	})
+
+	test("choice strings reject non-strings", () => {
+		const result = variants.resolve({ file: { theme: true } })
+		expect(result.ok).toBe(false)
+		if (result.ok) throw new Error("expected failure")
+		expect(result.error.message).toBe("expected one of nord, dark")
+	})
 })
