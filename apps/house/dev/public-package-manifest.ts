@@ -20,7 +20,7 @@ const assertNoWorkspaceProtocols = (
 
 /**
  * Clones the app manifest for the published npm package:
- * - drops private workspace-only dependencies (`@house/ui`)
+ * - drops private workspace-only dependencies (`@house/ui`, `@house/options`)
  * - pins platform optionalDependencies to this package's version so the
  *   published main package always requests matching platform binaries
  *
@@ -32,7 +32,9 @@ export const createPublicPackageManifest = <TManifest extends PackageManifest>(
 	manifest: TManifest,
 ): TManifest => {
 	const dependencies = { ...manifest.dependencies }
-	delete dependencies["@house/ui"]
+	for (const name of Object.keys(dependencies)) {
+		if (name.startsWith("@house/")) delete dependencies[name]
+	}
 
 	const version = typeof manifest.version === "string" ? manifest.version : undefined
 	const optionalDependencies = { ...manifest.optionalDependencies }

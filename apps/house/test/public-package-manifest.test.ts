@@ -3,11 +3,12 @@ import pkg from "../package.json" with { type: "json" }
 import { createPublicPackageManifest } from "../dev/public-package-manifest.ts"
 
 describe("createPublicPackageManifest", () => {
-	test("removes only the private UI workspace dependency", () => {
+	test("removes private @house workspace dependencies", () => {
 		const staged = createPublicPackageManifest(pkg)
 		expect(staged.dependencies["@house/ui"]).toBeUndefined()
+		expect(staged.dependencies["@house/options"]).toBeUndefined()
 		for (const [name, version] of Object.entries(pkg.dependencies)) {
-			if (name === "@house/ui") continue
+			if (name.startsWith("@house/")) continue
 			expect(Object.entries(staged.dependencies)).toContainEqual([name, version])
 		}
 	})
