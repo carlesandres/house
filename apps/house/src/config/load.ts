@@ -2,12 +2,10 @@
  * Layered configuration loader.
  *
  * Precedence (high to low): CLI args → env vars → user TOML file → built-in defaults.
- * Launch-only keys go through Effect `ConfigProvider.orElse` (per-key fallthrough).
- * Session-mutable options (`wrap`, `width`) resolve through `@house/options`.
+ * Scalar options resolve through `@house/options`. List keys (`extensions`,
+ * `show`) still go through Effect `ConfigProvider.orElse`.
  *
- * The schema (`Config.schema` + `Schema.Literals`) validates `theme` against
- * the registered theme ids and `tone` against `"dark" | "light"`. Validation
- * failures and TOML parse errors both surface as `ConfigError` from `loadConfig`.
+ * Validation failures and TOML parse errors surface from `loadConfig`.
  */
 
 import { homedir } from "node:os"
@@ -15,7 +13,6 @@ import { join } from "node:path"
 import { formatResolveError } from "@house/options"
 import { Config, ConfigProvider, Effect, Schema } from "effect"
 import { parseShowList, SHOW_CATEGORIES, type ShowCategory } from "../discovery/show.ts"
-import { themeDefinitions } from "../theme/registry.ts"
 import { houseOptions } from "./options.ts"
 
 export interface HouseConfig {
@@ -45,24 +42,18 @@ export interface CliOverrides {
 	 *  (no per-category merging — sets compose by replacement, like every
 	 *  other CLI override here). `--show ""` sets the empty set. */
 	readonly show: readonly ShowCategory[] | null
-	readonly focus: "sidebar" | "reader" | "filter" | null
+	readonly focus: string | null
 	readonly width: number | null
 	readonly wrap: boolean | null
 }
 
-const DEFAULT_THEME = "opencode"
-const DEFAULT_TONE: "dark" | "light" = "dark"
 const DEFAULT_EXTENSIONS: readonly string[] = []
-const DEFAULT_ROOT: "cwd" | "git" = "cwd"
 const DEFAULT_SHOW = ""
-const DEFAULT_FOCUS: "sidebar" | "reader" | "filter" = "sidebar"
-
-const themeIds = themeDefinitions.map((t) => t.id)
 
 /**
  * Top-level keys the config file is allowed to set. Kept in sync by hand
- * with `schema` below — when adding a key, add it both places.
- * Used by `fileProvider` to warn about unrecognized keys (with a
+ * with `houseOptions` and `schema` below — when adding a key, add it both
+ * places. Used by `readUserFile` to warn about unrecognized keys (with a
  * did-you-mean hint when one is close) while still loading the rest.
  */
 const KNOWN_FILE_KEYS: ReadonlySet<string> = new Set([
@@ -77,9 +68,6 @@ const KNOWN_FILE_KEYS: ReadonlySet<string> = new Set([
 ])
 
 const schema = Config.all({
-	theme: Config.schema(Schema.Literals(themeIds), "theme"),
-	tone: Config.schema(Schema.Literals(["dark", "light"] as const), "tone"),
-	defaultRoot: Config.schema(Schema.String, "defaultRoot"),
 	// Comma-separated extension list. Empty string means no extra extensions.
 	extensions: Config.schema(Schema.String, "extensions"),
 	// `show` arrives as a comma-separated string from every provider
@@ -87,17 +75,12 @@ const schema = Config.all({
 	// `"hidden,gitignored"`). Token-level validation happens in `loadConfig`
 	// so the error message can list valid categories at the field's path.
 	show: Config.schema(Schema.String, "show"),
-	focus: Config.schema(Schema.Literals(["sidebar", "reader", "filter"] as const), "focus"),
 })
 
 const defaultsProvider = (): ConfigProvider.ConfigProvider =>
 	ConfigProvider.fromUnknown({
-		theme: DEFAULT_THEME,
-		tone: DEFAULT_TONE,
-		defaultRoot: DEFAULT_ROOT,
 		extensions: DEFAULT_EXTENSIONS.join(","),
 		show: DEFAULT_SHOW,
-		focus: DEFAULT_FOCUS,
 	})
 
 const sourceError = (message: string, cause?: unknown): ConfigProvider.SourceError =>
@@ -196,7 +179,7 @@ const fileProvider = (data: Record<string, unknown> | null): ConfigProvider.Conf
 	)
 
 /**
- * Reads `HOUSE_THEME` / `HOUSE_TONE` directly into a `fromUnknown` provider.
+ * Reads `HOUSE_EXTENSIONS` / `HOUSE_SHOW` directly into a `fromUnknown` provider.
  *
  * We don't use `fromEnv().pipe(nested("HOUSE"), constantCase)` here because
  * `ConfigProvider.orElse` composes providers via `.get(path)` (raw store
@@ -206,28 +189,17 @@ const fileProvider = (data: Record<string, unknown> | null): ConfigProvider.Conf
  */
 const envProvider = (env: Record<string, string | undefined>): ConfigProvider.ConfigProvider => {
 	const entries: Array<[string, string]> = []
-	const theme = env["HOUSE_THEME"]
-	const tone = env["HOUSE_TONE"]
-	const defaultRoot = env["HOUSE_DEFAULT_ROOT"]
 	const extensions = env["HOUSE_EXTENSIONS"]
 	const show = env["HOUSE_SHOW"]
-	const focus = env["HOUSE_FOCUS"]
-	if (theme !== undefined) entries.push(["theme", theme])
-	if (tone !== undefined) entries.push(["tone", tone])
-	if (defaultRoot !== undefined) entries.push(["defaultRoot", defaultRoot])
 	if (extensions !== undefined) entries.push(["extensions", extensions])
 	if (show !== undefined) entries.push(["show", show])
-	if (focus !== undefined) entries.push(["focus", focus])
 	return ConfigProvider.fromUnknown(Object.fromEntries(entries))
 }
 
 const cliProvider = (overrides: CliOverrides): ConfigProvider.ConfigProvider => {
 	const entries: Array<[string, string]> = []
-	if (overrides.theme !== null) entries.push(["theme", overrides.theme])
-	if (overrides.tone !== null) entries.push(["tone", overrides.tone])
 	if (overrides.extensions !== null) entries.push(["extensions", overrides.extensions.join(",")])
 	if (overrides.show !== null) entries.push(["show", overrides.show.join(",")])
-	if (overrides.focus !== null) entries.push(["focus", overrides.focus])
 	return ConfigProvider.fromUnknown(Object.fromEntries(entries))
 }
 
@@ -285,13 +257,6 @@ export const loadConfig = (
 			ConfigProvider.orElse(defaultsProvider()),
 		)
 		const raw = yield* schema.parse(provider)
-		const defaultRoot =
-			raw.defaultRoot === "cwd" || raw.defaultRoot === "git" ? raw.defaultRoot : DEFAULT_ROOT
-		if (raw.defaultRoot !== defaultRoot) {
-			onWarning(
-				`house: ignoring invalid value ${JSON.stringify(raw.defaultRoot)} for defaultRoot in config/env; using "${DEFAULT_ROOT}"`,
-			)
-		}
 		const parsed = parseShowList(raw.show)
 		if (!parsed.ok) {
 			// Effect's `Config.ConfigError` requires a `SchemaError` or
@@ -306,16 +271,54 @@ export const loadConfig = (
 			)
 		}
 		const resolved = houseOptions.resolve({
-			cli: { wrap: cli.wrap, width: cli.width },
-			env: { wrap: env["HOUSE_WRAP"], width: env["HOUSE_WIDTH"] },
-			file: { wrap: fileData?.["wrap"], width: fileData?.["width"] },
+			cli: {
+				wrap: cli.wrap,
+				width: cli.width,
+				theme: cli.theme,
+				tone: cli.tone,
+				focus: cli.focus,
+			},
+			env: {
+				wrap: env["HOUSE_WRAP"],
+				width: env["HOUSE_WIDTH"],
+				theme: env["HOUSE_THEME"],
+				tone: env["HOUSE_TONE"],
+				focus: env["HOUSE_FOCUS"],
+				defaultRoot: env["HOUSE_DEFAULT_ROOT"],
+			},
+			file: {
+				wrap: fileData?.["wrap"],
+				width: fileData?.["width"],
+				theme: fileData?.["theme"],
+				tone: fileData?.["tone"],
+				focus: fileData?.["focus"],
+				defaultRoot: fileData?.["defaultRoot"],
+			},
 		})
 		if (!resolved.ok) {
 			return yield* Effect.fail(new Error(formatResolveError(resolved.error, filePath)))
 		}
+		const tone = resolved.value.tone
+		const focus = resolved.value.focus
+		const defaultRoot = resolved.value.defaultRoot
+		if (tone !== "dark" && tone !== "light") {
+			return yield* Effect.fail(
+				new Error(`tone: expected one of dark, light, got ${JSON.stringify(tone)}`),
+			)
+		}
+		if (focus !== "sidebar" && focus !== "reader" && focus !== "filter") {
+			return yield* Effect.fail(
+				new Error(`focus: expected one of sidebar, reader, filter, got ${JSON.stringify(focus)}`),
+			)
+		}
+		if (defaultRoot !== "cwd" && defaultRoot !== "git") {
+			return yield* Effect.fail(
+				new Error(`defaultRoot: expected one of cwd, git, got ${JSON.stringify(defaultRoot)}`),
+			)
+		}
 		return {
-			theme: raw.theme,
-			tone: raw.tone,
+			theme: resolved.value.theme,
+			tone,
 			defaultRoot,
 			width: resolved.value.width,
 			wrap: resolved.value.wrap,
@@ -327,6 +330,6 @@ export const loadConfig = (
 							.map((s) => s.trim())
 							.filter(Boolean),
 			show: parsed.value,
-			focus: raw.focus,
+			focus,
 		}
 	})

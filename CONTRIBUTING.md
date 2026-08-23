@@ -64,7 +64,7 @@ components live in the private `packages/ui` source package:
 - `packages/ui/src/file-navigator/` — policy-aware scanner, watcher, projection, selection, and rendering
 - `packages/ui/test/` — package-local navigator and headless render tests
 - `packages/options/` — catalog, layered resolve, and runtime session for CLI/env/config-seeded options
-- `apps/house/src/config/options.ts` — House's wrap/width catalog consumed by load + Browser
+- `apps/house/src/config/options.ts` — House's scalar options catalog consumed by load + Browser
 
 ## Testing
 

@@ -199,6 +199,7 @@ export const Browser = ({
 	const optionsSession = useRef<ReturnType<typeof houseOptions.createSession> | null>(null)
 	if (optionsSession.current === null) {
 		optionsSession.current = houseOptions.createSession({
+			...houseOptions.defaults,
 			wrap: initialWrap,
 			width: wrapWidth,
 		})

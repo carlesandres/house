@@ -115,7 +115,7 @@ Precedence, highest to lowest:
 
 `width` is the fixed reader width used when wrapping is enabled. `wrap` controls startup mode; press `w` in the TUI to toggle reader wrapping for the current session without editing config.
 
-The file is optional — a missing file is fine. Invalid keys, unknown themes, or malformed TOML fail loudly with a one-line error. Per-project config (`.house/config.toml`) and additional keys are deferred.
+The file is optional — a missing file is fine. Invalid keys, unknown themes, invalid `defaultRoot`, or malformed TOML fail loudly with a one-line error. Per-project config (`.house/config.toml`) and additional keys are deferred.
 
 ## Keys
 

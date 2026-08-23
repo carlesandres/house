@@ -231,10 +231,7 @@ export async function main(argv: readonly string[] = Bun.argv.slice(2)): Promise
 				// `--show` replaces env/file when present (set semantics —
 				// no per-category merge across sources). `null` falls through.
 				show: cliShow,
-				focus:
-					args.focus === "sidebar" || args.focus === "reader" || args.focus === "filter"
-						? args.focus
-						: null,
+				focus: args.focus,
 				width:
 					args.width === null
 						? null
@@ -313,14 +310,6 @@ export async function main(argv: readonly string[] = Bun.argv.slice(2)): Promise
 		process.on("SIGTERM", shutdown)
 		// Bun.serve keeps the event loop alive until stop().
 	} else {
-		if (args.focus !== null) {
-			if (args.focus !== "sidebar" && args.focus !== "reader" && args.focus !== "filter") {
-				console.error(
-					`house: --focus must be "sidebar", "reader", or "filter", got "${args.focus}"`,
-				)
-				process.exit(2)
-			}
-		}
 		await runTui({
 			discoveryRoot,
 			initialQuery,

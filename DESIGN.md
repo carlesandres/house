@@ -186,7 +186,7 @@ There is **no separate file-target mode**. The Browser is the only render target
 
 **Invariant 1 — the sidebar is populated by search, never imperatively.** Sidebar contents are exactly `filter(discoveredPool, query)`. No code path may push entries into the sidebar by any other route. Refactors that need to "show entry X" must reframe as "what `(discoveryRoot, query)` pair selects X". This invariant exists so the sidebar has one source of truth; imperative population would diverge from the active filter under any edit / re-discovery / user input.
 
-**Invariant 2 — the discovery root and the query are independent inputs.** Discovery root is resolved from (highest wins): `--root <dir>` → `defaultRoot` config → built-in `"cwd"`. `defaultRoot` is string-valued — `"cwd"` (default) or `"git"` (repo root via parent walk, silent cwd fallback). The CLI positional argument never controls discovery root; that surface is reserved for `--root` and config.
+**Invariant 2 — the discovery root and the query are independent inputs.** Discovery root is resolved from (highest wins): `--root <dir>` → `defaultRoot` config → built-in `"cwd"`. `defaultRoot` is `"cwd"` (default) or `"git"` (repo root via parent walk, silent cwd fallback when no repo is found). Unknown `defaultRoot` values fail at load like other scalar options. The CLI positional argument never controls discovery root; that surface is reserved for `--root` and config.
 
 **Invariant 3 — the CLI positional is the initial filter query.** `house README.md` → the package
 File Navigator scans the discovery root and receives `"README.md"` as its initial query. Its built-in
@@ -305,7 +305,7 @@ embedded assumptions.
 values come from CLI / env / file / defaults and that may be mutated at runtime. It is
 framework-free: the consumer maps argv, env, and the config file onto catalog keys, then holds a
 session for in-app changes. House's `wrap` / `width` catalog lives in
-`apps/house/src/config/options.ts`. Persist policy is `session` (memory only) or `file` (caller
+`apps/house/src/config/options.ts` (`theme`, `tone`, `focus`, `defaultRoot`, `width`, `wrap`). Persist policy is `session` (memory only) or `file` (caller
 writes). Do not put House-specific TOML, Commander, or Effect ConfigProvider code in the package.
 
 The shipped architecture in [`docs/file-navigator-design.md`](./docs/file-navigator-design.md) places
@@ -316,7 +316,7 @@ second view forces a `tui/` subdirectory:
 ```
 apps/house/src/
 ├── cli/argv.ts            argv parsing + usage string
-├── config/options.ts      wrap/width catalog for `@house/options`
+├── config/options.ts      scalar catalog for `@house/options`
 ├── io/readFile.ts         Effect.tryPromise wrapper around fs/promises.readFile
 ├── keymap/keymap.ts       KeyBinding<C> + parseChord/dispatch
 ├── keymap/browser.ts      browserBindings + BrowserCtx (single source for bindings + help)
