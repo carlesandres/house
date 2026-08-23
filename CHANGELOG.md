@@ -9,6 +9,7 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 ### Added
 
 - `N` opens `$EDITOR` / `$VISUAL` in the discovery root with no file path, so a new file can be created there without changing the current selection or filter.
+- Internal `@house/options` package: a typed catalog for options whose initial values come from CLI, env, and config, and that can be changed during a session. House's `wrap` / `width` now resolve and toggle through it.
 
 ### Changed
 

@@ -21,7 +21,15 @@ import {
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react"
 import { useAtomValue, useAtomSet } from "@effect/atom-react"
 import { Effect } from "effect"
-import { useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react"
+import {
+	useEffect,
+	useLayoutEffect,
+	useMemo,
+	useReducer,
+	useRef,
+	useState,
+	useSyncExternalStore,
+} from "react"
 import { buildCommands } from "./commands/buildCommands.ts"
 import { clampSelectedIndex, filterCommands } from "./commands/score.ts"
 import { CommandPalette, orderCommandsForPalette } from "./CommandPalette.tsx"
@@ -43,6 +51,7 @@ import { startServer, type ServerHandle } from "./serve/server.ts"
 import { colors, setActiveTheme } from "./theme/colors.ts"
 import { themeAtom } from "./theme/atom.ts"
 import { themeDefinitions, getThemeDefinition } from "./theme/registry.ts"
+import { houseOptions } from "./config/options.ts"
 import { saveThemePreference } from "./config/save.ts"
 
 export type StartupFocus = "sidebar" | "reader" | "filter"
@@ -187,7 +196,21 @@ export const Browser = ({
 	const setTheme = useAtomSet(themeAtom)
 	const syntaxStyle = useMemo(() => SyntaxStyle.fromStyles(colors.syntax), [theme])
 
-	const [wrapEnabled, setWrapEnabled] = useState(initialWrap)
+	const optionsSession = useRef<ReturnType<typeof houseOptions.createSession> | null>(null)
+	if (optionsSession.current === null) {
+		optionsSession.current = houseOptions.createSession({
+			wrap: initialWrap,
+			width: wrapWidth,
+		})
+	}
+	const wrapEnabled = useSyncExternalStore(optionsSession.current.subscribe, () =>
+		optionsSession.current!.get("wrap"),
+	)
+	const toggleWrap = () => {
+		const session = optionsSession.current
+		if (session === null) return
+		void session.set("wrap", !session.get("wrap"))
+	}
 	const [loaded, setLoaded] = useState<{ path: string; content: string; epoch: number } | null>(
 		null,
 	)
@@ -635,7 +658,7 @@ export const Browser = ({
 			setPaletteIndex(0)
 			dispatchFloatingOverlay({ type: "open-command-palette" })
 		},
-		toggleWrap: () => setWrapEnabled((prev) => !prev),
+		toggleWrap,
 		cycleTheme,
 		toggleTone,
 		toggleAll: () => {
@@ -1040,7 +1063,7 @@ export const Browser = ({
 				icon: "W",
 				variant: "info",
 				active: wrapEnabled,
-				onMouseUp: () => setWrapEnabled((prev) => !prev),
+				onMouseUp: toggleWrap,
 			},
 		],
 		...(discoverySpinnerIntervalMs === undefined ? {} : { discoverySpinnerIntervalMs }),

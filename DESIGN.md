@@ -301,6 +301,13 @@ agnostic to House-specific discovery rules, configuration, product copy, themes,
 and application state. House supplies such policy through typed inputs rather than package imports or
 embedded assumptions.
 
+`packages/options` (`@house/options`) is a private workspace package for options whose initial
+values come from CLI / env / file / defaults and that may be mutated at runtime. It is
+framework-free: the consumer maps argv, env, and the config file onto catalog keys, then holds a
+session for in-app changes. House's `wrap` / `width` catalog lives in
+`apps/house/src/config/options.ts`. Persist policy is `session` (memory only) or `file` (caller
+writes). Do not put House-specific TOML, Commander, or Effect ConfigProvider code in the package.
+
 The shipped architecture in [`docs/file-navigator-design.md`](./docs/file-navigator-design.md) places
 the Node-compatible, local-filesystem-aware File Navigator in that boundary while keeping House policy
 caller-supplied. Within the app, top-level components remain directly under `src/` until a
@@ -309,6 +316,7 @@ second view forces a `tui/` subdirectory:
 ```
 apps/house/src/
 ├── cli/argv.ts            argv parsing + usage string
+├── config/options.ts      wrap/width catalog for `@house/options`
 ├── io/readFile.ts         Effect.tryPromise wrapper around fs/promises.readFile
 ├── keymap/keymap.ts       KeyBinding<C> + parseChord/dispatch
 ├── keymap/browser.ts      browserBindings + BrowserCtx (single source for bindings + help)
@@ -326,6 +334,8 @@ apps/house/src/
 packages/ui/src/
 ├── sidebar/               filesystem-free generic sidebar presentation
 └── file-navigator/        scanner, Parcel watcher, fuzzy query, selection, and navigator pane
+
+packages/options/src/      catalog + layered resolve + runtime session for session-mutable options
 ```
 
 A separate `reader/` module did not justify itself in v1: opentui's `<markdown>` plus a `<scrollbox>` wrapper is small enough to live inline in `Browser.tsx`. Extracting it is a follow-up once a second consumer (e.g., URL-fetched markdown, search-result preview) appears.

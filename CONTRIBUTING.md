@@ -16,6 +16,7 @@ bun run dev [path]      # watch + run from source; positional seeds filter, use 
 bun test                # House app tests (root bunfig.toml scope)
 bun run test            # all workspace tests through Turbo
 bun run --cwd packages/ui test # reusable UI package tests only
+bun run --cwd packages/options test # options catalog / session tests
 bun run typecheck
 bun run lint
 bun run format          # write
@@ -62,6 +63,8 @@ components live in the private `packages/ui` source package:
 - `packages/ui/src/sidebar/` — filesystem-free generic sidebar presentation
 - `packages/ui/src/file-navigator/` — policy-aware scanner, watcher, projection, selection, and rendering
 - `packages/ui/test/` — package-local navigator and headless render tests
+- `packages/options/` — catalog, layered resolve, and runtime session for CLI/env/config-seeded options
+- `apps/house/src/config/options.ts` — House's wrap/width catalog consumed by load + Browser
 
 ## Testing
 

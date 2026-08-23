@@ -2,8 +2,8 @@
  * Layered configuration loader.
  *
  * Precedence (high to low): CLI args → env vars → user TOML file → built-in defaults.
- * Each source is wrapped as a `ConfigProvider` and composed via `orElse`,
- * which falls through per-key when the upstream source returns `undefined`.
+ * Launch-only keys go through Effect `ConfigProvider.orElse` (per-key fallthrough).
+ * Session-mutable options (`wrap`, `width`) resolve through `@house/options`.
  *
  * The schema (`Config.schema` + `Schema.Literals`) validates `theme` against
  * the registered theme ids and `tone` against `"dark" | "light"`. Validation
@@ -12,9 +12,11 @@
 
 import { homedir } from "node:os"
 import { join } from "node:path"
+import { formatResolveError } from "@house/options"
 import { Config, ConfigProvider, Effect, Schema } from "effect"
 import { parseShowList, SHOW_CATEGORIES, type ShowCategory } from "../discovery/show.ts"
 import { themeDefinitions } from "../theme/registry.ts"
+import { houseOptions } from "./options.ts"
 
 export interface HouseConfig {
 	readonly theme: string
@@ -54,8 +56,6 @@ const DEFAULT_EXTENSIONS: readonly string[] = []
 const DEFAULT_ROOT: "cwd" | "git" = "cwd"
 const DEFAULT_SHOW = ""
 const DEFAULT_FOCUS: "sidebar" | "reader" | "filter" = "sidebar"
-const DEFAULT_WIDTH = 80
-const DEFAULT_WRAP = false
 
 const themeIds = themeDefinitions.map((t) => t.id)
 
@@ -88,8 +88,6 @@ const schema = Config.all({
 	// so the error message can list valid categories at the field's path.
 	show: Config.schema(Schema.String, "show"),
 	focus: Config.schema(Schema.Literals(["sidebar", "reader", "filter"] as const), "focus"),
-	width: Config.schema(Schema.String, "width"),
-	wrap: Config.schema(Schema.String, "wrap"),
 })
 
 const defaultsProvider = (): ConfigProvider.ConfigProvider =>
@@ -100,25 +98,10 @@ const defaultsProvider = (): ConfigProvider.ConfigProvider =>
 		extensions: DEFAULT_EXTENSIONS.join(","),
 		show: DEFAULT_SHOW,
 		focus: DEFAULT_FOCUS,
-		width: String(DEFAULT_WIDTH),
-		wrap: String(DEFAULT_WRAP),
 	})
 
 const sourceError = (message: string, cause?: unknown): ConfigProvider.SourceError =>
 	new ConfigProvider.SourceError({ message, cause })
-
-const validateFileValue = (path: string, key: string, value: unknown): void => {
-	if (key === "width") {
-		if (!Number.isSafeInteger(value) || (value as number) <= 0) {
-			throw sourceError(`invalid value for width in ${path}: expected a positive integer`)
-		}
-	}
-	if (key === "wrap") {
-		if (typeof value !== "boolean") {
-			throw sourceError(`invalid value for wrap in ${path}: expected true or false`)
-		}
-	}
-}
 
 /**
  * Levenshtein edit distance, capped at `cap` for early exit.
@@ -161,25 +144,19 @@ const formatUnknownKeyWarning = (path: string, key: string, known: readonly stri
 }
 
 /**
- * Reads a TOML file at `path`. Missing file → `undefined` for every key
- * (per-key fallthrough). Malformed TOML → `SourceError` (hard fail
- * upstream). Unknown top-level keys are warned about via `onWarning` and
- * dropped — this preserves forward-compat with newer config schemas while
- * still flagging typos like `them = "..."`.
+ * Reads a TOML file at `path`. Missing file → `null` (per-key fallthrough).
+ * Malformed TOML → `SourceError` (hard fail upstream). Unknown top-level keys
+ * are warned about via `onWarning` and dropped — this preserves forward-compat
+ * with newer config schemas while still flagging typos like `them = "..."`.
  */
-const fileProvider = (
+const readUserFile = (
 	path: string,
 	onWarning: (message: string) => void,
-): ConfigProvider.ConfigProvider => {
-	let cache: { data: Record<string, unknown> | null } | null = null
-	const load = Effect.gen(function* () {
-		if (cache !== null) return cache.data
+): Effect.Effect<Record<string, unknown> | null, ConfigProvider.SourceError> =>
+	Effect.gen(function* () {
 		const file = Bun.file(path)
 		const exists = yield* Effect.promise(() => file.exists())
-		if (!exists) {
-			cache = { data: null }
-			return null
-		}
+		if (!exists) return null
 		const text = yield* Effect.promise(() => file.text())
 		const parsed = yield* Effect.try({
 			try: () => Bun.TOML.parse(text) as Record<string, unknown>,
@@ -193,24 +170,17 @@ const fileProvider = (
 		const filtered: Record<string, unknown> = {}
 		for (const [k, v] of Object.entries(parsed)) {
 			if (KNOWN_FILE_KEYS.has(k)) {
-				yield* Effect.try({
-					try: () => validateFileValue(path, k, v),
-					catch: (cause) =>
-						cause instanceof ConfigProvider.SourceError
-							? cause
-							: sourceError(`invalid value for ${k} in ${path}`, cause),
-				})
 				filtered[k] = v
 			} else {
 				onWarning(formatUnknownKeyWarning(path, k, known))
 			}
 		}
-		cache = { data: filtered }
 		return filtered
 	})
-	return ConfigProvider.make((path) =>
-		Effect.gen(function* () {
-			const data = yield* load
+
+const fileProvider = (data: Record<string, unknown> | null): ConfigProvider.ConfigProvider =>
+	ConfigProvider.make((path) =>
+		Effect.sync(() => {
 			if (data === null) return undefined
 			if (path.length === 0) {
 				return ConfigProvider.makeRecord(new Set(Object.keys(data)))
@@ -224,7 +194,6 @@ const fileProvider = (
 			return ConfigProvider.makeValue(String(value))
 		}),
 	)
-}
 
 /**
  * Reads `HOUSE_THEME` / `HOUSE_TONE` directly into a `fromUnknown` provider.
@@ -243,16 +212,12 @@ const envProvider = (env: Record<string, string | undefined>): ConfigProvider.Co
 	const extensions = env["HOUSE_EXTENSIONS"]
 	const show = env["HOUSE_SHOW"]
 	const focus = env["HOUSE_FOCUS"]
-	const width = env["HOUSE_WIDTH"]
-	const wrap = env["HOUSE_WRAP"]
 	if (theme !== undefined) entries.push(["theme", theme])
 	if (tone !== undefined) entries.push(["tone", tone])
 	if (defaultRoot !== undefined) entries.push(["defaultRoot", defaultRoot])
 	if (extensions !== undefined) entries.push(["extensions", extensions])
 	if (show !== undefined) entries.push(["show", show])
 	if (focus !== undefined) entries.push(["focus", focus])
-	if (width !== undefined) entries.push(["width", width])
-	if (wrap !== undefined) entries.push(["wrap", wrap])
 	return ConfigProvider.fromUnknown(Object.fromEntries(entries))
 }
 
@@ -263,26 +228,7 @@ const cliProvider = (overrides: CliOverrides): ConfigProvider.ConfigProvider => 
 	if (overrides.extensions !== null) entries.push(["extensions", overrides.extensions.join(",")])
 	if (overrides.show !== null) entries.push(["show", overrides.show.join(",")])
 	if (overrides.focus !== null) entries.push(["focus", overrides.focus])
-	if (overrides.width !== null) entries.push(["width", String(overrides.width)])
-	if (overrides.wrap !== null) entries.push(["wrap", String(overrides.wrap)])
 	return ConfigProvider.fromUnknown(Object.fromEntries(entries))
-}
-
-const parsePositiveInteger = (key: string, raw: string): Effect.Effect<number, Error> => {
-	if (!/^\d+$/.test(raw)) {
-		return Effect.fail(new Error(`${key}: expected a positive integer, got ${JSON.stringify(raw)}`))
-	}
-	const value = Number.parseInt(raw, 10)
-	if (!Number.isSafeInteger(value) || value <= 0) {
-		return Effect.fail(new Error(`${key}: expected a positive integer, got ${JSON.stringify(raw)}`))
-	}
-	return Effect.succeed(value)
-}
-
-const parseBoolean = (key: string, raw: string): Effect.Effect<boolean, Error> => {
-	if (raw === "true") return Effect.succeed(true)
-	if (raw === "false") return Effect.succeed(false)
-	return Effect.fail(new Error(`${key}: expected true or false, got ${JSON.stringify(raw)}`))
 }
 
 export interface LoadOptions {
@@ -318,64 +264,69 @@ export const formatConfigError = (err: unknown): string => {
 
 export const loadConfig = (
 	options: LoadOptions = {},
-): Effect.Effect<HouseConfig, Config.ConfigError | Error> => {
-	const cli = options.cli ?? {
-		theme: null,
-		tone: null,
-		extensions: null,
-		show: null,
-		focus: null,
-		width: null,
-		wrap: null,
-	}
-	const onWarning = options.onWarning ?? ((msg) => process.stderr.write(`${msg}\n`))
-	const provider = cliProvider(cli).pipe(
-		ConfigProvider.orElse(envProvider(options.env ?? process.env)),
-		ConfigProvider.orElse(fileProvider(options.filePath ?? defaultConfigPath(), onWarning)),
-		ConfigProvider.orElse(defaultsProvider()),
-	)
-	return schema.parse(provider).pipe(
-		Effect.flatMap((raw) =>
-			Effect.gen(function* () {
-				const defaultRoot =
-					raw.defaultRoot === "cwd" || raw.defaultRoot === "git" ? raw.defaultRoot : DEFAULT_ROOT
-				if (raw.defaultRoot !== defaultRoot) {
-					onWarning(
-						`house: ignoring invalid value ${JSON.stringify(raw.defaultRoot)} for defaultRoot in config/env; using "${DEFAULT_ROOT}"`,
-					)
-				}
-				const parsed = parseShowList(raw.show)
-				if (!parsed.ok) {
-					// Effect's `Config.ConfigError` requires a `SchemaError` or
-					// `SourceError` cause that we don't have a clean constructor
-					// for here — surface as a plain Error and let the boot
-					// layer's existing `formatConfigError` (which already handles
-					// `instanceof Error`) render it.
-					return yield* Effect.fail(
-						new Error(
-							`show: unknown category "${parsed.invalid.join('", "')}" (valid: ${SHOW_CATEGORIES.join(", ")})`,
-						),
-					)
-				}
-				const width = yield* parsePositiveInteger("width", raw.width)
-				const wrap = yield* parseBoolean("wrap", raw.wrap)
-				return {
-					theme: raw.theme,
-					tone: raw.tone,
-					defaultRoot,
-					width,
-					wrap,
-					extensions:
-						raw.extensions === ""
-							? []
-							: raw.extensions
-									.split(",")
-									.map((s) => s.trim())
-									.filter(Boolean),
-					show: parsed.value,
-					focus: raw.focus,
-				}
-			}),
-		),
-	)
-}
+): Effect.Effect<HouseConfig, Config.ConfigError | Error> =>
+	Effect.gen(function* () {
+		const cli = options.cli ?? {
+			theme: null,
+			tone: null,
+			extensions: null,
+			show: null,
+			focus: null,
+			width: null,
+			wrap: null,
+		}
+		const onWarning = options.onWarning ?? ((msg) => process.stderr.write(`${msg}\n`))
+		const filePath = options.filePath ?? defaultConfigPath()
+		const env = options.env ?? process.env
+		const fileData = yield* readUserFile(filePath, onWarning)
+		const provider = cliProvider(cli).pipe(
+			ConfigProvider.orElse(envProvider(env)),
+			ConfigProvider.orElse(fileProvider(fileData)),
+			ConfigProvider.orElse(defaultsProvider()),
+		)
+		const raw = yield* schema.parse(provider)
+		const defaultRoot =
+			raw.defaultRoot === "cwd" || raw.defaultRoot === "git" ? raw.defaultRoot : DEFAULT_ROOT
+		if (raw.defaultRoot !== defaultRoot) {
+			onWarning(
+				`house: ignoring invalid value ${JSON.stringify(raw.defaultRoot)} for defaultRoot in config/env; using "${DEFAULT_ROOT}"`,
+			)
+		}
+		const parsed = parseShowList(raw.show)
+		if (!parsed.ok) {
+			// Effect's `Config.ConfigError` requires a `SchemaError` or
+			// `SourceError` cause that we don't have a clean constructor
+			// for here — surface as a plain Error and let the boot
+			// layer's existing `formatConfigError` (which already handles
+			// `instanceof Error`) render it.
+			return yield* Effect.fail(
+				new Error(
+					`show: unknown category "${parsed.invalid.join('", "')}" (valid: ${SHOW_CATEGORIES.join(", ")})`,
+				),
+			)
+		}
+		const resolved = houseOptions.resolve({
+			cli: { wrap: cli.wrap, width: cli.width },
+			env: { wrap: env["HOUSE_WRAP"], width: env["HOUSE_WIDTH"] },
+			file: { wrap: fileData?.["wrap"], width: fileData?.["width"] },
+		})
+		if (!resolved.ok) {
+			return yield* Effect.fail(new Error(formatResolveError(resolved.error, filePath)))
+		}
+		return {
+			theme: raw.theme,
+			tone: raw.tone,
+			defaultRoot,
+			width: resolved.value.width,
+			wrap: resolved.value.wrap,
+			extensions:
+				raw.extensions === ""
+					? []
+					: raw.extensions
+							.split(",")
+							.map((s) => s.trim())
+							.filter(Boolean),
+			show: parsed.value,
+			focus: raw.focus,
+		}
+	})
