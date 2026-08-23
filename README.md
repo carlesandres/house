@@ -132,7 +132,7 @@ The footer only shows essential app controls (`W`, `q`, `tab`, `s`, `ctrl+p`) to
 | `w`            | Toggle reader wrap                                          |
 | `O`            | Open current file in browser as HTML                        |
 | `E`            | Open current file in `$EDITOR` (`$VISUAL` takes precedence) |
-| `N`            | New file in `$EDITOR` at the discovery root                 |
+| `N`            | Prompt for a name, create an empty markdown file at the discovery root, then open it in `$EDITOR` |
 | `t`            | Next theme                                                  |
 | `T`            | Previous theme                                              |
 | `L`            | Toggle dark / light tone                                    |

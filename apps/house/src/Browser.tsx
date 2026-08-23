@@ -10,6 +10,8 @@
  * sidebar collapse with `\`.
  */
 
+import { existsSync } from "node:fs"
+import { join } from "node:path"
 import { SyntaxStyle } from "@opentui/core"
 import type { BorderSides } from "@opentui/core"
 import {
@@ -33,13 +35,22 @@ import {
 import { buildCommands } from "./commands/buildCommands.ts"
 import { clampSelectedIndex, filterCommands } from "./commands/score.ts"
 import { CommandPalette, orderCommandsForPalette } from "./CommandPalette.tsx"
+import { PromptModal, type PromptStatus } from "./PromptModal.tsx"
 import { parseFrontmatter } from "./markdown/frontmatter.ts"
 import { BRAND, BRAND_NAME } from "./brand.ts"
 import { Footer, type FooterProps } from "./Footer.tsx"
 import { Header } from "./Header.tsx"
 import { copyTextToClipboard } from "./io/clipboard.ts"
-import { openInEditor, resolveEditor } from "./io/editor.ts"
+import { createEmptyFileExclusive, type CreateEmptyFileResult } from "./io/createFile.ts"
+import {
+	openInEditor,
+	resolveEditor,
+	type EditorRunResult,
+	type OpenInEditorOptions,
+} from "./io/editor.ts"
 import { readFileText } from "./io/readFile.ts"
+import { queryWouldShowRelativePath } from "./new-file/queryWouldShow.ts"
+import { resolveNewFileName } from "./new-file/resolveName.ts"
 import { browserBindings, type BrowserCtx } from "./keymap/browser.ts"
 import { dispatch } from "./keymap/keymap.ts"
 import { canFitInline, defaultPreferredWidth, resolveSidebarWidth } from "./layout/resolve.ts"
@@ -106,6 +117,12 @@ export interface BrowserProps {
 	/** Startup pane/input target. `filter` opens the sidebar filter prompt on
 	 *  mount so the user can type immediately. */
 	readonly startupFocus?: StartupFocus | null
+	/** Test seam: replaces the `$EDITOR` spawn. */
+	readonly launchEditor?: (options: OpenInEditorOptions) => Promise<EditorRunResult>
+	/** Test seam: replaces exclusive empty-file create. */
+	readonly createEmptyFile?: (path: string) => Promise<CreateEmptyFileResult>
+	/** Test seam: override the post-create File Navigator membership wait. */
+	readonly newFileMembershipTimeoutMs?: number
 }
 
 const defaultReadFile = (path: string): Promise<string> => Effect.runPromise(readFileText(path))
@@ -128,6 +145,25 @@ export const setReaderEmptyStateTipRotationForTests = (next: number) => {
 
 const FILTER_DEBOUNCE_MS = 50
 const RENDERED_PATH_DEBOUNCE_MS = 80
+const NEW_FILE_MEMBERSHIP_TIMEOUT_MS = 2000
+const NEW_FILE_MEMBERSHIP_POLL_MS = 32
+
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
+
+const promptLiveStatus = (raw: string, query: string, destExists: boolean): PromptStatus | null => {
+	const resolved = resolveNewFileName(raw)
+	if (!resolved.ok) {
+		if (resolved.error === "name required") return null
+		return { kind: "error", lines: [resolved.error] }
+	}
+	const lines = [...resolved.warnings]
+	if (query.length > 0 && !queryWouldShowRelativePath(query, resolved.basename)) {
+		lines.push(`filter will change to ${resolved.basename}`)
+	}
+	if (destExists) lines.push("already exists")
+	if (lines.length === 0) return null
+	return { kind: "warning", lines }
+}
 
 const isPartialDiscoveryWarning = (status: string | null | undefined): boolean =>
 	status?.trimStart().startsWith("scan incomplete:") ?? false
@@ -135,11 +171,13 @@ const isPartialDiscoveryWarning = (status: string | null | undefined): boolean =
 type FloatingOverlay =
 	| { readonly kind: "none" }
 	| { readonly kind: "command-palette" }
+	| { readonly kind: "prompt" }
 	| { readonly kind: "status-popover"; readonly content: string }
 
 type FloatingOverlayAction =
 	| { readonly type: "close" }
 	| { readonly type: "open-command-palette" }
+	| { readonly type: "open-prompt" }
 	| { readonly type: "toggle-status-popover"; readonly content: string }
 	| { readonly type: "update-status-popover"; readonly content: string }
 
@@ -154,6 +192,8 @@ const floatingOverlayReducer = (
 			return noFloatingOverlay
 		case "open-command-palette":
 			return { kind: "command-palette" }
+		case "open-prompt":
+			return { kind: "prompt" }
 		case "toggle-status-popover":
 			return state.kind === "status-popover"
 				? noFloatingOverlay
@@ -189,6 +229,9 @@ export const Browser = ({
 	disableFooterNoticeAutoClear = false,
 	onToggleAll,
 	startupFocus = null,
+	launchEditor = openInEditor,
+	createEmptyFile = createEmptyFileExclusive,
+	newFileMembershipTimeoutMs = NEW_FILE_MEMBERSHIP_TIMEOUT_MS,
 }: BrowserProps) => {
 	const renderer = useRenderer()
 	const { width, height } = useTerminalDimensions()
@@ -314,7 +357,13 @@ export const Browser = ({
 			: liveSnapshot.error
 				? "scan failed: unable to read discovery root"
 				: null
+	// Armed after New file creates a path; cleared by user nav so a late
+	// membership wait cannot steal selection and launch `$EDITOR`.
+	const newFileEditPathRef = useRef<string | null>(null)
 	const handleSelectionChange = (file: FileNavigatorSnapshot["selectedFile"]) => {
+		if (newFileEditPathRef.current !== null && file?.absolutePath !== newFileEditPathRef.current) {
+			newFileEditPathRef.current = null
+		}
 		pendingReaderInvalidationsRef.current.clear()
 		selectedReaderPathRef.current = file?.absolutePath ?? null
 		advanceReaderEpoch()
@@ -352,6 +401,8 @@ export const Browser = ({
 	}
 	const closeFloatingOverlay = (): void => dispatchFloatingOverlay({ type: "close" })
 	const paletteOpen = floatingOverlay.kind === "command-palette"
+	const promptOpen = floatingOverlay.kind === "prompt"
+	const floatingModalOpen = paletteOpen || promptOpen
 	const activeStatusPopover = floatingOverlay.kind === "status-popover" ? floatingOverlay : null
 	const effectiveDiscoveryStatus = discoveryStatus ?? discoveryErrorStatus ?? diagnosticStatus
 	const discoveryWarningStatus = isPartialDiscoveryWarning(effectiveDiscoveryStatus)
@@ -365,6 +416,13 @@ export const Browser = ({
 	// before React state commits.
 	const paletteQueryRef = useRef("")
 	const paletteIndexRef = useRef(0)
+	const [promptInput, setPromptInput] = useState("")
+	const [promptStatus, setPromptStatus] = useState<PromptStatus | null>(null)
+	const promptInputRef = useRef("")
+	const promptFocusBeforeRef = useRef<"sidebar" | "reader">("sidebar")
+	const promptSubmittingRef = useRef(false)
+	const newFileTaskGenRef = useRef(0)
+	const mountedRef = useRef(true)
 	const [readerEmptyStateTipRotation, setReaderEmptyStateTipRotation] = useState(
 		() => nextReaderEmptyStateTipRotation,
 	)
@@ -415,7 +473,11 @@ export const Browser = ({
 	// Stop the preview server on unmount so re-mounts (tests) and clean
 	// shutdowns don't leak a listening socket.
 	useEffect(() => {
+		mountedRef.current = true
 		return () => {
+			mountedRef.current = false
+			newFileTaskGenRef.current += 1
+			newFileEditPathRef.current = null
 			void serverRef.current?.stop()
 			serverRef.current = null
 		}
@@ -575,6 +637,189 @@ export const Browser = ({
 		}
 	}, [readerRequest])
 
+	const applyPromptInput = (next: string): void => {
+		promptInputRef.current = next
+		setPromptInput(next)
+		const resolved = resolveNewFileName(next)
+		const destExists = resolved.ok && existsSync(join(root, resolved.basename))
+		setPromptStatus(promptLiveStatus(next, filterInputRef.current, destExists))
+	}
+
+	const closeNewFilePrompt = (restoreFocus: boolean): void => {
+		promptSubmittingRef.current = false
+		promptInputRef.current = ""
+		setPromptInput("")
+		setPromptStatus(null)
+		closeFloatingOverlay()
+		if (restoreFocus) {
+			newFileTaskGenRef.current += 1
+			const prev = promptFocusBeforeRef.current
+			focusRef.current = prev
+			setFocus(prev)
+		}
+	}
+
+	const editCurrent = (): void => {
+		const file = navigator.getSnapshot().selectedFile
+		if (!file) return
+		const editor = resolveEditor(process.env)
+		if (!editor) {
+			pushFooterNotice("set $EDITOR or $VISUAL to use E")
+			return
+		}
+		if (!renderer) {
+			// Test environments without a real renderer (e.g. testRender's
+			// host) don't expose suspend/resume. Nothing safe to do here.
+			pushFooterNotice("editor unavailable in this environment")
+			return
+		}
+		// Fire-and-forget: useKeyboard's run() is synchronous, but the
+		// editor session is naturally async. We always re-enter the
+		// renderer in the finally block so a thrown error never leaves
+		// the user staring at a dead terminal.
+		void (async () => {
+			if (!mountedRef.current) return
+			renderer.suspend()
+			renderer.currentRenderBuffer.clear()
+			let result
+			try {
+				result = await launchEditor({ editor, filePath: file.absolutePath })
+			} finally {
+				if (mountedRef.current) {
+					renderer.currentRenderBuffer.clear()
+					renderer.resume()
+					renderer.requestRender()
+				}
+			}
+			// Only reload the in-memory cache when the edited file is the
+			// one currently displayed. Editing a sidebar-selected file that
+			// the reader hasn't caught up to (debounce in flight) is fine —
+			// the regular load path picks up the new mtime when renderedPath
+			// advances.
+			if (!mountedRef.current) return
+			if (file.absolutePath === activeReaderPathRef.current) {
+				const epoch = advanceReaderEpoch()
+				try {
+					const text = await readFileRef.current(file.absolutePath)
+					if (epoch !== readerEpochRef.current || file.absolutePath !== activeReaderPathRef.current)
+						return
+					setLoaded({ path: file.absolutePath, content: text, epoch })
+					setError(null)
+				} catch (err) {
+					if (epoch !== readerEpochRef.current || file.absolutePath !== activeReaderPathRef.current)
+						return
+					const message = String(err)
+					const enoent =
+						(err as { code?: string } | null)?.code === "ENOENT" || message.includes("ENOENT")
+					if (enoent) {
+						pushFooterNotice(`${file.relativePath} no longer exists`)
+						setError(`Cannot read ${file.absolutePath}: ${message}`)
+						setLoaded(null)
+					} else {
+						pushFooterNotice(`reload failed: ${message}`)
+					}
+				}
+			}
+			if (!result.ok) {
+				if (result.reason === "spawn-failed") {
+					pushFooterNotice(`editor not found: ${editor.cmd}`)
+				} else if (result.reason === "non-zero") {
+					pushFooterNotice(`editor exited ${result.detail}`)
+				}
+			}
+		})()
+	}
+
+	const openNewFilePrompt = (): void => {
+		const editor = resolveEditor(process.env)
+		if (!editor) {
+			pushFooterNotice("set $EDITOR or $VISUAL to use N")
+			return
+		}
+		if (!renderer) {
+			pushFooterNotice("editor unavailable in this environment")
+			return
+		}
+		newFileTaskGenRef.current += 1
+		promptSubmittingRef.current = false
+		promptInputRef.current = ""
+		setPromptInput("")
+		setPromptStatus(null)
+		promptFocusBeforeRef.current = focusRef.current
+		if (filterOpenRef.current) {
+			filterOpenRef.current = false
+			setFilterOpen(false)
+		}
+		dispatchFloatingOverlay({ type: "open-prompt" })
+	}
+
+	const submitNewFile = (): void => {
+		if (promptSubmittingRef.current) return
+		const raw = promptInputRef.current
+		const resolved = resolveNewFileName(raw)
+		if (!resolved.ok) {
+			setPromptStatus({ kind: "error", lines: [resolved.error] })
+			return
+		}
+		promptSubmittingRef.current = true
+		const dest = join(root, resolved.basename)
+		const task = newFileTaskGenRef.current
+		void (async () => {
+			const created = await createEmptyFile(dest)
+			if (!mountedRef.current) return
+			if (task !== newFileTaskGenRef.current) {
+				if (created.ok) pushFooterNotice(`created ${resolved.basename}`)
+				return
+			}
+			if (!created.ok) {
+				promptSubmittingRef.current = false
+				setPromptStatus({
+					kind: "error",
+					lines: [
+						created.reason === "already-exists"
+							? "already exists"
+							: `create failed: ${created.message}`,
+					],
+				})
+				return
+			}
+			closeNewFilePrompt(false)
+			const query = filterInputRef.current
+			if (query.length > 0 && !queryWouldShowRelativePath(query, resolved.basename)) {
+				filterInputRef.current = resolved.basename
+				setFilterInput(resolved.basename)
+				navigator.flushSearch(resolved.basename)
+			}
+			pendingSelectionPathRef.current = dest
+			newFileEditPathRef.current = dest
+			const stillWaiting = (): boolean =>
+				task === newFileTaskGenRef.current &&
+				mountedRef.current &&
+				newFileEditPathRef.current === dest
+			await navigator.refresh()
+			const deadline = Date.now() + newFileMembershipTimeoutMs
+			while (Date.now() < deadline) {
+				if (!stillWaiting()) return
+				const snap = navigator.getSnapshot()
+				if (snap.files.some((file) => file.absolutePath === dest)) {
+					const selectedSnapshot = navigator.selectPath(dest)
+					if (!stillWaiting()) return
+					if (selectedSnapshot.selectedFile?.absolutePath === dest) {
+						pendingSelectionPathRef.current = null
+						newFileEditPathRef.current = null
+						editCurrent()
+						return
+					}
+				}
+				await sleep(NEW_FILE_MEMBERSHIP_POLL_MS)
+			}
+			if (!stillWaiting()) return
+			pendingSelectionPathRef.current = null
+			newFileEditPathRef.current = null
+			pushFooterNotice(`created ${resolved.basename}, but it isn't in the file list`)
+		})()
+	}
+
 	// One BrowserCtx per render, reused by the keyboard handler and the
 	// footer's `when`-evaluation. Keeping a single object eliminates the
 	// drift risk between the two consumers as BrowserCtx grows.
@@ -599,14 +844,17 @@ export const Browser = ({
 		// restoration) deliberately call the controller directly.
 		moveSelectionBy: (delta) => {
 			pendingSelectionPathRef.current = null
+			newFileEditPathRef.current = null
 			navigator.moveBy(delta)
 		},
 		selectFirst: () => {
 			pendingSelectionPathRef.current = null
+			newFileEditPathRef.current = null
 			navigator.selectFirst()
 		},
 		selectLast: () => {
 			pendingSelectionPathRef.current = null
+			newFileEditPathRef.current = null
 			navigator.selectLast()
 		},
 		toggleShown: () => {
@@ -720,109 +968,8 @@ export const Browser = ({
 			renderer?.destroy()
 			process.exit(0)
 		},
-		editNewInRoot: () => {
-			const editor = resolveEditor(process.env)
-			if (!editor) {
-				pushFooterNotice("set $EDITOR or $VISUAL to use N")
-				return
-			}
-			if (!renderer) {
-				pushFooterNotice("editor unavailable in this environment")
-				return
-			}
-			void (async () => {
-				renderer.suspend()
-				renderer.currentRenderBuffer.clear()
-				let result
-				try {
-					result = await openInEditor({ editor, cwd: root })
-				} finally {
-					renderer.currentRenderBuffer.clear()
-					renderer.resume()
-					renderer.requestRender()
-				}
-				void navigator.refresh()
-				if (!result.ok) {
-					if (result.reason === "spawn-failed") {
-						pushFooterNotice(`editor not found: ${editor.cmd}`)
-					} else if (result.reason === "non-zero") {
-						pushFooterNotice(`editor exited ${result.detail}`)
-					}
-				}
-			})()
-		},
-		editCurrent: () => {
-			const file = navigator.getSnapshot().selectedFile
-			if (!file) return
-			const editor = resolveEditor(process.env)
-			if (!editor) {
-				pushFooterNotice("set $EDITOR or $VISUAL to use E")
-				return
-			}
-			if (!renderer) {
-				// Test environments without a real renderer (e.g. testRender's
-				// host) don't expose suspend/resume. Nothing safe to do here.
-				pushFooterNotice("editor unavailable in this environment")
-				return
-			}
-			// Fire-and-forget: useKeyboard's run() is synchronous, but the
-			// editor session is naturally async. We always re-enter the
-			// renderer in the finally block so a thrown error never leaves
-			// the user staring at a dead terminal.
-			void (async () => {
-				renderer.suspend()
-				renderer.currentRenderBuffer.clear()
-				let result
-				try {
-					result = await openInEditor({ editor, filePath: file.absolutePath })
-				} finally {
-					renderer.currentRenderBuffer.clear()
-					renderer.resume()
-					renderer.requestRender()
-				}
-				// Only reload the in-memory cache when the edited file is the
-				// one currently displayed. Editing a sidebar-selected file that
-				// the reader hasn't caught up to (debounce in flight) is fine —
-				// the regular load path picks up the new mtime when renderedPath
-				// advances.
-				if (file.absolutePath === activeReaderPathRef.current) {
-					const epoch = advanceReaderEpoch()
-					try {
-						const text = await readFileRef.current(file.absolutePath)
-						if (
-							epoch !== readerEpochRef.current ||
-							file.absolutePath !== activeReaderPathRef.current
-						)
-							return
-						setLoaded({ path: file.absolutePath, content: text, epoch })
-						setError(null)
-					} catch (err) {
-						if (
-							epoch !== readerEpochRef.current ||
-							file.absolutePath !== activeReaderPathRef.current
-						)
-							return
-						const message = String(err)
-						const enoent =
-							(err as { code?: string } | null)?.code === "ENOENT" || message.includes("ENOENT")
-						if (enoent) {
-							pushFooterNotice(`${file.relativePath} no longer exists`)
-							setError(`Cannot read ${file.absolutePath}: ${message}`)
-							setLoaded(null)
-						} else {
-							pushFooterNotice(`reload failed: ${message}`)
-						}
-					}
-				}
-				if (!result.ok) {
-					if (result.reason === "spawn-failed") {
-						pushFooterNotice(`editor not found: ${editor.cmd}`)
-					} else if (result.reason === "non-zero") {
-						pushFooterNotice(`editor exited ${result.detail}`)
-					}
-				}
-			})()
-		},
+		editCurrent,
+		openNewFilePrompt,
 		copyCurrentContents: () => {
 			const file = navigator.getSnapshot().selectedFile
 			if (!file) return
@@ -905,6 +1052,33 @@ export const Browser = ({
 				setPaletteQuery(paletteQueryRef.current)
 				setPaletteIndexSync(0)
 			}
+			return
+		}
+
+		// New-file prompt: capture typing for the name field, same swallow
+		// style as the palette branch.
+		if (floatingOverlayRef.current.kind === "prompt") {
+			if (key.name === "escape") {
+				closeNewFilePrompt(true)
+				return
+			}
+			if (promptSubmittingRef.current) return
+			if (key.name === "return") {
+				submitNewFile()
+				return
+			}
+			if (key.name === "backspace" || key.name === "delete") {
+				if (promptInputRef.current.length === 0) return
+				applyPromptInput(promptInputRef.current.slice(0, -1))
+				return
+			}
+			if (key.ctrl || key.meta) return
+			let char: string | null = null
+			if (key.name === "space") char = " "
+			else if (typeof key.name === "string" && key.name.length === 1) {
+				char = key.shift ? key.name.toUpperCase() : key.name
+			}
+			if (char !== null) applyPromptInput(promptInputRef.current + char)
 			return
 		}
 
@@ -1236,7 +1410,7 @@ export const Browser = ({
 									// modal branches own the keys in that state. Filter is not
 									// listed because it force-focuses the sidebar (readerActive
 									// is already false).
-									focused={readerActive && !paletteOpen}
+									focused={readerActive && !floatingModalOpen}
 								>
 									{parsedContent.fields.length > 0 && (
 										<box style={{ flexDirection: "column", marginBottom: 1 }}>
@@ -1280,6 +1454,17 @@ export const Browser = ({
 					commands={orderCommandsForPalette(filterCommands(buildCommands(ctx), paletteQuery))}
 					query={paletteQuery}
 					selectedIndex={paletteIndex}
+					viewportWidth={width}
+					viewportHeight={height}
+				/>
+			)}
+			{promptOpen && (
+				<PromptModal
+					title="New file"
+					query={promptInput}
+					placeholder="File name"
+					hints="enter create  esc cancel"
+					status={promptStatus}
 					viewportWidth={width}
 					viewportHeight={height}
 				/>

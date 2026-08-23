@@ -137,8 +137,7 @@ export interface EditorLaunch {
 }
 
 /** Build the spawn argv (and optional cwd) for an editor hand-off.
- *  A file path is appended only when given; a new-file launch passes
- *  `cwd` and omits the path so the editor opens in the Discovery Root. */
+ *  A file path is appended only when given. */
 export const planEditorLaunch = ({ editor, filePath, cwd }: OpenInEditorOptions): EditorLaunch => {
 	const argv =
 		filePath !== undefined ? [editor.cmd, ...editor.args, filePath] : [editor.cmd, ...editor.args]

@@ -1,4 +1,5 @@
 export { FileNavigator } from "./FilesystemFileNavigator.tsx"
+export { fuzzySearch } from "./core/strategies.ts"
 export type {
 	FileNavigatorAppearance,
 	FileNavigatorEmptyContext,

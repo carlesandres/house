@@ -61,7 +61,7 @@ const annotations: Record<string, Annotation> = {
 	"serve.current": { title: "Open in browser", category: "File" },
 	"file.edit": { title: "Open in editor", category: "File", keywords: ["editor", "vim", "vscode"] },
 	"file.new": {
-		title: "New file in editor",
+		title: "New file…",
 		category: "File",
 		keywords: ["new", "create", "nvim", "vim", "editor"],
 	},

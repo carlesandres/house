@@ -14,6 +14,7 @@ import {
 	resetReaderEmptyStateTipRotationForTests,
 	setReaderEmptyStateTipRotationForTests,
 } from "../src/Browser.tsx"
+import { createEmptyFileExclusive } from "../src/io/createFile.ts"
 import { DiscoverShell } from "../src/index.tsx"
 import { colors, setActiveTheme } from "../src/theme/colors.ts"
 import { themeAtom } from "../src/theme/atom.ts"
@@ -4444,5 +4445,670 @@ describe("Browser — header", () => {
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
 		expect(frame).toContain("⌂ house")
+	})
+})
+
+describe("Browser — new file prompt", () => {
+	const withEditor = async (run: () => Promise<void>) => {
+		const prevEditor = process.env.EDITOR
+		const prevVisual = process.env.VISUAL
+		process.env.EDITOR = "true"
+		process.env.VISUAL = ""
+		try {
+			await run()
+		} finally {
+			if (prevEditor === undefined) delete process.env.EDITOR
+			else process.env.EDITOR = prevEditor
+			if (prevVisual === undefined) delete process.env.VISUAL
+			else process.env.VISUAL = prevVisual
+		}
+	}
+
+	const typeName = (name: string) => {
+		for (const ch of name) {
+			if (ch === " ") setup!.mockInput.pressKey(" ")
+			else if (ch !== ch.toLowerCase()) setup!.mockInput.pressKey(ch.toLowerCase(), { shift: true })
+			else setup!.mockInput.pressKey(ch)
+		}
+	}
+
+	const openPrompt = async () => {
+		await act(async () => {
+			setup!.mockInput.pressKey("n", { shift: true })
+		})
+		await stepFrame(setup!.renderOnce)
+	}
+
+	const waitUntil = async (pred: () => boolean, label: string) => {
+		for (let i = 0; i < 30; i++) {
+			if (pred()) return
+			await act(async () => {
+				await new Promise<void>((resolve) => setTimeout(resolve, 40))
+			})
+			if (setup) await stepFrame(setup.renderOnce)
+		}
+		throw new Error(`timed out waiting for ${label}\n${setup?.captureCharFrame() ?? ""}`)
+	}
+
+	test("prompt shows title, placeholder, and hints", async () => {
+		await withEditor(async () => {
+			await act(async () => {
+				setup = await renderBrowser(
+					<Browser
+						root={makeFiles(["a.md"])}
+						readFile={async () => ""}
+						onQuit={() => {}}
+					/>,
+					VIEWPORT,
+				)
+			})
+			await stepFrame(setup!.renderOnce)
+			await openPrompt()
+			const frame = setup!.captureCharFrame()
+			expect(frame).toContain("New file")
+			expect(frame).toContain("File name")
+			expect(frame).toContain("enter create  esc cancel")
+		})
+	})
+
+	test("prompt swallows quit, palette, and movement keys while typing", async () => {
+		await withEditor(async () => {
+			let quit = 0
+			await act(async () => {
+				setup = await renderBrowser(
+					<Browser
+						root={makeFiles(["a.md", "b.md"])}
+						readFile={async () => ""}
+						onQuit={() => {
+							quit += 1
+						}}
+					/>,
+					VIEWPORT,
+				)
+			})
+			await stepFrame(setup!.renderOnce)
+			expect(readerTitleContains(setup!.captureCharFrame(), "a.md")).toBe(true)
+			await openPrompt()
+			await act(async () => {
+				setup!.mockInput.pressKey("q")
+			})
+			await stepFrame(setup!.renderOnce)
+			expect(setup!.captureCharFrame()).toContain("q▏")
+			await act(async () => {
+				setup!.mockInput.pressKey("c", { ctrl: true })
+				setup!.mockInput.pressKey("p", { ctrl: true })
+				setup!.mockInput.pressArrow("down")
+			})
+			await stepFrame(setup!.renderOnce)
+			const frame = setup!.captureCharFrame()
+			expect(frame).toContain("q▏")
+			expect(frame).toContain("enter create  esc cancel")
+			expect(frame).not.toContain(" Commands ")
+			expect(quit).toBe(0)
+			expect(readerTitleContains(frame, "a.md")).toBe(true)
+			expect(readerTitleContains(frame, "b.md")).toBe(false)
+		})
+	})
+
+	test("Esc closes, restores prior focus, and leaves query and selection unchanged", async () => {
+		await withEditor(async () => {
+			await act(async () => {
+				setup = await renderBrowser(
+					<Browser
+						root={makeFiles(["alpha.md", "beta.md"])}
+						readFile={async () => ""}
+						onQuit={() => {}}
+					/>,
+					VIEWPORT,
+				)
+			})
+			await stepFrame(setup!.renderOnce)
+			await act(async () => {
+				setup!.mockInput.pressTab()
+			})
+			await stepFrame(setup!.renderOnce)
+			expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(false)
+			expect(readerTitleContains(setup!.captureCharFrame(), "alpha.md")).toBe(true)
+
+			await openPrompt()
+			expect(setup!.captureCharFrame()).toContain("New file")
+			await act(async () => {
+				typeName("zzz")
+			})
+			await stepFrame(setup!.renderOnce)
+			expect(setup!.captureCharFrame()).toContain("zzz")
+			expect(setup!.captureCharFrame()).not.toContain("zzz.md▏")
+
+			await act(async () => {
+				setup!.mockInput.pressEscape()
+				await new Promise<void>((resolve) => setTimeout(resolve, 60))
+			})
+			await stepFrame(setup!.renderOnce)
+			const frame = setup!.captureCharFrame()
+			expect(frame).not.toContain("enter create  esc cancel")
+			expect(readerTitleContains(frame, "alpha.md")).toBe(true)
+			expect(sidebarIsFocused(setup!.captureSpans(), frame)).toBe(false)
+		})
+	})
+
+	test("Enter on empty or whitespace stays open with name required", async () => {
+		await withEditor(async () => {
+			const root = makeFiles(["a.md"])
+			await act(async () => {
+				setup = await renderBrowser(
+					<Browser root={root} readFile={async () => ""} onQuit={() => {}} />,
+					VIEWPORT,
+				)
+			})
+			await stepFrame(setup!.renderOnce)
+			await openPrompt()
+			await act(async () => {
+				setup!.mockInput.pressEnter()
+			})
+			await stepFrame(setup!.renderOnce)
+			expect(setup!.captureCharFrame()).toContain("name required")
+			expect(setup!.captureCharFrame()).toContain("enter create  esc cancel")
+			expect(existsSync(join(root, ".md"))).toBe(false)
+
+			await act(async () => {
+				typeName("   ")
+				setup!.mockInput.pressEnter()
+			})
+			await stepFrame(setup!.renderOnce)
+			expect(setup!.captureCharFrame()).toContain("name required")
+		})
+	})
+
+	test("path and hidden names stay in the prompt with errors", async () => {
+		await withEditor(async () => {
+			await act(async () => {
+				setup = await renderBrowser(
+					<Browser root={makeFiles(["a.md"])} readFile={async () => ""} onQuit={() => {}} />,
+					VIEWPORT,
+				)
+			})
+			await stepFrame(setup!.renderOnce)
+			await openPrompt()
+			await act(async () => {
+				typeName("notes/foo")
+				setup!.mockInput.pressEnter()
+			})
+			await stepFrame(setup!.renderOnce)
+			expect(setup!.captureCharFrame()).toContain("name must be a single file in the discovery root")
+			expect(setup!.captureCharFrame()).toContain("enter create  esc cancel")
+
+			await act(async () => {
+				setup!.mockInput.pressEscape()
+				await new Promise<void>((resolve) => setTimeout(resolve, 60))
+			})
+			await stepFrame(setup!.renderOnce)
+			await openPrompt()
+			await act(async () => {
+				typeName(".notes")
+				setup!.mockInput.pressEnter()
+			})
+			await stepFrame(setup!.renderOnce)
+			expect(setup!.captureCharFrame()).toContain("hidden names aren't supported yet")
+			expect(setup!.captureCharFrame()).toContain("enter create  esc cancel")
+		})
+	})
+
+	test("live extension warnings appear as they type", async () => {
+		await withEditor(async () => {
+			await act(async () => {
+				setup = await renderBrowser(
+					<Browser root={makeFiles(["a.md"])} readFile={async () => ""} onQuit={() => {}} />,
+					VIEWPORT,
+				)
+			})
+			await stepFrame(setup!.renderOnce)
+			await openPrompt()
+
+			await act(async () => {
+				typeName("foo.txt")
+			})
+			await stepFrame(setup!.renderOnce)
+			expect(setup!.captureCharFrame()).toContain("will be created as foo.txt.md")
+			expect(setup!.captureCharFrame()).toContain("foo.txt")
+
+			await act(async () => {
+				setup!.mockInput.pressEscape()
+				await new Promise<void>((resolve) => setTimeout(resolve, 60))
+			})
+			await stepFrame(setup!.renderOnce)
+			await openPrompt()
+			await act(async () => {
+				typeName("foo.MD")
+			})
+			await stepFrame(setup!.renderOnce)
+			expect(setup!.captureCharFrame()).toContain("extension will be saved as .md")
+
+			await act(async () => {
+				setup!.mockInput.pressEscape()
+				await new Promise<void>((resolve) => setTimeout(resolve, 60))
+			})
+			await stepFrame(setup!.renderOnce)
+			await openPrompt()
+			await act(async () => {
+				typeName("foo.md")
+			})
+			await stepFrame(setup!.renderOnce)
+			expect(setup!.captureCharFrame()).not.toContain("extension will be saved as .md")
+			expect(setup!.captureCharFrame()).not.toContain("will be created as")
+
+			await act(async () => {
+				setup!.mockInput.pressEscape()
+				await new Promise<void>((resolve) => setTimeout(resolve, 60))
+			})
+			await stepFrame(setup!.renderOnce)
+			await openPrompt()
+			await act(async () => {
+				typeName("foo.")
+			})
+			await stepFrame(setup!.renderOnce)
+			expect(setup!.captureCharFrame()).toContain("will be created as foo..md")
+		})
+	})
+
+	test("existing file or directory reports already exists and is not truncated", async () => {
+		await withEditor(async () => {
+			const root = makeFiles(["keep.md"])
+			writeFileSync(join(root, "keep.md"), "do not touch")
+			mkdirSync(join(root, "folder.md"))
+			await act(async () => {
+				setup = await renderBrowser(
+					<Browser root={root} readFile={async () => ""} onQuit={() => {}} />,
+					VIEWPORT,
+				)
+			})
+			await stepFrame(setup!.renderOnce)
+			await openPrompt()
+			await act(async () => {
+				typeName("keep")
+			})
+			await stepFrame(setup!.renderOnce)
+			expect(setup!.captureCharFrame()).toContain("already exists")
+			await act(async () => {
+				setup!.mockInput.pressEnter()
+			})
+			await stepFrame(setup!.renderOnce)
+			expect(setup!.captureCharFrame()).toContain("already exists")
+			expect(setup!.captureCharFrame()).toContain("enter create  esc cancel")
+			expect(await Bun.file(join(root, "keep.md")).text()).toBe("do not touch")
+
+			await act(async () => {
+				for (let i = 0; i < 4; i++) setup!.mockInput.pressBackspace()
+				typeName("folder")
+				setup!.mockInput.pressEnter()
+			})
+			await stepFrame(setup!.renderOnce)
+			expect(setup!.captureCharFrame()).toContain("already exists")
+		})
+	})
+
+	test("creates foo.md, selects it, and opens it in the editor", async () => {
+		await withEditor(async () => {
+			const root = makeFiles(["a.md"])
+			const launched: string[] = []
+			await act(async () => {
+				setup = await renderBrowser(
+					<Browser
+						root={root}
+						readFile={async () => ""}
+						onQuit={() => {}}
+						launchEditor={async (options) => {
+							if (options.filePath) launched.push(options.filePath)
+							return { ok: true, exitCode: 0 }
+						}}
+					/>,
+					VIEWPORT,
+				)
+			})
+			await stepFrame(setup!.renderOnce)
+			await openPrompt()
+			await act(async () => {
+				typeName("foo")
+				setup!.mockInput.pressEnter()
+			})
+			await waitUntil(() => existsSync(join(root, "foo.md")), "foo.md on disk")
+			expect((await stat(join(root, "foo.md"))).size).toBe(0)
+			await waitUntil(() => launched[0] === join(root, "foo.md"), "editor path")
+			expect(launched).toEqual([join(root, "foo.md")])
+			await waitUntil(
+				() => readerTitleContains(setup!.captureCharFrame(), "foo.md"),
+				"selected foo.md",
+			)
+		})
+	})
+
+	test("foo.md does not double-append; foo.MD and foo.txt resolve as specified", async () => {
+		await withEditor(async () => {
+			const root = makeFiles(["a.md"])
+			const launched: string[] = []
+			const launchEditor = async (options: { filePath?: string }) => {
+				if (options.filePath) launched.push(options.filePath)
+				return { ok: true as const, exitCode: 0 }
+			}
+			await act(async () => {
+				setup = await renderBrowser(
+					<Browser
+						root={root}
+						readFile={async () => ""}
+						onQuit={() => {}}
+						launchEditor={launchEditor}
+					/>,
+					VIEWPORT,
+				)
+			})
+			await stepFrame(setup!.renderOnce)
+			await openPrompt()
+			await act(async () => {
+				typeName("foo.md")
+				setup!.mockInput.pressEnter()
+			})
+			await waitUntil(() => existsSync(join(root, "foo.md")), "foo.md")
+			await waitUntil(() => launched.length === 1, "editor for foo.md")
+			expect(existsSync(join(root, "foo.md.md"))).toBe(false)
+
+			await openPrompt()
+			await act(async () => {
+				typeName("bar.MD")
+				setup!.mockInput.pressEnter()
+			})
+			await waitUntil(() => existsSync(join(root, "bar.md")), "bar.md from bar.MD")
+			await waitUntil(() => launched.length === 2, "editor for bar.md")
+
+			await openPrompt()
+			await act(async () => {
+				typeName("baz.txt")
+				setup!.mockInput.pressEnter()
+			})
+			await waitUntil(() => existsSync(join(root, "baz.txt.md")), "baz.txt.md")
+			await waitUntil(() => launched.length === 3, "editor for baz.txt.md")
+			expect(launched).toEqual([
+				join(root, "foo.md"),
+				join(root, "bar.md"),
+				join(root, "baz.txt.md"),
+			])
+		})
+	})
+
+	test("a hiding filter warns, then becomes the basename after create", async () => {
+		await withEditor(async () => {
+			const root = makeFiles(["readme.md"])
+			const launched: string[] = []
+			await act(async () => {
+				setup = await renderBrowser(
+					<Browser
+						root={root}
+						readFile={async () => ""}
+						onQuit={() => {}}
+						launchEditor={async (options) => {
+							if (options.filePath) launched.push(options.filePath)
+							return { ok: true, exitCode: 0 }
+						}}
+					/>,
+					VIEWPORT,
+				)
+			})
+			await stepFrame(setup!.renderOnce)
+			await act(async () => {
+				setup!.mockInput.pressKey("/")
+				typeName("readme")
+				setup!.mockInput.pressEscape()
+				await new Promise<void>((resolve) => setTimeout(resolve, 60))
+			})
+			await stepFrame(setup!.renderOnce)
+			await openPrompt()
+			await act(async () => {
+				typeName("notes")
+			})
+			await stepFrame(setup!.renderOnce)
+			expect(setup!.captureCharFrame()).toContain("filter will change to notes.md")
+			await act(async () => {
+				setup!.mockInput.pressEnter()
+			})
+			await waitUntil(() => existsSync(join(root, "notes.md")), "notes.md")
+			await waitUntil(() => launched.length === 1, "editor launched")
+			const frame = setup!.captureCharFrame()
+			expect(frame).toContain("> notes.md")
+			expect(readerTitleContains(frame, "notes.md")).toBe(true)
+		})
+	})
+
+	test("a query that already matches is left unchanged", async () => {
+		await withEditor(async () => {
+			const root = makeFiles(["food.md"])
+			const launched: string[] = []
+			await act(async () => {
+				setup = await renderBrowser(
+					<Browser
+						root={root}
+						readFile={async () => ""}
+						onQuit={() => {}}
+						launchEditor={async (options) => {
+							if (options.filePath) launched.push(options.filePath)
+							return { ok: true, exitCode: 0 }
+						}}
+					/>,
+					VIEWPORT,
+				)
+			})
+			await stepFrame(setup!.renderOnce)
+			await act(async () => {
+				setup!.mockInput.pressKey("/")
+				typeName("foo")
+				setup!.mockInput.pressEscape()
+				await new Promise<void>((resolve) => setTimeout(resolve, 60))
+			})
+			await stepFrame(setup!.renderOnce)
+			await openPrompt()
+			await act(async () => {
+				typeName("food-two")
+			})
+			await stepFrame(setup!.renderOnce)
+			expect(setup!.captureCharFrame()).not.toContain("filter will change")
+			await act(async () => {
+				setup!.mockInput.pressEnter()
+			})
+			await waitUntil(() => launched.length === 1, "editor launched")
+			expect(setup!.captureCharFrame()).toContain("> foo")
+			expect(setup!.captureCharFrame()).not.toContain("> food-two.md")
+		})
+	})
+
+	test("membership timeout keeps the file and does not edit", async () => {
+		await withEditor(async () => {
+			const root = makeFiles(["a.md"])
+			writeFileSync(join(root, ".gitignore"), "ghost.md\n")
+			const launched: string[] = []
+			await act(async () => {
+				setup = await renderBrowser(
+					<Browser
+						root={root}
+						readFile={async () => ""}
+						onQuit={() => {}}
+						disableFooterNoticeAutoClear
+						newFileMembershipTimeoutMs={120}
+						launchEditor={async (options) => {
+							if (options.filePath) launched.push(options.filePath)
+							return { ok: true, exitCode: 0 }
+						}}
+					/>,
+					VIEWPORT,
+				)
+			})
+			await stepFrame(setup!.renderOnce)
+			await openPrompt()
+			await act(async () => {
+				typeName("ghost")
+				setup!.mockInput.pressEnter()
+			})
+			await waitUntil(
+				() => setup!.captureCharFrame().includes("created ghost.md, but it isn't in the file list"),
+				"timeout notice",
+			)
+			expect(existsSync(join(root, "ghost.md"))).toBe(true)
+			expect(launched).toEqual([])
+		})
+	})
+
+	test("typing during create does not change the submitted name", async () => {
+		await withEditor(async () => {
+			const root = makeFiles(["a.md"])
+			const launched: string[] = []
+			const gate = deferred<void>()
+			await act(async () => {
+				setup = await renderBrowser(
+					<Browser
+						root={root}
+						readFile={async () => ""}
+						onQuit={() => {}}
+						createEmptyFile={async (path) => {
+							await gate.promise
+							return createEmptyFileExclusive(path)
+						}}
+						launchEditor={async (options) => {
+							if (options.filePath) launched.push(options.filePath)
+							return { ok: true, exitCode: 0 }
+						}}
+					/>,
+					VIEWPORT,
+				)
+			})
+			await stepFrame(setup!.renderOnce)
+			await openPrompt()
+			await act(async () => {
+				typeName("foo")
+				setup!.mockInput.pressEnter()
+				typeName("x")
+			})
+			await stepFrame(setup!.renderOnce)
+			expect(setup!.captureCharFrame()).toContain("foo▏")
+			expect(setup!.captureCharFrame()).not.toContain("foox")
+			await act(async () => {
+				gate.resolve()
+			})
+			await waitUntil(() => existsSync(join(root, "foo.md")), "foo.md")
+			expect(existsSync(join(root, "foox.md"))).toBe(false)
+			await waitUntil(() => launched.length === 1, "editor launched")
+		})
+	})
+
+	test("Esc during create keeps the file and reports it on the footer", async () => {
+		await withEditor(async () => {
+			const root = makeFiles(["a.md"])
+			const launched: string[] = []
+			const gate = deferred<void>()
+			await act(async () => {
+				setup = await renderBrowser(
+					<Browser
+						root={root}
+						readFile={async () => ""}
+						onQuit={() => {}}
+						disableFooterNoticeAutoClear
+						createEmptyFile={async (path) => {
+							await gate.promise
+							return createEmptyFileExclusive(path)
+						}}
+						launchEditor={async (options) => {
+							if (options.filePath) launched.push(options.filePath)
+							return { ok: true, exitCode: 0 }
+						}}
+					/>,
+					VIEWPORT,
+				)
+			})
+			await stepFrame(setup!.renderOnce)
+			await openPrompt()
+			await act(async () => {
+				typeName("foo")
+				setup!.mockInput.pressEnter()
+			})
+			await stepFrame(setup!.renderOnce)
+			await act(async () => {
+				setup!.mockInput.pressEscape()
+				await new Promise<void>((resolve) => setTimeout(resolve, 60))
+			})
+			await stepFrame(setup!.renderOnce)
+			expect(setup!.captureCharFrame()).not.toContain("enter create  esc cancel")
+			await act(async () => {
+				gate.resolve()
+			})
+			await waitUntil(() => existsSync(join(root, "foo.md")), "foo.md")
+			await waitUntil(
+				() => setup!.captureCharFrame().includes("created foo.md"),
+				"created notice",
+			)
+			expect(setup!.captureCharFrame()).not.toContain("isn't in the file list")
+			expect(launched).toEqual([])
+		})
+	})
+
+	test("moving selection during membership wait does not launch the editor", async () => {
+		await withEditor(async () => {
+			const root = makeFiles(["a.md", "b.md"])
+			writeFileSync(join(root, ".gitignore"), "ghost.md\n")
+			const launched: string[] = []
+			await act(async () => {
+				setup = await renderBrowser(
+					<Browser
+						root={root}
+						readFile={async () => ""}
+						onQuit={() => {}}
+						disableFooterNoticeAutoClear
+						newFileMembershipTimeoutMs={400}
+						launchEditor={async (options) => {
+							if (options.filePath) launched.push(options.filePath)
+							return { ok: true, exitCode: 0 }
+						}}
+					/>,
+					VIEWPORT,
+				)
+			})
+			await stepFrame(setup!.renderOnce)
+			await openPrompt()
+			await act(async () => {
+				typeName("ghost")
+				setup!.mockInput.pressEnter()
+			})
+			await waitUntil(() => existsSync(join(root, "ghost.md")), "ghost.md")
+			await waitUntil(() => {
+				const frame = setup!.captureCharFrame()
+				return (
+					!frame.includes("enter create  esc cancel") &&
+					frame.includes("a.md") &&
+					frame.includes("b.md")
+				)
+			}, "prompt closed and files visible")
+			await act(async () => {
+				setup!.mockInput.pressKey("j")
+			})
+			await stepFrame(setup!.renderOnce)
+			expect(readerTitleContains(setup!.captureCharFrame(), "b.md")).toBe(true)
+			await act(async () => {
+				await new Promise<void>((resolve) => setTimeout(resolve, 450))
+			})
+			await stepFrame(setup!.renderOnce)
+			expect(launched).toEqual([])
+			expect(setup!.captureCharFrame()).not.toContain("isn't in the file list")
+		})
+	})
+
+	test("palette lists New file…", async () => {
+		await withEditor(async () => {
+			await act(async () => {
+				setup = await renderBrowser(
+					<Browser root={makeFiles(["a.md"])} readFile={async () => ""} onQuit={() => {}} />,
+					{ width: 120, height: 40 },
+				)
+			})
+			await stepFrame(setup!.renderOnce)
+			await act(async () => {
+				setup!.mockInput.pressKey("p", { ctrl: true })
+			})
+			await stepFrame(setup!.renderOnce)
+			expect(setup!.captureCharFrame()).toContain("New file…")
+		})
 	})
 })

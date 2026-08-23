@@ -112,7 +112,7 @@ describe("planEditorLaunch", () => {
 		).toEqual({ argv: ["nvim", "/vault/a.md"] })
 	})
 
-	test("new file at discovery root uses cwd and omits a path", () => {
+	test("omitting a file path leaves argv as the editor command only", () => {
 		expect(
 			planEditorLaunch({
 				editor: { cmd: "nvim", args: [] },
@@ -121,7 +121,7 @@ describe("planEditorLaunch", () => {
 		).toEqual({ argv: ["nvim"], cwd: "/vault" })
 	})
 
-	test("preserves editor args when opening a new file", () => {
+	test("preserves editor args when a path is omitted", () => {
 		expect(
 			planEditorLaunch({
 				editor: { cmd: "code", args: ["--wait"] },

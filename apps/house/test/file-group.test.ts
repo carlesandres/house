@@ -32,7 +32,7 @@ interface CtxOverrides {
 	readonly paletteOpen?: boolean
 	readonly onServe?: () => void
 	readonly onEdit?: () => void
-	readonly onEditNew?: () => void
+	readonly onNewFile?: () => void
 	readonly moveSelectionBy?: (delta: number) => void
 }
 
@@ -60,7 +60,7 @@ const makeCtx = (o: CtxOverrides = {}): BrowserCtx => ({
 	quit: noop,
 	serveCurrent: o.onServe ?? noop,
 	editCurrent: o.onEdit ?? noop,
-	editNewInRoot: o.onEditNew ?? noop,
+	openNewFilePrompt: o.onNewFile ?? noop,
 	copyCurrentContents: noop,
 	toggleAll: noop,
 })
@@ -185,24 +185,24 @@ describe("File group — `E` (open in $EDITOR)", () => {
 	})
 })
 
-describe("File group — `N` (new file in $EDITOR at discovery root)", () => {
+describe("File group — `N` (new file prompt)", () => {
 	test("fires when hasSelected", () => {
 		let fired = false
-		const ctx = makeCtx({ hasSelected: true, onEditNew: () => (fired = true) })
+		const ctx = makeCtx({ hasSelected: true, onNewFile: () => (fired = true) })
 		expect(dispatch(browserBindings, ctx, k("n", { shift: true }))?.id).toBe("file.new")
 		expect(fired).toBe(true)
 	})
 
 	test("fires when !hasSelected", () => {
 		let fired = false
-		const ctx = makeCtx({ hasSelected: false, onEditNew: () => (fired = true) })
+		const ctx = makeCtx({ hasSelected: false, onNewFile: () => (fired = true) })
 		expect(dispatch(browserBindings, ctx, k("n", { shift: true }))?.id).toBe("file.new")
 		expect(fired).toBe(true)
 	})
 
 	test("plain `n` does not fire", () => {
 		let fired = false
-		const ctx = makeCtx({ onEditNew: () => (fired = true) })
+		const ctx = makeCtx({ onNewFile: () => (fired = true) })
 		expect(dispatch(browserBindings, ctx, k("n"))).toBeNull()
 		expect(fired).toBe(false)
 	})
@@ -212,7 +212,7 @@ describe("File group — `N` (new file in $EDITOR at discovery root)", () => {
 		const ctx = makeCtx({
 			focus: "reader",
 			hasSelected: false,
-			onEditNew: () => (fired = true),
+			onNewFile: () => (fired = true),
 		})
 		expect(dispatch(browserBindings, ctx, k("n", { shift: true }))?.id).toBe("file.new")
 		expect(fired).toBe(true)

@@ -169,7 +169,7 @@ describe("browserBindings — discovery.toggleAll", () => {
 		quit: noop,
 		serveCurrent: noop,
 		editCurrent: noop,
-		editNewInRoot: noop,
+		openNewFilePrompt: noop,
 		copyCurrentContents: noop,
 		toggleAll: noop,
 		...overrides,
@@ -269,7 +269,7 @@ describe("browserBindings — discovery.toggleAll", () => {
 		const cmd = buildCommands(stubCtx({ hasSelected: false })).find((c) => c.id === "file.new")
 		expect(cmd).toMatchObject({
 			id: "file.new",
-			title: "New file in editor",
+			title: "New file…",
 			category: "File",
 			shortcut: "shift+n",
 		})

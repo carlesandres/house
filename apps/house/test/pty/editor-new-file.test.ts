@@ -1,8 +1,7 @@
 /**
- * PTY-backed: pressing `N` suspends opentui, hands the TTY to `$EDITOR`
- * with cwd = Discovery Root and no file path. A fake editor writes a new
- * markdown file in cwd and exits. After resume the sidebar shows that
- * file and the previously selected file stays selected.
+ * PTY-backed: pressing `N` opens the New-file prompt, creates an empty
+ * markdown file at the Discovery Root, selects it, and hands that path to
+ * `$EDITOR` (the same Open in editor path as `E`).
  *
  * Off by default. Run with: `HOUSE_PTY=1 bun test test/pty/`.
  */
@@ -24,21 +23,25 @@ afterAll(() => {
 	for (const d of tempDirs) rmSync(d, { recursive: true, force: true })
 })
 
-function makeFixture(): { vault: string; editorCmd: string } {
+function makeFixture(): { vault: string; editorCmd: string; targetMarker: string } {
 	const dir = mkdtempSync(join(tmpdir(), "house-pty-new-"))
 	tempDirs.push(dir)
 	mkdirSync(dir, { recursive: true })
 	writeFileSync(join(dir, "note.md"), "# original\n")
 
+	const targetMarker = "CREATED-BY-FAKE-N"
 	const script = join(dir, "fake-editor.ts")
 	writeFileSync(
 		script,
 		`#!/usr/bin/env bun
-await Bun.write("created.md", "# created\\n")
+const path = Bun.argv[2]
+if (!path) { console.error("no path arg"); process.exit(2) }
+const prev = await Bun.file(path).text()
+await Bun.write(path, prev + "\\n## ${targetMarker}\\n")
 `,
 	)
 	chmodSync(script, 0o755)
-	return { vault: dir, editorCmd: `${process.execPath} ${script}` }
+	return { vault: dir, editorCmd: `${process.execPath} ${script}`, targetMarker }
 }
 
 async function launchHouse(cwd: string, editorCmd: string): Promise<Session> {
@@ -59,27 +62,24 @@ async function launchHouse(cwd: string, editorCmd: string): Promise<Session> {
 	return session
 }
 
-describe.skipIf(!RUN)(
-	"`N` suspends, creates in cwd, resumes without changing selection (PTY)",
-	() => {
-		test("sidebar shows the new file and note.md stays selected", async () => {
-			const { vault, editorCmd } = makeFixture()
-			const session = await launchHouse(vault, editorCmd)
+describe.skipIf(!RUN)("`N` prompts, creates, selects, and opens in $EDITOR (PTY)", () => {
+	test("the new file is selected and the reader reflects the editor edit", async () => {
+		const { vault, editorCmd, targetMarker } = makeFixture()
+		const session = await launchHouse(vault, editorCmd)
 
-			await session.waitForText(/note\.md/, { timeout: 5_000 })
-			await session.waitIdle({ timeout: 500 }).catch(() => {})
+		await session.waitForText(/note\.md/, { timeout: 5_000 })
+		await session.waitIdle({ timeout: 500 }).catch(() => {})
 
-			await session.press(["shift", "n"])
-			await session.waitIdle({ timeout: 1_000 }).catch(() => {})
-			await session.waitForText(/created\.md/, { timeout: 10_000 })
+		await session.press(["shift", "n"])
+		await session.waitForText(/New file/, { timeout: 5_000 })
+		await session.type("created")
+		await session.press("return")
 
-			const frame = await session.text({ trimEnd: true })
-			expect(frame).toContain("created.md")
-			expect(frame).toContain("note.md")
-			expect(frame).toContain("note.md")
-			// Header names the selected file; it must stay on the original row.
-			expect(frame).toMatch(/note\.md/)
-			expect(frame).not.toMatch(/· created\.md/)
-		})
-	},
-)
+		await session.waitForText(/created\.md/, { timeout: 10_000 })
+		await session.waitForText(new RegExp(targetMarker), { timeout: 10_000 })
+
+		const frame = await session.text({ trimEnd: true })
+		expect(frame).toContain("created.md")
+		expect(frame).toContain(targetMarker)
+	})
+})

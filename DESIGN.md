@@ -21,7 +21,7 @@ It is explicitly **not** glow rewritten in TypeScript: glow's center of gravity 
 
 These are hard non-goals. We will say no to PRs that pull in this direction.
 
-- **Not an editor.** No buffer, no insert mode, no writes to disk. (Future releases may shell out to `$EDITOR`, but that is a hand-off, not editing inside the app.)
+- **Not an editor.** No buffer, no insert mode, no in-app writes. The one exception is **New file** (`N`): House may create a new empty markdown file at the Discovery Root (exclusive create, never overwrite) as a prelude to handing that path to `$EDITOR`. That is still a hand-off, not editing inside the app.
 - **Not Windows-supported in v1.** Target platforms are macOS and Linux. Bun runs on Windows, but `house` has never been validated there — see the tracking epic [#129](https://github.com/carlesandres/house/issues/129) for the gap list. We will not block PRs that incidentally improve Windows compat, but we will not accept Windows-only complexity until the tier is explicitly chosen.
 - **Not an exporter.** No HTML, PDF, or image output.
 - **Not a cloud / sync service.** Glow had a stash feature; it was removed. We will not reintroduce that class of feature.
@@ -158,7 +158,7 @@ Conventions follow `ghui` (escape-to-back, return-to-confirm, vim letters as arr
 | `tab`                                                     | Toggle focus between sidebar and reader                |
 | `s`                                                       | Toggle sidebar visibility                              |
 | `w`                                                       | Toggle reader wrap                                     |
-| `N`                                                       | New file in `$EDITOR` at the discovery root            |
+| `N`                                                       | Prompt for a name, create an empty `.md` at the discovery root, select it, open in `$EDITOR` |
 | `/`                                                       | Open filter input (basename-first fuzzy match on path) |
 | `?`                                                       | Help overlay                                           |
 | `q`, `ctrl+c`                                             | Quit                                                   |
@@ -175,7 +175,7 @@ Do not bind these in v1:
 | `B`                 | Bookmarks panel                   |
 | `ctrl+[` / `ctrl+]` | Navigation history back / forward |
 
-`E` (open in `$EDITOR`), `N` (new file in `$EDITOR` at the discovery root), and `O` (open externally, currently HTML browser) are shipped — see the keymap. The browser preview intentionally stays on the current simple `marked`-based HTML path for now; see [`docs/adr/0001-streamdown-preview-renderer.md`](./docs/adr/0001-streamdown-preview-renderer.md). Reload semantics: `r` remains reserved because `E`'s post-edit reload is automatic; a manual reload is only needed if we ship file-watching as a separate feature.
+`E` (open in `$EDITOR`), `N` (prompt-create-select-edit at the discovery root), and `O` (open externally, currently HTML browser) are shipped — see the keymap. The browser preview intentionally stays on the current simple `marked`-based HTML path for now; see [`docs/adr/0001-streamdown-preview-renderer.md`](./docs/adr/0001-streamdown-preview-renderer.md). Reload semantics: `r` remains reserved because `E`'s post-edit reload is automatic; a manual reload is only needed if we ship file-watching as a separate feature.
 
 ### 7.4 Unified browser model
 
@@ -254,7 +254,7 @@ Visual direction is **typographic**: generous whitespace, light accents, lots of
 
 ### 7.6 Floating overlay coordination
 
-Floating UI is coordinated by the Browser, not by individual leaf components. The Browser owns a single `floatingOverlay` state machine with mutually-exclusive variants such as `command-palette` and `status-popover`. Opening one floating overlay replaces any existing one; closing returns to `none`.
+Floating UI is coordinated by the Browser, not by individual leaf components. The Browser owns a single `floatingOverlay` state machine with mutually-exclusive variants such as `command-palette`, `prompt`, and `status-popover`. Opening one floating overlay replaces any existing one; closing returns to `none`.
 
 The practical rule is: **at most one floating popover/modal is open at a time**. This keeps z-index ordering deterministic and prevents stale popovers from sitting above newer modal surfaces. Inline chrome such as the sidebar filter row is not a floating overlay, but opening it closes floating overlays because it becomes the user's active interaction target.
 
@@ -263,7 +263,7 @@ Layer priority is intentionally simple:
 1. Base UI: header, sidebar, reader, footer.
 2. Inline input chrome: the sidebar filter row.
 3. Floating popovers: compact status/details panels.
-4. Modal overlays: command palette and future help/confirmation modals.
+4. Modal overlays: command palette, new-file prompt, and future help/confirmation modals.
 5. Future blocking overlays: fatal/error recovery flows, if needed.
 
 Because only one floating overlay is rendered at a time, the layer list is a policy guide rather than a stack allocator. If a future feature truly needs nested floating surfaces, add that feature deliberately with tests for render order, keyboard ownership, and dismissal. Do not let unrelated components each manage their own independent `open` boolean.

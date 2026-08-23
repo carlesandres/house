@@ -8,11 +8,11 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 
 ### Added
 
-- `N` opens `$EDITOR` / `$VISUAL` in the discovery root with no file path, so a new file can be created there without changing the current selection or filter.
 - Internal `@house/options` package: a typed catalog for options whose initial values come from CLI, env, and config, and that can be changed during a session. House's scalar config (`theme`, `tone`, `focus`, `defaultRoot`, `width`, `wrap`) now resolves through it.
 
 ### Changed
 
+- `N` now prompts for a file name, creates an empty `.md` at the discovery root, selects it in the File Navigator, and opens it in `$EDITOR` / `$VISUAL`. It no longer launches a nameless editor session in the discovery root.
 - Invalid `defaultRoot` values fail at load instead of warning and falling back to `"cwd"`.
 - Theme and tone cycling now go through the options session and persist via the same catalog policy as other file-backed options.
 - Large-tree File Navigator startup no longer waits for a topology-only warmup: the watcher

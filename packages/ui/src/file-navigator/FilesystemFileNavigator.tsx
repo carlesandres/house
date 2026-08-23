@@ -24,6 +24,7 @@ import { normalizeRoot } from "./core/scanner.ts"
 import { getFileNavigatorWatcher } from "./watcher.ts"
 
 export type { BrowseOrder, SearchStrategy } from "./core/types.ts"
+export { fuzzySearch } from "./core/strategies.ts"
 export type {
 	BrowseStrategy,
 	Diagnostic,
