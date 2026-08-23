@@ -3,9 +3,9 @@ import { themeDefinitions } from "../theme/registry.ts"
 
 /**
  * House options whose initial values come from CLI / env / config.
- * `wrap` is session-mutable; theme/tone persist from the TUI via `save.ts`
- * rather than the options session (step 2). Lists (`show`, `extensions`) stay
- * on the Effect Config path until `@house/options` has a list type.
+ * Browser holds a session for runtime wrap/theme/tone; theme/tone persist
+ * through `persistHouseOption`. Lists (`show`, `extensions`) stay on the
+ * Effect Config path until `@house/options` has a list type.
  */
 export const houseOptions = defineOptions({
 	wrap: {

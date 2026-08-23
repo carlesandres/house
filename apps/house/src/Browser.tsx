@@ -52,7 +52,7 @@ import { colors, setActiveTheme } from "./theme/colors.ts"
 import { themeAtom } from "./theme/atom.ts"
 import { themeDefinitions, getThemeDefinition } from "./theme/registry.ts"
 import { houseOptions } from "./config/options.ts"
-import { saveThemePreference } from "./config/save.ts"
+import { persistHouseOption } from "./config/persist.ts"
 
 export type StartupFocus = "sidebar" | "reader" | "filter"
 
@@ -198,11 +198,16 @@ export const Browser = ({
 
 	const optionsSession = useRef<ReturnType<typeof houseOptions.createSession> | null>(null)
 	if (optionsSession.current === null) {
-		optionsSession.current = houseOptions.createSession({
-			...houseOptions.defaults,
-			wrap: initialWrap,
-			width: wrapWidth,
-		})
+		optionsSession.current = houseOptions.createSession(
+			{
+				...houseOptions.defaults,
+				wrap: initialWrap,
+				width: wrapWidth,
+				theme: theme.id,
+				tone: theme.tone,
+			},
+			{ persist: persistHouseOption },
+		)
 	}
 	const wrapEnabled = useSyncExternalStore(optionsSession.current.subscribe, () =>
 		optionsSession.current!.get("wrap"),
@@ -458,32 +463,38 @@ export const Browser = ({
 		pushFooterNotice(updateNotice, updateNoticeTtlMs)
 	}, [updateNotice, updateNoticeTtlMs])
 
-	const cycleTheme = (delta: 1 | -1) => {
-		const idx = themeDefinitions.findIndex((d) => d.id === theme.id)
-		const next = themeDefinitions[(idx + delta + themeDefinitions.length) % themeDefinitions.length]
-		if (!next) return
-		setActiveTheme(next, theme.tone)
-		setTheme({ id: next.id, tone: theme.tone })
-		void saveThemePreference({ theme: next.id, tone: theme.tone }).catch((err) => {
+	const rememberAppearance = (op: Promise<void>) => {
+		void op.catch((err) => {
 			pushFooterNotice("theme not saved")
 			process.stderr.write(
 				`house: failed to save theme preference: ${err instanceof Error ? err.message : String(err)}\n`,
 			)
 		})
+	}
+
+	const cycleTheme = (delta: 1 | -1) => {
+		const session = optionsSession.current
+		if (session === null) return
+		const currentId = session.get("theme")
+		const idx = themeDefinitions.findIndex((d) => d.id === currentId)
+		const next = themeDefinitions[(idx + delta + themeDefinitions.length) % themeDefinitions.length]
+		if (!next) return
+		const tone = session.get("tone")
+		if (tone !== "dark" && tone !== "light") return
+		setActiveTheme(next, tone)
+		setTheme({ id: next.id, tone })
+		rememberAppearance(session.set("theme", next.id))
 		pushFooterNotice(`theme: ${next.name}`)
 	}
 
 	const toggleTone = () => {
-		const nextTone = theme.tone === "dark" ? "light" : "dark"
-		const def = getThemeDefinition(theme.id)
+		const session = optionsSession.current
+		if (session === null) return
+		const nextTone = session.get("tone") === "dark" ? "light" : "dark"
+		const def = getThemeDefinition(session.get("theme"))
 		if (def) setActiveTheme(def, nextTone)
-		setTheme({ id: theme.id, tone: nextTone })
-		void saveThemePreference({ theme: theme.id, tone: nextTone }).catch((err) => {
-			pushFooterNotice("theme not saved")
-			process.stderr.write(
-				`house: failed to save theme preference: ${err instanceof Error ? err.message : String(err)}\n`,
-			)
-		})
+		setTheme({ id: session.get("theme"), tone: nextTone })
+		rememberAppearance(session.set("tone", nextTone))
 		pushFooterNotice(`tone: ${nextTone}`)
 	}
 

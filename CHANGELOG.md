@@ -14,6 +14,7 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 ### Changed
 
 - Invalid `defaultRoot` values fail at load instead of warning and falling back to `"cwd"`.
+- Theme and tone cycling now go through the options session and persist via the same catalog policy as other file-backed options.
 - Large-tree File Navigator startup no longer waits for a topology-only warmup: the watcher
   subscribes before the first authoritative scan, missing ignore files are not probed, and the first
   visible batch can paint while the rest of the tree is still scanning.
