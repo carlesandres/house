@@ -6,6 +6,8 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-08-24
+
 ### Added
 
 - Internal `@house/options` package: a typed catalog for options whose initial values come from CLI, env, and config, and that can be changed during a session. House's scalar config (`theme`, `tone`, `focus`, `defaultRoot`, `width`, `wrap`) now resolves through it.
@@ -19,6 +21,7 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 - Large-tree File Navigator startup no longer waits for a topology-only warmup: the watcher
   subscribes before the first authoritative scan, missing ignore files are not probed, and the first
   visible batch can paint while the rest of the tree is still scanning.
+
 
 ## [0.5.2] — 2026-08-01
 
@@ -418,7 +421,8 @@ The v1 MVP, published as `@carlesandres/openmdr` on npm.
 
 Search, stdin, URL fetching, cross-file link following, `$EDITOR` hand-off, syntax highlighting, persistent config, OS-appearance auto-detect, single-binary distribution (issue [#2](https://github.com/carlesandres/openmdr/issues/2)), Homebrew tap. All tracked.
 
-[Unreleased]: https://github.com/carlesandres/house/compare/v0.5.2...HEAD
+[Unreleased]: https://github.com/carlesandres/house/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/carlesandres/house/compare/v0.5.2...v0.6.0
 [0.5.2]: https://github.com/carlesandres/house/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/carlesandres/house/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/carlesandres/house/compare/v0.4.14...v0.5.0
