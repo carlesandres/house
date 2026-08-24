@@ -1,6 +1,7 @@
 /**
- * Exclusive empty-file create. The only disk write House performs: a new
- * 0-byte file at a caller-chosen path, never an overwrite or truncate.
+ * Exclusive empty-file create for **New file**. One of House's explicit
+ * file actions (with basename **Rename** in `renameFile.ts`): a new 0-byte
+ * file at a caller-chosen path, never an overwrite or truncate.
  */
 
 import { open } from "node:fs/promises"

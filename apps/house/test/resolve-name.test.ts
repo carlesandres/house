@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test"
-import { resolveNewFileName } from "../src/new-file/resolveName.ts"
+import {
+	resolveMarkdownBasename,
+	resolveNewFileName,
+} from "../src/new-file/resolveName.ts"
 import { queryWouldShowRelativePath } from "../src/new-file/queryWouldShow.ts"
 
 describe("resolveNewFileName", () => {
@@ -79,6 +82,30 @@ describe("resolveNewFileName", () => {
 	})
 })
 
+describe("resolveMarkdownBasename rename mode", () => {
+	test("uses rename-specific path-shaped copy", () => {
+		for (const raw of ["notes/foo", "../x", "foo\\bar", ".", ".."]) {
+			expect(resolveMarkdownBasename(raw, "rename")).toEqual({
+				ok: false,
+				error: "name must be a single file name",
+			})
+		}
+	})
+
+	test("keeps the same extension normalization as new-file", () => {
+		expect(resolveMarkdownBasename("bar", "rename")).toEqual({
+			ok: true,
+			basename: "bar.md",
+			warnings: [],
+		})
+		expect(resolveMarkdownBasename("bar.MD", "rename")).toEqual({
+			ok: true,
+			basename: "bar.md",
+			warnings: ["extension will be saved as .md"],
+		})
+	})
+})
+
 describe("queryWouldShowRelativePath", () => {
 	test("an empty query would show any basename", () => {
 		expect(queryWouldShowRelativePath("", "zzz.md")).toBe(true)
@@ -88,5 +115,11 @@ describe("queryWouldShowRelativePath", () => {
 		expect(queryWouldShowRelativePath("readme", "foo.md")).toBe(false)
 		expect(queryWouldShowRelativePath("foo", "foo.md")).toBe(true)
 		expect(queryWouldShowRelativePath("fmd", "foo.md")).toBe(true)
+	})
+
+	test("matches against the full nested relative path", () => {
+		expect(queryWouldShowRelativePath("notes", "notes/foo.md")).toBe(true)
+		expect(queryWouldShowRelativePath("readme", "notes/foo.md")).toBe(false)
+		expect(queryWouldShowRelativePath("foo", "notes/foo.md")).toBe(true)
 	})
 })

@@ -33,6 +33,7 @@ interface CtxOverrides {
 	readonly onServe?: () => void
 	readonly onEdit?: () => void
 	readonly onNewFile?: () => void
+	readonly onRename?: () => void
 	readonly moveSelectionBy?: (delta: number) => void
 }
 
@@ -61,6 +62,7 @@ const makeCtx = (o: CtxOverrides = {}): BrowserCtx => ({
 	serveCurrent: o.onServe ?? noop,
 	editCurrent: o.onEdit ?? noop,
 	openNewFilePrompt: o.onNewFile ?? noop,
+	openRenamePrompt: o.onRename ?? noop,
 	copyCurrentContents: noop,
 	toggleAll: noop,
 })
@@ -219,12 +221,47 @@ describe("File group — `N` (new file prompt)", () => {
 	})
 })
 
+describe("File group — `R` (rename prompt)", () => {
+	test("fires when hasSelected", () => {
+		let fired = false
+		const ctx = makeCtx({ hasSelected: true, onRename: () => (fired = true) })
+		expect(dispatch(browserBindings, ctx, k("r", { shift: true }))?.id).toBe("file.rename")
+		expect(fired).toBe(true)
+	})
+
+	test("does not fire when !hasSelected", () => {
+		let fired = false
+		const ctx = makeCtx({ hasSelected: false, onRename: () => (fired = true) })
+		expect(dispatch(browserBindings, ctx, k("r", { shift: true }))).toBeNull()
+		expect(fired).toBe(false)
+	})
+
+	test("plain `r` does not fire (reserved for Reload)", () => {
+		let fired = false
+		const ctx = makeCtx({ onRename: () => (fired = true) })
+		expect(dispatch(browserBindings, ctx, k("r"))).toBeNull()
+		expect(fired).toBe(false)
+	})
+
+	test("fires from the reader too (focus-agnostic)", () => {
+		let fired = false
+		const ctx = makeCtx({
+			focus: "reader",
+			hasSelected: true,
+			onRename: () => (fired = true),
+		})
+		expect(dispatch(browserBindings, ctx, k("r", { shift: true }))?.id).toBe("file.rename")
+		expect(fired).toBe(true)
+	})
+})
+
 describe("File group — array layout", () => {
-	test('`O`, `E`, `N`, `[`, `]` all carry group="File"', () => {
+	test('`O`, `E`, `N`, `R`, `[`, `]` all carry group="File"', () => {
 		const ids = [
 			"serve.current",
 			"file.edit",
 			"file.new",
+			"file.rename",
 			"reader.prevFile",
 			"reader.nextFile",
 		] as const

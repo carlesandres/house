@@ -10,8 +10,8 @@
  * sidebar collapse with `\`.
  */
 
-import { existsSync } from "node:fs"
-import { join } from "node:path"
+import { readdirSync } from "node:fs"
+import { dirname, join } from "node:path"
 import { SyntaxStyle } from "@opentui/core"
 import type { BorderSides } from "@opentui/core"
 import {
@@ -50,8 +50,13 @@ import {
 	type OpenInEditorOptions,
 } from "./io/editor.ts"
 import { readFileText } from "./io/readFile.ts"
+import {
+	renameMarkdownFile,
+	type RenameFileRequest,
+	type RenameFileResult,
+} from "./io/renameFile.ts"
 import { queryWouldShowRelativePath } from "./new-file/queryWouldShow.ts"
-import { resolveNewFileName } from "./new-file/resolveName.ts"
+import { resolveMarkdownBasename, type ResolveNameMode } from "./new-file/resolveName.ts"
 import { browserBindings, type BrowserCtx } from "./keymap/browser.ts"
 import { dispatch } from "./keymap/keymap.ts"
 import { canFitInline, defaultPreferredWidth, resolveSidebarWidth } from "./layout/resolve.ts"
@@ -124,7 +129,9 @@ export interface BrowserProps {
 	readonly launchEditor?: (options: OpenInEditorOptions) => Promise<EditorRunResult>
 	/** Test seam: replaces exclusive empty-file create. */
 	readonly createEmptyFile?: (path: string) => Promise<CreateEmptyFileResult>
-	/** Test seam: override the post-create File Navigator membership wait. */
+	/** Test seam: replaces basename rename. */
+	readonly renameFile?: (request: RenameFileRequest) => Promise<RenameFileResult>
+	/** Test seam: override the post-create/rename File Navigator membership wait. */
 	readonly newFileMembershipTimeoutMs?: number
 }
 
@@ -156,14 +163,48 @@ const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout
 const isSingleCodePoint = (value: string): boolean => Array.from(value).length === 1
 const dropLastCodePoint = (value: string): string => Array.from(value).slice(0, -1).join("")
 
-const promptLiveStatus = (raw: string, query: string, destExists: boolean): PromptStatus | null => {
-	const resolved = resolveNewFileName(raw)
+type PromptPurpose = "new-file" | "rename"
+
+interface ActionTarget {
+	readonly absolutePath: string
+	readonly parentDir: string
+	readonly relativePath: string
+	readonly basename: string
+	/** Parent of `relativePath` using `/` separators; empty at discovery root. */
+	readonly parentRelative: string
+}
+
+const parentRelativeOf = (relativePath: string): string => {
+	const idx = relativePath.lastIndexOf("/")
+	return idx === -1 ? "" : relativePath.slice(0, idx)
+}
+
+const destinationRelativePath = (parentRelative: string, newBasename: string): string =>
+	parentRelative.length === 0 ? newBasename : `${parentRelative}/${newBasename}`
+
+const siblingExistsExact = (parentDir: string, name: string, exceptBasename?: string): boolean => {
+	try {
+		const entries = readdirSync(parentDir)
+		return entries.includes(name) && name !== exceptBasename
+	} catch {
+		return false
+	}
+}
+
+const promptLiveStatus = (
+	raw: string,
+	mode: ResolveNameMode,
+	query: string,
+	matchRelativePath: string,
+	destExists: boolean,
+): PromptStatus | null => {
+	const resolved = resolveMarkdownBasename(raw, mode)
 	if (!resolved.ok) {
 		if (resolved.error === "name required") return null
 		return { kind: "error", lines: [resolved.error] }
 	}
 	const lines = [...resolved.warnings]
-	if (query.length > 0 && !queryWouldShowRelativePath(query, resolved.basename)) {
+	if (query.length > 0 && !queryWouldShowRelativePath(query, matchRelativePath)) {
 		lines.push(`filter will change to ${resolved.basename}`)
 	}
 	if (destExists) lines.push("already exists")
@@ -238,6 +279,7 @@ export const Browser = ({
 	order = "recently-modified",
 	launchEditor = openInEditor,
 	createEmptyFile = createEmptyFileExclusive,
+	renameFile = renameMarkdownFile,
 	newFileMembershipTimeoutMs = NEW_FILE_MEMBERSHIP_TIMEOUT_MS,
 }: BrowserProps) => {
 	const renderer = useRenderer()
@@ -425,10 +467,14 @@ export const Browser = ({
 	const paletteIndexRef = useRef(0)
 	const [promptInput, setPromptInput] = useState("")
 	const [promptStatus, setPromptStatus] = useState<PromptStatus | null>(null)
+	const [promptPurpose, setPromptPurpose] = useState<PromptPurpose>("new-file")
+	const [promptContext, setPromptContext] = useState<string | undefined>(undefined)
 	const promptInputRef = useRef("")
+	const promptPurposeRef = useRef<PromptPurpose>("new-file")
 	const promptFocusBeforeRef = useRef<"sidebar" | "reader">("sidebar")
 	const promptSubmittingRef = useRef(false)
-	const newFileTaskGenRef = useRef(0)
+	const actionTargetRef = useRef<ActionTarget | null>(null)
+	const promptTaskGenRef = useRef(0)
 	const mountedRef = useRef(true)
 	const [readerEmptyStateTipRotation, setReaderEmptyStateTipRotation] = useState(
 		() => nextReaderEmptyStateTipRotation,
@@ -483,7 +529,7 @@ export const Browser = ({
 		mountedRef.current = true
 		return () => {
 			mountedRef.current = false
-			newFileTaskGenRef.current += 1
+			promptTaskGenRef.current += 1
 			newFileEditPathRef.current = null
 			void serverRef.current?.stop()
 			serverRef.current = null
@@ -647,19 +693,32 @@ export const Browser = ({
 	const applyPromptInput = (next: string): void => {
 		promptInputRef.current = next
 		setPromptInput(next)
-		const resolved = resolveNewFileName(next)
-		const destExists = resolved.ok && existsSync(join(root, resolved.basename))
-		setPromptStatus(promptLiveStatus(next, filterInputRef.current, destExists))
+		const mode: ResolveNameMode = promptPurposeRef.current
+		const resolved = resolveMarkdownBasename(next, mode)
+		const target = actionTargetRef.current
+		let destExists = false
+		let matchRelative = resolved.ok ? resolved.basename : ""
+		if (resolved.ok && mode === "new-file") {
+			destExists = siblingExistsExact(root, resolved.basename)
+		} else if (resolved.ok && mode === "rename" && target !== null) {
+			matchRelative = destinationRelativePath(target.parentRelative, resolved.basename)
+			destExists = siblingExistsExact(target.parentDir, resolved.basename, target.basename)
+		}
+		setPromptStatus(promptLiveStatus(next, mode, filterInputRef.current, matchRelative, destExists))
 	}
 
-	const closeNewFilePrompt = (restoreFocus: boolean): void => {
+	const closePrompt = (restoreFocus: boolean): void => {
 		promptSubmittingRef.current = false
 		promptInputRef.current = ""
 		setPromptInput("")
 		setPromptStatus(null)
+		setPromptContext(undefined)
+		actionTargetRef.current = null
+		promptPurposeRef.current = "new-file"
+		setPromptPurpose("new-file")
 		closeFloatingOverlay()
 		if (restoreFocus) {
-			newFileTaskGenRef.current += 1
+			promptTaskGenRef.current += 1
 			const prev = promptFocusBeforeRef.current
 			focusRef.current = prev
 			setFocus(prev)
@@ -737,6 +796,27 @@ export const Browser = ({
 		})()
 	}
 
+	const beginPrompt = (
+		purpose: PromptPurpose,
+		initialValue: string,
+		context: string | undefined,
+	): void => {
+		promptTaskGenRef.current += 1
+		promptSubmittingRef.current = false
+		promptPurposeRef.current = purpose
+		setPromptPurpose(purpose)
+		setPromptContext(context)
+		promptInputRef.current = initialValue
+		setPromptInput(initialValue)
+		promptFocusBeforeRef.current = focusRef.current
+		if (filterOpenRef.current) {
+			filterOpenRef.current = false
+			setFilterOpen(false)
+		}
+		dispatchFloatingOverlay({ type: "open-prompt" })
+		applyPromptInput(initialValue)
+	}
+
 	const openNewFilePrompt = (): void => {
 		const editor = resolveEditor(process.env)
 		if (!editor) {
@@ -747,34 +827,71 @@ export const Browser = ({
 			pushFooterNotice("editor unavailable in this environment")
 			return
 		}
-		newFileTaskGenRef.current += 1
-		promptSubmittingRef.current = false
-		promptInputRef.current = ""
-		setPromptInput("")
-		setPromptStatus(null)
-		promptFocusBeforeRef.current = focusRef.current
-		if (filterOpenRef.current) {
-			filterOpenRef.current = false
-			setFilterOpen(false)
+		actionTargetRef.current = null
+		beginPrompt("new-file", "", undefined)
+	}
+
+	const openRenamePrompt = (): void => {
+		const file = navigator.getSnapshot().selectedFile
+		if (!file) return
+		actionTargetRef.current = {
+			absolutePath: file.absolutePath,
+			parentDir: dirname(file.absolutePath),
+			relativePath: file.relativePath,
+			basename: file.basename,
+			parentRelative: parentRelativeOf(file.relativePath),
 		}
-		dispatchFloatingOverlay({ type: "open-prompt" })
+		beginPrompt("rename", file.basename, file.relativePath)
+	}
+
+	const waitForMembership = async (opts: {
+		readonly dest: string
+		readonly task: number
+		readonly isArmed: () => boolean
+		readonly disarm: () => void
+		readonly onReady: (() => void) | null
+		readonly timeoutNotice: string
+	}): Promise<void> => {
+		const stillWaiting = (): boolean =>
+			opts.task === promptTaskGenRef.current && mountedRef.current && opts.isArmed()
+		await navigator.refresh()
+		const deadline = Date.now() + newFileMembershipTimeoutMs
+		while (Date.now() < deadline) {
+			if (!stillWaiting()) return
+			const snap = navigator.getSnapshot()
+			if (snap.files.some((file) => file.absolutePath === opts.dest)) {
+				const selectedSnapshot = navigator.selectPath(opts.dest)
+				if (!stillWaiting()) return
+				if (selectedSnapshot.selectedFile?.absolutePath === opts.dest) {
+					pendingSelectionPathRef.current = null
+					opts.disarm()
+					opts.onReady?.()
+					return
+				}
+			}
+			await sleep(NEW_FILE_MEMBERSHIP_POLL_MS)
+		}
+		if (!stillWaiting()) return
+		pendingSelectionPathRef.current = null
+		opts.disarm()
+		pushFooterNotice(opts.timeoutNotice)
 	}
 
 	const submitNewFile = (): void => {
 		if (promptSubmittingRef.current) return
 		const raw = promptInputRef.current
-		const resolved = resolveNewFileName(raw)
+		const resolved = resolveMarkdownBasename(raw, "new-file")
 		if (!resolved.ok) {
 			setPromptStatus({ kind: "error", lines: [resolved.error] })
 			return
 		}
 		promptSubmittingRef.current = true
 		const dest = join(root, resolved.basename)
-		const task = newFileTaskGenRef.current
+		const task = promptTaskGenRef.current
 		void (async () => {
 			const created = await createEmptyFile(dest)
 			if (!mountedRef.current) return
-			if (task !== newFileTaskGenRef.current) {
+			if (task !== promptTaskGenRef.current) {
 				if (created.ok) pushFooterNotice(`created ${resolved.basename}`)
 				return
 			}
@@ -790,7 +907,7 @@ export const Browser = ({
 				})
 				return
 			}
-			closeNewFilePrompt(false)
+			closePrompt(false)
 			const query = filterInputRef.current
 			if (query.length > 0 && !queryWouldShowRelativePath(query, resolved.basename)) {
 				filterInputRef.current = resolved.basename
@@ -799,32 +916,88 @@ export const Browser = ({
 			}
 			pendingSelectionPathRef.current = dest
 			newFileEditPathRef.current = dest
-			const stillWaiting = (): boolean =>
-				task === newFileTaskGenRef.current &&
-				mountedRef.current &&
-				newFileEditPathRef.current === dest
-			await navigator.refresh()
-			const deadline = Date.now() + newFileMembershipTimeoutMs
-			while (Date.now() < deadline) {
-				if (!stillWaiting()) return
-				const snap = navigator.getSnapshot()
-				if (snap.files.some((file) => file.absolutePath === dest)) {
-					const selectedSnapshot = navigator.selectPath(dest)
-					if (!stillWaiting()) return
-					if (selectedSnapshot.selectedFile?.absolutePath === dest) {
-						pendingSelectionPathRef.current = null
-						newFileEditPathRef.current = null
-						editCurrent()
-						return
-					}
-				}
-				await sleep(NEW_FILE_MEMBERSHIP_POLL_MS)
-			}
-			if (!stillWaiting()) return
-			pendingSelectionPathRef.current = null
-			newFileEditPathRef.current = null
-			pushFooterNotice(`created ${resolved.basename}, but it isn't in the file list`)
+			await waitForMembership({
+				dest,
+				task,
+				isArmed: () => newFileEditPathRef.current === dest,
+				disarm: () => {
+					if (newFileEditPathRef.current === dest) newFileEditPathRef.current = null
+				},
+				onReady: () => editCurrent(),
+				timeoutNotice: `created ${resolved.basename}, but it isn't in the file list`,
+			})
 		})()
+	}
+
+	const submitRename = (): void => {
+		if (promptSubmittingRef.current) return
+		const target = actionTargetRef.current
+		if (!target) return
+		const raw = promptInputRef.current
+		const resolved = resolveMarkdownBasename(raw, "rename")
+		if (!resolved.ok) {
+			setPromptStatus({ kind: "error", lines: [resolved.error] })
+			return
+		}
+		if (resolved.basename === target.basename) {
+			closePrompt(true)
+			return
+		}
+		promptSubmittingRef.current = true
+		const dest = join(target.parentDir, resolved.basename)
+		const destRelative = destinationRelativePath(target.parentRelative, resolved.basename)
+		const task = promptTaskGenRef.current
+		const sourcePath = target.absolutePath
+		void (async () => {
+			const renamed = await renameFile({
+				discoveryRoot: root,
+				sourcePath,
+				parentDir: target.parentDir,
+				newBasename: resolved.basename,
+			})
+			if (!mountedRef.current) return
+			if (task !== promptTaskGenRef.current) {
+				if (renamed.ok && !renamed.noop) {
+					pushFooterNotice(`renamed to ${resolved.basename}`)
+				}
+				return
+			}
+			if (!renamed.ok) {
+				promptSubmittingRef.current = false
+				setPromptStatus({
+					kind: "error",
+					lines: [renamed.reason === "already-exists" ? "already exists" : renamed.message],
+				})
+				return
+			}
+			closePrompt(false)
+			const query = filterInputRef.current
+			if (query.length > 0 && !queryWouldShowRelativePath(query, destRelative)) {
+				filterInputRef.current = resolved.basename
+				setFilterInput(resolved.basename)
+				navigator.flushSearch(resolved.basename)
+			}
+			const preview = serverRef.current
+			if (preview?.currentTarget() === sourcePath) {
+				preview.setTarget(dest)
+			}
+			pendingSelectionPathRef.current = dest
+			await waitForMembership({
+				dest,
+				task,
+				isArmed: () => pendingSelectionPathRef.current === dest,
+				disarm: () => {
+					if (pendingSelectionPathRef.current === dest) pendingSelectionPathRef.current = null
+				},
+				onReady: null,
+				timeoutNotice: `renamed to ${resolved.basename}, but it isn't in the file list`,
+			})
+		})()
+	}
+
+	const submitPrompt = (): void => {
+		if (promptPurposeRef.current === "rename") submitRename()
+		else submitNewFile()
 	}
 
 	// One BrowserCtx per render, reused by the keyboard handler and the
@@ -977,6 +1150,7 @@ export const Browser = ({
 		},
 		editCurrent,
 		openNewFilePrompt,
+		openRenamePrompt,
 		copyCurrentContents: () => {
 			const file = navigator.getSnapshot().selectedFile
 			if (!file) return
@@ -1062,16 +1236,16 @@ export const Browser = ({
 			return
 		}
 
-		// New-file prompt: capture typing for the name field, same swallow
-		// style as the palette branch.
+		// Prompt modal (New file / Rename): capture typing for the name field,
+		// same swallow style as the palette branch.
 		if (floatingOverlayRef.current.kind === "prompt") {
 			if (key.name === "escape") {
-				closeNewFilePrompt(true)
+				closePrompt(true)
 				return
 			}
 			if (promptSubmittingRef.current) return
 			if (key.name === "return") {
-				submitNewFile()
+				submitPrompt()
 				return
 			}
 			if (key.name === "backspace" || key.name === "delete") {
@@ -1468,11 +1642,14 @@ export const Browser = ({
 			)}
 			{promptOpen && (
 				<PromptModal
-					title="New file"
+					title={promptPurpose === "rename" ? "Rename" : "New file"}
 					query={promptInput}
 					placeholder="File name"
-					hints="enter create  esc cancel"
+					hints={
+						promptPurpose === "rename" ? "enter rename  esc cancel" : "enter create  esc cancel"
+					}
 					status={promptStatus}
+					{...(promptContext !== undefined ? { context: promptContext } : {})}
 					viewportWidth={width}
 					viewportHeight={height}
 				/>

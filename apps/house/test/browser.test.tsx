@@ -3836,7 +3836,9 @@ describe("Browser — command palette", () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser root={files} readFile={makeReader({ "README.md": "x" })} onQuit={() => {}} />,
-				{ width: 120, height: 40 },
+				// Height must fit every empty-query row (commands + category
+				// headers + spacers), including Rename… in the File group.
+				{ width: 120, height: 42 },
 			)
 		})
 		await stepFrame(setup!.renderOnce)
@@ -5267,3 +5269,306 @@ describe("Browser — new file prompt", () => {
 	})
 })
 
+describe("Browser — rename prompt", () => {
+	const typeName = (name: string) => {
+		for (const ch of name) {
+			if (ch === " ") setup!.mockInput.pressKey(" ")
+			else if (ch !== ch.toLowerCase()) setup!.mockInput.pressKey(ch.toLowerCase(), { shift: true })
+			else setup!.mockInput.pressKey(ch)
+		}
+	}
+
+	const clearInput = (count: number) => {
+		for (let i = 0; i < count; i++) setup!.mockInput.pressBackspace()
+	}
+
+	const openRename = async () => {
+		await act(async () => {
+			setup!.mockInput.pressKey("r", { shift: true })
+		})
+		await stepFrame(setup!.renderOnce)
+	}
+
+	const waitUntil = async (pred: () => boolean, label: string) => {
+		for (let i = 0; i < 30; i++) {
+			if (pred()) return
+			await act(async () => {
+				await new Promise<void>((resolve) => setTimeout(resolve, 40))
+			})
+			if (setup) await stepFrame(setup.renderOnce)
+		}
+		throw new Error(`timed out waiting for ${label}\n${setup?.captureCharFrame() ?? ""}`)
+	}
+
+	test("prompt shows title, context, prefilled basename, and hints", async () => {
+		const root = makeFiles(["notes/foo.md"])
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser root={root} readFile={async () => ""} onQuit={() => {}} />,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		await openRename()
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("Rename")
+		expect(frame).toContain("notes/foo.md")
+		expect(frame).toContain("foo.md▏")
+		expect(frame).toContain("enter rename  esc cancel")
+
+		await act(async () => {
+			clearInput(6)
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).toContain("File name")
+	})
+
+	test("Esc closes and leaves query and selection unchanged", async () => {
+		const root = makeFiles(["alpha.md", "beta.md"])
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser root={root} readFile={async () => ""} onQuit={() => {}} />,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(readerTitleContains(setup!.captureCharFrame(), "alpha.md")).toBe(true)
+		await openRename()
+		await act(async () => {
+			clearInput(8)
+			typeName("zzz")
+		})
+		await stepFrame(setup!.renderOnce)
+		await act(async () => {
+			setup!.mockInput.pressEscape()
+			await new Promise<void>((resolve) => setTimeout(resolve, 60))
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(frame).not.toContain("enter rename  esc cancel")
+		expect(readerTitleContains(frame, "alpha.md")).toBe(true)
+		expect(existsSync(join(root, "alpha.md"))).toBe(true)
+		expect(existsSync(join(root, "zzz.md"))).toBe(false)
+	})
+
+	test("Enter on identical basename closes as a no-op", async () => {
+		const root = makeFiles(["same.md"])
+		writeFileSync(join(root, "same.md"), "keep")
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser root={root} readFile={async () => ""} onQuit={() => {}} />,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		await openRename()
+		await act(async () => {
+			setup!.mockInput.pressEnter()
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).not.toContain("enter rename  esc cancel")
+		expect(await Bun.file(join(root, "same.md")).text()).toBe("keep")
+	})
+
+	test("path-shaped and hidden names stay open with errors", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser root={makeFiles(["a.md"])} readFile={async () => ""} onQuit={() => {}} />,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		await openRename()
+		await act(async () => {
+			clearInput(4)
+			typeName("notes/foo")
+			setup!.mockInput.pressEnter()
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).toContain("name must be a single file name")
+		expect(setup!.captureCharFrame()).toContain("enter rename  esc cancel")
+
+		await act(async () => {
+			clearInput(9)
+			typeName(".hidden")
+			setup!.mockInput.pressEnter()
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).toContain("hidden names aren't supported yet")
+	})
+
+	test("renames a nested file in place and selects the new path", async () => {
+		const root = makeFiles(["notes/foo.md"])
+		writeFileSync(join(root, "notes/foo.md"), "body")
+		const launched: string[] = []
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					root={root}
+					readFile={async () => ""}
+					onQuit={() => {}}
+					launchEditor={async (options) => {
+						if (options.filePath) launched.push(options.filePath)
+						return { ok: true, exitCode: 0 }
+					}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		await openRename()
+		await act(async () => {
+			clearInput(6)
+			typeName("bar")
+			setup!.mockInput.pressEnter()
+		})
+		await waitUntil(() => existsSync(join(root, "notes/bar.md")), "notes/bar.md")
+		expect(existsSync(join(root, "notes/foo.md"))).toBe(false)
+		expect(await Bun.file(join(root, "notes/bar.md")).text()).toBe("body")
+		await waitUntil(
+			() => readerTitleContains(setup!.captureCharFrame(), "notes/bar.md"),
+			"selected notes/bar.md",
+		)
+		expect(launched).toEqual([])
+	})
+
+	test("destination collision stays open with already exists", async () => {
+		const root = makeFiles(["a.md", "b.md"])
+		writeFileSync(join(root, "a.md"), "A")
+		writeFileSync(join(root, "b.md"), "B")
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser root={root} readFile={async () => ""} onQuit={() => {}} />,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		await openRename()
+		await act(async () => {
+			clearInput(4)
+			typeName("b")
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).toContain("already exists")
+		await act(async () => {
+			setup!.mockInput.pressEnter()
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).toContain("already exists")
+		expect(setup!.captureCharFrame()).toContain("enter rename  esc cancel")
+		expect(await Bun.file(join(root, "a.md")).text()).toBe("A")
+		expect(await Bun.file(join(root, "b.md")).text()).toBe("B")
+	})
+
+	test("a hiding filter warns, then becomes the new basename after rename", async () => {
+		const root = makeFiles(["readme.md"])
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser root={root} readFile={async () => ""} onQuit={() => {}} />,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		await act(async () => {
+			setup!.mockInput.pressKey("/")
+			typeName("readme")
+			setup!.mockInput.pressEscape()
+			await new Promise<void>((resolve) => setTimeout(resolve, 60))
+		})
+		await stepFrame(setup!.renderOnce)
+		await openRename()
+		await act(async () => {
+			clearInput(9)
+			typeName("notes")
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).toContain("filter will change to notes.md")
+		await act(async () => {
+			setup!.mockInput.pressEnter()
+		})
+		await waitUntil(() => existsSync(join(root, "notes.md")), "notes.md")
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("> notes.md")
+		expect(readerTitleContains(frame, "notes.md")).toBe(true)
+	})
+
+	test("membership timeout keeps the rename and reports a footer notice", async () => {
+		const root = makeFiles(["visible.md"])
+		writeFileSync(join(root, ".gitignore"), "ghost.md\n")
+		writeFileSync(join(root, "visible.md"), "x")
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					root={root}
+					readFile={async () => ""}
+					onQuit={() => {}}
+					disableFooterNoticeAutoClear
+					newFileMembershipTimeoutMs={120}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		await openRename()
+		await act(async () => {
+			clearInput(10)
+			typeName("ghost")
+			setup!.mockInput.pressEnter()
+		})
+		await waitUntil(
+			() => setup!.captureCharFrame().includes("renamed to ghost.md, but it isn't in the file list"),
+			"timeout notice",
+		)
+		expect(existsSync(join(root, "ghost.md"))).toBe(true)
+		expect(existsSync(join(root, "visible.md"))).toBe(false)
+	})
+
+	test("prompt swallows quit, palette, and movement keys while typing", async () => {
+		let quit = 0
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					root={makeFiles(["a.md", "b.md"])}
+					readFile={async () => ""}
+					onQuit={() => {
+						quit += 1
+					}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		await openRename()
+		await act(async () => {
+			setup!.mockInput.pressKey("q")
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).toContain("q▏")
+		await act(async () => {
+			setup!.mockInput.pressKey("c", { ctrl: true })
+			setup!.mockInput.pressKey("p", { ctrl: true })
+			setup!.mockInput.pressArrow("down")
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("enter rename  esc cancel")
+		expect(frame).not.toContain(" Commands ")
+		expect(quit).toBe(0)
+		expect(readerTitleContains(frame, "a.md")).toBe(true)
+	})
+
+	test("palette lists Rename… when a file is selected", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser root={makeFiles(["a.md"])} readFile={async () => ""} onQuit={() => {}} />,
+				{ width: 120, height: 40 },
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		await act(async () => {
+			setup!.mockInput.pressKey("p", { ctrl: true })
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).toContain("Rename…")
+	})
+})

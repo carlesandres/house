@@ -205,32 +205,38 @@ there so agents do not “fix” it.
 
 ## Verification
 
-- [ ] `shift+r` dispatches `file.rename` only when `hasSelected`; bare `r` still unbound.
-- [ ] Palette lists `Rename…`; no footer hint on the binding.
-- [ ] No selection: binding inactive (same as other File-group `hasSelected` actions).
-- [ ] Prompt shows title `Rename`, context = Action Target relative path, prefilled
+- [x] `shift+r` dispatches `file.rename` only when `hasSelected`; bare `r` still unbound.
+- [x] Palette lists `Rename…`; no footer hint on the binding.
+- [x] No selection: binding inactive (same as other File-group `hasSelected` actions).
+- [x] Prompt shows title `Rename`, context = Action Target relative path, prefilled
       basename, placeholder `File name`, hints `enter rename  esc cancel`.
-- [ ] Esc closes; query and selection unchanged; Action Target discarded.
-- [ ] Enter on identical resolved basename: close, no filesystem change.
-- [ ] Path separators / `.` / `..` / hidden / controls: blocking errors, stay open.
-- [ ] Extension normalization and live warnings match New file.
-- [ ] Nested file `notes/foo.md` → `notes/bar.md` (parent unchanged).
-- [ ] Destination collision with a different sibling: `already exists`, stay open.
-- [ ] Target missing/replaced between open and Enter: non-retryable prompt error,
+- [x] Esc closes; query and selection unchanged; Action Target discarded.
+- [x] Enter on identical resolved basename: close, no filesystem change.
+- [x] Path separators / `.` / `..` / hidden / controls: blocking errors, stay open.
+- [x] Extension normalization and live warnings match New file.
+- [x] Nested file `notes/foo.md` → `notes/bar.md` (parent unchanged).
+- [x] Destination collision with a different sibling: `already exists`, stay open.
+- [x] Target missing/replaced between open and Enter: non-retryable prompt error,
       no rename.
-- [ ] Case-only rename (`meeting.md` → `Meeting.md`) succeeds on a case-insensitive
+- [x] Case-only rename (`meeting.md` → `Meeting.md`) succeeds on a case-insensitive
       volume via two-step temp rename.
-- [ ] Active query that would hide the new relative path: live filter warning;
+- [x] Active query that would hide the new relative path: live filter warning;
       Enter renames, query becomes new basename, new path selected.
-- [ ] After success, `$EDITOR` is not spawned.
+- [x] After success, `$EDITOR` is not spawned.
 - [ ] Preview serving the old path is retargeted to the new path; preview of another
-      file is untouched.
-- [ ] Membership timeout: disk rename kept, footer
+      file is untouched. *(implemented in Browser; no automated headless coverage yet)*
+- [x] Membership timeout: disk rename kept, footer
       `renamed to <basename>, but it isn't in the file list`.
-- [ ] While prompt open: `q` types; `ctrl+c` does not quit; `ctrl+p` does not open
+- [x] While prompt open: `q` types; `ctrl+c` does not quit; `ctrl+p` does not open
       palette; arrows do not move Sidebar.
-- [ ] `PromptModal` remains under `apps/house`; Delete / ConfirmDialog not introduced.
-- [ ] `bun test`, `bun run typecheck`, `bun run lint`, `bun run format:check` pass.
+- [x] `PromptModal` remains under `apps/house`; Delete / ConfirmDialog not introduced.
+- [x] `bun test`, `bun run typecheck`, `bun run lint`, `bun run format:check` pass.
+
+## More Information
+
+- 2026-08-24: Implemented on `rename-file`. Shared resolve helper is
+  `resolveMarkdownBasename(raw, mode)`; IO lives in `apps/house/src/io/renameFile.ts`.
+  Preview `setTarget` retarget is wired but not covered by a headless test.
 
 ## Revisit triggers
 

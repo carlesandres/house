@@ -170,6 +170,7 @@ describe("browserBindings — discovery.toggleAll", () => {
 		serveCurrent: noop,
 		editCurrent: noop,
 		openNewFilePrompt: noop,
+		openRenamePrompt: noop,
 		copyCurrentContents: noop,
 		toggleAll: noop,
 		...overrides,
@@ -265,6 +266,7 @@ describe("browserBindings — discovery.toggleAll", () => {
 		expect(readerIds.has("serve.current")).toBe(true)
 		expect(readerIds.has("file.edit")).toBe(true)
 		expect(readerIds.has("file.new")).toBe(true)
+		expect(readerIds.has("file.rename")).toBe(true)
 		expect(readerIds.has("file.copyContents")).toBe(true)
 		expect(sidebarIds.has("sidebar.down")).toBe(true)
 		expect(sidebarIds.has("sidebar.up")).toBe(true)
@@ -302,6 +304,22 @@ describe("browserBindings — discovery.toggleAll", () => {
 			shortcut: "shift+n",
 		})
 		const binding = browserBindings.find((b) => b.id === "file.new")
+		expect(binding?.hint).toBeUndefined()
+	})
+
+	test("file.rename is in the palette only with a selection and has no footer hint", async () => {
+		const { buildCommands } = await import("../src/commands/buildCommands.ts")
+		expect(
+			buildCommands(stubCtx({ hasSelected: false })).find((c) => c.id === "file.rename"),
+		).toBeUndefined()
+		const cmd = buildCommands(stubCtx({ hasSelected: true })).find((c) => c.id === "file.rename")
+		expect(cmd).toMatchObject({
+			id: "file.rename",
+			title: "Rename…",
+			category: "File",
+			shortcut: "shift+r",
+		})
+		const binding = browserBindings.find((b) => b.id === "file.rename")
 		expect(binding?.hint).toBeUndefined()
 	})
 

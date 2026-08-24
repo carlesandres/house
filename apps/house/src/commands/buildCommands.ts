@@ -65,6 +65,11 @@ const annotations: Record<string, Annotation> = {
 		category: "File",
 		keywords: ["new", "create", "nvim", "vim", "editor"],
 	},
+	"file.rename": {
+		title: "Rename…",
+		category: "File",
+		keywords: ["rename", "mv", "basename"],
+	},
 	"theme.next": { category: "Appearance" },
 	"theme.prev": { category: "Appearance" },
 	"theme.toneToggle": { title: "Toggle dark/light tone", category: "Appearance" },
