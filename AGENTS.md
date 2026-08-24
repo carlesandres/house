@@ -114,7 +114,6 @@ Make sure each user- or maintainer-visible change is represented under
 | Security fix | Yes | `### Security` |
 | Release commit, typo, formatting, internal refactor, test-only change | No, unless maintainer-visible | — |
 
-<<<<<<< HEAD
 For every included commit, write one bullet using this shape:
 
 ```markdown

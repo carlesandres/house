@@ -150,6 +150,9 @@ const NEW_FILE_MEMBERSHIP_POLL_MS = 32
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
 
+const isSingleCodePoint = (value: string): boolean => Array.from(value).length === 1
+const dropLastCodePoint = (value: string): string => Array.from(value).slice(0, -1).join("")
+
 const promptLiveStatus = (raw: string, query: string, destExists: boolean): PromptStatus | null => {
 	const resolved = resolveNewFileName(raw)
 	if (!resolved.ok) {
@@ -1069,13 +1072,13 @@ export const Browser = ({
 			}
 			if (key.name === "backspace" || key.name === "delete") {
 				if (promptInputRef.current.length === 0) return
-				applyPromptInput(promptInputRef.current.slice(0, -1))
+				applyPromptInput(dropLastCodePoint(promptInputRef.current))
 				return
 			}
 			if (key.ctrl || key.meta) return
 			let char: string | null = null
 			if (key.name === "space") char = " "
-			else if (typeof key.name === "string" && key.name.length === 1) {
+			else if (typeof key.name === "string" && isSingleCodePoint(key.name)) {
 				char = key.shift ? key.name.toUpperCase() : key.name
 			}
 			if (char !== null) applyPromptInput(promptInputRef.current + char)

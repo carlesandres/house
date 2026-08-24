@@ -4511,6 +4511,49 @@ describe("Browser — new file prompt", () => {
 		})
 	})
 
+	test("accepts and deletes non-BMP Unicode as complete code points", async () => {
+		await withEditor(async () => {
+			const root = makeFiles(["a.md"])
+			const launched: string[] = []
+			await act(async () => {
+				setup = await renderBrowser(
+					<Browser
+						root={root}
+						readFile={async () => ""}
+						onQuit={() => {}}
+						launchEditor={async (options) => {
+							if (options.filePath) launched.push(options.filePath)
+							return { ok: true, exitCode: 0 }
+						}}
+					/>,
+					VIEWPORT,
+				)
+			})
+			await stepFrame(setup!.renderOnce)
+			await openPrompt()
+			await act(async () => {
+				setup!.mockInput.pressKey("😀")
+			})
+			await stepFrame(setup!.renderOnce)
+			expect(setup!.captureCharFrame()).toContain("😀▏")
+
+			await act(async () => {
+				setup!.mockInput.pressBackspace()
+				setup!.mockInput.pressEnter()
+			})
+			await stepFrame(setup!.renderOnce)
+			expect(setup!.captureCharFrame()).toContain("name required")
+			expect(setup!.captureCharFrame()).not.toContain("�")
+
+			await act(async () => {
+				setup!.mockInput.pressKey("😀")
+				setup!.mockInput.pressEnter()
+			})
+			await waitUntil(() => existsSync(join(root, "😀.md")), "Unicode file")
+			await waitUntil(() => launched[0] === join(root, "😀.md"), "Unicode editor path")
+		})
+	})
+
 	test("prompt swallows quit, palette, and movement keys while typing", async () => {
 		await withEditor(async () => {
 			let quit = 0

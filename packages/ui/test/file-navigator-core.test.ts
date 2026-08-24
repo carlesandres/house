@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promis
 import { join } from "node:path"
 import { tmpdir } from "node:os"
 import { FileNavigatorCore } from "../src/file-navigator/core/engine.ts"
-import { scanFiles } from "../src/file-navigator/core/scanner.ts"
+import { filterPresentIgnoreFiles, scanFiles } from "../src/file-navigator/core/scanner.ts"
 import {
 	fuzzySearch,
 	projectFiles,
@@ -119,6 +119,13 @@ describe("File Navigator core scanner", () => {
 			)
 			expect(pruned.files).toHaveLength(0)
 		})
+	})
+
+	test("keeps case-variant ignore files eligible for case-insensitive filesystems", () => {
+		expect(filterPresentIgnoreFiles([".gitignore"], new Set([".GITIGNORE"]))).toEqual([
+			".gitignore",
+		])
+		expect(filterPresentIgnoreFiles([".gitignore"], new Set(["README.md"]))).toEqual([])
 	})
 
 	test("notifies extra watch roots before scanning followed symlink targets", async () => {

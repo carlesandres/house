@@ -28,6 +28,16 @@ const readStat = async (path: string): Promise<FileMetadata> => {
 	return { size: value.size, mtimeMs: value.mtimeMs }
 }
 
+export const filterPresentIgnoreFiles = (
+	ignoreFiles: readonly string[],
+	present: ReadonlySet<string>,
+): readonly string[] => {
+	const folded = new Set([...present].map((filename) => filename.toLowerCase()))
+	return ignoreFiles.filter(
+		(filename) => present.has(filename) || folded.has(filename.toLowerCase()),
+	)
+}
+
 const frozenRecord = (path: string, root: string, metadata: FileMetadata): FileRecord =>
 	Object.freeze({
 		absolutePath: path,
@@ -193,7 +203,7 @@ export const scanFiles = async (
 		const levels = await loadLevels(
 			physical,
 			lexical,
-			policy.ignoreFiles.filter((filename) => present.has(filename)),
+			filterPresentIgnoreFiles(policy.ignoreFiles, present),
 			parents,
 		)
 		for (const entry of files) {
