@@ -11,6 +11,7 @@ import { Effect } from "effect"
 import { useState } from "react"
 import pkg from "../package.json" with { type: "json" }
 import { Browser, type StartupFocus } from "./Browser.tsx"
+import type { FileNavigatorOrder } from "./config/options.ts"
 import { parseAndHandleFastExit } from "./cli/fast-exit.ts"
 import { formatConfigError, loadConfig } from "./config/load.ts"
 import { parseShowList, SHOW_CATEGORIES, type ShowCategory } from "./discovery/show.ts"
@@ -141,6 +142,7 @@ interface DiscoverShellProps {
 	readonly wrapWidth: number
 	readonly initialWrap: boolean
 	readonly startupFocus: StartupFocus
+	readonly order?: FileNavigatorOrder
 }
 
 export const DiscoverShell = ({
@@ -152,6 +154,7 @@ export const DiscoverShell = ({
 	wrapWidth,
 	initialWrap,
 	startupFocus,
+	order = "recently-modified",
 }: DiscoverShellProps) => {
 	const updateNotice = useUpdateNotice()
 	const [show, setShow] = useState<readonly ShowCategory[]>(initialShow)
@@ -165,6 +168,7 @@ export const DiscoverShell = ({
 			initialWrap={initialWrap}
 			rootLabel={rootLabel}
 			startupFocus={startupFocus}
+			order={order}
 			updateNotice={updateNotice}
 			onToggleAll={() => {
 				// shift+a is the only place the categories are treated as a
@@ -232,6 +236,7 @@ export async function main(argv: readonly string[] = Bun.argv.slice(2)): Promise
 				// no per-category merge across sources). `null` falls through.
 				show: cliShow,
 				focus: args.focus,
+				order: args.order,
 				width:
 					args.width === null
 						? null
@@ -259,6 +264,7 @@ export async function main(argv: readonly string[] = Bun.argv.slice(2)): Promise
 		defaultRoot,
 		width: wrapWidth,
 		wrap: initialWrap,
+		order,
 	} = config
 	const themeDef = getThemeDefinition(themeId)
 	if (themeDef === undefined) {
@@ -320,6 +326,7 @@ export async function main(argv: readonly string[] = Bun.argv.slice(2)): Promise
 			show,
 			extensions,
 			startupFocus,
+			order,
 			updateCheck: !args.noUpdateCheck,
 		})
 	}
@@ -337,6 +344,7 @@ interface TuiBootOptions {
 	readonly show: readonly ShowCategory[]
 	readonly extensions: readonly string[]
 	readonly startupFocus: StartupFocus
+	readonly order: FileNavigatorOrder
 	/** Run the npm-registry probe and surface the "update available" notice.
 	 *  False suppresses both the toast and the quit-time print. */
 	readonly updateCheck: boolean
@@ -352,6 +360,7 @@ async function runTui({
 	show,
 	extensions,
 	startupFocus,
+	order,
 	updateCheck,
 }: TuiBootOptions): Promise<void> {
 	if (updateCheck) {
@@ -397,6 +406,7 @@ async function runTui({
 				wrapWidth={wrapWidth}
 				initialWrap={initialWrap}
 				startupFocus={startupFocus}
+				order={order}
 			/>
 		</RegistryProvider>,
 	)

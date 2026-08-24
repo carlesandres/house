@@ -18,6 +18,7 @@ const empty: ParsedArgs = {
 	extensions: null,
 	show: null,
 	focus: null,
+	order: null,
 }
 const args = (overrides: Partial<ParsedArgs>): ParsedArgs => ({ ...empty, ...overrides })
 
@@ -113,6 +114,23 @@ describe("parseArgv — --focus", () => {
 	})
 	test("--focus does not swallow the following flag", () => {
 		expect(parseArgv(["--focus", "--width", "80"])).toEqual(args({ focus: null, width: "80" }))
+	})
+})
+
+describe("parseArgv — --order", () => {
+	test("captures the value after --order", () => {
+		expect(parseArgv(["--order", "recently-modified"])).toEqual(
+			args({ order: "recently-modified" }),
+		)
+	})
+	test("captures unknown order values verbatim (boot validates)", () => {
+		expect(parseArgv(["--order", "dirs-first"])).toEqual(args({ order: "dirs-first" }))
+	})
+	test("--order with no value yields null", () => {
+		expect(parseArgv(["--order"])).toEqual(args({ order: null }))
+	})
+	test("--order does not swallow the following flag", () => {
+		expect(parseArgv(["--order", "--width", "80"])).toEqual(args({ order: null, width: "80" }))
 	})
 })
 

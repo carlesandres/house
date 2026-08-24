@@ -27,6 +27,7 @@ const emptyCli: CliOverrides = {
 	focus: null,
 	width: null,
 	wrap: null,
+	order: null,
 }
 
 const loadMessage = async (options: Parameters<typeof loadConfig>[0]): Promise<string> => {
@@ -50,6 +51,7 @@ describe("loadConfig", () => {
 			wrap: false,
 			show: [],
 			focus: "sidebar",
+			order: "recently-modified",
 		})
 	})
 
@@ -67,6 +69,7 @@ describe("loadConfig", () => {
 					focus: null,
 					width: null,
 					wrap: null,
+					order: null,
 				},
 			}),
 		)
@@ -87,6 +90,7 @@ describe("loadConfig", () => {
 					focus: null,
 					width: 100,
 					wrap: true,
+					order: null,
 				},
 			}),
 		)
@@ -115,10 +119,10 @@ describe("loadConfig", () => {
 		)
 	})
 
-	test("theme, tone, focus, and defaultRoot resolve from file, env, and CLI by precedence", async () => {
+	test("theme, tone, focus, defaultRoot, and order resolve from file, env, and CLI by precedence", async () => {
 		await writeFile(
 			cfgPath,
-			'theme = "nord"\ntone = "light"\nfocus = "reader"\ndefaultRoot = "git"\n',
+			'theme = "nord"\ntone = "light"\nfocus = "reader"\ndefaultRoot = "git"\norder = "recently-modified"\n',
 		)
 		const cfg = await run(
 			loadConfig({
@@ -128,12 +132,14 @@ describe("loadConfig", () => {
 					HOUSE_TONE: "dark",
 					HOUSE_FOCUS: "filter",
 					HOUSE_DEFAULT_ROOT: "cwd",
+					HOUSE_ORDER: "tree",
 				},
 				cli: {
 					...emptyCli,
 					theme: "opencode",
 					tone: "light",
 					focus: "sidebar",
+					order: "recently-modified",
 				},
 			}),
 		)
@@ -141,29 +147,34 @@ describe("loadConfig", () => {
 		expect(cfg.tone).toBe("light")
 		expect(cfg.focus).toBe("sidebar")
 		expect(cfg.defaultRoot).toBe("cwd")
+		expect(cfg.order).toBe("recently-modified")
 	})
 
 	test("file values win over defaults when env and CLI are unset", async () => {
 		await writeFile(
 			cfgPath,
-			'theme = "nord"\ntone = "light"\nfocus = "reader"\ndefaultRoot = "git"\n',
+			'theme = "nord"\ntone = "light"\nfocus = "reader"\ndefaultRoot = "git"\norder = "recently-modified"\n',
 		)
 		const cfg = await run(loadConfig({ filePath: cfgPath, env: {} }))
 		expect(cfg.theme).toBe("nord")
 		expect(cfg.tone).toBe("light")
 		expect(cfg.focus).toBe("reader")
 		expect(cfg.defaultRoot).toBe("git")
+		expect(cfg.order).toBe("recently-modified")
 	})
 
-	test("rejects unknown theme, tone, and focus from env", async () => {
+	test("rejects unknown theme, tone, focus, and order from env", async () => {
 		expect(await loadMessage({ filePath: cfgPath, env: { HOUSE_THEME: "neon" } })).toMatch(/neon/)
 		expect(await loadMessage({ filePath: cfgPath, env: { HOUSE_TONE: "dim" } })).toMatch(/dim/)
 		expect(await loadMessage({ filePath: cfgPath, env: { HOUSE_FOCUS: "palette" } })).toMatch(
 			/palette/,
 		)
+		expect(await loadMessage({ filePath: cfgPath, env: { HOUSE_ORDER: "dirs-first" } })).toMatch(
+			/dirs-first/,
+		)
 	})
 
-	test("rejects unknown theme, tone, and focus from the config file", async () => {
+	test("rejects unknown theme, tone, focus, and order from the config file", async () => {
 		await writeFile(cfgPath, 'theme = "neon"\n')
 		expect(await loadMessage({ filePath: cfgPath, env: {} })).toMatch(/invalid value for theme/)
 
@@ -172,9 +183,12 @@ describe("loadConfig", () => {
 
 		await writeFile(cfgPath, 'focus = "palette"\n')
 		expect(await loadMessage({ filePath: cfgPath, env: {} })).toMatch(/invalid value for focus/)
+
+		await writeFile(cfgPath, 'order = "dirs-first"\n')
+		expect(await loadMessage({ filePath: cfgPath, env: {} })).toMatch(/invalid value for order/)
 	})
 
-	test("rejects non-string theme, tone, and focus in TOML", async () => {
+	test("rejects non-string theme, tone, focus, and order in TOML", async () => {
 		await writeFile(cfgPath, "theme = true\n")
 		expect(await loadMessage({ filePath: cfgPath, env: {} })).toMatch(/invalid value for theme/)
 
@@ -183,6 +197,9 @@ describe("loadConfig", () => {
 
 		await writeFile(cfgPath, "focus = false\n")
 		expect(await loadMessage({ filePath: cfgPath, env: {} })).toMatch(/invalid value for focus/)
+
+		await writeFile(cfgPath, "order = true\n")
+		expect(await loadMessage({ filePath: cfgPath, env: {} })).toMatch(/invalid value for order/)
 	})
 
 	test("rejects invalid defaultRoot from env and file instead of falling back", async () => {
@@ -196,7 +213,7 @@ describe("loadConfig", () => {
 		expect(file).toMatch(/cwd/)
 	})
 
-	test("rejects invalid CLI theme, tone, and focus", async () => {
+	test("rejects invalid CLI theme, tone, focus, and order", async () => {
 		expect(
 			await loadMessage({ filePath: cfgPath, env: {}, cli: { ...emptyCli, theme: "neon" } }),
 		).toMatch(/neon/)
@@ -210,5 +227,12 @@ describe("loadConfig", () => {
 				cli: { ...emptyCli, focus: "palette" },
 			}),
 		).toMatch(/palette/)
+		expect(
+			await loadMessage({
+				filePath: cfgPath,
+				env: {},
+				cli: { ...emptyCli, order: "dirs-first" },
+			}),
+		).toMatch(/dirs-first/)
 	})
 })

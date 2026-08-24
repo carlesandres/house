@@ -88,7 +88,7 @@ describe.skipIf(!RUN)("sidebar selection background (PTY)", () => {
 		writeFileSync(join(dir, "a.md"), "# a\n")
 		writeFileSync(join(dir, "b.md"), "# b\n")
 
-		const session = await launchHouse(dir, ["--focus=sidebar"])
+		const session = await launchHouse(dir, ["--focus=sidebar", "--order", "tree"])
 		await session.waitForText(/b\.md/, { timeout: 5_000 })
 		await session.waitIdle({ timeout: 500 }).catch(() => {})
 
@@ -113,7 +113,7 @@ describe.skipIf(!RUN)("sidebar selection background (PTY)", () => {
 		writeFileSync(join(dir, "a.md"), "# a\n")
 		writeFileSync(join(dir, "b.md"), "# b\n")
 
-		const session = await launchHouse(dir)
+		const session = await launchHouse(dir, ["--order", "tree"])
 		await session.waitForText(/> ▏/, { timeout: 5_000 })
 		await session.waitIdle({ timeout: 500 }).catch(() => {})
 

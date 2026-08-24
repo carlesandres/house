@@ -15,6 +15,7 @@ import { join } from "node:path"
 import { SyntaxStyle } from "@opentui/core"
 import type { BorderSides } from "@opentui/core"
 import {
+	type BrowseOrder,
 	type DiscoveryPolicy,
 	type Diagnostic,
 	type FileNavigatorHandle,
@@ -117,6 +118,8 @@ export interface BrowserProps {
 	/** Startup pane/input target. `filter` opens the sidebar filter prompt on
 	 *  mount so the user can type immediately. */
 	readonly startupFocus?: StartupFocus | null
+	/** File Navigator browse order when the filter is empty. */
+	readonly order?: BrowseOrder
 	/** Test seam: replaces the `$EDITOR` spawn. */
 	readonly launchEditor?: (options: OpenInEditorOptions) => Promise<EditorRunResult>
 	/** Test seam: replaces exclusive empty-file create. */
@@ -232,6 +235,7 @@ export const Browser = ({
 	disableFooterNoticeAutoClear = false,
 	onToggleAll,
 	startupFocus = null,
+	order = "recently-modified",
 	launchEditor = openInEditor,
 	createEmptyFile = createEmptyFileExclusive,
 	newFileMembershipTimeoutMs = NEW_FILE_MEMBERSHIP_TIMEOUT_MS,
@@ -1298,6 +1302,7 @@ export const Browser = ({
 					root={root}
 					policy={policy}
 					watch={watch}
+					order={order}
 					debounceMs={filterDebounceMs}
 					navigatorRef={navigatorRef}
 					snapshot={liveSnapshot}

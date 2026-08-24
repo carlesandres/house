@@ -55,6 +55,7 @@ Examples:
 house                  # browse the configured discovery root
 house README.md        # browse with README.md preloaded as the sidebar filter
 house --root docs      # browse docs/ as the discovery root
+house --order tree     # files-before-directories instead of recency
 house --serve README.md
 ```
 
@@ -70,6 +71,7 @@ house --serve README.md
 | `--show <list>`      | `""`              | Reveal normally-skipped entries; comma-separated subset of `hidden`, `gitignored`. Use `--show ""` to clear. |
 | `--root <dir>`       | current directory | Discovery root to walk; overrides `defaultRoot` config/env                                                   |
 | `--focus <mode>`     | `sidebar`         | Startup focus: `sidebar`, `reader`, or `filter`. `filter` opens the sidebar filter prompt immediately.       |
+| `--order <mode>`     | `recently-modified` | File Navigator browse order when the filter is empty: `tree` or `recently-modified`.                      |
 | `--serve`            | off               | Serve the positional path as HTML in the browser (skips TUI)                                                 |
 | `--port <N>`         | OS-assigned       | Port for `--serve`                                                                                           |
 | `--ext <list>`       | none              | Include extra file extensions (comma-separated)                                                               |
@@ -98,22 +100,25 @@ wrap = false
 show  = ["hidden", "gitignored"]
 focus = "sidebar"
 defaultRoot = "cwd" # or "git"
+order = "recently-modified" # or "tree"
 ```
 
-Supported keys: `theme`, `tone`, `extensions`, `width`, `wrap`, `show`, `focus`, `defaultRoot`.
+Supported keys: `theme`, `tone`, `extensions`, `width`, `wrap`, `show`, `focus`, `defaultRoot`, `order`.
 
 `show` is a list of normally-skipped categories to opt into. Known categories: `hidden` (dot-prefixed entries), `gitignored` (entries matched by a `.gitignore`). Default is the empty list. Hard skips (`node_modules`, `.git`, `.venv`) always apply.
 
 Precedence, highest to lowest:
 
-1. CLI flags (`--theme`, `--tone`, `--ext`, `--width`, `--wrap`, `--no-wrap`, `--show`, `--focus`, `--root`)
-2. Env vars (`HOUSE_THEME`, `HOUSE_TONE`, `HOUSE_EXTENSIONS`, `HOUSE_WIDTH`, `HOUSE_WRAP`, `HOUSE_SHOW`, `HOUSE_FOCUS`, `HOUSE_DEFAULT_ROOT`)
+1. CLI flags (`--theme`, `--tone`, `--ext`, `--width`, `--wrap`, `--no-wrap`, `--show`, `--focus`, `--order`, `--root`)
+2. Env vars (`HOUSE_THEME`, `HOUSE_TONE`, `HOUSE_EXTENSIONS`, `HOUSE_WIDTH`, `HOUSE_WRAP`, `HOUSE_SHOW`, `HOUSE_FOCUS`, `HOUSE_DEFAULT_ROOT`, `HOUSE_ORDER`)
 3. Config file
-4. Built-in defaults (`opencode` / `dark` / `extensions = []` / `width = 80` / `wrap = false` / `show = []` / `focus = "sidebar"` / `defaultRoot = "cwd"`)
+4. Built-in defaults (`opencode` / `dark` / `extensions = []` / `width = 80` / `wrap = false` / `show = []` / `focus = "sidebar"` / `defaultRoot = "cwd"` / `order = "recently-modified"`)
 
 `HOUSE_SHOW` takes a comma-separated list (`HOUSE_SHOW=hidden,gitignored`). For `show` specifically, each source completely replaces the next — categories don't merge across layers. Press `shift+a` in the TUI to round-trip between the configured set and the full vocabulary without editing config.
 
 `width` is the fixed reader width used when wrapping is enabled. `wrap` controls startup mode; press `w` in the TUI to toggle reader wrapping for the current session without editing config.
+
+`order` is the File Navigator browse order when no filter query is active. `recently-modified` (default) lists the most recently updated files first, using filesystem modification time, then tree order for ties. `tree` lists files before directories, alphabetically within each group, so current-directory files appear before nested subtrees. An active filter still ranks by relevance first.
 
 The file is optional — a missing file is fine. Invalid keys, unknown themes, invalid `defaultRoot`, or malformed TOML fail loudly with a one-line error. Per-project config (`.house/config.toml`) and additional keys are deferred.
 

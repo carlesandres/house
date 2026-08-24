@@ -1,5 +1,6 @@
 import { FileNavigator } from "@house/ui/file-navigator"
 import type {
+	BrowseOrder,
 	DiscoveryPolicy,
 	FileNavigatorHandle,
 	FileNavigatorProps,
@@ -32,6 +33,7 @@ export interface SidebarProps {
 	readonly onSnapshot: NonNullable<FileNavigatorProps["onSnapshot"]>
 	readonly onSelectedFileInvalidated: NonNullable<FileNavigatorProps["onSelectedFileInvalidated"]>
 	readonly onDiagnostic: NonNullable<FileNavigatorProps["onDiagnostic"]>
+	readonly order?: BrowseOrder
 }
 
 /** Maps House product copy, dimensions, and theme tokens into the shared navigator. */
@@ -55,6 +57,7 @@ export const Sidebar = ({
 	onSnapshot,
 	onSelectedFileInvalidated,
 	onDiagnostic,
+	order = "recently-modified",
 }: SidebarProps) => {
 	const headerVisible = snapshot.files.length > 0 || discoveryActive
 	const emptyState =
@@ -73,6 +76,7 @@ export const Sidebar = ({
 			query={filterInput}
 			policy={policy}
 			watch={watch}
+			order={order}
 			debounceMs={debounceMs}
 			ref={navigatorRef}
 			width={paneWidth}

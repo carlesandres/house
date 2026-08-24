@@ -142,6 +142,9 @@ const renderBrowser = (
 		? React.cloneElement(element, {
 				renderedPathDebounceMs: element.props.renderedPathDebounceMs ?? 0,
 				watch: element.props.watch ?? false,
+				// Headless fixtures keep tree order so first-file selection
+				// does not depend on write-time mtimes.
+				order: element.props.order ?? "tree",
 			})
 		: element
 	const wrapped = React.createElement(
@@ -184,6 +187,40 @@ describe("Browser — sidebar", () => {
 		expect(frame).toContain("README.md")
 		expect(frame).toContain("intro.md docs")
 		expect(frame).toContain("api.md docs")
+	})
+
+	test("recently-modified order lists newest files first", async () => {
+		const root = makeFiles(["a.md", "z.md", "nested/mid.md"])
+		const now = Math.floor(Date.now() / 1000)
+		await utimes(join(root, "a.md"), now - 30, now - 30)
+		await utimes(join(root, "nested/mid.md"), now - 20, now - 20)
+		await utimes(join(root, "z.md"), now - 10, now - 10)
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					root={root}
+					order="recently-modified"
+					readFile={makeReader({})}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		const frame = await waitForFrame((candidate) => {
+			const rows = candidate.split("\n").map((line) => line.split("│")[0] ?? line)
+			return (
+				rows.some((line) => line.includes("z.md") && !line.includes("nested")) &&
+				rows.some((line) => line.includes("mid.md nested")) &&
+				rows.some((line) => line.includes("a.md") && !line.includes("nested"))
+			)
+		})
+		const sidebarRows = frame.split("\n").map((line) => line.split("│")[0] ?? line)
+		const zIndex = sidebarRows.findIndex((line) => line.includes("z.md") && !line.includes("nested"))
+		const midIndex = sidebarRows.findIndex((line) => line.includes("mid.md nested"))
+		const aIndex = sidebarRows.findIndex((line) => line.includes("a.md") && !line.includes("nested"))
+		expect(zIndex).toBeGreaterThanOrEqual(0)
+		expect(midIndex).toBeGreaterThan(zIndex)
+		expect(aIndex).toBeGreaterThan(midIndex)
 	})
 
 	test("shows the discovery root when files are empty after discovery", async () => {

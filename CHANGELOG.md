@@ -9,6 +9,7 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 ### Added
 
 - Internal `@house/options` package: a typed catalog for options whose initial values come from CLI, env, and config, and that can be changed during a session. House's scalar config (`theme`, `tone`, `focus`, `defaultRoot`, `width`, `wrap`) now resolves through it.
+- File Navigator browse order is now configurable (`tree` or `recently-modified`) via `--order`, `HOUSE_ORDER`, and the `order` config key. The default is `recently-modified`, so the most recently updated files appear first.
 
 ### Changed
 

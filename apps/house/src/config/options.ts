@@ -1,6 +1,9 @@
 import { defineOptions } from "@house/options"
 import { themeDefinitions } from "../theme/registry.ts"
 
+export const FILE_NAVIGATOR_ORDERS = ["tree", "recently-modified"] as const
+export type FileNavigatorOrder = (typeof FILE_NAVIGATOR_ORDERS)[number]
+
 /**
  * House options whose initial values come from CLI / env / config.
  * Browser holds a session for runtime wrap/theme/tone; theme/tone persist
@@ -40,5 +43,10 @@ export const houseOptions = defineOptions({
 		type: "string",
 		default: "cwd",
 		choices: ["cwd", "git"],
+	},
+	order: {
+		type: "string",
+		default: "recently-modified",
+		choices: FILE_NAVIGATOR_ORDERS,
 	},
 })

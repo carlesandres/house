@@ -35,6 +35,9 @@ export interface ParsedArgs {
 	/** Value of `--focus <mode>` (`sidebar`, `reader`, `filter`), or null.
 	 *  Validated by the boot layer. */
 	readonly focus: string | null
+	/** Value of `--order <mode>` (`tree`, `recently-modified`), or null.
+	 *  Validated by the boot layer. */
+	readonly order: string | null
 	/** Raw value of `--show <list>`, or null if the flag wasn't passed.
 	 *  Comma-separated list of category names; the boot layer validates
 	 *  tokens against the known vocabulary (see `discovery/show.ts`).
@@ -59,6 +62,7 @@ const createProgram = () =>
 		.option("--no-update-check")
 		.option("--ext [list]")
 		.option("--focus [mode]")
+		.option("--order [mode]")
 		.option("--show [list]")
 		.option("--root [dir]")
 		.option("-h, --help")
@@ -71,6 +75,7 @@ const VALUE_FLAGS: ReadonlySet<string> = new Set([
 	"--width",
 	"--port",
 	"--focus",
+	"--order",
 	"--show",
 	"--root",
 	"--ext",
@@ -138,6 +143,7 @@ export const parseArgv = (argv: readonly string[]): ParsedArgs => {
 		extensions: stringOrNull(opts["ext"]),
 		show: stringOrNull(opts["show"]),
 		focus: stringOrNull(opts["focus"]),
+		order: stringOrNull(opts["order"]),
 	}
 }
 
@@ -159,6 +165,7 @@ options:
                    hidden, gitignored. Use --show "" to clear.
   --root <dir>   discovery root to walk (overrides defaultRoot config/env)
   --focus <m>    startup focus: sidebar, reader, or filter (default: sidebar)
+  --order <mode> browse order: tree or recently-modified (default: recently-modified)
   --serve        serve the positional path as HTML in the browser (skips TUI)
   --port <N>     port for --serve (default: OS-assigned)
   -h, --help     show this help and exit
@@ -174,6 +181,6 @@ examples:
 
 configuration:
   file: $XDG_CONFIG_HOME/house/config.toml  (default ~/.config/house/config.toml)
-	  keys: theme, tone, width, wrap, extensions, show, focus, defaultRoot
-	  env:  HOUSE_THEME, HOUSE_TONE, HOUSE_WIDTH, HOUSE_WRAP, HOUSE_EXTENSIONS, HOUSE_SHOW, HOUSE_FOCUS, HOUSE_DEFAULT_ROOT
+	  keys: theme, tone, width, wrap, extensions, show, focus, defaultRoot, order
+	  env:  HOUSE_THEME, HOUSE_TONE, HOUSE_WIDTH, HOUSE_WRAP, HOUSE_EXTENSIONS, HOUSE_SHOW, HOUSE_FOCUS, HOUSE_DEFAULT_ROOT, HOUSE_ORDER
   precedence (high → low): flags → env → file → defaults`

@@ -216,12 +216,13 @@ const record = (relativePath: string, mtimeMs: number): FileRecord =>
 
 describe("File Navigator projections", () => {
 	test("orders structurally and recently modified with deterministic ties", () => {
-		const files = [record("z/deep.md", 2), record("root.md", 2), record("a.md", 3)]
+		const files = [record("z/deep.md", 3), record("root.md", 2), record("a.md", 1)]
 		expect(projectFiles(files, "")).toEqual([files[2]!, files[1]!, files[0]!])
+		expect(projectFiles(files, "", "recently-modified")).toEqual([files[0]!, files[1]!, files[2]!])
 		expect(projectFiles(files, "", recentlyModifiedOrder)).toEqual([
-			files[2]!,
-			files[1]!,
 			files[0]!,
+			files[1]!,
+			files[2]!,
 		])
 	})
 

@@ -13,7 +13,7 @@ import { join } from "node:path"
 import { formatResolveError } from "@house/options"
 import { Config, ConfigProvider, Effect, Schema } from "effect"
 import { parseShowList, SHOW_CATEGORIES, type ShowCategory } from "../discovery/show.ts"
-import { houseOptions } from "./options.ts"
+import { FILE_NAVIGATOR_ORDERS, houseOptions, type FileNavigatorOrder } from "./options.ts"
 
 export interface HouseConfig {
 	readonly theme: string
@@ -32,6 +32,8 @@ export interface HouseConfig {
 	/** Startup pane/input target. `filter` opens the sidebar filter prompt and
 	 *  focuses it immediately. */
 	readonly focus: "sidebar" | "reader" | "filter"
+	/** File Navigator browse order when no filter query is active. */
+	readonly order: FileNavigatorOrder
 }
 
 export interface CliOverrides {
@@ -45,6 +47,7 @@ export interface CliOverrides {
 	readonly focus: string | null
 	readonly width: number | null
 	readonly wrap: boolean | null
+	readonly order: string | null
 }
 
 const DEFAULT_EXTENSIONS: readonly string[] = []
@@ -65,6 +68,7 @@ const KNOWN_FILE_KEYS: ReadonlySet<string> = new Set([
 	"width",
 	"wrap",
 	"defaultRoot",
+	"order",
 ])
 
 const schema = Config.all({
@@ -246,6 +250,7 @@ export const loadConfig = (
 			focus: null,
 			width: null,
 			wrap: null,
+			order: null,
 		}
 		const onWarning = options.onWarning ?? ((msg) => process.stderr.write(`${msg}\n`))
 		const filePath = options.filePath ?? defaultConfigPath()
@@ -277,6 +282,7 @@ export const loadConfig = (
 				theme: cli.theme,
 				tone: cli.tone,
 				focus: cli.focus,
+				order: cli.order,
 			},
 			env: {
 				wrap: env["HOUSE_WRAP"],
@@ -285,6 +291,7 @@ export const loadConfig = (
 				tone: env["HOUSE_TONE"],
 				focus: env["HOUSE_FOCUS"],
 				defaultRoot: env["HOUSE_DEFAULT_ROOT"],
+				order: env["HOUSE_ORDER"],
 			},
 			file: {
 				wrap: fileData?.["wrap"],
@@ -293,6 +300,7 @@ export const loadConfig = (
 				tone: fileData?.["tone"],
 				focus: fileData?.["focus"],
 				defaultRoot: fileData?.["defaultRoot"],
+				order: fileData?.["order"],
 			},
 		})
 		if (!resolved.ok) {
@@ -301,6 +309,7 @@ export const loadConfig = (
 		const tone = resolved.value.tone
 		const focus = resolved.value.focus
 		const defaultRoot = resolved.value.defaultRoot
+		const order = resolved.value.order
 		if (tone !== "dark" && tone !== "light") {
 			return yield* Effect.fail(
 				new Error(`tone: expected one of dark, light, got ${JSON.stringify(tone)}`),
@@ -316,12 +325,20 @@ export const loadConfig = (
 				new Error(`defaultRoot: expected one of cwd, git, got ${JSON.stringify(defaultRoot)}`),
 			)
 		}
+		if (order !== "tree" && order !== "recently-modified") {
+			return yield* Effect.fail(
+				new Error(
+					`order: expected one of ${FILE_NAVIGATOR_ORDERS.join(", ")}, got ${JSON.stringify(order)}`,
+				),
+			)
+		}
 		return {
 			theme: resolved.value.theme,
 			tone,
 			defaultRoot,
 			width: resolved.value.width,
 			wrap: resolved.value.wrap,
+			order,
 			extensions:
 				raw.extensions === ""
 					? []
