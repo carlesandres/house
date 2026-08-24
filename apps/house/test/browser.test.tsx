@@ -4373,22 +4373,22 @@ describe("Browser — discovery toggle (#145)", () => {
 		await act(async () => {
 			setup = await renderBrowser(<Wrapper />, VIEWPORT)
 		})
-		await stepFrame(setup!.renderOnce)
+		await waitForFrame((frame) => readerTitleContains(frame, "readme.md"))
 
 		// Start on readme.md (index 0). Move to docs/intro.md so we have a
 		// non-trivial selection to preserve.
 		await act(async () => {
 			setup!.mockInput.pressKey("j")
 		})
-		await stepFrame(setup!.renderOnce)
-		expect(readerTitleContains(setup!.captureCharFrame(), "docs/intro.md")).toBe(true)
+		await waitForFrame((frame) => readerTitleContains(frame, "docs/intro.md"))
 
 		await act(async () => {
 			setup!.mockInput.pressKey("a", { shift: true })
 		})
-		await settleBrowser()
-
-		const frame = setup!.captureCharFrame()
+		const frame = await waitForFrame(
+			(candidate) =>
+				candidate.includes(".hidden.md") && readerTitleContains(candidate, "docs/intro.md"),
+		)
 		// Hidden file is now in the sidebar.
 		expect(frame).toContain(".hidden.md")
 		// Selection sticks on docs/intro.md even though a new entry showed up first.
@@ -4399,17 +4399,15 @@ describe("Browser — discovery toggle (#145)", () => {
 		await act(async () => {
 			setup = await renderBrowser(<Wrapper initialAll={true} />, VIEWPORT)
 		})
-		await stepFrame(setup!.renderOnce)
 		// .hidden.md is selected initially.
-		expect(readerTitleContains(setup!.captureCharFrame(), ".hidden.md")).toBe(true)
+		await waitForFrame((frame) => readerTitleContains(frame, ".hidden.md"))
 
 		// Toggle off: the hidden file disappears from the list. Pending ref
 		// stays armed; visible selection falls to the first remaining entry.
 		await act(async () => {
 			setup!.mockInput.pressKey("a", { shift: true })
 		})
-		await stepFrame(setup!.renderOnce)
-		expect(setup!.captureCharFrame()).not.toContain(".hidden.md")
+		await waitForFrame((frame) => !frame.includes(".hidden.md"))
 
 		// Toggle back on: hidden file returns, pending restores selection.
 		await act(async () => {
@@ -4424,14 +4422,13 @@ describe("Browser — discovery toggle (#145)", () => {
 		await act(async () => {
 			setup = await renderBrowser(<Wrapper initialAll={true} />, VIEWPORT)
 		})
-		await stepFrame(setup!.renderOnce)
-		expect(readerTitleContains(setup!.captureCharFrame(), ".hidden.md")).toBe(true)
+		await waitForFrame((frame) => readerTitleContains(frame, ".hidden.md"))
 
 		// Toggle off (pending = .hidden.md), then user-driven j clears pending.
 		await act(async () => {
 			setup!.mockInput.pressKey("a", { shift: true })
 		})
-		await stepFrame(setup!.renderOnce)
+		await waitForFrame((frame) => !frame.includes(".hidden.md"))
 		await act(async () => {
 			setup!.mockInput.pressKey("j")
 		})
@@ -4442,8 +4439,9 @@ describe("Browser — discovery toggle (#145)", () => {
 		await act(async () => {
 			setup!.mockInput.pressKey("a", { shift: true })
 		})
-		await settleBrowser()
-		const frame = setup!.captureCharFrame()
+		const frame = await waitForFrame(
+			(candidate) => candidate.includes(".hidden.md") && !readerTitleContains(candidate, ".hidden.md"),
+		)
 		expect(frame).toContain(".hidden.md")
 		expect(readerTitleContains(frame, ".hidden.md")).toBe(false)
 	})
