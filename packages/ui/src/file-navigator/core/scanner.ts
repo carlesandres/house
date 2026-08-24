@@ -1,7 +1,7 @@
 import { basename, extname, join, relative, resolve, sep } from "node:path"
 import { readFile, readdir, realpath, stat } from "node:fs/promises"
 import ignore, { type Ignore } from "ignore"
-import type { DiscoveryPolicy, FileRecord, ScanOptions, ScanResult } from "./types.ts"
+import type { DiscoveryPolicy, FileMetadata, FileRecord, ScanOptions, ScanResult } from "./types.ts"
 
 interface IgnoreLevel {
 	readonly directory: string
@@ -12,6 +12,7 @@ interface Topology {
 	readonly directories: Map<string, Set<string>>
 }
 
+const DEFAULT_BATCH_SIZE = 64
 const slash = (value: string): string => value.split(sep).join("/")
 const compare = (left: string, right: string): number => (left < right ? -1 : left > right ? 1 : 0)
 const missing = (error: unknown): boolean =>
@@ -20,12 +21,24 @@ const inside = (root: string, path: string): boolean => {
 	const candidate = relative(root, path)
 	return candidate === "" || (!candidate.startsWith(`..${sep}`) && candidate !== "..")
 }
+const thenable = <T>(value: T | Promise<T>): value is Promise<T> =>
+	typeof value === "object" && value !== null && typeof (value as Promise<T>).then === "function"
+const readStat = async (path: string): Promise<FileMetadata> => {
+	const value = await stat(path)
+	return { size: value.size, mtimeMs: value.mtimeMs }
+}
 
-const frozenRecord = (
-	path: string,
-	root: string,
-	metadata: { readonly size: number; readonly mtimeMs: number },
-): FileRecord =>
+export const filterPresentIgnoreFiles = (
+	ignoreFiles: readonly string[],
+	present: ReadonlySet<string>,
+): readonly string[] => {
+	const folded = new Set([...present].map((filename) => filename.toLowerCase()))
+	return ignoreFiles.filter(
+		(filename) => present.has(filename) || folded.has(filename.toLowerCase()),
+	)
+}
+
+const frozenRecord = (path: string, root: string, metadata: FileMetadata): FileRecord =>
 	Object.freeze({
 		absolutePath: path,
 		relativePath: slash(relative(root, path)),
@@ -76,14 +89,19 @@ const abort = (signal?: AbortSignal): void => {
 
 export const normalizeRoot = (input: string): string => resolve(input)
 
+export const physicalWatchRoot = async (input: string): Promise<string> => {
+	const root = normalizeRoot(input)
+	const rootStat = await stat(root)
+	if (!rootStat.isDirectory()) throw new Error(`root is not a directory: ${root}`)
+	return realpath(root)
+}
+
 export const scanFiles = async (
 	input: string,
 	policyInput: DiscoveryPolicy,
 	options: ScanOptions = {},
 ): Promise<ScanResult> => {
 	const root = normalizeRoot(input)
-	const rootStat = await stat(root)
-	if (!rootStat.isDirectory()) throw new Error(`root is not a directory: ${root}`)
 	const policy = {
 		recursive: policyInput.recursive ?? true,
 		followSymlinks: policyInput.followSymlinks ?? false,
@@ -91,19 +109,17 @@ export const scanFiles = async (
 		includeFile: policyInput.includeFile ?? (() => true),
 		includeDirectory: policyInput.includeDirectory ?? (() => true),
 	}
-	const physicalRoot = await realpath(root)
+	const controlFiles = new Set(policy.ignoreFiles)
+	const batchSize = options.batchSize ?? DEFAULT_BATCH_SIZE
+	const physicalRoot = await physicalWatchRoot(input)
 	const topology: Topology = { files: new Map(), directories: new Map() }
-	const metadata =
-		options.metadata ??
-		(async (path: string) => {
-			const value = await stat(path)
-			return { size: value.size, mtimeMs: value.mtimeMs }
-		})
+	const extraRoots: string[] = []
+	const metadata = options.metadata ?? readStat
 	const batches: FileRecord[] = []
-	const publish = async (complete: boolean, withdrawn = false): Promise<void> => {
+	const publish = (complete: boolean, withdrawn = false): void | Promise<void> => {
 		if (batches.length === 0 && !complete && !withdrawn) return
 		const next = batches.splice(0, batches.length)
-		await options.onBatch?.(Object.freeze(next), complete, withdrawn)
+		return options.onBatch?.(Object.freeze(next), complete, withdrawn)
 	}
 	const record = async (
 		path: string,
@@ -113,74 +129,103 @@ export const scanFiles = async (
 	): Promise<FileRecord | null> => {
 		abort(options.signal)
 		if (ignored(lexical, false, levels)) return null
-		if (!(await (isFile ? policy.includeFile(lexical) : policy.includeDirectory(lexical))))
-			return null
+		const allowed = (isFile ? policy.includeFile : policy.includeDirectory)(lexical)
+		if (thenable(allowed) ? !(await allowed) : !allowed) return null
 		if (!isFile) return null
-		const next = frozenRecord(lexical, root, await metadata(path))
+		const value = metadata(path)
+		const next = frozenRecord(lexical, root, thenable(value) ? await value : value)
 		return inside(root, next.absolutePath) ? next : null
 	}
-	const add = async (next: FileRecord | null): Promise<void> => {
+	const add = (next: FileRecord | null): void | Promise<void> => {
 		if (!next) return
 		topology.files.set(next.relativePath, next)
 		batches.push(next)
-		if (batches.length >= (options.batchSize ?? 64)) await publish(false)
+		if (batches.length >= batchSize) return publish(false)
 	}
 	const eligible: { path: string; lexical: string }[] = []
 	const flushEligible = async (): Promise<void> => {
-		const records = await Promise.all(
-			eligible.splice(0).map(async ({ path, lexical }) => {
-				const next = frozenRecord(lexical, root, await metadata(path))
-				return inside(root, next.absolutePath) ? next : null
-			}),
-		)
-		for (const next of records) await add(next)
+		const pending = eligible.splice(0)
+		if (pending.length === 0) return
+		const records: (FileRecord | null)[] = Array.from({ length: pending.length }, () => null)
+		const pendingMetadata: Promise<void>[] = []
+		for (let index = 0; index < pending.length; index++) {
+			const { path, lexical } = pending[index]!
+			const apply = (value: FileMetadata): void => {
+				const next = frozenRecord(lexical, root, value)
+				records[index] = inside(root, next.absolutePath) ? next : null
+			}
+			const value = metadata(path)
+			if (thenable(value)) pendingMetadata.push(value.then(apply))
+			else apply(value)
+		}
+		if (pendingMetadata.length) await Promise.all(pendingMetadata)
+		for (const next of records) {
+			const value = add(next)
+			if (thenable(value)) await value
+		}
+	}
+	const watchExternal = async (target: string): Promise<void> => {
+		if (inside(physicalRoot, target) || extraRoots.some((path) => inside(path, target))) return
+		extraRoots.push(target)
+		const notified = options.onWatchRoot?.(target)
+		if (thenable(notified)) await notified
 	}
 	const walk = async (
 		physical: string,
 		lexical: string,
-		ancestry: ReadonlySet<string>,
+		ancestry: Set<string>,
 		parents: readonly IgnoreLevel[],
 		isRoot = false,
 	): Promise<void> => {
 		abort(options.signal)
-		if (!isRoot && !(await policy.includeDirectory(lexical))) return
+		if (!isRoot) {
+			const allowed = policy.includeDirectory(lexical)
+			if (thenable(allowed) ? !(await allowed) : !allowed) return
+		}
 		topology.directories.set(
 			physical,
 			new Set([...(topology.directories.get(physical) ?? []), lexical]),
 		)
-		const levels = await loadLevels(physical, lexical, policy.ignoreFiles, parents)
-		await options.barrier?.("before-read", lexical)
+		const beforeRead = options.barrier?.("before-read", lexical)
+		if (thenable(beforeRead)) await beforeRead
 		const entries = (await readdir(physical, { withFileTypes: true })).sort((a, b) =>
 			compare(a.name, b.name),
 		)
-		await options.barrier?.("after-read", lexical)
+		const afterRead = options.barrier?.("after-read", lexical)
+		if (thenable(afterRead)) await afterRead
+		const present = new Set<string>()
 		const files = [] as typeof entries
 		const directories = [] as typeof entries
 		for (const entry of entries) {
+			present.add(entry.name)
 			;(entry.isDirectory() || entry.isSymbolicLink() ? directories : files).push(entry)
 		}
+		const levels = await loadLevels(
+			physical,
+			lexical,
+			filterPresentIgnoreFiles(policy.ignoreFiles, present),
+			parents,
+		)
 		for (const entry of files) {
 			if (options.topologyOnly) continue
 			const path = join(physical, entry.name)
 			const lexicalPath = join(lexical, entry.name)
 			try {
-				if (
-					!policy.ignoreFiles.includes(entry.name) &&
-					!ignored(lexicalPath, false, levels) &&
-					(await policy.includeFile(lexicalPath))
-				)
+				if (controlFiles.has(entry.name) || ignored(lexicalPath, false, levels)) continue
+				const allowed = policy.includeFile(lexicalPath)
+				if (thenable(allowed) ? await allowed : allowed)
 					eligible.push({ path, lexical: lexicalPath })
 			} catch (error) {
 				await flushEligible()
 				throw error
 			}
-			if (eligible.length < (options.batchSize ?? 64)) continue
+			if (eligible.length < batchSize) continue
 			await flushEligible()
 		}
 		if (!policy.recursive) return
 		for (const entry of directories) {
 			abort(options.signal)
-			if (policy.ignoreFiles.includes(entry.name)) continue
+			if (controlFiles.has(entry.name)) continue
 			const physicalPath = join(physical, entry.name)
 			const lexicalPath = join(lexical, entry.name)
 			try {
@@ -194,13 +239,22 @@ export const scanFiles = async (
 						continue
 					}
 					try {
-						await walk(target, lexicalPath, new Set([...ancestry, target]), levels)
+						if (entry.isSymbolicLink()) await watchExternal(target)
+						ancestry.add(target)
+						try {
+							await walk(target, lexicalPath, ancestry, levels)
+						} finally {
+							ancestry.delete(target)
+						}
 					} catch (error) {
 						if (missing(error)) continue
 						options.onDiagnostic?.(new Error(`skipped directory: ${basename(lexicalPath)}`))
 					}
 				} else if (targetStat.isFile() && !entry.isDirectory()) {
-					if (!options.topologyOnly) await add(await record(target, lexicalPath, true, levels))
+					if (!options.topologyOnly) {
+						const value = add(await record(target, lexicalPath, true, levels))
+						if (thenable(value)) await value
+					}
 				}
 			} catch (error) {
 				if (missing(error)) continue
@@ -209,10 +263,12 @@ export const scanFiles = async (
 		}
 	}
 	try {
-		if (await policy.includeDirectory(root))
+		const includeRoot = policy.includeDirectory(root)
+		if (thenable(includeRoot) ? await includeRoot : includeRoot)
 			await walk(physicalRoot, root, new Set([physicalRoot]), [], true)
 		await flushEligible()
-		await publish(true)
+		const complete = publish(true)
+		if (thenable(complete)) await complete
 	} catch (error) {
 		if (batches.length) batches.splice(0, batches.length)
 		throw error

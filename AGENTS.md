@@ -17,7 +17,8 @@ Notes for AI assistants (and humans) working in this repo. This file is about *t
 ## Conventions worth knowing
 
 - Format: **tabs, no semicolons, 100-col, trailing commas** (see `.oxfmtrc.json`). `bun run format` writes; CI gates on `format:check`.
-- Test root: the root `bunfig.toml` pins `[test] root = "apps/house/test"` so direct `bun test` and Turbo both stay inside the app.
+- Test root: the root `bunfig.toml` pins `[test] root = "apps/house/test"` so direct `bun test` stays inside the app. `bun run test` runs each workspace package's tests through Turbo.
+- Scalar options (CLI + env + file initial values) are declared in `apps/house/src/config/options.ts` via `@house/options`. Add the spec there and thread layers through `loadConfig`. Browser holds a session for runtime wrap/theme/tone; file-policy keys persist via `persistHouseOption`. Do not add per-key parse helpers for catalog keys. Lists (`show`, `extensions`) stay on Effect Config. The package itself stays agnostic of TOML, Commander, and Effect ConfigProvider.
 - `TODO(revisit: <topic>)` markers in source point back at `DESIGN.md` §12. `grep -r 'TODO(revisit:' apps/house/src/` lists them.
 - Bindings live in `apps/house/src/keymap/browser.ts` as data. Adding a key: append a `KeyBinding`, the `?` overlay picks it up. Reserved keys (`/`, `r`) are off-limits in v1.
 - Themes resolve into typed semantic tokens (`apps/house/src/theme/types.ts`) consumed via the mutable singleton `colors`. Pattern lifted from ghui at small scale; do not introduce React Context for theme. Before adding or changing token usage, check DESIGN.md §7.5's token table and choose by semantic role, not by a single theme's color.

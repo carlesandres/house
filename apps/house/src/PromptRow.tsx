@@ -20,6 +20,8 @@ export interface PromptRowProps {
 	readonly editing: boolean
 	/** Body fallback when !editing && query === "". Pass without the `> ` prefix. */
 	readonly placeholder?: string
+	/** When set, an empty editing field still shows `placeholder` (muted) plus the cursor. */
+	readonly showPlaceholderWhileEditing?: boolean
 	/** Total cell width available for the row (prefix + body). */
 	readonly width: number
 }
@@ -27,8 +29,16 @@ export interface PromptRowProps {
 const PREFIX = "> "
 const CURSOR = "▏"
 
-export const PromptRow = ({ query, editing, placeholder = "", width }: PromptRowProps) => {
+export const PromptRow = ({
+	query,
+	editing,
+	placeholder = "",
+	showPlaceholderWhileEditing = false,
+	width,
+}: PromptRowProps) => {
 	const bodyBudget = Math.max(1, width - PREFIX.length)
+	const placeholderWhileEditing =
+		editing && query.length === 0 && showPlaceholderWhileEditing && placeholder.length > 0
 
 	const rawBody = editing ? `${query}${CURSOR}` : query.length > 0 ? query : placeholder
 	const bodyFg = editing ? colors.primary : query.length > 0 ? colors.text : colors.textMuted
@@ -41,6 +51,21 @@ export const PromptRow = ({ query, editing, placeholder = "", width }: PromptRow
 				: rawBody.slice(0, bodyBudget - 1) + "…"
 
 	const prefixFg = editing ? colors.secondary : colors.primary
+
+	if (placeholderWhileEditing) {
+		const placeholderBudget = Math.max(1, bodyBudget - CURSOR.length)
+		const placeholderBody =
+			placeholder.length <= placeholderBudget
+				? placeholder
+				: "…" + placeholder.slice(placeholder.length - placeholderBudget + 1)
+		return (
+			<text wrapMode="none">
+				<span style={{ fg: prefixFg }}>{PREFIX}</span>
+				<span style={{ fg: colors.textMuted }}>{placeholderBody}</span>
+				<span style={{ fg: colors.primary }}>{CURSOR}</span>
+			</text>
+		)
+	}
 
 	return (
 		<text wrapMode="none">

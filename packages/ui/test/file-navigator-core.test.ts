@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promis
 import { join } from "node:path"
 import { tmpdir } from "node:os"
 import { FileNavigatorCore } from "../src/file-navigator/core/engine.ts"
-import { scanFiles } from "../src/file-navigator/core/scanner.ts"
+import { filterPresentIgnoreFiles, scanFiles } from "../src/file-navigator/core/scanner.ts"
 import {
 	fuzzySearch,
 	projectFiles,
@@ -121,6 +121,42 @@ describe("File Navigator core scanner", () => {
 		})
 	})
 
+	test("keeps case-variant ignore files eligible for case-insensitive filesystems", () => {
+		expect(filterPresentIgnoreFiles([".gitignore"], new Set([".GITIGNORE"]))).toEqual([
+			".gitignore",
+		])
+		expect(filterPresentIgnoreFiles([".gitignore"], new Set(["README.md"]))).toEqual([])
+	})
+
+	test("notifies extra watch roots before scanning followed symlink targets", async () => {
+		await withRoot(async (container) => {
+			const physical = join(container, "physical")
+			const external = join(container, "external")
+			const lexical = join(container, "chosen")
+			await mkdir(physical)
+			await mkdir(external)
+			await writeFile(join(physical, "root.txt"), "root")
+			await writeFile(join(external, "outside.txt"), "outside")
+			await symlink(physical, lexical, "dir")
+			await symlink(external, join(physical, "link"), "dir")
+			const roots: string[] = []
+			const batches: string[] = []
+			const result = await scanFiles(lexical, policy({ followSymlinks: true }), {
+				batchSize: 1,
+				onWatchRoot: (path) => {
+					roots.push(path)
+				},
+				onBatch: (files) => {
+					batches.push(...files.map((file) => file.relativePath))
+				},
+			})
+			expect(roots).toEqual([await realpath(external)])
+			expect(batches.indexOf("root.txt")).toBeGreaterThanOrEqual(0)
+			expect(batches.indexOf("link/outside.txt")).toBeGreaterThan(batches.indexOf("root.txt"))
+			expect(result.watchRoots).toEqual([await realpath(lexical), await realpath(external)])
+		})
+	})
+
 	test("follows nested external symlinks without replacing lexical identity or looping", async () => {
 		await withRoot(async (container) => {
 			const physical = join(container, "physical")
@@ -180,12 +216,13 @@ const record = (relativePath: string, mtimeMs: number): FileRecord =>
 
 describe("File Navigator projections", () => {
 	test("orders structurally and recently modified with deterministic ties", () => {
-		const files = [record("z/deep.md", 2), record("root.md", 2), record("a.md", 3)]
+		const files = [record("z/deep.md", 3), record("root.md", 2), record("a.md", 1)]
 		expect(projectFiles(files, "")).toEqual([files[2]!, files[1]!, files[0]!])
+		expect(projectFiles(files, "", "recently-modified")).toEqual([files[0]!, files[1]!, files[2]!])
 		expect(projectFiles(files, "", recentlyModifiedOrder)).toEqual([
-			files[2]!,
-			files[1]!,
 			files[0]!,
+			files[1]!,
+			files[2]!,
 		])
 	})
 
@@ -526,6 +563,31 @@ describe("File Navigator synchronization", () => {
 			await replacement
 			expect(batches).toContainEqual(["stale.md"])
 			expect(withdrawals).toEqual([true])
+			await core.close()
+		})
+	})
+
+	test("subscribes before the first authoritative scan without a topology-only warmup", async () => {
+		await withRoot(async (root) => {
+			await mkdir(join(root, "nested"))
+			await writeFile(join(root, "nested", "file.md"), "file")
+			const watcher = new FakeWatcher()
+			const reads: string[] = []
+			const core = new FileNavigatorCore(
+				{
+					root,
+					policy: policy(),
+					consistencyIntervalMs: null,
+					barrier: (phase, directory) => {
+						if (phase === "before-read") reads.push(directory)
+					},
+				},
+				watcher,
+			)
+			await core.start()
+			expect(watcher.directories).toEqual([await realpath(root)])
+			expect(reads).toEqual([root, join(root, "nested")])
+			expect(core.files.map((file) => file.relativePath)).toEqual(["nested/file.md"])
 			await core.close()
 		})
 	})

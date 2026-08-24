@@ -10,7 +10,7 @@ import type {
 	SearchStrategy,
 	ScanOptions,
 } from "./types.ts"
-import { normalizeRoot, scanFiles } from "./scanner.ts"
+import { normalizeRoot, physicalWatchRoot, scanFiles } from "./scanner.ts"
 import { fuzzySearch, projectFiles } from "./strategies.ts"
 import type { InternalSubscription, InternalWatcher } from "./parcel-adapter.ts"
 
@@ -57,8 +57,11 @@ interface Generation {
 	watchRoots: readonly string[]
 }
 
+const STREAM_SNAPSHOT = 256
 const errorValue = (value: unknown): Error =>
 	value instanceof Error ? value : new Error(String(value))
+const afterPaint = (value: void | Promise<void>): Promise<void> =>
+	Promise.resolve(value).then(() => new Promise<void>((resolve) => setImmediate(resolve)))
 const byPath = (files: readonly FileRecord[]): Map<string, FileRecord> =>
 	new Map(files.map((file) => [file.relativePath, file]))
 const publication = (
@@ -318,14 +321,10 @@ export class FileNavigatorCore {
 		}
 		this.#candidate = generation
 		try {
-			const initialTopology = await scanFiles(generation.root, generation.policy, {
-				topologyOnly: true,
-				onDiagnostic: (error) => this.#diagnose("scan", error),
-			})
-			let topology = initialTopology.watchDirectories
-			generation.watchRoots = initialTopology.watchRoots
+			generation.watchRoots = Object.freeze([await physicalWatchRoot(generation.root)])
 			await this.#subscribe(generation, generation.watchRoots)
 			this.#clearPhase("scan")
+			let topology: Generation["watchDirectories"] | null = null
 			let finalFiles: readonly FileRecord[] = []
 			for (;;) {
 				generation.invalidated = false
@@ -341,23 +340,42 @@ export class FileNavigatorCore {
 					...(this.#options.metadata === undefined ? {} : { metadata: this.#options.metadata }),
 					...(this.#options.barrier === undefined ? {} : { barrier: this.#options.barrier }),
 					onDiagnostic: (error) => this.#diagnose("scan", error),
-					onBatch: async (files, complete) => {
-						if (initial && this.#isCurrentCandidate(generation)) {
-							generation.streamed.push(...files)
-							this.#publishFiles(generation.streamed, true)
-							await this.#options.onBatch?.(files, complete)
-						} else generation.batches.push({ files: Object.freeze([...files]), complete })
+					onWatchRoot: async (path) => {
+						if (!this.#isCurrentCandidate(generation) || generation.subscribed.has(path)) return
+						generation.watchRoots = Object.freeze(
+							[...generation.watchRoots, path].sort((left, right) =>
+								left < right ? -1 : left > right ? 1 : 0,
+							),
+						)
+						await this.#subscribe(generation, generation.watchRoots)
+					},
+					onBatch: (files, complete) => {
+						if (!(initial && this.#isCurrentCandidate(generation))) {
+							generation.batches.push({ files: Object.freeze([...files]), complete })
+							return
+						}
+						if (files.length) generation.streamed.push(...files)
+						const count = generation.streamed.length
+						const snapshot =
+							files.length > 0 && (count === files.length || count % STREAM_SNAPSHOT < files.length)
+						if (snapshot) this.#publishFiles(generation.streamed, true)
+						const callback = this.#options.onBatch?.(files, complete)
+						return snapshot ? afterPaint(callback) : callback
 					},
 				})
 				finalFiles = result.files
 				if (!this.#isCurrentCandidate(generation)) throw new Error("stale generation")
-				if (generation.invalidated || !sameTopology(topology, result.watchDirectories)) {
+				if (
+					generation.invalidated ||
+					(topology !== null && !sameTopology(topology, result.watchDirectories))
+				) {
 					topology = result.watchDirectories
 					generation.watchRoots = result.watchRoots
 					await this.#subscribe(generation, generation.watchRoots)
 					continue
 				}
-				generation.watchDirectories = topology
+				generation.watchDirectories = result.watchDirectories
+				generation.watchRoots = result.watchRoots
 				break
 			}
 			if (!this.#isCurrentCandidate(generation)) throw new Error("stale generation")
@@ -484,7 +502,7 @@ export class FileNavigatorCore {
 	}
 
 	#publishFiles(files: readonly FileRecord[], streaming: boolean): void {
-		this.#files = Object.freeze([...files])
+		this.#files = Object.freeze(files.slice())
 		if (streaming && this.#query === "" && this.#order === "tree") {
 			this.#projection = this.#files
 			this.#syncSelection()

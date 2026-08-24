@@ -26,6 +26,10 @@ _Avoid_: Browse order, filesystem sort
 A named policy that determines Browse Order without changing Search Ranking.
 _Avoid_: Search ranker
 
+**Discovery Root**:
+The directory House walks from, and the location where a new file is created.
+_Avoid_: vault, target dir, root dir
+
 **Discovery Scope**:
 The root and recursion boundary that determine which filesystem entries may belong to a File
 Navigator.
@@ -43,6 +47,10 @@ _Avoid_: Display path, inode
 A replaceable policy that matches and ranks files for an active query.
 _Avoid_: File Order Strategy
 
+**New file**:
+The command that prompts for a name, creates an empty markdown file at the Discovery Root, waits for File Navigator membership, selects it, and opens it in `$EDITOR`.
+_Avoid_: New note
+
 ## Relationships
 
 - A **File Navigator** presents its current file collection through one **Sidebar**.
@@ -50,12 +58,15 @@ _Avoid_: File Order Strategy
 - **Search Ranking** takes precedence over **Browse Order** while a query is active.
 - A **File Order Strategy** determines **Browse Order** and may be replaced without changing the
   selected file.
+- A **Discovery Scope** is bounded by one **Discovery Root**.
 - A **Discovery Scope** strictly limits discovered membership; the native watcher may observe a
   broader root as long as out-of-scope events cannot populate the collection.
 - A **Discovery Policy** applies consistently to initial discovery and live synchronization.
 - Renaming a file replaces one **File Identity** with another; it is not an identity-preserving update.
 - A **Search Strategy** determines **Search Ranking** independently of the active **File Order
   Strategy**.
+- **New file** creates an empty markdown file at the **Discovery Root**; the **File Navigator** admits it as a
+  **File Identity** before it can be selected and opened in `$EDITOR`.
 
 ## Example dialogue
 
@@ -69,3 +80,6 @@ _Avoid_: File Order Strategy
 
 - “FileNavigator” previously named the presentation-only pane; resolved: **File Navigator** means the
   filesystem-backed capability, while **Sidebar** means its presentation surface.
+- “vault” / “target dir” / “root dir” were used for the directory House opens on; resolved: that
+  directory is the **Discovery Root**.
+- “New note” was used for creating a markdown file there; resolved: the action is **New file**.

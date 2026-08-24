@@ -12,9 +12,12 @@ await rm(output, { force: true, recursive: true })
 await mkdir(resolve(output, "dist"), { recursive: true })
 
 const bundledApp = await readFile(resolve(appRoot, "dist/index.js"), "utf8")
-const publicBundledApp = bundledApp.replace(/^\s*"@house\/ui":\s*"workspace:[^"]+",?\r?\n/m, "")
+const publicBundledApp = bundledApp.replace(
+	/^\s*"@house\/[^"]+":\s*"workspace:[^"]+",?\r?\n/gm,
+	"",
+)
 if (publicBundledApp === bundledApp) {
-	throw new Error("Staged app bundle did not contain the expected private @house/ui manifest entry")
+	throw new Error("Staged app bundle did not contain the expected private @house workspace entries")
 }
 
 await Promise.all([

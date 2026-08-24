@@ -60,6 +60,11 @@ const annotations: Record<string, Annotation> = {
 	"reader.nextFile": { title: "Next file", category: "Navigation" },
 	"serve.current": { title: "Open in browser", category: "File" },
 	"file.edit": { title: "Open in editor", category: "File", keywords: ["editor", "vim", "vscode"] },
+	"file.new": {
+		title: "New file…",
+		category: "File",
+		keywords: ["new", "create", "nvim", "vim", "editor"],
+	},
 	"theme.next": { category: "Appearance" },
 	"theme.prev": { category: "Appearance" },
 	"theme.toneToggle": { title: "Toggle dark/light tone", category: "Appearance" },

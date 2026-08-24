@@ -169,6 +169,7 @@ describe("browserBindings — discovery.toggleAll", () => {
 		quit: noop,
 		serveCurrent: noop,
 		editCurrent: noop,
+		openNewFilePrompt: noop,
 		copyCurrentContents: noop,
 		toggleAll: noop,
 		...overrides,
@@ -235,6 +236,7 @@ describe("browserBindings — discovery.toggleAll", () => {
 		expect(readerIds.has("reader.nextFile")).toBe(true)
 		expect(readerIds.has("serve.current")).toBe(true)
 		expect(readerIds.has("file.edit")).toBe(true)
+		expect(readerIds.has("file.new")).toBe(true)
 		expect(readerIds.has("file.copyContents")).toBe(true)
 		expect(sidebarIds.has("sidebar.down")).toBe(true)
 		expect(sidebarIds.has("sidebar.up")).toBe(true)
@@ -262,12 +264,23 @@ describe("browserBindings — discovery.toggleAll", () => {
 		expect(invalid.map((command) => command.id)).toEqual([])
 	})
 
+	test("file.new is in the palette without a selection and has no footer hint", async () => {
+		const { buildCommands } = await import("../src/commands/buildCommands.ts")
+		const cmd = buildCommands(stubCtx({ hasSelected: false })).find((c) => c.id === "file.new")
+		expect(cmd).toMatchObject({
+			id: "file.new",
+			title: "New file…",
+			category: "File",
+			shortcut: "shift+n",
+		})
+		const binding = browserBindings.find((b) => b.id === "file.new")
+		expect(binding?.hint).toBeUndefined()
+	})
+
 	test("palette-only copy command is hidden when there is no selected file", async () => {
 		const { buildCommands } = await import("../src/commands/buildCommands.ts")
 		const ids = new Set(
-			buildCommands(stubCtx({ files: [file("0.md")], hasSelected: false })).map(
-				(c) => c.id,
-			),
+			buildCommands(stubCtx({ files: [file("0.md")], hasSelected: false })).map((c) => c.id),
 		)
 		expect(ids.has("file.copyContents")).toBe(false)
 	})
