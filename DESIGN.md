@@ -129,7 +129,7 @@ sidebar.
 
 **Filter discoverability** — the active query stays visible in the sidebar filter row. Filter actions that are not in the footer (`/`, `ctrl+\`) remain available through the command palette rather than adding contextual footer hints.
 
-**Footer vs. reader tips** — these surfaces do different jobs. The footer is operational chrome: a fixed, compact set of essential app controls (`W`, `q`, `tab`, `s`, `ctrl+p`). Everything else is discoverable through the command palette. The reader empty state is product guidance: one short natural-language sentence about a capability or workflow, usually naming the relevant key (`/`, `ctrl+\`, `tab`, `ctrl+p`) but not trying to mirror the footer one-for-one. Tips are ordered by relevance and rotate one-at-a-time each time the reader empty state appears; clarity of feature guidance wins over strict derivation.
+**Footer vs. reader tips** — these surfaces do different jobs. The footer is operational chrome: catalog-driven **footer controls** for opted-in options (today the clickable wrap `W` indicator) plus a compact set of essential keymap hints (`q`, `tab`, `s`, `ctrl+p`). Options declare footer opt-in on the `@house/options` catalog (`footer: { icon, activate? }`); House derives indicators from the live session. Clicking a footer control Activates it (boolean toggle, or cycle through `choices`). Everything else is discoverable through the command palette. The reader empty state is product guidance: one short natural-language sentence about a capability or workflow, usually naming the relevant key (`/`, `ctrl+\`, `tab`, `ctrl+p`) but not trying to mirror the footer one-for-one. Tips are ordered by relevance and rotate one-at-a-time each time the reader empty state appears; clarity of feature guidance wins over strict derivation.
 
 ```
 wide, shown=true, inline           narrow, focus=sidebar
@@ -305,7 +305,9 @@ embedded assumptions.
 `packages/options` (`@house/options`) is a private workspace package for options whose initial
 values come from CLI / env / file / defaults and that may be mutated at runtime. It is
 framework-free: the consumer maps argv, env, and the config file onto catalog keys, then holds a
-session for in-app changes. House's `wrap` / `width` catalog lives in
+session for in-app changes. Specs may optionally declare `footer: { icon, activate? }` —
+presentation metadata only (no React); House maps opted-in keys to footer indicators via
+`footerControlsFromSession`. House's catalog lives in
 `apps/house/src/config/options.ts` (`theme`, `tone`, `focus`, `defaultRoot`, `width`, `wrap`, `order`). Persist policy is `session` (memory only) or `file` (caller
 writes). Do not put House-specific TOML, Commander, or Effect ConfigProvider code in the package.
 

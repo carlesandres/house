@@ -1,8 +1,19 @@
 export { defineOptions } from "./define.ts"
 export { formatResolveError } from "./decode.ts"
+export {
+	footerActivate,
+	footerControlActive,
+	footerKeys,
+	footerValues,
+	isFooterOption,
+	nextFooterValue,
+	validateFooterSpecs,
+} from "./footer.ts"
 export type {
 	BooleanOption,
 	Catalog,
+	FooterActivate,
+	FooterOptIn,
 	NumberOption,
 	OptionKey,
 	OptionSpec,

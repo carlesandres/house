@@ -9,10 +9,27 @@
 
 export type PersistPolicy = "session" | "file"
 
+/**
+ * How a footer control advances its value on Activate (primary click).
+ * Defaults: boolean → `"toggle"`; string with `choices` → `"cycle"`.
+ */
+export type FooterActivate = "toggle" | "cycle"
+
+/**
+ * Opt an option into compact chrome (House maps this to footer indicators).
+ * Presentation only — no React, colors, or keymap ids.
+ */
+export interface FooterOptIn {
+	/** Single-cell (or short) glyph shown in chrome. */
+	readonly icon: string
+	readonly activate?: FooterActivate
+}
+
 export interface BooleanOption {
 	readonly type: "boolean"
 	readonly default: boolean
 	readonly persist?: PersistPolicy
+	readonly footer?: FooterOptIn
 }
 
 export interface NumberOption {
@@ -23,6 +40,7 @@ export interface NumberOption {
 	readonly integer?: boolean
 	readonly min?: number
 	readonly max?: number
+	readonly footer?: FooterOptIn
 }
 
 export interface StringOption {
@@ -30,6 +48,7 @@ export interface StringOption {
 	readonly default: string
 	readonly persist?: PersistPolicy
 	readonly choices?: readonly string[]
+	readonly footer?: FooterOptIn
 }
 
 export type OptionSpec = BooleanOption | NumberOption | StringOption

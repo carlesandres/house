@@ -1,5 +1,12 @@
 import { describe, expect, test } from "bun:test"
-import { defineOptions, formatResolveError } from "../src/index.ts"
+import {
+	defineOptions,
+	footerControlActive,
+	footerKeys,
+	formatResolveError,
+	isFooterOption,
+	nextFooterValue,
+} from "../src/index.ts"
 
 const catalog = defineOptions({
 	wrap: {
@@ -313,5 +320,94 @@ describe("decode variants beyond the House-shaped catalog", () => {
 		expect(result.ok).toBe(false)
 		if (result.ok) throw new Error("expected failure")
 		expect(result.error.message).toBe("expected one of nord, dark")
+	})
+})
+
+describe("footer opt-in", () => {
+	const withFooter = defineOptions({
+		wrap: {
+			type: "boolean",
+			default: false,
+			persist: "session",
+			footer: { icon: "W" },
+		},
+		theme: {
+			type: "string",
+			default: "opencode",
+			choices: ["opencode", "nord", "tokyonight"],
+			footer: { icon: "✦" },
+		},
+		width: {
+			type: "number",
+			default: 80,
+			integer: true,
+			min: 1,
+		},
+	})
+
+	test("footerKeys lists opted-in keys in declaration order", () => {
+		expect(footerKeys(withFooter.specs)).toEqual(["wrap", "theme"])
+		expect(isFooterOption(withFooter.specs.wrap)).toBe(true)
+		expect(isFooterOption(withFooter.specs.width)).toBe(false)
+	})
+
+	test("nextFooterValue toggles booleans and cycles choices", () => {
+		expect(nextFooterValue(withFooter.specs.wrap, false)).toBe(true)
+		expect(nextFooterValue(withFooter.specs.wrap, true)).toBe(false)
+		expect(nextFooterValue(withFooter.specs.theme, "opencode")).toBe("nord")
+		expect(nextFooterValue(withFooter.specs.theme, "tokyonight")).toBe("opencode")
+		expect(nextFooterValue(withFooter.specs.theme, "missing")).toBe("opencode")
+		expect(footerControlActive(withFooter.specs.wrap, false)).toBe(false)
+		expect(footerControlActive(withFooter.specs.wrap, true)).toBe(true)
+		expect(footerControlActive(withFooter.specs.theme, "nord")).toBe(true)
+	})
+
+	test("defineOptions rejects footer on numbers without a strategy", () => {
+		expect(() =>
+			defineOptions({
+				width: {
+					type: "number",
+					default: 80,
+					footer: { icon: "N" },
+				},
+			}),
+		).toThrow(/footer requires activate/)
+	})
+
+	test("defineOptions rejects empty footer icons", () => {
+		expect(() =>
+			defineOptions({
+				wrap: {
+					type: "boolean",
+					default: false,
+					footer: { icon: "" },
+				},
+			}),
+		).toThrow(/footer.icon must be non-empty/)
+	})
+
+	test("defineOptions rejects cycle without choices", () => {
+		expect(() =>
+			defineOptions({
+				label: {
+					type: "string",
+					default: "x",
+					footer: { icon: "L", activate: "cycle" },
+				},
+			}),
+		).toThrow(/cycle.*choices/)
+	})
+
+	test("defineOptions rejects toggle on non-booleans", () => {
+		expect(() =>
+			defineOptions({
+				theme: {
+					type: "string",
+					default: "a",
+					choices: ["a", "b"],
+					footer: { icon: "T", activate: "toggle" },
+				},
+			}),
+		).toThrow(/toggle.*boolean/)
 	})
 })

@@ -13,6 +13,7 @@
 import { join } from "node:path"
 import { SyntaxStyle } from "@opentui/core"
 import type { BorderSides } from "@opentui/core"
+import { nextFooterValue } from "@house/options"
 import {
 	type BrowseOrder,
 	type DiscoveryPolicy,
@@ -76,6 +77,7 @@ import { startServer, type ServerHandle } from "./serve/server.ts"
 import { colors, setActiveTheme } from "./theme/colors.ts"
 import { themeAtom } from "./theme/atom.ts"
 import { themeDefinitions, getThemeDefinition } from "./theme/registry.ts"
+import { footerControlsFromSession } from "./config/footerControls.ts"
 import { houseOptions } from "./config/options.ts"
 import { persistHouseOption } from "./config/persist.ts"
 
@@ -280,7 +282,7 @@ export const Browser = ({
 	const toggleWrap = () => {
 		const session = optionsSession.current
 		if (session === null) return
-		void session.set("wrap", !session.get("wrap"))
+		void session.set("wrap", nextFooterValue(houseOptions.specs.wrap, session.get("wrap")))
 	}
 	const [loaded, setLoaded] = useState<{ path: string; content: string; epoch: number } | null>(
 		null,
@@ -1425,15 +1427,12 @@ export const Browser = ({
 		width,
 		notice: footerNotice?.text ?? null,
 		discoveryStatus: effectiveDiscoveryStatus,
-		indicators: [
-			{
-				id: "wrap",
-				icon: "W",
-				variant: "info",
-				active: wrapEnabled,
-				onMouseUp: toggleWrap,
-			},
-		],
+		indicators:
+			optionsSession.current === null
+				? []
+				: footerControlsFromSession(houseOptions, optionsSession.current, {
+						wrap: { onActivate: toggleWrap },
+					}),
 		...(discoverySpinnerIntervalMs === undefined ? {} : { discoverySpinnerIntervalMs }),
 		...(discoverySpinnerInitialFrameIndex === undefined
 			? {}

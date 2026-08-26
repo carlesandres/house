@@ -59,6 +59,18 @@ _Avoid_: Move, relocate, retitle
 The specific file captured when a destructive or identity-changing prompt opens, used for the rest of that action instead of the live selection.
 _Avoid_: Current selection, focused row
 
+**Option**:
+A typed catalog entry whose initial value is resolved from CLI, env, file, or default and then held in a runtime session.
+_Avoid_: Setting, config key (when meaning the live typed value), preference
+
+**Footer control**:
+A compact, clickable footer chrome chip that reflects and mutates one Option that opted into the footer.
+_Avoid_: Footer hint, StatusIndicator (generic chip; a footer control may render as one), keymap hint
+
+**Activate**:
+The primary click interaction on a Footer control that toggles, cycles, or otherwise advances that Option's value.
+_Avoid_: Click handler, toggle (too narrow — Activate also covers cycle)
+
 ## Relationships
 
 - A **File Navigator** presents its current file collection through one **Sidebar**.
@@ -77,6 +89,7 @@ _Avoid_: Current selection, focused row
   **File Identity** before it can be selected and opened in `$EDITOR`.
 - **Rename** replaces one **File Identity** with another in the same parent directory; it is not a **Move**.
 - An **Action Target** is captured when **Rename** (and future confirmed file actions) open; submit operates on that target, not on whatever the live selection has become.
+- An **Option** may opt into one **Footer control**; **Activate** advances that Option's session value.
 
 ## Example dialogue
 
@@ -88,6 +101,9 @@ _Avoid_: Current selection, focused row
 
 > **Dev:** "If the user moves the Sidebar while the Rename prompt is open, which file gets renamed?"
 > **Domain expert:** "The **Action Target** captured when the prompt opened — not the live selection."
+
+> **Dev:** "Is the wrap `W` in the footer a keymap hint?"
+> **Domain expert:** "No. It is a **Footer control** for the wrap **Option**; clicking it **Activate**s a toggle. Keymap hints are a separate footer row for essential keys."
 
 ## Flagged ambiguities
 

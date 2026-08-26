@@ -15,6 +15,7 @@ export const houseOptions = defineOptions({
 		type: "boolean",
 		default: false,
 		persist: "session",
+		footer: { icon: "W" },
 	},
 	width: {
 		type: "number",
