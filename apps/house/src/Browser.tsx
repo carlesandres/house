@@ -78,8 +78,13 @@ import { colors, setActiveTheme } from "./theme/colors.ts"
 import { themeAtom } from "./theme/atom.ts"
 import { themeDefinitions, getThemeDefinition } from "./theme/registry.ts"
 import { footerControlsFromSession } from "./config/footerControls.ts"
-import { houseOptions } from "./config/options.ts"
+import { FILE_NAVIGATOR_ORDERS, houseOptions, type FileNavigatorOrder } from "./config/options.ts"
 import { persistHouseOption } from "./config/persist.ts"
+
+const asFileNavigatorOrder = (value: BrowseOrder | string): FileNavigatorOrder =>
+	typeof value === "string" && (FILE_NAVIGATOR_ORDERS as readonly string[]).includes(value)
+		? (value as FileNavigatorOrder)
+		: "recently-modified"
 
 export type StartupFocus = "sidebar" | "reader" | "filter"
 
@@ -272,12 +277,16 @@ export const Browser = ({
 				width: wrapWidth,
 				theme: theme.id,
 				tone: theme.tone,
+				order: asFileNavigatorOrder(order),
 			},
 			{ persist: persistHouseOption },
 		)
 	}
 	const wrapEnabled = useSyncExternalStore(optionsSession.current.subscribe, () =>
 		optionsSession.current!.get("wrap"),
+	)
+	const browseOrder = useSyncExternalStore(optionsSession.current.subscribe, () =>
+		asFileNavigatorOrder(optionsSession.current!.get("order")),
 	)
 	const toggleWrap = () => {
 		const session = optionsSession.current
@@ -579,6 +588,14 @@ export const Browser = ({
 		setTheme({ id: next.id, tone })
 		rememberAppearance(session.set("theme", next.id))
 		pushFooterNotice(`theme: ${next.name}`)
+	}
+
+	const cycleOrder = () => {
+		const session = optionsSession.current
+		if (session === null) return
+		const next = nextFooterValue(houseOptions.specs.order, session.get("order"))
+		void session.set("order", next)
+		pushFooterNotice(`order: ${next}`)
 	}
 
 	const toggleTone = () => {
@@ -1432,6 +1449,8 @@ export const Browser = ({
 				? []
 				: footerControlsFromSession(houseOptions, optionsSession.current, {
 						wrap: { onActivate: toggleWrap },
+						theme: { onActivate: () => cycleTheme(1) },
+						order: { onActivate: cycleOrder },
 					}),
 		...(discoverySpinnerIntervalMs === undefined ? {} : { discoverySpinnerIntervalMs }),
 		...(discoverySpinnerInitialFrameIndex === undefined
@@ -1476,7 +1495,7 @@ export const Browser = ({
 					root={root}
 					policy={policy}
 					watch={watch}
-					order={order}
+					order={browseOrder}
 					debounceMs={filterDebounceMs}
 					navigatorRef={navigatorRef}
 					snapshot={liveSnapshot}

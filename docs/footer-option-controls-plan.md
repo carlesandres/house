@@ -4,9 +4,10 @@ Working plan for declaring footer-visible options in `@house/options` and
 rendering them as clickable footer chrome (generalizing today’s wrap `W`
 indicator).
 
-**Status:** first slice shipped — `footer` metadata on `@house/options`,
-`footerControlsFromSession` in House, wrap migrated. Theme/tone/order footer
-opt-in and remaining open decisions below are still open.
+**Status:** wrap + theme + order footer controls shipped. Activate for
+choice options is one-direction cycle (`nextFooterValue`). Tone stays off
+the footer. Order is session-mutable via the footer and does not persist to
+the config file. Reverse-cycle and value glyphs remain open.
 
 ## Goal
 
