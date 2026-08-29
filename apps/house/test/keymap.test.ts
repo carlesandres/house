@@ -192,6 +192,34 @@ describe("browserBindings — discovery.toggleAll", () => {
 		expect(fired).toBe(0)
 	})
 
+	test("`?` dispatches palette.open when the palette is closed", () => {
+		let fired = 0
+		const binding = dispatch(
+			browserBindings,
+			stubCtx({ openPalette: () => (fired += 1) }),
+			k("?"),
+		)
+		expect(binding?.id).toBe("palette.open")
+		expect(fired).toBe(1)
+	})
+
+	test("ctrl+p remains the primary key for footer / shortcut display", () => {
+		const palette = browserBindings.find((b) => b.id === "palette.open")
+		expect(palette?.keys[0]).toBe("ctrl+p")
+		expect(palette?.keys).toContain("?")
+	})
+
+	test("`?` does not dispatch palette.open when the palette is already open", () => {
+		let fired = 0
+		const binding = dispatch(
+			browserBindings,
+			stubCtx({ paletteOpen: true, openPalette: () => (fired += 1) }),
+			k("?"),
+		)
+		expect(binding).toBeNull()
+		expect(fired).toBe(0)
+	})
+
 	test("the binding is exposed as a command in the palette pipeline", async () => {
 		const { buildCommands } = await import("../src/commands/buildCommands.ts")
 		const commands = buildCommands(stubCtx())

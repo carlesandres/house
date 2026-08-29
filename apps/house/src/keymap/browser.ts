@@ -141,9 +141,13 @@ export const browserBindings: readonly KeyBinding<BrowserCtx>[] = [
 		group: "Global",
 		description: "Command palette",
 		hint: "palette",
-		keys: ["ctrl+p"],
+		// `ctrl+p` first so the footer keeps showing `ctrl+p palette`. `?` is a
+		// navigation alias only — filter / palette / name-prompt input branches
+		// in Browser.tsx must keep treating `?` as a typed character (do not
+		// special-case it the way `ctrl+p` is).
+		keys: ["ctrl+p", "?"],
 		hintWhen: () => true,
-		// The filter modal handles this chord directly so the palette can open
+		// The filter modal handles ctrl+p directly so the palette can open
 		// while filter input owns the rest of the keyboard. This gate keeps the
 		// normal dispatcher from reopening an already-open palette.
 		when: paletteClosed,

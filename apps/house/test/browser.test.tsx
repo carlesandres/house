@@ -3402,6 +3402,37 @@ describe("Browser — filter modal", () => {
 		expect(frame).not.toContain("> intp▏")
 	})
 
+	test("`?` types into the filter query and does not open the palette", async () => {
+		const files = makeFiles(["README.md", "notes.md", "docs/intro.md"])
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					root={files}
+					readFile={makeReader({
+						"README.md": "x",
+						"notes.md": "y",
+						"docs/intro.md": "z",
+					})}
+					onQuit={() => {}}
+				/>,
+				{ width: 160, height: 40 },
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		await act(async () => {
+			setup!.mockInput.pressKey("/")
+			setup!.mockInput.pressKey("i")
+			setup!.mockInput.pressKey("n")
+			setup!.mockInput.pressKey("t")
+			setup!.mockInput.pressKey("?")
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("> int?▏")
+		expect(frame).not.toContain(" Commands ")
+	})
+
 	test("closing a palette opened from filter mode returns to the active filter", async () => {
 		const files = makeFiles(["README.md", "notes.md", "docs/intro.md"])
 		await act(async () => {
@@ -3754,6 +3785,50 @@ describe("Browser — command palette", () => {
 		// Default-visible command titles from the annotation map are shown.
 		expect(frame).toContain("Toggle sidebar")
 		expect(frame).toContain("Filter files…")
+	})
+
+	test("`?` opens the palette from idle navigation", async () => {
+		const files = makeFiles(["README.md"])
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser root={files} readFile={makeReader({ "README.md": "x" })} onQuit={() => {}} />,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		await act(async () => {
+			setup!.mockInput.pressKey("?")
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("Commands")
+		expect(frame).toContain("Toggle sidebar")
+	})
+
+	test("`?` types into the palette query and does not close it", async () => {
+		const files = makeFiles(["README.md"])
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser root={files} readFile={makeReader({ "README.md": "x" })} onQuit={() => {}} />,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		await act(async () => {
+			setup!.mockInput.pressKey("p", { ctrl: true })
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).toContain(" Commands ")
+
+		await act(async () => {
+			setup!.mockInput.pressKey("?")
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain(" Commands ")
+		expect(frame).toContain("> ?▏")
 	})
 
 	test("palette body accounts for group headers and spacers when sizing", async () => {
@@ -4609,9 +4684,10 @@ describe("Browser — new file prompt", () => {
 			await openPrompt()
 			await act(async () => {
 				setup!.mockInput.pressKey("q")
+				setup!.mockInput.pressKey("?")
 			})
 			await stepFrame(setup!.renderOnce)
-			expect(setup!.captureCharFrame()).toContain("q▏")
+			expect(setup!.captureCharFrame()).toContain("q?▏")
 			await act(async () => {
 				setup!.mockInput.pressKey("c", { ctrl: true })
 				setup!.mockInput.pressKey("p", { ctrl: true })
@@ -4619,7 +4695,7 @@ describe("Browser — new file prompt", () => {
 			})
 			await stepFrame(setup!.renderOnce)
 			const frame = setup!.captureCharFrame()
-			expect(frame).toContain("q▏")
+			expect(frame).toContain("q?▏")
 			expect(frame).toContain("enter create  esc cancel")
 			expect(frame).not.toContain(" Commands ")
 			expect(quit).toBe(0)
@@ -5190,3 +5266,4 @@ describe("Browser — new file prompt", () => {
 		})
 	})
 })
+
