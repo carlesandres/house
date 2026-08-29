@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import {
 	defineOptions,
 	footerControlActive,
+	footerControlGlyph,
 	footerKeys,
 	formatResolveError,
 	isFooterOption,
@@ -335,7 +336,10 @@ describe("footer opt-in", () => {
 			type: "string",
 			default: "opencode",
 			choices: ["opencode", "nord", "tokyonight"],
-			footer: { icon: "✦" },
+			footer: {
+				icon: "T",
+				labels: { opencode: "op", nord: "no", tokyonight: "to" },
+			},
 		},
 		width: {
 			type: "number",
@@ -360,6 +364,12 @@ describe("footer opt-in", () => {
 		expect(footerControlActive(withFooter.specs.wrap, false)).toBe(false)
 		expect(footerControlActive(withFooter.specs.wrap, true)).toBe(true)
 		expect(footerControlActive(withFooter.specs.theme, "nord")).toBe(true)
+	})
+
+	test("footerControlGlyph uses labels for choices and icon for booleans", () => {
+		expect(footerControlGlyph(withFooter.specs.wrap, true)).toBe("W")
+		expect(footerControlGlyph(withFooter.specs.theme, "nord")).toBe("no")
+		expect(footerControlGlyph(withFooter.specs.theme, "missing")).toBe("T")
 	})
 
 	test("defineOptions rejects footer on numbers without a strategy", () => {
@@ -409,5 +419,29 @@ describe("footer opt-in", () => {
 				},
 			}),
 		).toThrow(/toggle.*boolean/)
+	})
+
+	test("defineOptions rejects choice footer without labels for every choice", () => {
+		expect(() =>
+			defineOptions({
+				theme: {
+					type: "string",
+					default: "a",
+					choices: ["a", "b"],
+					footer: { icon: "T" },
+				},
+			}),
+		).toThrow(/footer.labels is required/)
+
+		expect(() =>
+			defineOptions({
+				theme: {
+					type: "string",
+					default: "a",
+					choices: ["a", "b"],
+					footer: { icon: "T", labels: { a: "a" } },
+				},
+			}),
+		).toThrow(/missing entry for "b"/)
 	})
 })

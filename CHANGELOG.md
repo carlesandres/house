@@ -14,6 +14,7 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 - `R` (`shift+r`) renames the selected file's basename via the same prompt shell as New file, so nested files stay in place without leaving House.
 - `@house/options` specs may declare `footer: { icon, activate? }` so House can derive clickable footer controls from the catalog; wrap's `W` indicator now comes from that opt-in instead of a hard-coded Browser entry.
 - Footer `T` and `O` controls cycle theme and File Navigator browse order one step forward (with a short notice), so multi-value options are adjustable without leaving the keyboard-or-click chrome.
+- Choice footer controls show a declared short abbreviation of the current value (for example `op` / `re`) instead of a fixed letter, so the chip itself reflects state between Activate clicks.
 
 ### Changed
 

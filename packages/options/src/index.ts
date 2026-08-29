@@ -3,6 +3,7 @@ export { formatResolveError } from "./decode.ts"
 export {
 	footerActivate,
 	footerControlActive,
+	footerControlGlyph,
 	footerKeys,
 	footerValues,
 	isFooterOption,

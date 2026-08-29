@@ -20,9 +20,17 @@ export type FooterActivate = "toggle" | "cycle"
  * Presentation only — no React, colors, or keymap ids.
  */
 export interface FooterOptIn {
-	/** Single-cell (or short) glyph shown in chrome. */
+	/**
+	 * Glyph when there is no value-specific label (booleans; unknown choice).
+	 * Choice options with footer must also declare `labels` for every choice.
+	 */
 	readonly icon: string
 	readonly activate?: FooterActivate
+	/**
+	 * Short abbreviations shown as the footer glyph for each choice value.
+	 * Required for string options with `choices` that opt into the footer.
+	 */
+	readonly labels?: Readonly<Record<string, string>>
 }
 
 export interface BooleanOption {

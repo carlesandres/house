@@ -61,9 +61,24 @@ export const footerControlActive = <S extends OptionSpec>(
 	value: OptionValue<S>,
 ): boolean => {
 	if (spec.type === "boolean") return Boolean(value)
-	// Choice and other footer controls stay lit; the glyph is the affordance,
-	// and multi-value state is confirmed via notices when the app wants that.
+	// Choice controls stay lit; the glyph abbreviation carries the value.
 	return true
+}
+
+/** Glyph to show for the current value (choice label, else static icon). */
+export const footerControlGlyph = <S extends OptionSpec>(
+	spec: S,
+	value: OptionValue<S>,
+): string => {
+	const footer = spec.footer
+	if (footer === undefined) {
+		throw new Error("footerControlGlyph requires a footer-opted spec")
+	}
+	if (typeof value === "string" && footer.labels !== undefined) {
+		const label = footer.labels[value]
+		if (label !== undefined && label.length > 0) return label
+	}
+	return footer.icon
 }
 
 export const validateFooterSpecs = <C extends Catalog>(specs: C): void => {
@@ -91,6 +106,20 @@ export const validateFooterSpecs = <C extends Catalog>(specs: C): void => {
 				throw new Error(
 					`option ${JSON.stringify(key)}: footer activate "cycle" requires string choices`,
 				)
+			}
+			const labels = footer.labels
+			if (labels === undefined) {
+				throw new Error(
+					`option ${JSON.stringify(key)}: footer.labels is required for choice options`,
+				)
+			}
+			for (const choice of spec.choices) {
+				const label = labels[choice]
+				if (label === undefined || label.length === 0) {
+					throw new Error(
+						`option ${JSON.stringify(key)}: footer.labels missing entry for ${JSON.stringify(choice)}`,
+					)
+				}
 			}
 		}
 	}

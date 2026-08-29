@@ -13,7 +13,7 @@ const catalog = defineOptions({
 		type: "string",
 		default: "opencode",
 		choices: ["opencode", "nord"],
-		footer: { icon: "✦" },
+		footer: { icon: "T", labels: { opencode: "op", nord: "no" } },
 	},
 	width: {
 		type: "number",
@@ -40,7 +40,7 @@ describe("footerControlsFromSession", () => {
 		})
 		expect(controls[1]).toMatchObject({
 			id: "theme",
-			icon: "✦",
+			icon: "no",
 			active: true,
 		})
 		expect(typeof controls[0]?.onMouseUp).toBe("function")

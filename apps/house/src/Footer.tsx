@@ -24,7 +24,11 @@ import type React from "react"
 import type { KeyBinding } from "./keymap/keymap.ts"
 import { displayKey } from "./keymap/displayKey.ts"
 import { Spinner } from "./Spinner.tsx"
-import { StatusIndicator, type StatusIndicatorProps } from "./StatusIndicator.tsx"
+import {
+	StatusIndicator,
+	statusIndicatorWidth,
+	type StatusIndicatorProps,
+} from "./StatusIndicator.tsx"
 import { colors } from "./theme/colors.ts"
 
 /** Rows the Footer occupies. Importers use it for layout math so a future
@@ -89,6 +93,8 @@ const fitHints = (hints: readonly Hint[], width: number): Hint[] => {
 }
 
 const STATUS_SEPARATOR = " · "
+const INDICATOR_SEPARATOR = " "
+const INDICATOR_SEPARATOR_WIDTH = 1
 const NON_WARNING_STATUS_PREFIX_WIDTH = 2 // 1-cell spinner + 1-cell spacer
 
 const isPartialDiscoveryWarning = (status: string | null): boolean =>
@@ -151,7 +157,15 @@ export const Footer = <C,>({
 			: []),
 		...indicators,
 	]
-	const indicatorBudget = Math.min(usableWidth, renderedIndicators.length * 3)
+	const indicatorWidths = renderedIndicators.map((indicator) =>
+		statusIndicatorWidth(indicator.icon),
+	)
+	const indicatorSeparatorBudget =
+		renderedIndicators.length > 1 ? (renderedIndicators.length - 1) * INDICATOR_SEPARATOR_WIDTH : 0
+	const indicatorBudget = Math.min(
+		usableWidth,
+		indicatorWidths.reduce((sum, width) => sum + width, 0) + indicatorSeparatorBudget,
+	)
 	const hasContentAfterIndicators = notice !== null || status !== null || hints.length > 0
 	const indicatorContentGapBudget =
 		renderedIndicators.length > 0 && hasContentAfterIndicators && indicatorBudget < usableWidth
@@ -181,7 +195,19 @@ export const Footer = <C,>({
 			: notice
 		: null
 	const renderIndicators = () =>
-		renderedIndicators.map(({ id, ...props }) => <StatusIndicator key={id} {...props} />)
+		renderedIndicators.flatMap(({ id, ...props }, index) => {
+			const chip = <StatusIndicator key={id} {...props} />
+			if (index === 0) return [chip]
+			return [
+				<text
+					key={`indicator-sep-${id}`}
+					content={INDICATOR_SEPARATOR}
+					wrapMode="none"
+					style={{ fg: colors.textMuted }}
+				/>,
+				chip,
+			]
+		})
 	const renderIndicatorContentGap = () =>
 		indicatorContentGapBudget > 0 ? (
 			<text content=" " wrapMode="none" style={{ fg: colors.textMuted }} />

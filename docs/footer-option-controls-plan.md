@@ -5,9 +5,10 @@ rendering them as clickable footer chrome (generalizing today’s wrap `W`
 indicator).
 
 **Status:** wrap + theme + order footer controls shipped. Activate for
-choice options is one-direction cycle (`nextFooterValue`). Tone stays off
-the footer. Order is session-mutable via the footer and does not persist to
-the config file. Reverse-cycle and value glyphs remain open.
+choice options is one-direction cycle (`nextFooterValue`). Choice chips
+show declared `footer.labels` abbreviations of the live value. Tone stays
+off the footer. Order is session-mutable via the footer and does not
+persist to the config file. Reverse-cycle remains open.
 
 ## Goal
 

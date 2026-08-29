@@ -43,17 +43,11 @@ describe("saveThemePreference", () => {
 		)
 		await saveThemePreference({ theme: "nord", tone: "light" }, cfgPath)
 		const raw = await readFile(cfgPath, "utf8")
-		expect(raw).toBe(
-			'# keep my comment\nextensions = ["mdx"]\n\ntheme = "nord"\ntone = "light"\n',
-		)
+		expect(raw).toBe('# keep my comment\nextensions = ["mdx"]\n\ntheme = "nord"\ntone = "light"\n')
 	})
 
 	test("inserts missing theme keys before TOML tables", async () => {
-		await writeFile(
-			cfgPath,
-			'# config\nextensions = ["mdx"]\n\n[future]\nname = "kept"\n',
-			"utf8",
-		)
+		await writeFile(cfgPath, '# config\nextensions = ["mdx"]\n\n[future]\nname = "kept"\n', "utf8")
 		await saveThemePreference({ theme: "nord", tone: "light" }, cfgPath)
 		const raw = await readFile(cfgPath, "utf8")
 		expect(raw).toBe(

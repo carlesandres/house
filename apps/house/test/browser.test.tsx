@@ -1799,6 +1799,7 @@ describe("Browser — footer", () => {
 					readFile={makeReader({ "a.md": "x" })}
 					initialWrap={false}
 					wrapWidth={80}
+					order="recently-modified"
 					onQuit={() => {}}
 				/>,
 				VIEWPORT,
@@ -1810,8 +1811,11 @@ describe("Browser — footer", () => {
 		let spans = setup!.captureSpans()
 		const footerRow = VIEWPORT.height - 1
 		expect(frame.split("\n")[footerRow]).toContain(" W ")
-		expect(frame.split("\n")[footerRow]).toContain(" T ")
-		expect(frame.split("\n")[footerRow]).toContain(" O ")
+		// Choice options show declared abbreviations of the current value.
+		expect(frame.split("\n")[footerRow]).toContain(" OP ")
+		expect(frame.split("\n")[footerRow]).toContain(" RE ")
+		// Indicators are separated by a single space between chips.
+		expect(frame.split("\n")[footerRow]).toMatch(/W\s{2,}OP\s{2,}RE/)
 		expect(frame).not.toContain("w wrap")
 		expect(fgAt(spans, footerRow, 2)?.equals(RGBA.fromHex(colors.textMuted))).toBe(true)
 
@@ -1861,32 +1865,39 @@ describe("Browser — footer", () => {
 			return z >= 0 && mid > z && a > mid
 		})
 
-		// Indicators are 3 cells each after 1-cell left padding: W @1, T @4, O @7.
+		// After 1-cell padding: W(3) + gap(1) + OP(4) + gap(1) + RE(4).
+		// Click the center of the order chip (" RE ").
 		await act(async () => {
-			await setup!.mockMouse.click(8, VIEWPORT.height - 1)
+			await setup!.mockMouse.click(12, VIEWPORT.height - 1)
 		})
 
 		const treeFrame = await waitForFrame((candidate) => {
 			if (!candidate.includes("order: tree")) return false
+			const footer = candidate.split("\n")[VIEWPORT.height - 1] ?? ""
+			if (!footer.includes(" TR ")) return false
 			const { a, z, mid } = sidebarIndexes(candidate)
 			// Tree: root files before nested paths, then path order → a, z, nested/mid.
 			return a >= 0 && z > a && mid > z
 		})
 		expect(treeFrame).toContain("order: tree")
+		expect(treeFrame.split("\n")[VIEWPORT.height - 1]).toContain(" TR ")
 
 		await act(async () => {
-			await setup!.mockMouse.click(8, VIEWPORT.height - 1)
+			await setup!.mockMouse.click(12, VIEWPORT.height - 1)
 		})
 
 		const recentFrame = await waitForFrame((candidate) => {
 			if (!candidate.includes("order: recently-modified")) return false
+			const footer = candidate.split("\n")[VIEWPORT.height - 1] ?? ""
+			if (!footer.includes(" RE ")) return false
 			const { z, mid, a } = sidebarIndexes(candidate)
 			return z >= 0 && mid > z && a > mid
 		})
 		expect(recentFrame).toContain("order: recently-modified")
+		expect(recentFrame.split("\n")[VIEWPORT.height - 1]).toContain(" RE ")
 	})
 
-	test("cycles theme forward from the footer T control", async () => {
+	test("cycles theme forward from the footer theme abbrev control", async () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
@@ -1899,13 +1910,17 @@ describe("Browser — footer", () => {
 			)
 		})
 		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame().split("\n")[VIEWPORT.height - 1]).toContain(" OP ")
 
+		// Click the center of the theme chip (" OP ") after W + gap.
 		await act(async () => {
-			await setup!.mockMouse.click(5, VIEWPORT.height - 1)
+			await setup!.mockMouse.click(6, VIEWPORT.height - 1)
 		})
 		await stepFrame(setup!.renderOnce)
 
-		expect(setup!.captureCharFrame()).toMatch(/theme: /)
+		const frame = setup!.captureCharFrame()
+		expect(frame).toMatch(/theme: /)
+		expect(frame.split("\n")[VIEWPORT.height - 1]).not.toContain(" OP ")
 	})
 
 	test("clamps enabled wrap width to the visible reader pane", async () => {

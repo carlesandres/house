@@ -6,6 +6,7 @@
 
 import {
 	footerControlActive,
+	footerControlGlyph,
 	footerKeys,
 	nextFooterValue,
 	type Catalog,
@@ -42,7 +43,7 @@ export const footerControlsFromSession = <C extends Catalog>(
 		const handler = handlers[key]
 		controls.push({
 			id: key,
-			icon: footer.icon,
+			icon: footerControlGlyph(spec, value),
 			variant: "info",
 			active: handler?.active ?? footerControlActive(spec, value),
 			onMouseUp: () => {
