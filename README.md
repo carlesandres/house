@@ -133,7 +133,7 @@ The footer only shows essential app controls (`W`, `q`, `tab`, `s`, `ctrl+p`) to
 | `q` / `ctrl+c` | Quit                                                        |
 | `tab`          | Toggle focus (sidebar ↔ reader)                             |
 | `s`            | Toggle sidebar visibility                                   |
-| `ctrl+p`       | Command palette                                             |
+| `ctrl+p` / `?` | Command palette (`?` does not fire while typing in filter, palette, or name prompts) |
 | `w`            | Toggle reader wrap                                          |
 | `O`            | Open current file in browser as HTML                        |
 | `E`            | Open current file in `$EDITOR` (`$VISUAL` takes precedence) |

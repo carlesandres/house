@@ -6,6 +6,10 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 
 ## [Unreleased]
 
+### Added
+
+- `?` opens the command palette outside text inputs (same action as `ctrl+p`), so a single-key discovery path works without stealing `?` from the filter, palette query, or name prompts.
+
 ## [0.6.0] — 2026-08-24
 
 ### Added
