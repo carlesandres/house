@@ -11,6 +11,10 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 - `?` opens the command palette outside text inputs (same action as `ctrl+p`), so a single-key discovery path works without stealing `?` from the filter, palette query, or name prompts.
 - `R` (`shift+r`) renames the selected file's basename via the same prompt shell as New file, so nested files stay in place without leaving House.
 
+### Changed
+
+- Filter, command palette, and name prompts now use OpenTUI's single-line input, so left/right (and home/end) move the caret instead of only deleting from the end.
+
 ## [0.6.0] — 2026-08-24
 
 ### Added

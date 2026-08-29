@@ -58,9 +58,10 @@ there so agents do not “fix” it.
 - Prefill the input with the current basename; caret at end. Do not select-all
   unless `PromptRow` already supports selection without new machinery.
 - Never rewrite the input field while typing (same discipline as ADR 0002).
-- Keys while open: same swallow rules as New file (printable including space;
-  Backspace/Delete edit; Enter submits; Esc cancels; no quit / palette / sidebar
-  motion). Suppress duplicate submit while a rename is pending.
+- Keys while open: OpenTUI `<input>` owns typing and caret motion (left/right,
+  home/end, in-place insert/delete). Browser's prompt branch keeps Esc / Enter
+  / Up/Down (no sidebar motion), swallows `ctrl+p` (no palette) and `ctrl+c`
+  (no quit). Suppress duplicate submit while a rename is pending.
 
 ### Resolve (shared helper)
 

@@ -33,6 +33,9 @@ export interface PromptModalProps {
 	readonly context?: string
 	readonly viewportWidth: number
 	readonly viewportHeight: number
+	readonly onQueryChange: (value: string) => void
+	readonly onInputReady?: (ready: boolean) => void
+	readonly inputEnabled?: boolean
 }
 
 const PromptStatusLine = ({
@@ -63,6 +66,9 @@ export const PromptModal = ({
 	context,
 	viewportWidth,
 	viewportHeight,
+	onQueryChange,
+	onInputReady,
+	inputEnabled = true,
 }: PromptModalProps) => {
 	const overlayWidth = Math.min(viewportWidth - 4, 64)
 	const statusLines = status?.lines ?? []
@@ -116,10 +122,12 @@ export const PromptModal = ({
 				)}
 				<PromptRow
 					query={query}
-					editing={true}
+					editing={inputEnabled}
 					placeholder={placeholder}
 					showPlaceholderWhileEditing
 					width={rowWidth}
+					onInput={onQueryChange}
+					{...(onInputReady === undefined ? {} : { onEditingReady: onInputReady })}
 				/>
 				{status === null || statusLines.length === 0 ? (
 					<text content=" " />

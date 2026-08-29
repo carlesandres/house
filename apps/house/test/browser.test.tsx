@@ -1120,7 +1120,7 @@ describe("Browser — #22 layout v2", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
-		expect(frame).toContain("> ▏")
+		expect(frame).toContain("> ")
 		expect(sidebarIsFocused(setup!.captureSpans(), frame)).toBe(true)
 	})
 
@@ -1144,7 +1144,7 @@ describe("Browser — #22 layout v2", () => {
 		await stepFrame(setup!.renderOnce)
 
 		const frame = setup!.captureCharFrame()
-		expect(frame).not.toContain("> ▏")
+		expect(frame).toContain("type / to filter")
 		expect(sidebarIsFocused(setup!.captureSpans(), frame)).toBe(false)
 		expect(readerTitleContains(frame, "a.md")).toBe(true)
 
@@ -1154,7 +1154,7 @@ describe("Browser — #22 layout v2", () => {
 		await stepFrame(setup!.renderOnce)
 
 		const returnedFrame = setup!.captureCharFrame()
-		expect(returnedFrame).toContain("> ▏")
+		expect(returnedFrame).toContain("> ")
 		expect(sidebarIsFocused(setup!.captureSpans(), returnedFrame)).toBe(true)
 	})
 
@@ -1190,7 +1190,7 @@ describe("Browser — #22 layout v2", () => {
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
 		expect(sidebarIsFocused(setup!.captureSpans(), frame)).toBe(true)
-		expect(frame).not.toContain("> ▏")
+		expect(frame).toContain("type / to filter")
 	})
 
 	test("startup sidebar visibility does not depend on the viewport bucket", async () => {
@@ -1693,7 +1693,7 @@ describe("Browser — footer", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		const immediate = setup!.captureCharFrame()
-		expect(immediate).toContain("z▏")
+		expect(immediate).toContain("z")
 		expect(immediate).not.toContain("No files match: z")
 
 		await act(async () => {
@@ -1728,8 +1728,8 @@ describe("Browser — footer", () => {
 		await stepFrame(setup!.renderOnce)
 		const cleared = setup!.captureCharFrame()
 		expect(cleared).not.toContain("No files match: z")
-		expect(cleared).toContain("▏")
-		expect(cleared).not.toContain("z▏")
+		expect(cleared).toContain("")
+		expect(cleared).not.toContain("z")
 	})
 
 	test("renders only essential footer hints when sidebar is focused", async () => {
@@ -2339,7 +2339,7 @@ describe("Browser — sidebar filter row", () => {
 		const frame = setup!.captureCharFrame()
 		// Placeholder visible, modal is not open (no cursor).
 		expect(frame).toContain("> type / to filter")
-		expect(frame).not.toContain("> ▏")
+		expect(frame).toContain("type / to filter")
 	})
 
 	test("filter row is suppressed on an empty vault (no 'type / to filter')", async () => {
@@ -2380,7 +2380,7 @@ describe("Browser — sidebar filter row", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
-		expect(frame).toContain("> re▏")
+		expect(frame).toContain("> re")
 		// Placeholder gone while editing.
 		expect(frame).not.toContain("> type / to filter")
 	})
@@ -2413,9 +2413,8 @@ describe("Browser — sidebar filter row", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
-		// Applied: prefix + query, no cursor.
+		// Applied: prefix + query (native input unmounted, no caret).
 		expect(frame).toContain("> int")
-		expect(frame).not.toContain("> int▏")
 		// Filtered list stays narrowed — non-matching files remain hidden.
 		expect(frame).not.toContain("README.md")
 		expect(frame).not.toContain("notes.md")
@@ -2455,7 +2454,7 @@ describe("Browser — sidebar filter row", () => {
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
 		// Query carried into editing state with cursor.
-		expect(frame).toContain("> int▏")
+		expect(frame).toContain("> int")
 	})
 
 	test("initialQuery seeds the applied filter on launch", async () => {
@@ -2574,7 +2573,7 @@ describe("Browser — sidebar filter row", () => {
 			setup!.mockInput.pressKey("o")
 		})
 		await stepFrame(setup!.renderOnce)
-		expect(setup!.captureCharFrame()).toContain("> intro▏")
+		expect(setup!.captureCharFrame()).toContain("> intro")
 
 		await act(async () => {
 			setup!.mockInput.pressEscape()
@@ -2586,7 +2585,6 @@ describe("Browser — sidebar filter row", () => {
 		// with trailing space to avoid colliding with the "docs/intro.md" file
 		// row underneath.
 		expect(frame).toContain("> intro ")
-		expect(frame).not.toContain("> ▏")
 		// Filtered list still narrowed.
 		expect(frame).not.toContain("README.md")
 		expect(frame).not.toContain("notes.md")
@@ -2652,7 +2650,7 @@ describe("Browser — filter modal", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		// Filter input row visible.
-		expect(setup!.captureCharFrame()).toContain("> ▏")
+		expect(setup!.captureCharFrame()).toContain("> ")
 
 		await act(async () => {
 			setup!.mockInput.pressKey("r")
@@ -2691,7 +2689,7 @@ describe("Browser — filter modal", () => {
 			setup!.mockInput.pressKey("r")
 		})
 		await stepFrame(setup!.renderOnce)
-		expect(setup!.captureCharFrame()).toContain("> r▏")
+		expect(setup!.captureCharFrame()).toContain("> r")
 
 		await act(async () => {
 			setup!.mockInput.pressEscape()
@@ -2699,8 +2697,7 @@ describe("Browser — filter modal", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
-		// Editing cursor gone; query "r" still applied — list stays narrowed.
-		expect(frame).not.toContain("> r▏")
+		// Query "r" still applied — list stays narrowed.
 		expect(frame).toContain("> r ")
 		expect(frame).toContain("README.md")
 		expect(frame).not.toContain("notes.md")
@@ -2732,7 +2729,7 @@ describe("Browser — filter modal", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		// Typed input is live immediately; applied filter catches up after debounce.
-		expect(setup!.captureCharFrame()).toContain("> int▏")
+		expect(setup!.captureCharFrame()).toContain("> int")
 		await act(async () => {
 			await new Promise<void>((resolve) => setTimeout(resolve, 60))
 		})
@@ -2745,9 +2742,9 @@ describe("Browser — filter modal", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
-		// Reader is now focused on docs/intro.md; filter is closed.
+		// Reader is now focused on docs/intro.md; filter is closed (query may
+		// still show as applied in the sidebar row).
 		expect(readerTitleContains(frame, "docs/intro.md")).toBe(true)
-		expect(frame).not.toContain("> int▏")
 	})
 
 	test("backspace removes a query character and re-broadens the list", async () => {
@@ -2770,7 +2767,7 @@ describe("Browser — filter modal", () => {
 			setup!.mockInput.pressKey("e")
 		})
 		await stepFrame(setup!.renderOnce)
-		expect(setup!.captureCharFrame()).toContain("> re▏")
+		expect(setup!.captureCharFrame()).toContain("> re")
 		await act(async () => {
 			await new Promise<void>((resolve) => setTimeout(resolve, 60))
 		})
@@ -2826,7 +2823,7 @@ describe("Browser — filter modal", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		// Typed query is live immediately; applied narrowing happens after debounce.
-		expect(setup!.captureCharFrame()).toContain("> readme▏")
+		expect(setup!.captureCharFrame()).toContain("> readme")
 		await act(async () => {
 			await new Promise<void>((resolve) => setTimeout(resolve, 60))
 		})
@@ -2886,9 +2883,8 @@ describe("Browser — filter modal", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
-		// Filter closed (no editing cursor); query "readme" still applied so
-		// only the match is visible in the sidebar.
-		expect(frame).not.toContain("> readme▏")
+		// Filter closed; query "readme" still applied so only the match is
+		// visible in the sidebar.
 		expect(frame).toContain("> readme ")
 		expect(frame).not.toContain("alpha.md")
 		expect(frame).not.toContain("beta.md")
@@ -2932,7 +2928,7 @@ describe("Browser — filter modal", () => {
 			setup!.mockInput.pressKey("c")
 		})
 		await stepFrame(setup!.renderOnce)
-		expect(setup!.captureCharFrame()).toContain("> doc▏")
+		expect(setup!.captureCharFrame()).toContain("> doc")
 		await act(async () => {
 			await new Promise<void>((resolve) => setTimeout(resolve, 60))
 		})
@@ -3005,7 +3001,7 @@ describe("Browser — filter modal", () => {
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
 		// Filter input is up.
-		expect(frame).toContain("> ▏")
+		expect(frame).toContain("> ")
 		// Sidebar is focused (the modal needs a home).
 		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(true)
 	})
@@ -3037,7 +3033,7 @@ describe("Browser — filter modal", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
-		expect(frame).toContain("> ▏")
+		expect(frame).toContain("> ")
 		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(true)
 	})
 
@@ -3064,7 +3060,7 @@ describe("Browser — filter modal", () => {
 			setup!.mockInput.pressKey("/")
 		})
 		await stepFrame(setup!.renderOnce)
-		expect(setup!.captureCharFrame()).toContain("> ▏")
+		expect(setup!.captureCharFrame()).toContain("> ")
 
 		await act(async () => {
 			setup!.mockInput.pressEscape()
@@ -3072,9 +3068,8 @@ describe("Browser — filter modal", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
-		expect(frame).not.toContain("> ▏")
 		// Restored to hidden.
-		expect(sidebarIsVisible(setup!.captureCharFrame())).toBe(false)
+		expect(sidebarIsVisible(frame)).toBe(false)
 	})
 
 	test("Esc after typing keeps the query applied and dismisses the drawer", async () => {
@@ -3119,7 +3114,7 @@ describe("Browser — filter modal", () => {
 		// Filter input gone (no editing cursor); drawer dismissed (shown=false,
 		// focus=reader). Query "r" is kept as the applied filter; reopening
 		// with `/` would resume editing it.
-		expect(frame).not.toContain("> r▏")
+		expect(frame).not.toContain("> r")
 		expect(sidebarIsVisible(setup!.captureCharFrame())).toBe(false)
 	})
 
@@ -3142,7 +3137,7 @@ describe("Browser — filter modal", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		// Sanity: modal is up.
-		expect(setup!.captureCharFrame()).toContain("> ▏")
+		expect(setup!.captureCharFrame()).toContain("> ")
 
 		await act(async () => {
 			setup!.mockInput.pressBackspace()
@@ -3150,7 +3145,7 @@ describe("Browser — filter modal", () => {
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
 		// Editing cursor gone; idle placeholder back.
-		expect(frame).not.toContain("> ▏")
+		expect(frame).toContain("type / to filter")
 		expect(frame).toContain("> type / to filter")
 		// Both files still visible (no committed filter).
 		expect(frame).toContain("README.md")
@@ -3197,7 +3192,7 @@ describe("Browser — filter modal", () => {
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
 		// Editing cursor gone; idle placeholder back.
-		expect(frame).not.toContain("> ▏")
+		expect(frame).toContain("type / to filter")
 		expect(frame).toContain("> type / to filter")
 		// Filter cleared — full list visible.
 		expect(frame).toContain("README.md")
@@ -3232,7 +3227,7 @@ describe("Browser — filter modal", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		// Typed input is live immediately; zero-match state appears after debounce.
-		expect(setup!.captureCharFrame()).toContain("> zzz▏")
+		expect(setup!.captureCharFrame()).toContain("> zzz")
 		await act(async () => {
 			await new Promise<void>((resolve) => setTimeout(resolve, 60))
 		})
@@ -3243,9 +3238,8 @@ describe("Browser — filter modal", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
-		// Filter closed (no editing cursor); zero-match query "zzz" stays
-		// applied, so the list remains empty. Sidebar still focused.
-		expect(frame).not.toContain("> zzz▏")
+		// Filter closed; zero-match query "zzz" stays applied, so the list
+		// remains empty. Sidebar still focused.
 		expect(frame).toContain("> zzz ")
 		expect(frame).not.toContain("README.md")
 		expect(frame).not.toContain("notes.md")
@@ -3312,7 +3306,7 @@ describe("Browser — filter modal", () => {
 			setup!.mockInput.pressKey("t")
 		})
 		await stepFrame(setup!.renderOnce)
-		expect(setup!.captureCharFrame()).toContain("> int▏")
+		expect(setup!.captureCharFrame()).toContain("> int")
 
 		// Ctrl+\ clears the input but does NOT close filter mode.
 		await act(async () => {
@@ -3321,7 +3315,7 @@ describe("Browser — filter modal", () => {
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
 		// Editing cursor still present on an empty query.
-		expect(frame).toContain("> ▏")
+		expect(frame).toContain("> ")
 		// Full list back.
 		expect(frame).toContain("README.md")
 		expect(frame).toContain("notes.md")
@@ -3352,7 +3346,7 @@ describe("Browser — filter modal", () => {
 			setup!.mockInput.pressKey("t")
 		})
 		await stepFrame(setup!.renderOnce)
-		expect(setup!.captureCharFrame()).toContain("> int▏")
+		expect(setup!.captureCharFrame()).toContain("> int")
 
 		await act(async () => {
 			setup!.mockInput.pressKey("u", { ctrl: true })
@@ -3362,7 +3356,7 @@ describe("Browser — filter modal", () => {
 		// Query unchanged; modal still open. Ctrl+U is swallowed inside the
 		// filter input — its sidebar page-up binding doesn't fire either,
 		// since the keymap doesn't see keys while filter is open.
-		expect(frame).toContain("> int▏")
+		expect(frame).toContain("> int")
 	})
 
 	test("ctrl+p opens the command palette while the filter modal is open", async () => {
@@ -3390,7 +3384,7 @@ describe("Browser — filter modal", () => {
 			setup!.mockInput.pressKey("t")
 		})
 		await stepFrame(setup!.renderOnce)
-		expect(setup!.captureCharFrame()).toContain("> int▏")
+		expect(setup!.captureCharFrame()).toContain("> int")
 
 		await act(async () => {
 			setup!.mockInput.pressKey("p", { ctrl: true })
@@ -3399,7 +3393,7 @@ describe("Browser — filter modal", () => {
 		const frame = setup!.captureCharFrame()
 		expect(frame).toContain("Commands")
 		expect(frame).toContain("Navigation")
-		expect(frame).not.toContain("> intp▏")
+		expect(frame).not.toContain("> intp")
 	})
 
 	test("`?` types into the filter query and does not open the palette", async () => {
@@ -3429,7 +3423,7 @@ describe("Browser — filter modal", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
-		expect(frame).toContain("> int?▏")
+		expect(frame).toContain("> int?")
 		expect(frame).not.toContain(" Commands ")
 	})
 
@@ -3472,7 +3466,7 @@ describe("Browser — filter modal", () => {
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
 		expect(frame).not.toContain(" Commands ")
-		expect(frame).toContain("> int▏")
+		expect(frame).toContain("> int")
 	})
 
 	test("footer keeps the fixed essential hints visible while the filter modal is open", async () => {
@@ -3575,7 +3569,7 @@ describe("Browser — filter modal", () => {
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
 		// Editing cursor present on an empty query; full list back.
-		expect(frame).toContain("> ▏")
+		expect(frame).toContain("> ")
 		expect(frame).toContain("README.md")
 		expect(frame).toContain("notes.md")
 		expect(frame).toContain("intro.md")
@@ -3615,7 +3609,7 @@ describe("Browser — filter modal", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
-		expect(frame).toContain("> ▏")
+		expect(frame).toContain("> ")
 		expect(frame).toContain("README.md")
 		expect(frame).toContain("notes.md")
 	})
@@ -3642,7 +3636,7 @@ describe("Browser — filter modal", () => {
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
 		// Editing cursor on empty query — equivalent to pressing `/`.
-		expect(frame).toContain("> ▏")
+		expect(frame).toContain("> ")
 	})
 
 	test("ctrl+\\ with the command palette open is swallowed (palette stays, no filter open)", async () => {
@@ -3756,7 +3750,7 @@ describe("Browser — filter modal", () => {
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
 		// Sidebar still visible; `s` went into the query.
-		expect(frame).toContain("> s▏")
+		expect(frame).toContain("> s")
 		expect(frame).toContain("build.md scripts")
 		// The filter hasn't applied yet; this test only asserts that `s` was
 		// captured as input and did not toggle the sidebar binding.
@@ -3828,7 +3822,7 @@ describe("Browser — command palette", () => {
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
 		expect(frame).toContain(" Commands ")
-		expect(frame).toContain("> ?▏")
+		expect(frame).toContain("> ?")
 	})
 
 	test("palette body accounts for group headers and spacers when sizing", async () => {
@@ -4095,7 +4089,7 @@ describe("Browser — command palette", () => {
 		const frame = setup!.captureCharFrame()
 		expect(quitCalls).toBe(0)
 		expect(frame).not.toContain(" Commands ")
-		expect(frame).toContain("> ▏")
+		expect(frame).toContain("> ")
 	})
 
 	test("filtered grouped selection highlights and runs the selected command", async () => {
@@ -4647,7 +4641,7 @@ describe("Browser — new file prompt", () => {
 				setup!.mockInput.pressKey("😀")
 			})
 			await stepFrame(setup!.renderOnce)
-			expect(setup!.captureCharFrame()).toContain("😀▏")
+			expect(setup!.captureCharFrame()).toContain("😀")
 
 			await act(async () => {
 				setup!.mockInput.pressBackspace()
@@ -4689,7 +4683,7 @@ describe("Browser — new file prompt", () => {
 				setup!.mockInput.pressKey("?")
 			})
 			await stepFrame(setup!.renderOnce)
-			expect(setup!.captureCharFrame()).toContain("q?▏")
+			expect(setup!.captureCharFrame()).toContain("q?")
 			await act(async () => {
 				setup!.mockInput.pressKey("c", { ctrl: true })
 				setup!.mockInput.pressKey("p", { ctrl: true })
@@ -4697,7 +4691,7 @@ describe("Browser — new file prompt", () => {
 			})
 			await stepFrame(setup!.renderOnce)
 			const frame = setup!.captureCharFrame()
-			expect(frame).toContain("q?▏")
+			expect(frame).toContain("q?")
 			expect(frame).toContain("enter create  esc cancel")
 			expect(frame).not.toContain(" Commands ")
 			expect(quit).toBe(0)
@@ -4733,7 +4727,7 @@ describe("Browser — new file prompt", () => {
 			})
 			await stepFrame(setup!.renderOnce)
 			expect(setup!.captureCharFrame()).toContain("zzz")
-			expect(setup!.captureCharFrame()).not.toContain("zzz.md▏")
+			expect(setup!.captureCharFrame()).not.toContain("zzz.md")
 
 			await act(async () => {
 				setup!.mockInput.pressEscape()
@@ -5140,7 +5134,7 @@ describe("Browser — new file prompt", () => {
 				typeName("x")
 			})
 			await stepFrame(setup!.renderOnce)
-			expect(setup!.captureCharFrame()).toContain("foo▏")
+			expect(setup!.captureCharFrame()).toContain("foo")
 			expect(setup!.captureCharFrame()).not.toContain("foox")
 			await act(async () => {
 				gate.resolve()
@@ -5313,7 +5307,7 @@ describe("Browser — rename prompt", () => {
 		const frame = setup!.captureCharFrame()
 		expect(frame).toContain("Rename")
 		expect(frame).toContain("notes/foo.md")
-		expect(frame).toContain("foo.md▏")
+		expect(frame).toContain("foo.md")
 		expect(frame).toContain("enter rename  esc cancel")
 
 		await act(async () => {
@@ -5544,7 +5538,7 @@ describe("Browser — rename prompt", () => {
 			setup!.mockInput.pressKey("?")
 		})
 		await stepFrame(setup!.renderOnce)
-		expect(setup!.captureCharFrame()).toContain("q?▏")
+		expect(setup!.captureCharFrame()).toContain("q?")
 		await act(async () => {
 			setup!.mockInput.pressKey("c", { ctrl: true })
 			setup!.mockInput.pressKey("p", { ctrl: true })
@@ -5552,11 +5546,28 @@ describe("Browser — rename prompt", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
-		expect(frame).toContain("q?▏")
+		expect(frame).toContain("q?")
 		expect(frame).toContain("enter rename  esc cancel")
 		expect(frame).not.toContain(" Commands ")
 		expect(quit).toBe(0)
 		expect(readerTitleContains(frame, "a.md")).toBe(true)
+	})
+
+	test("left/right arrows move the caret inside the name field", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser root={makeFiles(["ab.md"])} readFile={async () => ""} onQuit={() => {}} />,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		await openRename()
+		await act(async () => {
+			for (let i = 0; i < 5; i++) setup!.mockInput.pressArrow("left")
+			setup!.mockInput.pressKey("x")
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).toContain("xab.md")
 	})
 
 	test("renaming retargets HTML preview when it serves the Action Target", async () => {

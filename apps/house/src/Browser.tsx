@@ -173,6 +173,17 @@ const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout
 const isSingleCodePoint = (value: string): boolean => Array.from(value).length === 1
 const dropLastCodePoint = (value: string): string => Array.from(value).slice(0, -1).join("")
 
+const printableFromKey = (key: {
+	readonly name: string
+	readonly shift?: boolean
+}): string | null => {
+	if (key.name === "space") return " "
+	if (typeof key.name === "string" && isSingleCodePoint(key.name)) {
+		return key.shift ? key.name.toUpperCase() : key.name
+	}
+	return null
+}
+
 const isPartialDiscoveryWarning = (status: string | null | undefined): boolean =>
 	status?.trimStart().startsWith("scan incomplete:") ?? false
 
@@ -435,6 +446,7 @@ export const Browser = ({
 	const promptPurposeRef = useRef<PromptPurpose>("new-file")
 	const promptFocusBeforeRef = useRef<"sidebar" | "reader">("sidebar")
 	const promptSubmittingRef = useRef(false)
+	const [promptSubmitting, setPromptSubmitting] = useState(false)
 	const actionTargetRef = useRef<ActionTarget | null>(null)
 	const promptTaskGenRef = useRef(0)
 	const mountedRef = useRef(true)
@@ -448,6 +460,9 @@ export const Browser = ({
 	// otherwise still observe filterOpen=false through closure).
 	const filterOpenRef = useRef(startInFilter)
 	const filterInputRef = useRef(initialQuery)
+	const filterInputReadyRef = useRef(false)
+	const paletteInputReadyRef = useRef(false)
+	const promptInputReadyRef = useRef(false)
 	const focusRef = useRef<"sidebar" | "reader">(focus)
 	const restoreFilterOnSidebarFocusRef = useRef(startInFilter)
 	const [footerNotice, setFooterNoticeState] = useState<{
@@ -671,6 +686,7 @@ export const Browser = ({
 
 	const closePrompt = (restoreFocus: boolean): void => {
 		promptSubmittingRef.current = false
+		setPromptSubmitting(false)
 		promptInputRef.current = ""
 		setPromptInput("")
 		setPromptStatus(null)
@@ -765,6 +781,7 @@ export const Browser = ({
 	): void => {
 		promptTaskGenRef.current += 1
 		promptSubmittingRef.current = false
+		setPromptSubmitting(false)
 		promptPurposeRef.current = purpose
 		setPromptPurpose(purpose)
 		setPromptContext(context)
@@ -842,6 +859,7 @@ export const Browser = ({
 			return
 		}
 		promptSubmittingRef.current = true
+		setPromptSubmitting(true)
 		const dest = join(root, resolved.basename)
 		const task = promptTaskGenRef.current
 		void (async () => {
@@ -853,6 +871,7 @@ export const Browser = ({
 			}
 			if (!created.ok) {
 				promptSubmittingRef.current = false
+				setPromptSubmitting(false)
 				setPromptStatus({
 					kind: "error",
 					lines: [
@@ -900,6 +919,7 @@ export const Browser = ({
 			return
 		}
 		promptSubmittingRef.current = true
+		setPromptSubmitting(true)
 		const dest = join(target.parentDir, resolved.basename)
 		const destRelative = destinationRelativePath(target.parentRelative, resolved.basename)
 		const task = promptTaskGenRef.current
@@ -920,6 +940,7 @@ export const Browser = ({
 			}
 			if (!renamed.ok) {
 				promptSubmittingRef.current = false
+				setPromptSubmitting(false)
 				setPromptStatus({
 					kind: "error",
 					lines: [renamed.reason === "already-exists" ? "already exists" : renamed.message],
@@ -1146,90 +1167,97 @@ export const Browser = ({
 			const allCommands = buildCommands(ctx)
 			const filtered = orderCommandsForPalette(filterCommands(allCommands, paletteQueryRef.current))
 			if (key.name === "escape") {
+				key.preventDefault()
 				closePalette()
 				return
 			}
 			if (key.name === "return") {
+				key.preventDefault()
 				const picked = filtered[clampSelectedIndex(paletteIndexRef.current, filtered)]
 				closePalette()
 				picked?.run()
 				return
 			}
 			if (key.name === "up") {
+				key.preventDefault()
 				setPaletteIndexSync(Math.max(0, paletteIndexRef.current - 1))
 				return
 			}
 			if (key.name === "down") {
+				key.preventDefault()
 				setPaletteIndexSync(Math.min(Math.max(0, filtered.length - 1), paletteIndexRef.current + 1))
-				return
-			}
-			if (key.name === "backspace" || key.name === "delete") {
-				if (paletteQueryRef.current.length === 0) return
-				paletteQueryRef.current = paletteQueryRef.current.slice(0, -1)
-				setPaletteQuery(paletteQueryRef.current)
-				setPaletteIndexSync(0)
 				return
 			}
 			// ctrl+p again closes.
 			if (key.ctrl && !key.meta && key.name === "p") {
+				key.preventDefault()
 				closePalette()
 				return
 			}
-			if (key.ctrl || key.meta) return
-			let char: string | null = null
-			if (key.name === "space") char = " "
-			else if (typeof key.name === "string" && key.name.length === 1) {
-				char = key.shift ? key.name.toUpperCase() : key.name
-			}
-			if (char !== null) {
-				paletteQueryRef.current = paletteQueryRef.current + char
-				setPaletteQuery(paletteQueryRef.current)
-				setPaletteIndexSync(0)
+			if (!paletteInputReadyRef.current) {
+				if (key.name === "backspace" || key.name === "delete") {
+					if (paletteQueryRef.current.length === 0) return
+					paletteQueryRef.current = paletteQueryRef.current.slice(0, -1)
+					setPaletteQuery(paletteQueryRef.current)
+					setPaletteIndexSync(0)
+					return
+				}
+				if (key.ctrl || key.meta) return
+				const char = printableFromKey(key)
+				if (char !== null) {
+					paletteQueryRef.current = paletteQueryRef.current + char
+					setPaletteQuery(paletteQueryRef.current)
+					setPaletteIndexSync(0)
+				}
 			}
 			return
 		}
 
 		// Prompt modal (New file / Rename — dual purpose on one overlay kind;
 		// purpose lives in promptPurposeRef; pure helpers in prompts/helpers.ts.
-		// See ADR 0003). Capture typing for the name field, same swallow style
-		// as the palette branch.
+		// See ADR 0003). Typing and caret motion live on the focused <input>;
+		// this branch keeps overlay chords (and swallows sidebar motion).
 		if (floatingOverlayRef.current.kind === "prompt") {
 			if (key.name === "escape") {
+				key.preventDefault()
 				closePrompt(true)
 				return
 			}
-			if (promptSubmittingRef.current) return
+			if (promptSubmittingRef.current) {
+				key.preventDefault()
+				return
+			}
 			if (key.name === "return") {
+				key.preventDefault()
 				submitPrompt()
 				return
 			}
-			if (key.name === "backspace" || key.name === "delete") {
-				if (promptInputRef.current.length === 0) return
-				applyPromptInput(dropLastCodePoint(promptInputRef.current))
+			if (key.name === "up" || key.name === "down") {
+				key.preventDefault()
 				return
 			}
-			if (key.ctrl || key.meta) return
-			let char: string | null = null
-			if (key.name === "space") char = " "
-			else if (typeof key.name === "string" && isSingleCodePoint(key.name)) {
-				char = key.shift ? key.name.toUpperCase() : key.name
+			if (key.ctrl && !key.meta && key.name === "p") {
+				key.preventDefault()
+				return
 			}
-			if (char !== null) applyPromptInput(promptInputRef.current + char)
+			if (!promptInputReadyRef.current) {
+				if (key.name === "backspace" || key.name === "delete") {
+					if (promptInputRef.current.length === 0) return
+					applyPromptInput(dropLastCodePoint(promptInputRef.current))
+					return
+				}
+				if (key.ctrl || key.meta) return
+				const char = printableFromKey(key)
+				if (char !== null) applyPromptInput(promptInputRef.current + char)
+			}
 			return
 		}
 
-		// Filter modal: capture keystrokes for the input. Esc closes,
-		// leaving the typed query applied as the active filter; Return
-		// closes and focuses the reader (open the match); Ctrl+\ clears
-		// the input but stays in filter mode (same binding used from
-		// outside the modal — single chord, single mental model. Ctrl+U
-		// is deliberately not overloaded here; it stays reserved for its
-		// sidebar/reader half-page-up role); Backspace edits; Up/Down
-		// navigate the filtered list; printable characters extend the
-		// query and reset selection to 0. Everything else is swallowed
-		// so normal bindings (j/k as nav, `s`, `t`, …) don't fire while
-		// the user is typing. This sits outside the data-driven keymap
-		// for the same reason the help branch does — see DESIGN.md §12.
+		// Filter modal: overlay chords stay here (Esc / Return / Tab / ctrl+p /
+		// ctrl+\ / empty-backspace / Up/Down). Typing and caret motion go to
+		// the focused OpenTUI <input> in PromptRow. Ctrl+U/D are still not
+		// overloaded (reserved for sidebar/reader page). This sits outside
+		// the data-driven keymap — see DESIGN.md §12.
 		if (filterOpenRef.current && focusRef.current === "sidebar") {
 			// One close path used by both Esc and Return. `commit=true` is
 			// the Return semantic (open the match in the reader); false is
@@ -1256,14 +1284,17 @@ export const Browser = ({
 				}
 			}
 			if (key.name === "escape") {
+				key.preventDefault()
 				closeFilter(false)
 				return
 			}
 			if (key.name === "return") {
+				key.preventDefault()
 				closeFilter(true)
 				return
 			}
 			if (key.name === "tab" || (key.ctrl && key.name === "i" && !key.shift && !key.meta)) {
+				key.preventDefault()
 				focusRef.current = "reader"
 				restoreFilterOnSidebarFocusRef.current = true
 				filterOpenRef.current = false
@@ -1272,10 +1303,12 @@ export const Browser = ({
 				return
 			}
 			if (key.ctrl && !key.meta && key.name === "p") {
+				key.preventDefault()
 				ctx.openPalette()
 				return
 			}
 			if (key.ctrl && key.name === "\\") {
+				key.preventDefault()
 				// Same action as the `filter.clearOrOpen` binding fires from
 				// outside the modal: clear the query, reset selection. The
 				// keymap doesn't see keys in filter mode, so this branch is
@@ -1286,36 +1319,49 @@ export const Browser = ({
 				navigator.selectFirst()
 				return
 			}
-			if (key.name === "backspace" || key.name === "delete") {
+			if (
+				(key.name === "backspace" || key.name === "delete") &&
+				filterInputRef.current.length === 0
+			) {
+				key.preventDefault()
 				// Backspace on empty input closes the modal — the leading `/`
 				// chevron is the last thing left to "delete."
-				if (filterInputRef.current.length === 0) {
-					closeFilter(false)
-					return
-				}
-				filterInputRef.current = filterInputRef.current.slice(0, -1)
-				setFilterInput(filterInputRef.current)
-				navigator.selectIndex(0)
+				closeFilter(false)
 				return
 			}
 			if (key.name === "up") {
+				key.preventDefault()
 				navigator.moveBy(-1)
 				return
 			}
 			if (key.name === "down") {
+				key.preventDefault()
 				navigator.moveBy(1)
 				return
 			}
-			if (key.ctrl || key.meta) return
-			let char: string | null = null
-			if (key.name === "space") char = " "
-			else if (typeof key.name === "string" && key.name.length === 1) {
-				char = key.shift ? key.name.toUpperCase() : key.name
+			if (key.ctrl && (key.name === "u" || key.name === "d")) {
+				key.preventDefault()
+				return
 			}
-			if (char !== null) {
-				filterInputRef.current = filterInputRef.current + char
-				setFilterInput(filterInputRef.current)
-				navigator.selectIndex(0)
+			if (!filterInputReadyRef.current) {
+				if (key.name === "backspace" || key.name === "delete") {
+					if (filterInputRef.current.length === 0) {
+						key.preventDefault()
+						closeFilter(false)
+						return
+					}
+					filterInputRef.current = filterInputRef.current.slice(0, -1)
+					setFilterInput(filterInputRef.current)
+					navigator.selectIndex(0)
+					return
+				}
+				if (key.ctrl || key.meta) return
+				const char = printableFromKey(key)
+				if (char !== null) {
+					filterInputRef.current = filterInputRef.current + char
+					setFilterInput(filterInputRef.current)
+					navigator.selectIndex(0)
+				}
 			}
 			return
 		}
@@ -1437,6 +1483,14 @@ export const Browser = ({
 					snapshot={liveSnapshot}
 					filterInput={filterInput}
 					filterOpen={filterOpen}
+					onFilterInput={(next) => {
+						filterInputRef.current = next
+						setFilterInput(next)
+						navigator.selectIndex(0)
+					}}
+					onFilterEditingReady={(ready) => {
+						filterInputReadyRef.current = ready
+					}}
 					discoveryActive={discoveryActive}
 					rootLabel={rootLabel}
 					viewportHeight={height}
@@ -1593,6 +1647,15 @@ export const Browser = ({
 					selectedIndex={paletteIndex}
 					viewportWidth={width}
 					viewportHeight={height}
+					onQueryChange={(next) => {
+						paletteQueryRef.current = next
+						setPaletteQuery(next)
+						paletteIndexRef.current = 0
+						setPaletteIndex(0)
+					}}
+					onInputReady={(ready) => {
+						paletteInputReadyRef.current = ready
+					}}
 				/>
 			)}
 			{promptOpen && (
@@ -1607,6 +1670,11 @@ export const Browser = ({
 					{...(promptContext !== undefined ? { context: promptContext } : {})}
 					viewportWidth={width}
 					viewportHeight={height}
+					onQueryChange={applyPromptInput}
+					onInputReady={(ready) => {
+						promptInputReadyRef.current = ready
+					}}
+					inputEnabled={!promptSubmitting}
 				/>
 			)}
 			{activeStatusPopover && (

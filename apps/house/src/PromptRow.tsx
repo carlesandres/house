@@ -1,33 +1,34 @@
 /**
- * PromptRow — single-line `> query` row shared by the sidebar filter and
- * the command palette query input.
+ * PromptRow — single-line `> query` row shared by the sidebar filter,
+ * command palette, and name prompts.
  *
- * Render-only: the parent owns query state and the focus/editing flag.
- * The `> ` prefix renders in `primary` or `secondary` so it
- * reads as chrome, not placeholder text — only the body span shifts color
- * (primary while editing, text when applied, textMuted as placeholder).
+ * While editing, the body is OpenTUI `<input>` so left/right/home/end and
+ * in-place insert/delete work. Overlay chords (Esc, Enter, Up/Down, ctrl+p)
+ * stay in Browser's useKeyboard branch and call preventDefault.
  *
- * Overflow: when editing, an overflowing body anchors its right edge with a
- * leading `…` so the cursor stays on screen; otherwise it anchors the left
- * edge with a trailing `…`.
+ * Idle / applied filter state stays render-only text (no native input).
  */
 
+import { useLayoutEffect } from "react"
 import { colors } from "./theme/colors.ts"
 
 export interface PromptRowProps {
 	readonly query: string
-	/** True while the input is focused — shows a cursor and uses primary fg. */
+	/** True while the input is focused — uses OpenTUI `<input>` for editing. */
 	readonly editing: boolean
 	/** Body fallback when !editing && query === "". Pass without the `> ` prefix. */
 	readonly placeholder?: string
-	/** When set, an empty editing field still shows `placeholder` (muted) plus the cursor. */
+	/** When set, an empty editing field still shows `placeholder` (muted). */
 	readonly showPlaceholderWhileEditing?: boolean
 	/** Total cell width available for the row (prefix + body). */
 	readonly width: number
+	/** Called as the native input value changes while editing. */
+	readonly onInput?: (value: string) => void
+	/** Fired after the native input is focused (and again false on teardown). */
+	readonly onEditingReady?: (ready: boolean) => void
 }
 
 const PREFIX = "> "
-const CURSOR = "▏"
 
 export const PromptRow = ({
 	query,
@@ -35,37 +36,43 @@ export const PromptRow = ({
 	placeholder = "",
 	showPlaceholderWhileEditing = false,
 	width,
+	onInput,
+	onEditingReady,
 }: PromptRowProps) => {
 	const bodyBudget = Math.max(1, width - PREFIX.length)
-	const placeholderWhileEditing =
-		editing && query.length === 0 && showPlaceholderWhileEditing && placeholder.length > 0
-
-	const rawBody = editing ? `${query}${CURSOR}` : query.length > 0 ? query : placeholder
-	const bodyFg = editing ? colors.primary : query.length > 0 ? colors.text : colors.textMuted
-
-	const body =
-		rawBody.length <= bodyBudget
-			? rawBody
-			: editing
-				? "…" + rawBody.slice(rawBody.length - bodyBudget + 1)
-				: rawBody.slice(0, bodyBudget - 1) + "…"
-
 	const prefixFg = editing ? colors.secondary : colors.primary
 
-	if (placeholderWhileEditing) {
-		const placeholderBudget = Math.max(1, bodyBudget - CURSOR.length)
-		const placeholderBody =
-			placeholder.length <= placeholderBudget
-				? placeholder
-				: "…" + placeholder.slice(placeholder.length - placeholderBudget + 1)
+	useLayoutEffect(() => {
+		onEditingReady?.(editing)
+		return () => onEditingReady?.(false)
+	}, [editing, onEditingReady])
+
+	if (editing) {
 		return (
-			<text wrapMode="none">
-				<span style={{ fg: prefixFg }}>{PREFIX}</span>
-				<span style={{ fg: colors.textMuted }}>{placeholderBody}</span>
-				<span style={{ fg: colors.primary }}>{CURSOR}</span>
-			</text>
+			<box style={{ flexDirection: "row", width, height: 1, flexShrink: 0 }}>
+				<text wrapMode="none">
+					<span style={{ fg: prefixFg }}>{PREFIX}</span>
+				</text>
+				<input
+					focused
+					value={query}
+					placeholder={showPlaceholderWhileEditing ? placeholder : ""}
+					{...(onInput === undefined ? {} : { onInput })}
+					backgroundColor="transparent"
+					focusedBackgroundColor="transparent"
+					textColor={colors.primary}
+					focusedTextColor={colors.primary}
+					cursorColor={colors.primary}
+					placeholderColor={colors.textMuted}
+					width={bodyBudget}
+				/>
+			</box>
 		)
 	}
+
+	const rawBody = query.length > 0 ? query : placeholder
+	const bodyFg = query.length > 0 ? colors.text : colors.textMuted
+	const body = rawBody.length <= bodyBudget ? rawBody : rawBody.slice(0, bodyBudget - 1) + "…"
 
 	return (
 		<text wrapMode="none">

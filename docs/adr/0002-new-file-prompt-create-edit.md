@@ -46,8 +46,8 @@ most one floating overlay; footer notices close floating overlays).
   prefill.
 - Never rewrite the input field (no auto-`.md`, no trim-in-place, no case folding in the box).
 - Esc: close, restore previous focus, leave query and selection untouched.
-- Keys while open: printable including space append; Backspace/Delete edit; Enter submits; Esc
-  cancels. Swallow everything else — including `ctrl+c` (no quit) and `ctrl+p` (no palette). Arrows
+- Keys while open: OpenTUI `<input>` owns typing and caret motion. Enter submits; Esc
+  cancels. Swallow everything else — including `ctrl+c` (no quit) and `ctrl+p` (no palette). Up/Down
   must not move the Sidebar or reader.
 
 Do not treat this overlay as the trigger to implement scoped keymap composition (`DESIGN.md` §12).
