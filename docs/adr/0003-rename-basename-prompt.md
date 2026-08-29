@@ -223,8 +223,8 @@ there so agents do not “fix” it.
 - [x] Active query that would hide the new relative path: live filter warning;
       Enter renames, query becomes new basename, new path selected.
 - [x] After success, `$EDITOR` is not spawned.
-- [ ] Preview serving the old path is retargeted to the new path; preview of another
-      file is untouched. *(implemented in Browser; no automated headless coverage yet)*
+- [x] Preview serving the old path is retargeted to the new path; preview of another
+      file is untouched. *(Browser `initialPreviewServer` seam + headless coverage)*
 - [x] Membership timeout: disk rename kept, footer
       `renamed to <basename>, but it isn't in the file list`.
 - [x] While prompt open: `q` types; `ctrl+c` does not quit; `ctrl+p` does not open
@@ -236,7 +236,9 @@ there so agents do not “fix” it.
 
 - 2026-08-24: Implemented on `rename-file`. Shared resolve helper is
   `resolveMarkdownBasename(raw, mode)`; IO lives in `apps/house/src/io/renameFile.ts`.
-  Preview `setTarget` retarget is wired but not covered by a headless test.
+- 2026-08-29: Pure prompt helpers live in `apps/house/src/prompts/helpers.ts`.
+  Preview retarget is covered via `initialPreviewServer` + unit
+  `retargetPreviewIfNeeded` tests.
 
 ## Revisit triggers
 

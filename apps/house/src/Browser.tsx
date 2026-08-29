@@ -10,8 +10,7 @@
  * sidebar collapse with `\`.
  */
 
-import { readdirSync } from "node:fs"
-import { dirname, join } from "node:path"
+import { join } from "node:path"
 import { SyntaxStyle } from "@opentui/core"
 import type { BorderSides } from "@opentui/core"
 import {
@@ -57,6 +56,15 @@ import {
 } from "./io/renameFile.ts"
 import { queryWouldShowRelativePath } from "./new-file/queryWouldShow.ts"
 import { resolveMarkdownBasename, type ResolveNameMode } from "./new-file/resolveName.ts"
+import {
+	type ActionTarget,
+	type PromptPurpose,
+	captureActionTarget,
+	destinationRelativePath,
+	promptLiveStatus,
+	retargetPreviewIfNeeded,
+	siblingExistsExact,
+} from "./prompts/helpers.ts"
 import { browserBindings, type BrowserCtx } from "./keymap/browser.ts"
 import { dispatch } from "./keymap/keymap.ts"
 import { canFitInline, defaultPreferredWidth, resolveSidebarWidth } from "./layout/resolve.ts"
@@ -133,6 +141,8 @@ export interface BrowserProps {
 	readonly renameFile?: (request: RenameFileRequest) => Promise<RenameFileResult>
 	/** Test seam: override the post-create/rename File Navigator membership wait. */
 	readonly newFileMembershipTimeoutMs?: number
+	/** Test seam: seed the HTML preview server handle (skips startServer / `O`). */
+	readonly initialPreviewServer?: ServerHandle | null
 }
 
 const defaultReadFile = (path: string): Promise<string> => Effect.runPromise(readFileText(path))
@@ -162,55 +172,6 @@ const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout
 
 const isSingleCodePoint = (value: string): boolean => Array.from(value).length === 1
 const dropLastCodePoint = (value: string): string => Array.from(value).slice(0, -1).join("")
-
-type PromptPurpose = "new-file" | "rename"
-
-interface ActionTarget {
-	readonly absolutePath: string
-	readonly parentDir: string
-	readonly relativePath: string
-	readonly basename: string
-	/** Parent of `relativePath` using `/` separators; empty at discovery root. */
-	readonly parentRelative: string
-}
-
-const parentRelativeOf = (relativePath: string): string => {
-	const idx = relativePath.lastIndexOf("/")
-	return idx === -1 ? "" : relativePath.slice(0, idx)
-}
-
-const destinationRelativePath = (parentRelative: string, newBasename: string): string =>
-	parentRelative.length === 0 ? newBasename : `${parentRelative}/${newBasename}`
-
-const siblingExistsExact = (parentDir: string, name: string, exceptBasename?: string): boolean => {
-	try {
-		const entries = readdirSync(parentDir)
-		return entries.includes(name) && name !== exceptBasename
-	} catch {
-		return false
-	}
-}
-
-const promptLiveStatus = (
-	raw: string,
-	mode: ResolveNameMode,
-	query: string,
-	matchRelativePath: string,
-	destExists: boolean,
-): PromptStatus | null => {
-	const resolved = resolveMarkdownBasename(raw, mode)
-	if (!resolved.ok) {
-		if (resolved.error === "name required") return null
-		return { kind: "error", lines: [resolved.error] }
-	}
-	const lines = [...resolved.warnings]
-	if (query.length > 0 && !queryWouldShowRelativePath(query, matchRelativePath)) {
-		lines.push(`filter will change to ${resolved.basename}`)
-	}
-	if (destExists) lines.push("already exists")
-	if (lines.length === 0) return null
-	return { kind: "warning", lines }
-}
 
 const isPartialDiscoveryWarning = (status: string | null | undefined): boolean =>
 	status?.trimStart().startsWith("scan incomplete:") ?? false
@@ -281,6 +242,7 @@ export const Browser = ({
 	createEmptyFile = createEmptyFileExclusive,
 	renameFile = renameMarkdownFile,
 	newFileMembershipTimeoutMs = NEW_FILE_MEMBERSHIP_TIMEOUT_MS,
+	initialPreviewServer = null,
 }: BrowserProps) => {
 	const renderer = useRenderer()
 	const { width, height } = useTerminalDimensions()
@@ -494,7 +456,7 @@ export const Browser = ({
 	} | null>(null)
 	const pushFooterNotice = (text: string, ttlMs = 2000): void =>
 		setFooterNoticeState({ text, ttlMs })
-	const serverRef = useRef<ServerHandle | null>(null)
+	const serverRef = useRef<ServerHandle | null>(initialPreviewServer)
 	// #145 selection preservation across an `all` re-walk. When the user
 	// toggles, we snapshot the currently selected path; once the new file set
 	// streams in, we restore selection by path. If the path isn't present in
@@ -834,13 +796,7 @@ export const Browser = ({
 	const openRenamePrompt = (): void => {
 		const file = navigator.getSnapshot().selectedFile
 		if (!file) return
-		actionTargetRef.current = {
-			absolutePath: file.absolutePath,
-			parentDir: dirname(file.absolutePath),
-			relativePath: file.relativePath,
-			basename: file.basename,
-			parentRelative: parentRelativeOf(file.relativePath),
-		}
+		actionTargetRef.current = captureActionTarget(file)
 		beginPrompt("rename", file.basename, file.relativePath)
 	}
 
@@ -977,10 +933,7 @@ export const Browser = ({
 				setFilterInput(resolved.basename)
 				navigator.flushSearch(resolved.basename)
 			}
-			const preview = serverRef.current
-			if (preview?.currentTarget() === sourcePath) {
-				preview.setTarget(dest)
-			}
+			retargetPreviewIfNeeded(serverRef.current, sourcePath, dest)
 			pendingSelectionPathRef.current = dest
 			await waitForMembership({
 				dest,
@@ -1236,8 +1189,10 @@ export const Browser = ({
 			return
 		}
 
-		// Prompt modal (New file / Rename): capture typing for the name field,
-		// same swallow style as the palette branch.
+		// Prompt modal (New file / Rename — dual purpose on one overlay kind;
+		// purpose lives in promptPurposeRef; pure helpers in prompts/helpers.ts.
+		// See ADR 0003). Capture typing for the name field, same swallow style
+		// as the palette branch.
 		if (floatingOverlayRef.current.kind === "prompt") {
 			if (key.name === "escape") {
 				closePrompt(true)

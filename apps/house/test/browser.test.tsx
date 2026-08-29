@@ -5541,9 +5541,10 @@ describe("Browser — rename prompt", () => {
 		await openRename()
 		await act(async () => {
 			setup!.mockInput.pressKey("q")
+			setup!.mockInput.pressKey("?")
 		})
 		await stepFrame(setup!.renderOnce)
-		expect(setup!.captureCharFrame()).toContain("q▏")
+		expect(setup!.captureCharFrame()).toContain("q?▏")
 		await act(async () => {
 			setup!.mockInput.pressKey("c", { ctrl: true })
 			setup!.mockInput.pressKey("p", { ctrl: true })
@@ -5551,10 +5552,82 @@ describe("Browser — rename prompt", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
+		expect(frame).toContain("q?▏")
 		expect(frame).toContain("enter rename  esc cancel")
 		expect(frame).not.toContain(" Commands ")
 		expect(quit).toBe(0)
 		expect(readerTitleContains(frame, "a.md")).toBe(true)
+	})
+
+	test("renaming retargets HTML preview when it serves the Action Target", async () => {
+		const root = makeFiles(["a.md", "other.md"])
+		writeFileSync(join(root, "a.md"), "A")
+		const source = join(root, "a.md")
+		const dest = join(root, "renamed.md")
+		const setTargets: string[] = []
+		let current = source
+		const preview = {
+			url: "http://localhost:0",
+			setTarget: (path: string) => {
+				setTargets.push(path)
+				current = path
+			},
+			currentTarget: () => current,
+			stop: async () => {},
+		}
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					root={root}
+					readFile={async () => ""}
+					onQuit={() => {}}
+					initialPreviewServer={preview}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		await openRename()
+		await act(async () => {
+			clearInput(4)
+			typeName("renamed")
+			setup!.mockInput.pressEnter()
+		})
+		await waitUntil(() => existsSync(dest), "renamed.md")
+		expect(setTargets).toEqual([dest])
+	})
+
+	test("renaming leaves HTML preview alone when it serves another file", async () => {
+		const root = makeFiles(["a.md", "other.md"])
+		writeFileSync(join(root, "a.md"), "A")
+		const setTargets: string[] = []
+		const other = join(root, "other.md")
+		const preview = {
+			url: "http://localhost:0",
+			setTarget: (path: string) => setTargets.push(path),
+			currentTarget: () => other,
+			stop: async () => {},
+		}
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					root={root}
+					readFile={async () => ""}
+					onQuit={() => {}}
+					initialPreviewServer={preview}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		await openRename()
+		await act(async () => {
+			clearInput(4)
+			typeName("renamed")
+			setup!.mockInput.pressEnter()
+		})
+		await waitUntil(() => existsSync(join(root, "renamed.md")), "renamed.md")
+		expect(setTargets).toEqual([])
 	})
 
 	test("palette lists Rename… when a file is selected", async () => {
