@@ -6,6 +6,8 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 
 ## [Unreleased]
 
+## [0.7.0] — 2026-08-30
+
 ### Added
 
 - `?` opens the command palette outside text inputs (same action as `ctrl+p`), so a single-key discovery path works without stealing `?` from the filter, palette query, or name prompts.
@@ -14,6 +16,7 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 ### Changed
 
 - Filter, command palette, and name prompts now use OpenTUI's single-line input, so left/right (and home/end) move the caret instead of only deleting from the end.
+
 
 ## [0.6.0] — 2026-08-24
 
@@ -430,7 +433,8 @@ The v1 MVP, published as `@carlesandres/openmdr` on npm.
 
 Search, stdin, URL fetching, cross-file link following, `$EDITOR` hand-off, syntax highlighting, persistent config, OS-appearance auto-detect, single-binary distribution (issue [#2](https://github.com/carlesandres/openmdr/issues/2)), Homebrew tap. All tracked.
 
-[Unreleased]: https://github.com/carlesandres/house/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/carlesandres/house/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/carlesandres/house/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/carlesandres/house/compare/v0.5.2...v0.6.0
 [0.5.2]: https://github.com/carlesandres/house/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/carlesandres/house/compare/v0.5.0...v0.5.1
