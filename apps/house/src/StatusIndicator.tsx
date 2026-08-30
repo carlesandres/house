@@ -1,3 +1,4 @@
+import stringWidth from "string-width"
 import { colors } from "./theme/colors.ts"
 
 export type StatusIndicatorVariant = "info" | "warning" | "error" | "success"
@@ -8,6 +9,9 @@ export interface StatusIndicatorProps {
 	readonly active?: boolean
 	readonly onMouseUp?: () => void
 }
+
+/** Cells occupied by an indicator: one padding cell each side plus the glyph. */
+export const statusIndicatorWidth = (icon: string): number => 2 + Math.max(1, stringWidth(icon))
 
 export const statusIndicatorFg = (variant: StatusIndicatorVariant): string => {
 	switch (variant) {
@@ -28,21 +32,23 @@ export const StatusIndicator = ({
 	active = true,
 	onMouseUp,
 }: StatusIndicatorProps) => {
+	const glyph = icon.toLocaleUpperCase()
 	const activeColor = statusIndicatorFg(variant)
 	const backgroundColor = active ? activeColor : colors.backgroundElement
+	const width = statusIndicatorWidth(glyph)
 
 	return (
 		<box
 			{...(onMouseUp === undefined ? {} : { onMouseUp })}
 			style={{
-				width: 3,
+				width,
 				height: 1,
 				flexDirection: "row",
 				backgroundColor,
 			}}
 		>
 			<text
-				content={` ${icon} `}
+				content={` ${glyph} `}
 				wrapMode="none"
 				style={{
 					fg: active ? colors.backgroundPanel : colors.textMuted,

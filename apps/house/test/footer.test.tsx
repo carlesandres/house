@@ -105,9 +105,43 @@ describe("Footer", () => {
 		expect(clicks).toBe(2)
 	})
 
+	test("separates adjacent indicators with a single space and capitalises glyphs", async () => {
+		const bindings: readonly KeyBinding<{ readonly ok: boolean }>[] = []
+		await act(async () => {
+			setup = await testRender(
+				<Footer
+					bindings={bindings}
+					ctx={{ ok: true }}
+					width={40}
+					indicators={[
+						{ id: "wrap", icon: "W", active: false },
+						{ id: "theme", icon: "op", active: true },
+						{ id: "order", icon: "re", active: true },
+					]}
+				/>,
+				{ width: 40, height: 1 },
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(frame).toContain(" W ")
+		expect(frame).toContain(" OP ")
+		expect(frame).toContain(" RE ")
+		expect(frame).toMatch(/W\s{2,}OP\s{2,}RE/)
+		expect(frame).not.toContain(" op ")
+		expect(frame).not.toContain(" re ")
+	})
+
 	test("reserves a spacer cell between indicators and hints", async () => {
 		const bindings: readonly KeyBinding<{ readonly ok: boolean }>[] = [
-			{ id: "quit", group: "Global", description: "Quit", hint: "quit", keys: ["q"], run: () => {} },
+			{
+				id: "quit",
+				group: "Global",
+				description: "Quit",
+				hint: "quit",
+				keys: ["q"],
+				run: () => {},
+			},
 			{
 				id: "wrap",
 				group: "Global",

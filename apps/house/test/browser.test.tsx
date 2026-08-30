@@ -215,9 +215,13 @@ describe("Browser — sidebar", () => {
 			)
 		})
 		const sidebarRows = frame.split("\n").map((line) => line.split("│")[0] ?? line)
-		const zIndex = sidebarRows.findIndex((line) => line.includes("z.md") && !line.includes("nested"))
+		const zIndex = sidebarRows.findIndex(
+			(line) => line.includes("z.md") && !line.includes("nested"),
+		)
 		const midIndex = sidebarRows.findIndex((line) => line.includes("mid.md nested"))
-		const aIndex = sidebarRows.findIndex((line) => line.includes("a.md") && !line.includes("nested"))
+		const aIndex = sidebarRows.findIndex(
+			(line) => line.includes("a.md") && !line.includes("nested"),
+		)
 		expect(zIndex).toBeGreaterThanOrEqual(0)
 		expect(midIndex).toBeGreaterThan(zIndex)
 		expect(aIndex).toBeGreaterThan(midIndex)
@@ -1795,6 +1799,7 @@ describe("Browser — footer", () => {
 					readFile={makeReader({ "a.md": "x" })}
 					initialWrap={false}
 					wrapWidth={80}
+					order="recently-modified"
 					onQuit={() => {}}
 				/>,
 				VIEWPORT,
@@ -1806,6 +1811,11 @@ describe("Browser — footer", () => {
 		let spans = setup!.captureSpans()
 		const footerRow = VIEWPORT.height - 1
 		expect(frame.split("\n")[footerRow]).toContain(" W ")
+		// Choice options show declared abbreviations of the current value.
+		expect(frame.split("\n")[footerRow]).toContain(" OP ")
+		expect(frame.split("\n")[footerRow]).toContain(" RE ")
+		// Indicators are separated by a single space between chips.
+		expect(frame.split("\n")[footerRow]).toMatch(/W\s{2,}OP\s{2,}RE/)
 		expect(frame).not.toContain("w wrap")
 		expect(fgAt(spans, footerRow, 2)?.equals(RGBA.fromHex(colors.textMuted))).toBe(true)
 
@@ -1819,6 +1829,98 @@ describe("Browser — footer", () => {
 		expect(frame.split("\n")[footerRow]).toContain(" W ")
 		expect(bgAt(spans, footerRow, 2)?.equals(RGBA.fromHex(colors.info))).toBe(true)
 		expect(fgAt(spans, footerRow, 2)?.equals(RGBA.fromHex(colors.backgroundPanel))).toBe(true)
+	})
+
+	test("cycles browse order from the footer O control and reorders the sidebar", async () => {
+		const root = makeFiles(["a.md", "z.md", "nested/mid.md"])
+		const now = Math.floor(Date.now() / 1000)
+		await utimes(join(root, "a.md"), now - 30, now - 30)
+		await utimes(join(root, "nested/mid.md"), now - 20, now - 20)
+		await utimes(join(root, "z.md"), now - 10, now - 10)
+
+		const sidebarIndexes = (frame: string) => {
+			const rows = frame.split("\n").map((line) => line.split("│")[0] ?? line)
+			return {
+				z: rows.findIndex((line) => line.includes("z.md") && !line.includes("nested")),
+				mid: rows.findIndex((line) => line.includes("mid.md nested")),
+				a: rows.findIndex((line) => line.includes("a.md") && !line.includes("nested")),
+			}
+		}
+
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					root={root}
+					order="recently-modified"
+					readFile={makeReader({})}
+					onQuit={() => {}}
+					disableFooterNoticeAutoClear
+				/>,
+				VIEWPORT,
+			)
+		})
+
+		await waitForFrame((candidate) => {
+			const { z, mid, a } = sidebarIndexes(candidate)
+			return z >= 0 && mid > z && a > mid
+		})
+
+		// After 1-cell padding: W(3) + gap(1) + OP(4) + gap(1) + RE(4).
+		// Click the center of the order chip (" RE ").
+		await act(async () => {
+			await setup!.mockMouse.click(12, VIEWPORT.height - 1)
+		})
+
+		const treeFrame = await waitForFrame((candidate) => {
+			if (!candidate.includes("order: tree")) return false
+			const footer = candidate.split("\n")[VIEWPORT.height - 1] ?? ""
+			if (!footer.includes(" TR ")) return false
+			const { a, z, mid } = sidebarIndexes(candidate)
+			// Tree: root files before nested paths, then path order → a, z, nested/mid.
+			return a >= 0 && z > a && mid > z
+		})
+		expect(treeFrame).toContain("order: tree")
+		expect(treeFrame.split("\n")[VIEWPORT.height - 1]).toContain(" TR ")
+
+		await act(async () => {
+			await setup!.mockMouse.click(12, VIEWPORT.height - 1)
+		})
+
+		const recentFrame = await waitForFrame((candidate) => {
+			if (!candidate.includes("order: recently-modified")) return false
+			const footer = candidate.split("\n")[VIEWPORT.height - 1] ?? ""
+			if (!footer.includes(" RE ")) return false
+			const { z, mid, a } = sidebarIndexes(candidate)
+			return z >= 0 && mid > z && a > mid
+		})
+		expect(recentFrame).toContain("order: recently-modified")
+		expect(recentFrame.split("\n")[VIEWPORT.height - 1]).toContain(" RE ")
+	})
+
+	test("cycles theme forward from the footer theme abbrev control", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					root={makeFiles(["a.md"])}
+					readFile={makeReader({ "a.md": "x" })}
+					onQuit={() => {}}
+					disableFooterNoticeAutoClear
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame().split("\n")[VIEWPORT.height - 1]).toContain(" OP ")
+
+		// Click the center of the theme chip (" OP ") after W + gap.
+		await act(async () => {
+			await setup!.mockMouse.click(6, VIEWPORT.height - 1)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		const frame = setup!.captureCharFrame()
+		expect(frame).toMatch(/theme: /)
+		expect(frame.split("\n")[VIEWPORT.height - 1]).not.toContain(" OP ")
 	})
 
 	test("clamps enabled wrap width to the visible reader pane", async () => {
@@ -4511,7 +4613,8 @@ describe("Browser — discovery toggle (#145)", () => {
 			setup!.mockInput.pressKey("a", { shift: true })
 		})
 		const frame = await waitForFrame(
-			(candidate) => candidate.includes(".hidden.md") && !readerTitleContains(candidate, ".hidden.md"),
+			(candidate) =>
+				candidate.includes(".hidden.md") && !readerTitleContains(candidate, ".hidden.md"),
 		)
 		expect(frame).toContain(".hidden.md")
 		expect(readerTitleContains(frame, ".hidden.md")).toBe(false)
@@ -4600,11 +4703,7 @@ describe("Browser — new file prompt", () => {
 		await withEditor(async () => {
 			await act(async () => {
 				setup = await renderBrowser(
-					<Browser
-						root={makeFiles(["a.md"])}
-						readFile={async () => ""}
-						onQuit={() => {}}
-					/>,
+					<Browser root={makeFiles(["a.md"])} readFile={async () => ""} onQuit={() => {}} />,
 					VIEWPORT,
 				)
 			})
@@ -4784,7 +4883,9 @@ describe("Browser — new file prompt", () => {
 				setup!.mockInput.pressEnter()
 			})
 			await stepFrame(setup!.renderOnce)
-			expect(setup!.captureCharFrame()).toContain("name must be a single file in the discovery root")
+			expect(setup!.captureCharFrame()).toContain(
+				"name must be a single file in the discovery root",
+			)
 			expect(setup!.captureCharFrame()).toContain("enter create  esc cancel")
 
 			await act(async () => {
@@ -5186,10 +5287,7 @@ describe("Browser — new file prompt", () => {
 				gate.resolve()
 			})
 			await waitUntil(() => existsSync(join(root, "foo.md")), "foo.md")
-			await waitUntil(
-				() => setup!.captureCharFrame().includes("created foo.md"),
-				"created notice",
-			)
+			await waitUntil(() => setup!.captureCharFrame().includes("created foo.md"), "created notice")
 			expect(setup!.captureCharFrame()).not.toContain("isn't in the file list")
 			expect(launched).toEqual([])
 		})
@@ -5510,7 +5608,8 @@ describe("Browser — rename prompt", () => {
 			setup!.mockInput.pressEnter()
 		})
 		await waitUntil(
-			() => setup!.captureCharFrame().includes("renamed to ghost.md, but it isn't in the file list"),
+			() =>
+				setup!.captureCharFrame().includes("renamed to ghost.md, but it isn't in the file list"),
 			"timeout notice",
 		)
 		expect(existsSync(join(root, "ghost.md"))).toBe(true)
