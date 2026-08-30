@@ -6,11 +6,14 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 
 ## [Unreleased]
 
+## [0.8.0] — 2026-08-30
+
 ### Added
 
 - `@house/options` specs may declare `footer: { icon, activate? }` so House can derive clickable footer controls from the catalog; wrap's `W` indicator now comes from that opt-in instead of a hard-coded Browser entry.
 - Footer `T` and `O` controls cycle theme and File Navigator browse order one step forward (with a short notice), so multi-value options are adjustable without leaving the keyboard-or-click chrome.
 - Choice footer controls show a declared short abbreviation of the current value (for example `op` / `re`) instead of a fixed letter, so the chip itself reflects state between Activate clicks.
+
 
 ## [0.7.0] — 2026-08-30
 
@@ -439,7 +442,8 @@ The v1 MVP, published as `@carlesandres/openmdr` on npm.
 
 Search, stdin, URL fetching, cross-file link following, `$EDITOR` hand-off, syntax highlighting, persistent config, OS-appearance auto-detect, single-binary distribution (issue [#2](https://github.com/carlesandres/openmdr/issues/2)), Homebrew tap. All tracked.
 
-[Unreleased]: https://github.com/carlesandres/house/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/carlesandres/house/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/carlesandres/house/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/carlesandres/house/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/carlesandres/house/compare/v0.5.2...v0.6.0
 [0.5.2]: https://github.com/carlesandres/house/compare/v0.5.1...v0.5.2
