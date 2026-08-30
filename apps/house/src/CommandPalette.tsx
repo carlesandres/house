@@ -28,6 +28,8 @@ export interface CommandPaletteProps {
 	readonly selectedIndex: number
 	readonly viewportWidth: number
 	readonly viewportHeight: number
+	readonly onQueryChange: (value: string) => void
+	readonly onInputReady?: (ready: boolean) => void
 }
 
 const FOOTER_HINT = "↑↓ select  enter run  esc close"
@@ -84,6 +86,8 @@ export const CommandPalette = ({
 	selectedIndex,
 	viewportWidth,
 	viewportHeight,
+	onQueryChange,
+	onInputReady,
 }: CommandPaletteProps) => {
 	const overlayWidth = Math.min(viewportWidth - 4, 64)
 	const rows = buildRows(commands)
@@ -159,7 +163,13 @@ export const CommandPalette = ({
 					backgroundColor: colors.backgroundPanel,
 				}}
 			>
-				<PromptRow query={query} editing={true} width={rowWidth} />
+				<PromptRow
+					query={query}
+					editing={true}
+					width={rowWidth}
+					onInput={onQueryChange}
+					{...(onInputReady === undefined ? {} : { onEditingReady: onInputReady })}
+				/>
 				<text content=" " />
 				{commands.length === 0 ? (
 					<text wrapMode="none" content="  (no matches)" style={{ fg: colors.textMuted }} />

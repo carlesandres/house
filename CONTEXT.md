@@ -51,6 +51,14 @@ _Avoid_: File Order Strategy
 The command that prompts for a name, creates an empty markdown file at the Discovery Root, waits for File Navigator membership, selects it, and opens it in `$EDITOR`.
 _Avoid_: New note
 
+**Rename**:
+The command that changes only the basename of the selected file, keeping its parent directory unchanged.
+_Avoid_: Move, relocate, retitle
+
+**Action Target**:
+The specific file captured when a destructive or identity-changing prompt opens, used for the rest of that action instead of the live selection.
+_Avoid_: Current selection, focused row
+
 ## Relationships
 
 - A **File Navigator** presents its current file collection through one **Sidebar**.
@@ -67,6 +75,8 @@ _Avoid_: New note
   Strategy**.
 - **New file** creates an empty markdown file at the **Discovery Root**; the **File Navigator** admits it as a
   **File Identity** before it can be selected and opened in `$EDITOR`.
+- **Rename** replaces one **File Identity** with another in the same parent directory; it is not a **Move**.
+- An **Action Target** is captured when **Rename** (and future confirmed file actions) open; submit operates on that target, not on whatever the live selection has become.
 
 ## Example dialogue
 
@@ -76,6 +86,9 @@ _Avoid_: New note
 > **Dev:** "Should a recently modified weak match precede an exact filename match?"
 > **Domain expert:** "No. **Search Ranking** is relevance-first; recency belongs to **Browse Order**."
 
+> **Dev:** "If the user moves the Sidebar while the Rename prompt is open, which file gets renamed?"
+> **Domain expert:** "The **Action Target** captured when the prompt opened — not the live selection."
+
 ## Flagged ambiguities
 
 - “FileNavigator” previously named the presentation-only pane; resolved: **File Navigator** means the
@@ -83,3 +96,5 @@ _Avoid_: New note
 - “vault” / “target dir” / “root dir” were used for the directory House opens on; resolved: that
   directory is the **Discovery Root**.
 - “New note” was used for creating a markdown file there; resolved: the action is **New file**.
+- “Rename” was used loosely for path changes; resolved: **Rename** is basename-only; changing parent path is **Move** (out of scope).
+- “Current selection” was conflated with the file an open prompt will act on; resolved: that frozen file is the **Action Target**.

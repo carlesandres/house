@@ -48,6 +48,9 @@ export interface BrowserCtx {
 	/** Open the New-file prompt. Gating for `$EDITOR` / renderer lives in
 	 *  the action; the binding itself is focus-agnostic and selection-free. */
 	readonly openNewFilePrompt: () => void
+	/** Open the Rename prompt for the selected file. Gated on `hasSelected`
+	 *  by the binding; no `$EDITOR` requirement (ADR 0003). */
+	readonly openRenamePrompt: () => void
 	/** Copy the currently-selected file's raw contents to the system
 	 *  clipboard. No-op when nothing is selected; palette gating is the
 	 *  primary availability control. */
@@ -294,6 +297,14 @@ export const browserBindings: readonly KeyBinding<BrowserCtx>[] = [
 		description: "New file at discovery root",
 		keys: ["shift+n"],
 		run: (c) => c.openNewFilePrompt(),
+	},
+	{
+		id: "file.rename",
+		group: "File",
+		description: "Rename selected file",
+		keys: ["shift+r"],
+		when: hasSelected,
+		run: (c) => c.openRenamePrompt(),
 	},
 	{
 		// `[`/`]` keep the `inReader` clause so they're only typed from the

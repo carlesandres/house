@@ -3,10 +3,15 @@
  *
  * Render-only: Browser owns the value, status messages, and keyboard.
  * Overlay grammar matches CommandPalette (scrim + bordered box).
+ * Optional `context` shows an Action Target path (Rename) under the title.
+ *
+ * ADR: Basename Rename via reused PromptModal
+ * See: docs/adr/0003-rename-basename-prompt.md
  */
 
 import { RGBA } from "@opentui/core"
 import { colors } from "./theme/colors.ts"
+import { middleTruncate } from "./ui/middleTruncate.ts"
 import { PromptRow } from "./PromptRow.tsx"
 
 const SCRIM = RGBA.fromInts(0, 0, 0, 150)
@@ -24,8 +29,13 @@ export interface PromptModalProps {
 	readonly placeholder: string
 	readonly hints: string
 	readonly status: PromptStatus | null
+	/** Optional Action Target / path line shown above the input. */
+	readonly context?: string
 	readonly viewportWidth: number
 	readonly viewportHeight: number
+	readonly onQueryChange: (value: string) => void
+	readonly onInputReady?: (ready: boolean) => void
+	readonly inputEnabled?: boolean
 }
 
 const PromptStatusLine = ({
@@ -53,13 +63,18 @@ export const PromptModal = ({
 	placeholder,
 	hints,
 	status,
+	context,
 	viewportWidth,
 	viewportHeight,
+	onQueryChange,
+	onInputReady,
+	inputEnabled = true,
 }: PromptModalProps) => {
 	const overlayWidth = Math.min(viewportWidth - 4, 64)
 	const statusLines = status?.lines ?? []
 	const statusHeight = Math.max(1, statusLines.length)
-	const overlayHeight = 2 + 1 + statusHeight + 1
+	const contextHeight = context !== undefined && context.length > 0 ? 1 : 0
+	const overlayHeight = 2 + contextHeight + 1 + statusHeight + 1
 	const left = Math.max(0, Math.floor((viewportWidth - overlayWidth) / 2))
 	const top = Math.max(0, Math.floor((viewportHeight - overlayHeight) / 2))
 	const rowWidth = Math.max(4, overlayWidth - 4)
@@ -98,12 +113,21 @@ export const PromptModal = ({
 					backgroundColor: colors.backgroundPanel,
 				}}
 			>
+				{context !== undefined && context.length > 0 && (
+					<text
+						wrapMode="none"
+						content={middleTruncate(context, rowWidth)}
+						style={{ fg: colors.textMuted }}
+					/>
+				)}
 				<PromptRow
 					query={query}
-					editing={true}
+					editing={inputEnabled}
 					placeholder={placeholder}
 					showPlaceholderWhileEditing
 					width={rowWidth}
+					onInput={onQueryChange}
+					{...(onInputReady === undefined ? {} : { onEditingReady: onInputReady })}
 				/>
 				{status === null || statusLines.length === 0 ? (
 					<text content=" " />

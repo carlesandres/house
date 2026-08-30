@@ -34,6 +34,8 @@ export interface SidebarProps {
 	readonly onSelectedFileInvalidated: NonNullable<FileNavigatorProps["onSelectedFileInvalidated"]>
 	readonly onDiagnostic: NonNullable<FileNavigatorProps["onDiagnostic"]>
 	readonly order?: BrowseOrder
+	readonly onFilterInput?: (value: string) => void
+	readonly onFilterEditingReady?: (ready: boolean) => void
 }
 
 /** Maps House product copy, dimensions, and theme tokens into the shared navigator. */
@@ -58,6 +60,8 @@ export const Sidebar = ({
 	onSelectedFileInvalidated,
 	onDiagnostic,
 	order = "recently-modified",
+	onFilterInput,
+	onFilterEditingReady,
 }: SidebarProps) => {
 	const headerVisible = snapshot.files.length > 0 || discoveryActive
 	const emptyState =
@@ -95,6 +99,10 @@ export const Sidebar = ({
 								editing={filterOpen}
 								placeholder="type / to filter"
 								width={rowWidth}
+								{...(onFilterInput === undefined ? {} : { onInput: onFilterInput })}
+								{...(onFilterEditingReady === undefined
+									? {}
+									: { onEditingReady: onFilterEditingReady })}
 							/>
 						),
 					}
