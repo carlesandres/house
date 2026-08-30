@@ -6,15 +6,18 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 
 ## [Unreleased]
 
+### Added
+
+- `@house/options` specs may declare `footer: { icon, activate? }` so House can derive clickable footer controls from the catalog; wrap's `W` indicator now comes from that opt-in instead of a hard-coded Browser entry.
+- Footer `T` and `O` controls cycle theme and File Navigator browse order one step forward (with a short notice), so multi-value options are adjustable without leaving the keyboard-or-click chrome.
+- Choice footer controls show a declared short abbreviation of the current value (for example `op` / `re`) instead of a fixed letter, so the chip itself reflects state between Activate clicks.
+
 ## [0.7.0] — 2026-08-30
 
 ### Added
 
 - `?` opens the command palette outside text inputs (same action as `ctrl+p`), so a single-key discovery path works without stealing `?` from the filter, palette query, or name prompts.
 - `R` (`shift+r`) renames the selected file's basename via the same prompt shell as New file, so nested files stay in place without leaving House.
-- `@house/options` specs may declare `footer: { icon, activate? }` so House can derive clickable footer controls from the catalog; wrap's `W` indicator now comes from that opt-in instead of a hard-coded Browser entry.
-- Footer `T` and `O` controls cycle theme and File Navigator browse order one step forward (with a short notice), so multi-value options are adjustable without leaving the keyboard-or-click chrome.
-- Choice footer controls show a declared short abbreviation of the current value (for example `op` / `re`) instead of a fixed letter, so the chip itself reflects state between Activate clicks.
 
 ### Changed
 
