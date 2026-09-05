@@ -490,6 +490,27 @@ export const Browser = ({
 	// ref stays armed so toggling back later re-selects it. Any user-driven
 	// selection move (j/k/g/G/click) clears it — user intent has moved on.
 	const pendingSelectionPathRef = useRef<string | null>(null)
+	const pendingSelectionMissingRef = useRef(false)
+	const clearPendingSelection = (): void => {
+		pendingSelectionPathRef.current = null
+		pendingSelectionMissingRef.current = false
+	}
+	const takePendingRestoreTarget = (
+		files: readonly { readonly absolutePath: string }[],
+	): string | null => {
+		const target = pendingSelectionPathRef.current
+		if (target === null) return null
+		const inList = files.some((file) => file.absolutePath === target)
+		if (!inList) {
+			// Hidden (or otherwise filtered) files must drop out before we
+			// restore. Restoring against the arming snapshot disarms too
+			// early and the path never comes back.
+			pendingSelectionMissingRef.current = true
+			return null
+		}
+		if (!pendingSelectionMissingRef.current) return null
+		return target
+	}
 
 	useLayoutEffect(() => {
 		if (readerRootRef.current === root) return
@@ -618,13 +639,11 @@ export const Browser = ({
 	// present, keep the ref armed — toggling back later (or future stream
 	// batches in the same toggle) will find it.
 	useEffect(() => {
-		const target = pendingSelectionPathRef.current
+		const target = takePendingRestoreTarget(displayedFiles)
 		if (target === null) return
-		if (displayedFiles.some((file) => file.absolutePath === target)) {
-			const snapshot = navigator.selectPath(target)
-			if (snapshot.selectedFile?.absolutePath !== target) return
-			pendingSelectionPathRef.current = null
-		}
+		const snapshot = navigator.selectPath(target)
+		if (snapshot.selectedFile?.absolutePath !== target) return
+		clearPendingSelection()
 	}, [displayedFiles, liveSnapshot.files])
 
 	useEffect(() => {
@@ -1016,17 +1035,17 @@ export const Browser = ({
 		// callers that should NOT clear pending (filter-modal movement and
 		// restoration) deliberately call the controller directly.
 		moveSelectionBy: (delta) => {
-			pendingSelectionPathRef.current = null
+			clearPendingSelection()
 			newFileEditPathRef.current = null
 			navigator.moveBy(delta)
 		},
 		selectFirst: () => {
-			pendingSelectionPathRef.current = null
+			clearPendingSelection()
 			newFileEditPathRef.current = null
 			navigator.selectFirst()
 		},
 		selectLast: () => {
-			pendingSelectionPathRef.current = null
+			clearPendingSelection()
 			newFileEditPathRef.current = null
 			navigator.selectLast()
 		},
@@ -1105,6 +1124,7 @@ export const Browser = ({
 			const current = navigator.getSnapshot().selectedFile
 			if (pendingSelectionPathRef.current === null && current) {
 				pendingSelectionPathRef.current = current.absolutePath
+				pendingSelectionMissingRef.current = false
 			}
 			onToggleAll?.()
 		},
@@ -1523,9 +1543,9 @@ export const Browser = ({
 							const handle = navigatorRef.current
 							if (!handle) return
 							const next = handle.getSnapshot()
-							const target = pendingSelectionPathRef.current
-							if (target && next.filteredFiles.some((file) => file.absolutePath === target)) {
-								pendingSelectionPathRef.current = null
+							const target = takePendingRestoreTarget(next.filteredFiles)
+							if (target !== null) {
+								clearPendingSelection()
 								setNavigatorSnapshot(handle.selectPath(target))
 								return
 							}
