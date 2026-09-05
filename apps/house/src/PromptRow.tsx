@@ -3,7 +3,7 @@
  * command palette, and name prompts.
  *
  * While editing, the body is OpenTUI `<input>` so left/right/home/end and
- * in-place insert/delete work. Overlay chords (Esc, Enter, Up/Down, ctrl+p)
+ * in-place insert/delete work. Overlay chords (Esc, Enter, Up/Down, ctrl+p, ctrl+c)
  * stay in Browser's useKeyboard branch and call preventDefault.
  *
  * Idle / applied filter state stays render-only text (no native input).
