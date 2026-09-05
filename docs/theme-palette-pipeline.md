@@ -26,7 +26,7 @@ flowchart TD
 	N --> O[Browser/footer/header/palette chrome]
 	N --> P[opentui markdown syntax styles]
 
-	L -. "issue 189 focus" .-> Q[Preserve alpha-bearing hex<br/>#rgba / #rrggbbaa]
+	L -. "alpha preserved" .-> Q[Keep alpha-bearing hex<br/>#rgba / #rrggbbaa]
 ```
 
 ## Build-time import from opencode
@@ -162,11 +162,10 @@ At runtime, `apps/house/src/theme/loader.ts` imports every bundled JSON file and
 Components import and read `colors` directly. Theme changes mutate that object
 in place so the reference remains stable without a React context.
 
-## Alpha preservation checkpoint (#189)
+## Alpha preservation (#189)
 
-The current fidelity gap is in runtime hex normalization. Some opencode themes
-use alpha-bearing hex values such as Cursor's muted and border tokens. Those
-values express contrast through transparency:
+Some opencode themes encode muted/border contrast as transparency, for example
+Cursor's:
 
 ```text
 #e4e4e45e
@@ -175,11 +174,15 @@ values express contrast through transparency:
 #e4e4e426
 ```
 
-Today `resolveTheme()` normalizes 8-digit values by dropping the alpha channel,
-turning them into opaque `#rrggbb`. That can make muted tokens equal to normal
-text tokens and removes the distinction between subtle border levels.
+`resolveTheme()` normalizes hex spelling without dropping alpha:
 
-For #189, preserve alpha through the runtime pipeline unless opentui forces a
-different representation. The key invariant: a cleaned upstream palette that
-contains `#rrggbbaa` should still carry that alpha information when `colors` and
-the syntax style map receive it.
+| Input | Output |
+|---|---|
+| `#rgb` (3) | `#rrggbb` |
+| `#rgba` (4) | `#rrggbbaa` |
+| `#rrggbb` (6) | `#rrggbb` (lowercase) |
+| `#rrggbbaa` (8) | `#rrggbbaa` (lowercase) |
+
+A cleaned upstream palette that contains `#rrggbbaa` still carries that alpha
+when `colors` and the syntax style map receive it. OpenTUI parses both 6- and
+8-digit hex via `RGBA.fromHex` / `parseColor`.

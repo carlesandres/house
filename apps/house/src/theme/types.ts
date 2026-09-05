@@ -76,8 +76,9 @@ export interface ThemeJson {
 export type TokenName = keyof ThemeTokens
 
 /**
- * Flat record after `resolveTheme`: every token has a concrete `#rrggbb`
- * value with the requested tone applied and defs refs resolved.
+ * Flat record after `resolveTheme`: every token has a concrete lowercase
+ * `#rrggbb` or `#rrggbbaa` value with the requested tone applied and defs
+ * refs resolved. 8-digit values keep their alpha; OpenTUI parses both.
  */
 export type ResolvedTheme = Readonly<Record<TokenName, HexColor>>
 

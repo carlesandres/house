@@ -57,8 +57,20 @@ const HARD_FALLBACK_RAW: Readonly<Record<TokenName, HexColor>> = {
 }
 
 const HEX_RE_INIT = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/
-const lowerHex = (hex: HexColor): HexColor => {
-	const v = hex.replace("#", "")
+
+/**
+ * Normalize a hex value to lowercase `#rrggbb` or `#rrggbbaa`.
+ *
+ * - 3-digit `#rgb` → `#rrggbb`
+ * - 4-digit `#rgba` → `#rrggbbaa`
+ * - 6-digit `#rrggbb` and 8-digit `#rrggbbaa` keep their length
+ *
+ * Alpha is preserved. OpenTUI's `RGBA.fromHex` / `parseColor` accept both
+ * lengths, so muted and border tokens that encode contrast as transparency
+ * stay distinct from their opaque RGB siblings.
+ */
+const normalizeHex = (value: HexColor): HexColor => {
+	const v = value.replace("#", "")
 	const expanded =
 		v.length === 3 || v.length === 4
 			? v
@@ -66,15 +78,15 @@ const lowerHex = (hex: HexColor): HexColor => {
 					.map((c) => c + c)
 					.join("")
 			: v
-	const rgb = expanded.length === 8 ? expanded.slice(0, 6) : expanded
-	return `#${rgb.toLowerCase()}` as HexColor
+	return `#${expanded.toLowerCase()}` as HexColor
 }
+
 // Sanity: ensure HARD_FALLBACK_RAW matches the hex regex (catch a typo at load).
 for (const v of Object.values(HARD_FALLBACK_RAW)) {
 	if (!HEX_RE_INIT.test(v)) throw new Error(`bad fallback hex: ${v}`)
 }
 const HARD_FALLBACK: Readonly<Record<TokenName, HexColor>> = Object.fromEntries(
-	Object.entries(HARD_FALLBACK_RAW).map(([k, v]) => [k, lowerHex(v)]),
+	Object.entries(HARD_FALLBACK_RAW).map(([k, v]) => [k, normalizeHex(v)]),
 ) as Readonly<Record<TokenName, HexColor>>
 
 /**
@@ -91,20 +103,6 @@ const TOKEN_FALLBACK: Partial<Record<TokenName, TokenName>> = {
 const HEX_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/
 
 const isHex = (value: string): value is HexColor => HEX_RE.test(value)
-
-/** Normalize a hex value to `#rrggbb` (lowercase, 6-digit). */
-const normalizeHex = (value: HexColor): HexColor => {
-	const v = value.replace("#", "")
-	const expanded =
-		v.length === 3 || v.length === 4
-			? v
-					.split("")
-					.map((c) => c + c)
-					.join("")
-			: v
-	const rgb = expanded.length === 8 ? expanded.slice(0, 6) : expanded
-	return `#${rgb.toLowerCase()}` as HexColor
-}
 
 /**
  * Resolve a single side of a {dark,light} variant — i.e. a string that's
@@ -131,9 +129,9 @@ export const resolveColorValue = (
 }
 
 /**
- * Resolve a theme JSON to a flat record of `{ token → #rrggbb }` for the
- * given tone. Missing tokens fall back via `TOKEN_FALLBACK` (chained) and
- * ultimately `HARD_FALLBACK`.
+ * Resolve a theme JSON to a flat record of `{ token → #rrggbb | #rrggbbaa }`
+ * for the given tone. Missing tokens fall back via `TOKEN_FALLBACK` (chained)
+ * and ultimately `HARD_FALLBACK`.
  */
 export const resolveTheme = (theme: ThemeJson, tone: Tone): ResolvedTheme => {
 	const defs = theme.defs ?? {}
