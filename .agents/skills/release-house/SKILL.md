@@ -20,10 +20,9 @@ platform packages at the same version.
 
 - Run from a clean `main` that matches `origin/main`.
 - Prefer the automated path: `bun run release -- <patch|minor|major|X.Y.Z>`.
-- **Never skip the human npm-environment gate.** After the GitHub release exists
-  and `publish.yml` starts, **stop and prompt the user** to approve the `npm`
-  environment if the publish job waits for a reviewer. Do not only “watch” and
-  hope.
+- Creating the GitHub Release is the human approval. Do not prompt for an `npm`
+  environment reviewer click; that gate is gone. The environment allows only `v*`
+  tags and `main`.
 - Do not amend or force-push `main`.
 - Do not invent `NPM_TOKEN` secrets (OIDC / Trusted Publisher only).
 - Platform optionalDependencies in the monorepo may lag last-published versions
@@ -73,23 +72,7 @@ This should:
 If the script dies early (e.g. empty `gh pr checks`), finish the same steps
 manually; do not invent a different versioning scheme.
 
-### 3. STOP — prompt for npm approval (required)
-
-As soon as the GitHub release is created / `publish.yml` is listed:
-
-1. Tell the user the run URL:  
-   `gh run list --workflow publish.yml --limit 1`  
-   or `https://github.com/carlesandres/house/actions`
-2. **Prompt explicitly**, e.g.:
-
-   > Approve the **npm** environment on the publish job if it shows  
-   > “Waiting for reviewer”. Matrix build jobs do not need approval.  
-   > Open: \<run URL\> (or `gh run view <id> --web`)
-
-3. Wait for the user (or for the publish job to leave the waiting state) before
-   treating the release as done.
-
-### 4. Watch publish and verify
+### 3. Watch publish and verify
 
 ```bash
 gh run list --workflow publish.yml --limit 3
@@ -110,7 +93,7 @@ npm install -g @carlesandres/house
 house --version
 ```
 
-### 5. Report
+### 4. Report
 
 Return:
 
@@ -126,7 +109,7 @@ Return:
 |--------|--------------|------------|
 | CI `bun install` 404 on `@carlesandres/house-*-0.x.y` | Lockfile/package.json retargeted platform optionalDeps to unpublished version | Keep monorepo platform pins on last-published; public manifest pins to release version |
 | `gh pr checks` fails with “no checks reported” | Race before CI registers | Wait/retry; empty checks ≠ failure |
-| Publish stuck “Waiting for reviewer” | Expected `npm` env gate | **Prompt the user to approve** |
+| Publish job blocked by the `npm` environment | Run ref is not a `v*` tag or `main` | Create the GitHub Release, or dispatch from `main` |
 | Main package on npm without matching platform packages | Partial publish | Do not announce success; inspect publish job logs |
 
 ## Out of scope

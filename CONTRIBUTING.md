@@ -172,8 +172,9 @@ Releases are event-driven. See `AGENTS.md` for the maintainer runbook,
 2. From a clean, current `main`, dry-run and then run `bun run release -- patch`
    (also `minor`, `major`, or an explicit stable version). It creates and merges
    the release PR, creates the GitHub Release at the merge SHA, and watches publish.
-3. Approve the protected `npm` environment in GitHub if the publish job waits for
-   review, then verify all five npm package versions and four release assets.
+   Creating the GitHub Release is the approval; the `npm` environment allows only
+   `v*` tags and `main`, with no reviewer click.
+3. Verify all five npm package versions and four release assets.
 
 `version:set` updates the app version and its `bun.lock` workspace entry. It
 deliberately leaves monorepo platform pins on their last-published versions;

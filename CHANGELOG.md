@@ -6,6 +6,10 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 
 ## [Unreleased]
 
+### Changed
+
+- The publish job no longer waits for a GitHub `npm` environment reviewer, so creating the GitHub Release (or a `main` dispatch) is enough to ship. The environment still allows only `v*` tags and `main`.
+
 ## [0.8.0] — 2026-08-30
 
 ### Added
