@@ -164,7 +164,7 @@ GitHub API emulation, standalone build/mutation smoke, npm package staging, and
 Node 22/24 install smokes. Use `bun run npm:pack`, not root `npm pack`, to inspect
 the staged public package.
 
-### 3. Approve and watch publishing
+### 3. Watch publishing
 
 The `release: published` event starts `.github/workflows/publish.yml`. It:
 
@@ -173,17 +173,16 @@ The `release: published` event starts `.github/workflows/publish.yml`. It:
 3. publishes the platform packages before the main package, and
 4. uploads the four standalone archives to the GitHub Release.
 
-If the run pauses at **Waiting for reviewer**, approve the `npm` environment in
-GitHub. This approval is intentionally manual:
+Creating the GitHub Release is the human approval. The `npm` environment does
+not require a reviewer click; it allows only `v*` tags and `main` (for recovery
+dispatch). The platform build jobs do not use that environment. Only the final
+publish job does.
 
 ```bash
 gh run list --workflow publish.yml --limit 3
 gh run view <run-id> --web
 gh run watch <run-id>
 ```
-
-The platform build jobs do not use the `npm` environment. Only the final publish
-job does.
 
 ### 4. Verify the published release
 
@@ -234,6 +233,7 @@ upload uses `--clobber`.
 
 Don't add an `NPM_TOKEN`-style secret. Publish uses Trusted Publisher / OIDC with
 owner `carlesandres`, repo `house`, workflow `publish.yml`, environment `npm`.
+That environment allows only `v*` tags and `main`; it has no required reviewers.
 All five current package names are configured. Any future package name needs its
 own Trusted Publisher entry before the workflow can publish it.
 

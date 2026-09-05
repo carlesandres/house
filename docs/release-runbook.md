@@ -20,9 +20,6 @@ If the script dies, inspect the existing `release/vX.Y.Z` branch, PR, tag, and `
 ```
 gh run list --workflow publish.yml --limit 3
 gh run view <run-id> --web
-```
-Approve the `npm` environment if the publish job is Waiting for reviewer (matrix build jobs do not need approval).
-```
 gh run watch <run-id>
 npm view @carlesandres/house version
 npm view @carlesandres/house-darwin-arm64 version
@@ -37,5 +34,5 @@ npm install -g @carlesandres/house
 house --version
 ```
 `house --version` must print `X.Y.Z` with no Bun on `PATH`.
-If publish never started after the GitHub Release exists: `gh workflow run publish.yml --ref main` only after `apps/house/package.json` on `main` is the intended version. Manual dispatch does not attach archives; rerun the original release-event `publish.yml` run for assets (`--clobber`).
+If publish never started after the GitHub Release exists: `gh workflow run publish.yml --ref main` only after `apps/house/package.json` on `main` is the intended version. The `npm` environment allows only `v*` tags and `main`; there is no reviewer click. Manual dispatch does not attach archives; rerun the original release-event `publish.yml` run for assets (`--clobber`).
 Do not add an `NPM_TOKEN`.

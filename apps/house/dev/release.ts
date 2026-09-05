@@ -164,9 +164,6 @@ try {
 	const workflowId =
 		workflow.split("\n").find(Boolean) ?? fail(`could not find publish workflow for v${version}`)
 	console.log(`publish workflow: https://github.com/carlesandres/house/actions/runs/${workflowId}`)
-	console.log(
-		"If publish is waiting for approval, approve the npm environment in GitHub; the watcher will continue.",
-	)
 	run("gh", ["run", "watch", workflowId])
 } catch (error) {
 	fail(error instanceof Error ? error.message : String(error))
