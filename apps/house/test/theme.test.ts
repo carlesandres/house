@@ -1,3 +1,4 @@
+import { RGBA } from "@opentui/core"
 import { describe, expect, test } from "bun:test"
 import { colors, setActiveTheme } from "../src/theme/colors.ts"
 import { getThemeDefinition, isThemeId, themeDefinitions } from "../src/theme/registry.ts"
@@ -46,7 +47,10 @@ describe("isThemeJson", () => {
 describe("resolveColorValue", () => {
 	test("resolves a hex literal directly", () => {
 		expect(resolveColorValue("#abc", "dark")).toBe("#aabbcc")
+		expect(resolveColorValue("#abcd", "dark")).toBe("#aabbccdd")
 		expect(resolveColorValue("#abcdef", "dark")).toBe("#abcdef")
+		expect(resolveColorValue("#e4e4e45e", "dark")).toBe("#e4e4e45e")
+		expect(resolveColorValue("#E4E4E45E", "dark")).toBe("#e4e4e45e")
 	})
 	test("resolves a defs ref via the defs map", () => {
 		expect(resolveColorValue("blue", "dark", { blue: "#0000ff" })).toBe("#0000ff")
@@ -85,6 +89,31 @@ describe("resolveTheme", () => {
 		const light = resolveTheme(minimalTheme, "light")
 		expect(dark.background).toBe("#111111")
 		expect(light.background).toBe("#fafafa")
+	})
+
+	test("Cursor muted and border tokens keep alpha so they stay distinct from text", () => {
+		const cursor = getThemeDefinition("cursor")!
+		const dark = resolveTheme(cursor.source, "dark")
+		const light = resolveTheme(cursor.source, "light")
+
+		expect(dark.text).toBe("#e4e4e4")
+		expect(dark.textMuted).toBe("#e4e4e45e")
+		expect(dark.border).toBe("#e4e4e413")
+		expect(dark.textMuted).not.toBe(dark.text)
+		expect(dark.border).not.toBe(dark.text)
+		expect(dark.border).not.toBe(dark.textMuted)
+
+		expect(light.text).toBe("#141414")
+		expect(light.textMuted).toBe("#141414ad")
+		expect(light.border).toBe("#14141413")
+		expect(light.textMuted).not.toBe(light.text)
+		expect(light.border).not.toBe(light.text)
+		expect(light.border).not.toBe(light.textMuted)
+
+		const muted = RGBA.fromHex(dark.textMuted)
+		const text = RGBA.fromHex(dark.text)
+		expect(muted.equals(text)).toBe(false)
+		expect(muted.a).toBeLessThan(text.a)
 	})
 })
 
@@ -161,5 +190,15 @@ describe("setActiveTheme", () => {
 		expect(colors.syntax["markup.heading.1"]).toBeDefined()
 		expect(colors.syntax["markup.raw"]).toBeDefined()
 		expect(colors.syntax["default"]).toBeDefined()
+	})
+
+	test("syntax map keeps alpha-bearing colours from the resolved palette", () => {
+		const cursor = getThemeDefinition("cursor")!
+		setActiveTheme(cursor, "dark")
+		expect(colors.textMuted).toBe("#e4e4e45e")
+		expect(colors.border).toBe("#e4e4e413")
+		expect(colors.syntax["markup.strikethrough"]?.fg).toBe("#e4e4e45e")
+		expect(colors.syntax.default?.fg).toBe("#e4e4e4")
+		expect(RGBA.fromHex(String(colors.syntax["markup.strikethrough"]?.fg)).a).toBeLessThan(1)
 	})
 })

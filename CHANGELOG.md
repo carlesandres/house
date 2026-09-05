@@ -15,6 +15,7 @@ The publish workflow (`.github/workflows/publish.yml`) runs on the `release: pub
 ### Fixed
 
 - Shift+A no longer drops a hidden-file selection when toggling hidden files back on, so the original file is reselected after the re-walk.
+- Theme resolution now keeps 8-digit hex alpha from bundled palettes, so muted and border tokens in themes like Cursor stay distinct from opaque text.
 
 ## [0.8.0] — 2026-08-30
 
