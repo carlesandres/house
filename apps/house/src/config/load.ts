@@ -81,8 +81,13 @@ const schema = Config.all({
 	show: Config.schema(Schema.String, "show"),
 })
 
+const fromUnknown = (root: unknown): ConfigProvider.ConfigProvider =>
+	// Empty `extensions` / `show` are encoded as `""`. Effect 4.0.0-beta.107+
+	// treats literal empty strings as missing unless this flag is set.
+	ConfigProvider.fromUnknown(root, { preserveEmptyStrings: true })
+
 const defaultsProvider = (): ConfigProvider.ConfigProvider =>
-	ConfigProvider.fromUnknown({
+	fromUnknown({
 		extensions: DEFAULT_EXTENSIONS.join(","),
 		show: DEFAULT_SHOW,
 	})
@@ -197,14 +202,14 @@ const envProvider = (env: Record<string, string | undefined>): ConfigProvider.Co
 	const show = env["HOUSE_SHOW"]
 	if (extensions !== undefined) entries.push(["extensions", extensions])
 	if (show !== undefined) entries.push(["show", show])
-	return ConfigProvider.fromUnknown(Object.fromEntries(entries))
+	return fromUnknown(Object.fromEntries(entries))
 }
 
 const cliProvider = (overrides: CliOverrides): ConfigProvider.ConfigProvider => {
 	const entries: Array<[string, string]> = []
 	if (overrides.extensions !== null) entries.push(["extensions", overrides.extensions.join(",")])
 	if (overrides.show !== null) entries.push(["show", overrides.show.join(",")])
-	return ConfigProvider.fromUnknown(Object.fromEntries(entries))
+	return fromUnknown(Object.fromEntries(entries))
 }
 
 export interface LoadOptions {
