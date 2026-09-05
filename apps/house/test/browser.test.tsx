@@ -152,7 +152,7 @@ const renderBrowser = (
 		{ initialValues } as Parameters<typeof RegistryProvider>[0],
 		normalizedElement,
 	)
-	return testRender(wrapped, viewport)
+	return testRender(wrapped, { ...viewport, exitOnCtrlC: false })
 }
 
 const renderBrowserFast = (element: React.ReactNode) => {

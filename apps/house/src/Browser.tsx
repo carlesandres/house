@@ -1279,6 +1279,10 @@ export const Browser = ({
 				key.preventDefault()
 				return
 			}
+			if (key.ctrl && !key.meta && key.name === "c") {
+				key.preventDefault()
+				return
+			}
 			if (!promptInputReadyRef.current) {
 				if (key.name === "backspace" || key.name === "delete") {
 					if (promptInputRef.current.length === 0) return
