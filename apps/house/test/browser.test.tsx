@@ -71,6 +71,7 @@ const deferred = <T,>() => {
 
 afterEach(async () => {
 	delete (globalThis as Record<string, unknown>)[WATCHER_FACTORY_KEY]
+	navigatorBecameIdle = true
 	await destroyTestRenderer(setup)
 	setup = null
 	await Promise.all(
@@ -122,8 +123,30 @@ const makeReader =
 			: Promise.reject(new Error(`no fixture for ${rel}`))
 	}
 
+const yieldMacrotask = () => new Promise<void>((resolve) => setTimeout(resolve, 0))
+let navigatorBecameIdle = true
+
+/** Flush File Navigator publication without nested act() around mount.
+ *  Waiting on `onNavigatorIdle` *inside* the mount `act()` never sees the
+ *  scan: that callback is an effect, flushed only when `act()` returns. */
+const drainNavigatorIdle = async () => {
+	if (navigatorBecameIdle) return
+	const deadline = Date.now() + 2000
+	while (!navigatorBecameIdle && Date.now() < deadline) {
+		await act(async () => {
+			await new Promise<void>((resolve) => setImmediate(resolve))
+			await setup?.renderOnce()
+		})
+	}
+	await act(async () => {
+		await yieldMacrotask()
+		await setup?.renderOnce()
+	})
+}
+
 /** Re-render and tick the event loop, in act(). */
 const stepFrame = async (renderOnce: () => Promise<void>) => {
+	await drainNavigatorIdle()
 	await act(async () => {
 		await renderOnce()
 		await new Promise<void>((resolve) => setTimeout(resolve, 100))
@@ -138,13 +161,22 @@ const renderBrowser = (
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	initialValues?: Iterable<readonly [any, any]>,
 ) => {
-	const normalizedElement = React.isValidElement<React.ComponentProps<typeof Browser>>(element)
-		? React.cloneElement(element, {
-				renderedPathDebounceMs: element.props.renderedPathDebounceMs ?? 0,
-				watch: element.props.watch ?? false,
+	const isBrowserElement = React.isValidElement(element) && element.type === Browser
+	const browserElement = isBrowserElement
+		? (element as React.ReactElement<React.ComponentProps<typeof Browser>>)
+		: null
+	navigatorBecameIdle = !isBrowserElement
+	const normalizedElement = browserElement
+		? React.cloneElement(browserElement, {
+				renderedPathDebounceMs: browserElement.props.renderedPathDebounceMs ?? 0,
+				watch: browserElement.props.watch ?? false,
 				// Headless fixtures keep tree order so first-file selection
 				// does not depend on write-time mtimes.
-				order: element.props.order ?? "tree",
+				order: browserElement.props.order ?? "tree",
+				onNavigatorIdle: () => {
+					browserElement.props.onNavigatorIdle?.()
+					navigatorBecameIdle = true
+				},
 			})
 		: element
 	const wrapped = React.createElement(
@@ -187,6 +219,31 @@ describe("Browser — sidebar", () => {
 		expect(frame).toContain("README.md")
 		expect(frame).toContain("intro.md docs")
 		expect(frame).toContain("api.md docs")
+	})
+
+	test("does not warn about missing act after the initial scan", async () => {
+		const warnings: string[] = []
+		const original = console.error
+		console.error = (...args: unknown[]) => {
+			warnings.push(args.map(String).join(" "))
+			original.apply(console, args as Parameters<typeof console.error>)
+		}
+		try {
+			await act(async () => {
+				setup = await renderBrowser(
+					<Browser
+						root={makeFiles(["a.md"])}
+						readFile={makeReader({ "a.md": "x" })}
+						onQuit={() => {}}
+					/>,
+					VIEWPORT,
+				)
+			})
+			await stepFrame(setup!.renderOnce)
+		} finally {
+			console.error = original
+		}
+		expect(warnings.join("\n")).not.toContain("not wrapped in act")
 	})
 
 	test("recently-modified order lists newest files first", async () => {
@@ -388,6 +445,7 @@ const sidebarIsVisible = (frame: string, files?: readonly string[]): boolean => 
 }
 
 const settleBrowser = async (delay = 120) => {
+	await drainNavigatorIdle()
 	await act(async () => {
 		await new Promise<void>((resolve) => setTimeout(resolve, delay))
 		await setup!.renderer.idle()

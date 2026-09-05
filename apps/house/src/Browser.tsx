@@ -130,6 +130,8 @@ export interface BrowserProps {
 	readonly updateNoticeTtlMs?: number
 	/** Test seam: disable footer-notice auto-clear timers. */
 	readonly disableFooterNoticeAutoClear?: boolean
+	/** Test seam: fires once the File Navigator finishes its initial scan. */
+	readonly onNavigatorIdle?: () => void
 	/** Flip the parent's discovery vocabulary (#145). Browser doesn't need
 	 *  to know which categories are currently on — the toggle is opaque
 	 *  from this side; we just snapshot the selected path so it can be
@@ -253,6 +255,7 @@ export const Browser = ({
 	updateNotice = null,
 	updateNoticeTtlMs = 10000,
 	disableFooterNoticeAutoClear = false,
+	onNavigatorIdle,
 	onToggleAll,
 	startupFocus = null,
 	order = "recently-modified",
@@ -579,6 +582,15 @@ export const Browser = ({
 	useEffect(() => {
 		focusRef.current = focus
 	}, [focus])
+
+	const onNavigatorIdleRef = useRef(onNavigatorIdle)
+	onNavigatorIdleRef.current = onNavigatorIdle
+	const navigatorIdleNotifiedRef = useRef(false)
+	useEffect(() => {
+		if (navigatorIdleNotifiedRef.current || liveSnapshot.scanning) return
+		navigatorIdleNotifiedRef.current = true
+		onNavigatorIdleRef.current?.()
+	}, [liveSnapshot.scanning])
 
 	useEffect(() => {
 		if (!updateNotice) return
