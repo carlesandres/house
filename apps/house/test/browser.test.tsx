@@ -4528,6 +4528,7 @@ describe("Browser — discovery toggle (#145)", () => {
 			<Browser
 				root={root}
 				watch={false}
+				order="tree"
 				policy={{
 					revision: showAll ? "all" : "visible",
 					includeFile: (path) => showAll || !path.split(/[\\/]/).pop()?.startsWith("."),

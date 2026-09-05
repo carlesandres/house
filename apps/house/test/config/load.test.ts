@@ -76,6 +76,19 @@ describe("loadConfig", () => {
 		expect(cfg.extensions).toEqual(["log"])
 	})
 
+	test("empty CLI show and extensions replace env and file values", async () => {
+		await writeFile(cfgPath, `extensions = ["note"]\nshow = ["hidden"]\n`)
+		const cfg = await run(
+			loadConfig({
+				filePath: cfgPath,
+				env: { HOUSE_EXTENSIONS: "txt", HOUSE_SHOW: "gitignored" },
+				cli: { ...emptyCli, extensions: [], show: [] },
+			}),
+		)
+		expect(cfg.extensions).toEqual([])
+		expect(cfg.show).toEqual([])
+	})
+
 	test("width and wrap resolve from file, env, and CLI by precedence", async () => {
 		await writeFile(cfgPath, "width = 72\nwrap = true\n")
 		const cfg = await run(
