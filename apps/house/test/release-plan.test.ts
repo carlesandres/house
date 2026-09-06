@@ -50,8 +50,43 @@ describe("release plan", () => {
 			new URL("../../../.github/workflows/publish.yml", import.meta.url),
 			"utf8",
 		)
+		const release = readFileSync(
+			new URL("../../../.github/workflows/release.yml", import.meta.url),
+			"utf8",
+		)
 		expect(ci.match(/bun-version: 1\.3\.10/g)).toHaveLength(2)
 		expect(publish.match(/bun-version: 1\.3\.10/g)).toHaveLength(3)
-		expect(`${ci}\n${publish}`).not.toContain("bun-version: latest")
+		expect(release.match(/bun-version: 1\.3\.10/g)).toHaveLength(1)
+		expect(`${ci}\n${publish}\n${release}`).not.toContain("bun-version: latest")
+	})
+
+	test("uses the release PR merge as the publication approval", () => {
+		const release = readFileSync(
+			new URL("../../../.github/workflows/release.yml", import.meta.url),
+			"utf8",
+		)
+		const script = readFileSync(new URL("../dev/release.ts", import.meta.url), "utf8")
+		expect(release).toContain("workflow_dispatch:")
+		expect(release).toContain("types: [closed]")
+		expect(release).toContain("github.event.pull_request.merged == true")
+		expect(release).toContain("startsWith(github.event.pull_request.head.ref, 'release/v')")
+		expect(release).toContain('--target "${MERGE_SHA}"')
+		expect(release).toContain('gh workflow run publish.yml --ref "${TAG}"')
+		expect(script).not.toContain('"pr", "merge"')
+		expect(script).not.toContain('"release", "create"')
+	})
+
+	test("verifies every published package, the installed binary, and release assets", () => {
+		const publish = readFileSync(
+			new URL("../../../.github/workflows/publish.yml", import.meta.url),
+			"utf8",
+		)
+		expect(publish).toContain("verify-published:")
+		expect(publish).toContain("@carlesandres/house-darwin-arm64")
+		expect(publish).toContain("@carlesandres/house-darwin-x64")
+		expect(publish).toContain("@carlesandres/house-linux-arm64")
+		expect(publish).toContain("@carlesandres/house-linux-x64")
+		expect(publish).toContain('house-release-smoke/bin/house" --version')
+		expect(publish).toContain('gh release view "v${VERSION}" --json assets')
 	})
 })

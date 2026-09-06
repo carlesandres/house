@@ -57,14 +57,14 @@ bun run verify:github   # release/API checks against vercel-labs/emulate
 
 ## Release runbook
 
-Use this when publishing a new version. Releases are event-driven: you prepare a
-release PR, merge it, then create a GitHub Release. The GitHub Release triggers
-`.github/workflows/publish.yml`, which builds binaries and publishes npm packages.
-Direct commits to `main` are blocked, so even version bumps go through a PR.
+Use this when publishing a new version. Releases are event-driven: the release
+workflow prepares a PR, and merging that PR is the human approval that creates
+the GitHub Release and starts publishing. Direct commits to `main` are blocked,
+so even version bumps go through a PR.
 
 Maintainer docs live here first. `CONTRIBUTING.md` has the short contributor
-summary. `apps/house/dev/release.ts` and `.github/workflows/publish.yml` are the
-executable sources of truth.
+summary. `apps/house/dev/release.ts`, `.github/workflows/release.yml`, and
+`.github/workflows/publish.yml` are the executable sources of truth.
 
 ### What gets published
 
@@ -133,25 +133,30 @@ Keep bullets outcome-focused rather than describing file names or implementation
 details. Do not create the dated version section yourself when using the release
 command: it moves the non-empty `[Unreleased]` body and updates compare links.
 
-### 2. Run the guarded release command
+### 2. Prepare the release PR
 
-Dry-run the selected stable version or bump first:
+Start the release workflow with `patch`, `minor`, `major`, or an explicit stable
+version:
+
+```bash
+gh workflow run release.yml -f version=patch
+```
+
+The workflow validates `main` and the changelog, creates or resumes
+`release/vX.Y.Z`, moves the changelog notes, bumps the version, opens the release
+PR, and explicitly starts CI for its head commit. The explicit dispatch matters:
+pull requests created by GitHub's built-in token do not trigger another workflow.
+
+For local validation or recovery, the same preparation remains available:
 
 ```bash
 bun run release -- patch --dry-run
-```
-
-Then run `patch`, `minor`, `major`, or an explicit stable version. Omit `--yes`
-for an interactive confirmation:
-
-```bash
 bun run release -- patch --yes
 ```
 
-The command validates the changelog and preflight, creates `release/vX.Y.Z`,
-moves the changelog notes, bumps the version, opens a release PR, waits for CI,
-squash-merges, pulls `main`, creates the GitHub Release at the exact merge SHA,
-and watches `publish.yml`.
+The local command only creates or resumes the release PR; it never merges or
+publishes. Re-running either preparation path reuses a valid existing branch and
+PR for the same version.
 
 `version:set` changes only `apps/house/package.json` and the `apps/house`
 workspace version in `bun.lock`. Platform `optionalDependencies` remain on the
@@ -164,19 +169,28 @@ GitHub API emulation, standalone build/mutation smoke, npm package staging, and
 Node 22/24 install smokes. Use `bun run npm:pack`, not root `npm pack`, to inspect
 the staged public package.
 
-### 3. Watch publishing
+### 3. Approve and watch publishing
 
-The `release: published` event starts `.github/workflows/publish.yml`. It:
+Review the version and changelog in the release PR, wait for CI, then squash-merge
+it. That merge is the single human approval. `.github/workflows/release.yml`
+validates the release branch, package version, changelog, previous tag, and exact
+merge SHA before creating the GitHub Release and dispatching `publish.yml` at the
+new tag.
+
+The publish workflow:
 
 1. runs typecheck, GitHub API emulation, `bun run npm:pack`, and tag/version checks,
 2. builds each native target and runs its File Navigator mutation smoke,
 3. publishes the platform packages before the main package, and
-4. uploads the four standalone archives to the GitHub Release.
+4. uploads the four standalone archives to the GitHub Release, then verifies all
+   five npm versions, a clean installed binary, and the four release assets.
 
-Creating the GitHub Release is the human approval. The `npm` environment does
-not require a reviewer click; it allows only `v*` tags and `main` (for recovery
-dispatch). The platform build jobs do not use that environment. Only the final
-publish job does.
+The `npm` environment does not require another reviewer click; it allows only
+`v*` tags and `main` (for recovery dispatch). The platform build jobs do not use
+that environment. Only the final publish job does.
+
+Repository Actions settings must allow GitHub Actions to create pull requests;
+the preparation workflow uses its scoped built-in token and no separate secret.
 
 ```bash
 gh run list --workflow publish.yml --limit 3
@@ -184,9 +198,14 @@ gh run view <run-id> --web
 gh run watch <run-id>
 ```
 
-### 4. Verify the published release
+### 4. Confirm the automated verification
 
-After the publish run is green:
+The green `verify-published` job is the release completion signal. It retries npm
+registry reads while the new versions propagate, checks all five packages, installs
+the main package on Node 24, runs `house --version`, and checks the four archives.
+The workflow summary records the verified version.
+
+These commands remain useful for manual diagnosis:
 
 ```bash
 npm view @carlesandres/house version
@@ -200,7 +219,7 @@ gh release view vX.Y.Z --json assets
 All npm versions should be `X.Y.Z`. The GitHub Release should list four
 `house-*.tar.gz` assets.
 
-Finally smoke-test an install on a supported platform:
+To repeat the install smoke manually:
 
 ```bash
 npm install -g @carlesandres/house
@@ -211,23 +230,26 @@ house --version
 
 ### Recovery and retry rules
 
-If the guarded command stops, inspect the branch, PR, release, and workflow it
-already created before continuing. Follow the same remaining sequence from
-`apps/house/dev/release.ts`; do not create another version or amend/force-push
-`main`. A manual release must target the release PR's exact merge SHA rather than
-whatever `main` points to later.
+If preparation stops, dispatch `release.yml` again with the same version. It
+validates and reuses the existing branch and PR instead of creating another
+version. If the post-merge job stops, rerun that job: it reuses an existing
+release only when its tag targets the exact release PR merge SHA.
 
-Manual dispatch is allowed only from `main`. Before using it, confirm that
-`apps/house/package.json` on `main` is still the version you intend to publish:
+If `main` advances before approval, do not update the already-cut release branch
+and silently pull new changes past the changelog cutoff. Close the stale PR,
+delete its managed release branch, refresh `[Unreleased]`, and dispatch the same
+version again from current `main`.
+
+The publish steps skip package versions that already exist. For a tagged release,
+dispatch from the tag so the four archives are rebuilt and attached:
 
 ```bash
-gh workflow run publish.yml --ref main
+gh workflow run publish.yml --ref vX.Y.Z
 ```
 
-The npm publish steps skip package versions that already exist. A manual dispatch
-does **not** attach archives because it has no release event; rerun the failed
-original release workflow when release assets need recovery. Release-event asset
-upload uses `--clobber`.
+A `main` dispatch remains available for npm-only recovery after confirming that
+`apps/house/package.json` is still the intended version. It does not attach
+release archives. Tagged asset uploads use `--clobber`.
 
 ### Trusted Publisher and Homebrew status
 

@@ -8,17 +8,24 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: publish-${{ github.ref_name }}
+  cancel-in-progress: false
+
 jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - name: Verify manual publish runs from main
+      - name: Verify manual publish ref
         if: github.event_name == 'workflow_dispatch'
         run: |
-          if [ "${GITHUB_REF}" != "refs/heads/main" ]; then
-            echo "Manual publish must run from main, not ${GITHUB_REF}" >&2
-            exit 1
-          fi
+          case "${GITHUB_REF}" in
+            refs/heads/main|refs/tags/v*) ;;
+            *)
+              echo "Manual publish must run from main or a v* tag, not ${GITHUB_REF}" >&2
+              exit 1
+              ;;
+          esac
 
       - uses: actions/checkout@v5
 
@@ -37,7 +44,7 @@ jobs:
       - run: bun run verify:github
 
       - name: Verify release tag matches package version
-        if: github.event_name == 'release'
+        if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/v')
         run: |
           version="$(node -p "require('./apps/house/package.json').version")"
           test "v${version}" = "${GITHUB_REF_NAME}"
@@ -114,7 +121,7 @@ jobs:
       - run: bun install --frozen-lockfile
 
       - name: Verify release tag matches package version
-        if: github.event_name == 'release'
+        if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/v')
         run: |
           version="$(node -p "require('./apps/house/package.json').version")"
           test "v${version}" = "${GITHUB_REF_NAME}"
@@ -163,7 +170,7 @@ jobs:
           npm publish apps/house/dist/npm/main
 
       - name: Download release tarballs
-        if: github.event_name == 'release'
+        if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/v')
         uses: actions/download-artifact@v4
         with:
           pattern: release-tarball-*
@@ -171,7 +178,7 @@ jobs:
           merge-multiple: true
 
       - name: Attach standalone binaries to GitHub Release
-        if: github.event_name == 'release'
+        if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -183,3 +190,83 @@ jobs:
             exit 1
           fi
           gh release upload "${GITHUB_REF_NAME}" "${assets[@]}" --clobber
+
+  verify-published:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org/
+
+      - name: Verify all npm packages
+        id: npm
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./apps/house/package.json').version")"
+          packages=(
+            @carlesandres/house
+            @carlesandres/house-darwin-arm64
+            @carlesandres/house-darwin-x64
+            @carlesandres/house-linux-arm64
+            @carlesandres/house-linux-x64
+          )
+          for attempt in $(seq 1 30); do
+            missing=()
+            for package in "${packages[@]}"; do
+              published="$(npm view "${package}@${version}" version 2>/dev/null || true)"
+              if [ "${published}" != "${version}" ]; then
+                missing+=("${package}")
+              fi
+            done
+            if [ "${#missing[@]}" -eq 0 ]; then
+              echo "All npm packages report ${version}."
+              break
+            fi
+            if [ "${attempt}" -eq 30 ]; then
+              echo "Packages still missing at ${version}: ${missing[*]}" >&2
+              exit 1
+            fi
+            echo "Waiting for npm: ${missing[*]}"
+            sleep 10
+          done
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+
+      - name: Smoke-test the published install
+        env:
+          VERSION: ${{ steps.npm.outputs.version }}
+        run: |
+          set -euo pipefail
+          npm install --global "@carlesandres/house@${VERSION}" \
+            --prefix "${RUNNER_TEMP}/house-release-smoke"
+          actual="$("${RUNNER_TEMP}/house-release-smoke/bin/house" --version)"
+          test "${actual}" = "${VERSION}"
+
+      - name: Verify GitHub Release assets
+        if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.npm.outputs.version }}
+        run: |
+          set -euo pipefail
+          assets="$(gh release view "v${VERSION}" --json assets --jq '.assets[].name')"
+          for target in darwin-arm64 darwin-x64 linux-arm64 linux-x64; do
+            grep -Fxq "house-${target}.tar.gz" <<< "${assets}"
+          done
+          test "$(wc -l <<< "${assets}" | tr -d ' ')" -eq 4
+
+      - name: Summarize verified release
+        env:
+          VERSION: ${{ steps.npm.outputs.version }}
+        run: |
+          {
+            echo "## v${VERSION} verified"
+            echo
+            echo "All five npm packages report ${VERSION}."
+            echo "The installed house binary reports ${VERSION}."
+          } >> "${GITHUB_STEP_SUMMARY}"
