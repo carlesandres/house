@@ -2,12 +2,13 @@
 
 All notable changes to house land here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html) from v0.1.0 onward.
 
-The publish workflow (`.github/workflows/publish.yml`) runs on the `release: published` event, builds per-platform binaries, publishes platform packages then the main package via Trusted Publisher, and lets GitHub auto-generate release notes from commit subjects; this file is the curated, narrative version.
+The publish workflow (`.github/workflows/publish.yml`) runs for a published release or a release-tag dispatch, builds per-platform binaries, publishes platform packages then the main package via Trusted Publisher, and lets GitHub auto-generate release notes from commit subjects; this file is the curated, narrative version.
 
 ## [Unreleased]
 
 ### Changed
 
+- Release preparation now runs from a dispatchable GitHub workflow, and merging its PR creates and verifies the release, so publishing no longer depends on a clean local checkout or a long-running terminal.
 - The publish job no longer waits for a GitHub `npm` environment reviewer, so creating the GitHub Release (or a `main` dispatch) is enough to ship. The environment still allows only `v*` tags and `main`.
 - Empty CLI `--extensions` / `--show` again override file and env lists after the Effect 4.0.0-beta.107 bump, so an explicit empty allow-list still wins.
 - House now runs on OpenTUI 0.5.9, matching `@house/ui` and the current renderer/input stack.

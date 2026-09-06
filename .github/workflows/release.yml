@@ -1,0 +1,154 @@
+name: release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: patch, minor, major, or an exact stable version
+        required: true
+        default: patch
+        type: string
+  pull_request:
+    branches: [main]
+    types: [closed]
+
+jobs:
+  prepare:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: release-prepare
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.10
+
+      - run: bun install --frozen-lockfile
+
+      - name: Configure release author
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Create or resume release pull request
+        id: prepare
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: bun run release -- "${REQUESTED_VERSION}" --yes
+
+      - name: Start release pull request CI
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_BRANCH: ${{ steps.prepare.outputs.branch }}
+        run: gh workflow run ci.yml --ref "${RELEASE_BRANCH}"
+
+      - name: Summarize release pull request
+        env:
+          PR_URL: ${{ steps.prepare.outputs.pr_url }}
+          VERSION: ${{ steps.prepare.outputs.version }}
+        run: |
+          {
+            echo "## Release v${VERSION} prepared"
+            echo
+            echo "Review CI and merge ${PR_URL} to publish the release."
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+  publish-release:
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      startsWith(github.event.pull_request.head.ref, 'release/v')
+    runs-on: ubuntu-latest
+    concurrency:
+      group: release-${{ github.event.pull_request.head.ref }}
+    permissions:
+      actions: write
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+
+      - name: Validate merged release
+        id: release
+        env:
+          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.ref }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          set -euo pipefail
+          version="${PR_HEAD#release/v}"
+          if ! [[ "${version}" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "Invalid stable release version: ${version}" >&2
+            exit 1
+          fi
+          package_version="$(node -p "require('./apps/house/package.json').version")"
+          if [ "${package_version}" != "${version}" ]; then
+            echo "Release branch version ${version} does not match package ${package_version}" >&2
+            exit 1
+          fi
+          if [ "${PR_TITLE}" != "chore: release v${version}" ]; then
+            echo "Unexpected release PR title: ${PR_TITLE}" >&2
+            exit 1
+          fi
+          grep -Fq "## [${version}]" CHANGELOG.md
+          previous_version="$(git show "${MERGE_SHA}^:apps/house/package.json" | node -e \
+            "let input='';process.stdin.on('data',c=>input+=c).on('end',()=>console.log(JSON.parse(input).version))")"
+          previous_tag="$(git describe --tags --abbrev=0 "${MERGE_SHA}^")"
+          if [ "${previous_tag}" != "v${previous_version}" ]; then
+            echo "Previous tag ${previous_tag} does not match package v${previous_version}" >&2
+            exit 1
+          fi
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+          echo "tag=v${version}" >> "${GITHUB_OUTPUT}"
+
+      - name: Create GitHub Release at the merge commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            git fetch origin "refs/tags/${TAG}:refs/tags/${TAG}"
+            target="$(git rev-list -n 1 "${TAG}")"
+            if [ "${target}" != "${MERGE_SHA}" ]; then
+              echo "Existing ${TAG} targets ${target}, expected ${MERGE_SHA}" >&2
+              exit 1
+            fi
+            echo "Reusing ${TAG} at ${MERGE_SHA}."
+          else
+            gh release create "${TAG}" \
+              --target "${MERGE_SHA}" \
+              --title "${TAG}" \
+              --generate-notes
+          fi
+
+      - name: Start publish workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+        run: gh workflow run publish.yml --ref "${TAG}"
+
+      - name: Summarize publication
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          {
+            echo "## ${TAG} approved"
+            echo
+            echo "The GitHub Release was created at the release PR merge commit."
+            echo "The publish workflow was dispatched for ${TAG}."
+          } >> "${GITHUB_STEP_SUMMARY}"

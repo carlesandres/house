@@ -163,18 +163,18 @@ When a newer published version is available on npm, house prints a one-line noti
 ## Release flow
 
 Releases are event-driven. See `AGENTS.md` for the maintainer runbook,
-`apps/house/dev/release.ts` for the guarded automation, and
-`.github/workflows/publish.yml` for publishing.
+`.github/workflows/release.yml` for preparation and approval automation, and
+`.github/workflows/publish.yml` for publishing and verification.
 
 1. Compare first-parent commits since the latest tag with `[Unreleased]` in
    `CHANGELOG.md`. Keep outcome-focused notes for user- and maintainer-visible
    changes; the release command moves them under the dated version heading.
-2. From a clean, current `main`, dry-run and then run `bun run release -- patch`
-   (also `minor`, `major`, or an explicit stable version). It creates and merges
-   the release PR, creates the GitHub Release at the merge SHA, and watches publish.
-   Creating the GitHub Release is the approval; the `npm` environment allows only
-   `v*` tags and `main`, with no reviewer click.
-3. Verify all five npm package versions and four release assets.
+2. Dispatch `release.yml` with `patch`, `minor`, `major`, or an explicit stable
+   version; it creates or resumes the release PR and starts CI for it.
+3. Review and merge the release PR as the single human approval; the merge creates
+   the GitHub Release at the exact merge SHA and starts publishing.
+4. Treat the green `verify-published` job as completion: it checks all five npm
+   versions, an installed binary, and the four release assets.
 
 `version:set` updates the app version and its `bun.lock` workspace entry. It
 deliberately leaves monorepo platform pins on their last-published versions;
