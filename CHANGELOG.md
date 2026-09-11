@@ -8,6 +8,8 @@ The publish workflow (`.github/workflows/publish.yml`) runs for a published rele
 
 ### Changed
 
+- Opening a selected file now hides the Sidebar by default so the Reader gets the full pane; set
+  `autoHideSidebar = false` or use `--no-auto-hide-sidebar` to keep the two-pane view.
 - Release preparation now runs from a dispatchable GitHub workflow, and merging its PR creates and verifies the release, so publishing no longer depends on a clean local checkout or a long-running terminal.
 - The publish job no longer waits for a GitHub `npm` environment reviewer, so creating the GitHub Release (or a `main` dispatch) is enough to ship. The environment still allows only `v*` tags and `main`.
 - Empty CLI `--extensions` / `--show` again override file and env lists after the Effect 4.0.0-beta.107 bump, so an explicit empty allow-list still wins.

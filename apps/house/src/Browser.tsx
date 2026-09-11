@@ -99,6 +99,8 @@ export interface BrowserProps {
 	readonly wrapWidth?: number
 	/** Initial reader wrap mode. Runtime toggles are session-only. */
 	readonly initialWrap?: boolean
+	/** Hide the sidebar after an explicit Open file action. Startup-only. */
+	readonly initialAutoHideSidebar?: boolean
 	/** Canonical discovery root label used anywhere the UI names the scan scope. */
 	readonly rootLabel?: string
 	/** Persistent footer indicator (e.g. "indexing… 42"). Pass null/undefined
@@ -241,6 +243,7 @@ export const Browser = ({
 	initialQuery = "",
 	wrapWidth = 80,
 	initialWrap = false,
+	initialAutoHideSidebar = true,
 	rootLabel = "current root",
 	discoveryStatus = null,
 	discoverySpinnerIntervalMs,
@@ -277,6 +280,7 @@ export const Browser = ({
 			{
 				...houseOptions.defaults,
 				wrap: initialWrap,
+				autoHideSidebar: initialAutoHideSidebar,
 				width: wrapWidth,
 				theme: theme.id,
 				tone: theme.tone,
@@ -478,6 +482,12 @@ export const Browser = ({
 	const paletteInputReadyRef = useRef(false)
 	const promptInputReadyRef = useRef(false)
 	const focusRef = useRef<"sidebar" | "reader">(focus)
+	const autoHideSidebar = optionsSession.current.get("autoHideSidebar")
+	const openSelectedFile = (): void => {
+		if (autoHideSidebar && navigator.getSnapshot().selectedFile !== null) setShown(false)
+		focusRef.current = "reader"
+		setFocus("reader")
+	}
 	const restoreFilterOnSidebarFocusRef = useRef(startInFilter)
 	const [footerNotice, setFooterNoticeState] = useState<{
 		readonly text: string
@@ -1042,6 +1052,7 @@ export const Browser = ({
 		paletteOpen,
 		wrapEnabled,
 		setFocus,
+		openSelectedFile,
 		// Wrapped so any keymap-driven selection move (j/k/g/G/[/], reader
 		// prev/next) clears the pending-restore ref from #145. Internal
 		// callers that should NOT clear pending (filter-modal movement and
@@ -1330,8 +1341,7 @@ export const Browser = ({
 				//   otherwise → sidebar if it's up so j/k keeps walking the
 				//     filtered list; reader if the sidebar was hidden.
 				if (effectiveCommit) {
-					focusRef.current = "reader"
-					setFocus("reader")
+					openSelectedFile()
 				} else {
 					const nextFocus = shown ? "sidebar" : "reader"
 					focusRef.current = nextFocus

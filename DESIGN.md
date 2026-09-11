@@ -99,7 +99,8 @@ Layout shape switches on viewport. The boundary is `canFitInline(width)` — tru
 visible = shown || focus === "sidebar"
 ```
 
-That rule means a hidden sidebar becomes reachable just by focusing it (via `/`, `tab`, or `s`), without a separate "open sidebar" operation.
+That rule means a hidden sidebar becomes reachable just by focusing it (via `/`, `tab`, Reader
+Back, or `s`), without a separate "open sidebar" operation.
 
 **Narrow (< 69 cols) — single-pane stack.** Only one pane renders at a time, filling the entire pane area. `focus` is the single source of truth for which screen is up; `shown` is silently ignored for render but kept in sync so a later resize to wide opens with the right pane visible. No drawer, no overlay — the reader doesn't render underneath the sidebar.
 
@@ -116,11 +117,11 @@ Browser owns responsive visibility and the wide/narrow pane composition. Once it
 resolved variant, width, height, visibility, and active state, `@house/ui`'s `FileNavigator` owns the
 navigator frame, rows, empty-state placement, and retained visible window.
 
-**Launch** — `shown=true`. Startup sidebar visibility is not a configuration
-surface; every viewport boots with the sidebar visible (narrow: as the single
-visible screen when focused; wide: as the inline navigation pane). After launch,
-`s`, `tab`, and `/` remain the interactive ways to hide, reveal, or focus the
-sidebar.
+**Launch and Open file** — `shown=true` at launch, so every viewport boots with the Sidebar visible.
+The startup-only `autoHideSidebar` Option defaults to `true`. A confirmed **Open file** with a real
+selection sets `shown=false` and focuses the Reader; with the Option disabled it preserves `shown`
+and only focuses the Reader. Selection movement and automatic selection never change visibility.
+`s`, `/`, `tab`, and Reader Back retain their existing reveal/focus behavior.
 
 **Resize** — switching layouts preserves intent:
 
@@ -152,7 +153,7 @@ Conventions follow `ghui` (escape-to-back, return-to-confirm, vim letters as arr
 | `shift+j` / `shift+k`                                     | Jump (8 lines)                                         |
 | `space` / `b`, `pagedown` / `pageup`, `ctrl+d` / `ctrl+u` | Page / half-page                                       |
 | `g` / `G`                                                 | Top / bottom                                           |
-| `return`, `l`, `→`                                        | Open file / focus reader                               |
+| `return`, `l`, `→`                                        | Open file / focus reader / optionally hide Sidebar     |
 | `escape`, `h`, `←`                                        | Back / focus sidebar                                   |
 | `[` / `]`                                                 | Previous / next file in list (from reader)             |
 | `tab`                                                     | Toggle focus between sidebar and reader                |
@@ -164,7 +165,7 @@ Conventions follow `ghui` (escape-to-back, return-to-confirm, vim letters as arr
 | `ctrl+p`, `?`                                             | Command palette (`?` only when no text field is focused; while typing in filter / palette / prompts, `?` inserts a literal `?`) |
 | `q`, `ctrl+c`                                             | Quit                                                   |
 
-The filter is a modal-edit input rendered as a row inside the sidebar (above the file list, suppressed on an empty vault). Three reachable states: **idle** (`/ filter…` placeholder), **editing** (`/<query>▏` while the modal is open), and **applied** (`/<query>` after `Return` commits; the list stays narrowed and Reader navigation keys operate on the filtered set). Empty query preserves the selected browse order (`tree` or `recently-modified`). Non-empty query ranking is relevance-first on the relative path, then the selected browse order, then relative path. `Esc` closes the modal without reverting — the typed query is kept as the applied filter, so re-opening with `/` resumes editing it. `Ctrl+\` is the single "clear filter" chord, deliberately a chord (not a bare key) so it works _inside_ the filter input without colliding with typed characters: from outside the modal it clears the applied filter and reopens for editing; from inside the modal it clears the current input and stays in editing mode. `Ctrl+U` is _not_ overloaded for this — it stays reserved for sidebar/reader half-page-up to avoid mental overload. The footer stays fixed; clear/filter affordances are exposed by the sidebar filter row and command palette. `Return` on a zero-match list is treated as `Esc` (close, keep the query applied). `Backspace`/`Delete` while the query is empty closes the modal — the slash _is_ the prompt, so deleting it dismisses the prompt. Pattern adapted from ghui's PR list (a filter row that lives inside the list it filters), not from hunk's StatusBar.
+The filter is a modal-edit input rendered as a row inside the sidebar (above the file list, suppressed on an empty vault). Three reachable states: **idle** (`/ filter…` placeholder), **editing** (`/<query>▏` while the modal is open), and **applied** (`/<query>` after `Return` commits; the list stays narrowed and Reader navigation keys operate on the filtered set). Empty query preserves the selected browse order (`tree` or `recently-modified`). Non-empty query ranking is relevance-first on the relative path, then the selected browse order, then relative path. `Esc` closes the modal without reverting — the typed query is kept as the applied filter, so re-opening with `/` resumes editing it. `Ctrl+\` is the single "clear filter" chord, deliberately a chord (not a bare key) so it works _inside_ the filter input without colliding with typed characters: from outside the modal it clears the applied filter and reopens for editing; from inside the modal it clears the current input and stays in editing mode. `Ctrl+U` is _not_ overloaded for this — it stays reserved for sidebar/reader half-page-up to avoid mental overload. The footer stays fixed; clear/filter affordances are exposed by the sidebar filter row and command palette. `Return` on a real match is an **Open file** action and applies `autoHideSidebar`; `Return` on a zero-match list is treated as `Esc` (close, keep the query applied). `Backspace`/`Delete` while the query is empty closes the modal — the slash _is_ the prompt, so deleting it dismisses the prompt. Pattern adapted from ghui's PR list (a filter row that lives inside the list it filters), not from hunk's StatusBar.
 
 ### 7.3 Reserved keys (future)
 
@@ -308,7 +309,8 @@ framework-free: the consumer maps argv, env, and the config file onto catalog ke
 session for in-app changes. Specs may optionally declare `footer: { icon, activate? }` —
 presentation metadata only (no React); House maps opted-in keys to footer indicators via
 `footerControlsFromSession`. House's catalog lives in
-`apps/house/src/config/options.ts` (`theme`, `tone`, `focus`, `defaultRoot`, `width`, `wrap`, `order`). Persist policy is `session` (memory only) or `file` (caller
+`apps/house/src/config/options.ts` (`theme`, `tone`, `focus`, `defaultRoot`, `width`, `wrap`,
+`autoHideSidebar`, `order`). Persist policy is `session` (memory only) or `file` (caller
 writes). Do not put House-specific TOML, Commander, or Effect ConfigProvider code in the package.
 
 The shipped architecture in [`docs/file-navigator-design.md`](./docs/file-navigator-design.md) places

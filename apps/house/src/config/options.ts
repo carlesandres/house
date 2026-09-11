@@ -16,6 +16,10 @@ const themeFooterLabels = uniqueFooterLabels(themeIds)
  * `@house/options` has a list type.
  */
 export const houseOptions = defineOptions({
+	autoHideSidebar: {
+		type: "boolean",
+		default: true,
+	},
 	wrap: {
 		type: "boolean",
 		default: false,

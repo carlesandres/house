@@ -20,6 +20,7 @@ afterEach(async () => {
 const run = <A, E>(eff: Effect.Effect<A, E>) => Effect.runPromise(eff as Effect.Effect<A, E>)
 
 const emptyCli: CliOverrides = {
+	autoHideSidebar: null,
 	theme: null,
 	tone: null,
 	extensions: null,
@@ -46,6 +47,7 @@ describe("loadConfig", () => {
 			theme: "opencode",
 			tone: "dark",
 			defaultRoot: "cwd",
+			autoHideSidebar: true,
 			extensions: [],
 			width: 80,
 			wrap: false,
@@ -62,6 +64,7 @@ describe("loadConfig", () => {
 				filePath: cfgPath,
 				env: { HOUSE_EXTENSIONS: "txt" },
 				cli: {
+					autoHideSidebar: null,
 					theme: null,
 					tone: null,
 					extensions: ["log"],
@@ -96,6 +99,7 @@ describe("loadConfig", () => {
 				filePath: cfgPath,
 				env: { HOUSE_WIDTH: "88", HOUSE_WRAP: "false" },
 				cli: {
+					autoHideSidebar: null,
 					theme: null,
 					tone: null,
 					extensions: null,
@@ -109,6 +113,26 @@ describe("loadConfig", () => {
 		)
 		expect(cfg.width).toBe(100)
 		expect(cfg.wrap).toBe(true)
+	})
+
+	test("autoHideSidebar resolves from file, env, and CLI by precedence", async () => {
+		await writeFile(cfgPath, "autoHideSidebar = false\n")
+		expect((await run(loadConfig({ filePath: cfgPath, env: {} }))).autoHideSidebar).toBe(false)
+		expect(
+			(await run(loadConfig({ filePath: cfgPath, env: { HOUSE_AUTO_HIDE_SIDEBAR: "true" } })))
+				.autoHideSidebar,
+		).toBe(true)
+		expect(
+			(
+				await run(
+					loadConfig({
+						filePath: cfgPath,
+						env: { HOUSE_AUTO_HIDE_SIDEBAR: "true" },
+						cli: { ...emptyCli, autoHideSidebar: false },
+					}),
+				)
+			).autoHideSidebar,
+		).toBe(false)
 	})
 
 	test("rejects invalid env width and wrap values", async () => {
@@ -129,6 +153,17 @@ describe("loadConfig", () => {
 		await writeFile(cfgPath, 'wrap = "true"\n')
 		await expect(run(loadConfig({ filePath: cfgPath, env: {} }))).rejects.toThrow(
 			/invalid value for wrap/,
+		)
+	})
+
+	test("rejects invalid autoHideSidebar values", async () => {
+		await expect(
+			run(loadConfig({ filePath: cfgPath, env: { HOUSE_AUTO_HIDE_SIDEBAR: "1" } })),
+		).rejects.toThrow(/autoHideSidebar: expected true or false/)
+
+		await writeFile(cfgPath, 'autoHideSidebar = "true"\n')
+		await expect(run(loadConfig({ filePath: cfgPath, env: {} }))).rejects.toThrow(
+			/invalid value for autoHideSidebar/,
 		)
 	})
 

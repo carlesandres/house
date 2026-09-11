@@ -16,6 +16,8 @@ import { parseShowList, SHOW_CATEGORIES, type ShowCategory } from "../discovery/
 import { FILE_NAVIGATOR_ORDERS, houseOptions, type FileNavigatorOrder } from "./options.ts"
 
 export interface HouseConfig {
+	/** Whether Open file hides the Sidebar after focusing the Reader. */
+	readonly autoHideSidebar: boolean
 	readonly theme: string
 	readonly tone: "dark" | "light"
 	readonly extensions: readonly string[]
@@ -37,6 +39,7 @@ export interface HouseConfig {
 }
 
 export interface CliOverrides {
+	readonly autoHideSidebar: boolean | null
 	readonly theme: string | null
 	readonly tone: string | null
 	readonly extensions: readonly string[] | null
@@ -60,6 +63,7 @@ const DEFAULT_SHOW = ""
  * did-you-mean hint when one is close) while still loading the rest.
  */
 const KNOWN_FILE_KEYS: ReadonlySet<string> = new Set([
+	"autoHideSidebar",
 	"theme",
 	"tone",
 	"extensions",
@@ -248,6 +252,7 @@ export const loadConfig = (
 ): Effect.Effect<HouseConfig, Config.ConfigError | Error> =>
 	Effect.gen(function* () {
 		const cli = options.cli ?? {
+			autoHideSidebar: null,
 			theme: null,
 			tone: null,
 			extensions: null,
@@ -282,6 +287,7 @@ export const loadConfig = (
 		}
 		const resolved = houseOptions.resolve({
 			cli: {
+				autoHideSidebar: cli.autoHideSidebar,
 				wrap: cli.wrap,
 				width: cli.width,
 				theme: cli.theme,
@@ -290,6 +296,7 @@ export const loadConfig = (
 				order: cli.order,
 			},
 			env: {
+				autoHideSidebar: env["HOUSE_AUTO_HIDE_SIDEBAR"],
 				wrap: env["HOUSE_WRAP"],
 				width: env["HOUSE_WIDTH"],
 				theme: env["HOUSE_THEME"],
@@ -299,6 +306,7 @@ export const loadConfig = (
 				order: env["HOUSE_ORDER"],
 			},
 			file: {
+				autoHideSidebar: fileData?.["autoHideSidebar"],
 				wrap: fileData?.["wrap"],
 				width: fileData?.["width"],
 				theme: fileData?.["theme"],
@@ -338,6 +346,7 @@ export const loadConfig = (
 			)
 		}
 		return {
+			autoHideSidebar: resolved.value.autoHideSidebar,
 			theme: resolved.value.theme,
 			tone,
 			defaultRoot,

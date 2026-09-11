@@ -47,6 +47,11 @@ _Avoid_: Display path, inode
 A replaceable policy that matches and ranks files for an active query.
 _Avoid_: File Order Strategy
 
+**Open file**:
+The explicit command that commits the selected File Identity for focused reading. It may hide the
+Sidebar according to the `autoHideSidebar` Option; selection changes only update the Reader preview.
+_Avoid_: Select file, preview file
+
 **New file**:
 The command that prompts for a name, creates an empty markdown file at the Discovery Root, waits for File Navigator membership, selects it, and opens it in `$EDITOR`.
 _Avoid_: New note
@@ -85,6 +90,8 @@ _Avoid_: Click handler, toggle (too narrow — Activate also covers cycle)
 - Renaming a file replaces one **File Identity** with another; it is not an identity-preserving update.
 - A **Search Strategy** determines **Search Ranking** independently of the active **File Order
   Strategy**.
+- **Open file** acts on the selected **File Identity**; navigation may change that selection without
+  invoking **Open file**.
 - **New file** creates an empty markdown file at the **Discovery Root**; the **File Navigator** admits it as a
   **File Identity** before it can be selected and opened in `$EDITOR`.
 - **Rename** replaces one **File Identity** with another in the same parent directory; it is not a **Move**.

@@ -156,6 +156,7 @@ describe("browserBindings — discovery.toggleAll", () => {
 		paletteOpen: false,
 		wrapEnabled: false,
 		setFocus: noop,
+		openSelectedFile: noop,
 		moveSelectionBy: noop,
 		selectFirst: noop,
 		selectLast: noop,

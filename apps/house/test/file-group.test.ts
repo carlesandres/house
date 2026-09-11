@@ -48,6 +48,7 @@ const makeCtx = (o: CtxOverrides = {}): BrowserCtx => ({
 	paletteOpen: o.paletteOpen ?? false,
 	wrapEnabled: false,
 	setFocus: noopSetFocus,
+	openSelectedFile: noop,
 	moveSelectionBy: o.moveSelectionBy ?? noop,
 	selectFirst: noop,
 	selectLast: noop,
