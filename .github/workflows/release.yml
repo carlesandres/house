@@ -34,11 +34,6 @@ jobs:
 
       - run: bun install --frozen-lockfile
 
-      - name: Configure release author
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
       - name: Create or resume release pull request
         id: prepare
         env:
