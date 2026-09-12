@@ -17,6 +17,8 @@ The publish workflow (`.github/workflows/publish.yml`) runs for a published rele
 
 ### Fixed
 
+- Release preparation now passes GitHub authentication and step outputs through Turborepo, so
+  dispatches can create release pull requests and start their CI.
 - Shift+A no longer drops a hidden-file selection when toggling hidden files back on, so the original file is reselected after the re-walk.
 - Theme resolution now keeps 8-digit hex alpha from bundled palettes, so muted and border tokens in themes like Cursor stay distinct from opaque text.
 

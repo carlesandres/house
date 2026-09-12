@@ -40,7 +40,8 @@
 			"cache": false
 		},
 		"release": {
-			"cache": false
+			"cache": false,
+			"passThroughEnv": ["GH_TOKEN", "GITHUB_OUTPUT"]
 		},
 		"repro:pty-codeblocks": {
 			"cache": false
