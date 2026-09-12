@@ -76,6 +76,16 @@ describe("release plan", () => {
 		expect(script).not.toContain('"release", "create"')
 	})
 
+	test("guards and surfaces workflow-created release pull requests", () => {
+		const ci = readFileSync(new URL("../../../.github/workflows/ci.yml", import.meta.url), "utf8")
+		const script = readFileSync(new URL("../dev/release.ts", import.meta.url), "utf8")
+		expect(script).toContain('run("git", ["rev-parse", "origin/main"])')
+		expect(script).toContain("is stale; delete it and prepare the release again")
+		expect(script).toContain('"--reviewer"')
+		expect(ci).toContain("statuses: write")
+		expect(ci.match(/context=release-ci/g)).toHaveLength(2)
+	})
+
 	test("verifies every published package, the installed binary, and release assets", () => {
 		const publish = readFileSync(
 			new URL("../../../.github/workflows/publish.yml", import.meta.url),
