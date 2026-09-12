@@ -6,6 +6,8 @@ The publish workflow (`.github/workflows/publish.yml`) runs for a published rele
 
 ## [Unreleased]
 
+## [0.9.0] — 2026-09-12
+
 ### Changed
 
 - Opening a selected file now hides the Sidebar by default so the Reader gets the full pane; set
@@ -23,6 +25,7 @@ The publish workflow (`.github/workflows/publish.yml`) runs for a published rele
   dispatches can create release pull requests and start their CI.
 - Shift+A no longer drops a hidden-file selection when toggling hidden files back on, so the original file is reselected after the re-walk.
 - Theme resolution now keeps 8-digit hex alpha from bundled palettes, so muted and border tokens in themes like Cursor stay distinct from opaque text.
+
 
 ## [0.8.0] — 2026-08-30
 
@@ -460,7 +463,8 @@ The v1 MVP, published as `@carlesandres/openmdr` on npm.
 
 Search, stdin, URL fetching, cross-file link following, `$EDITOR` hand-off, syntax highlighting, persistent config, OS-appearance auto-detect, single-binary distribution (issue [#2](https://github.com/carlesandres/openmdr/issues/2)), Homebrew tap. All tracked.
 
-[Unreleased]: https://github.com/carlesandres/house/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/carlesandres/house/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/carlesandres/house/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/carlesandres/house/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/carlesandres/house/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/carlesandres/house/compare/v0.5.2...v0.6.0
