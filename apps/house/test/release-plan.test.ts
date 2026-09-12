@@ -86,6 +86,15 @@ describe("release plan", () => {
 		expect(ci.match(/context=check/g)).toHaveLength(2)
 	})
 
+	test("creates verifiable release commits", () => {
+		const script = readFileSync(new URL("../dev/release.ts", import.meta.url), "utf8")
+		expect(script).toContain("createCommitOnBranch")
+		expect(script).toContain("branchName: branch")
+		expect(script).toContain('process.env.GITHUB_ACTIONS === "true"')
+		expect(script).toContain('"commit", "-S"')
+		expect(script).toContain(".commit.verification.verified")
+	})
+
 	test("verifies every published package, the installed binary, and release assets", () => {
 		const publish = readFileSync(
 			new URL("../../../.github/workflows/publish.yml", import.meta.url),

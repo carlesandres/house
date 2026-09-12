@@ -17,6 +17,8 @@ The publish workflow (`.github/workflows/publish.yml`) runs for a published rele
 
 ### Fixed
 
+- Release preparation now creates GitHub-verified commits, so release pull requests satisfy the
+  repository's signed-commit rule and can be merged normally.
 - Release preparation now rejects stale managed branches, requests maintainer review, and reports
   dispatched CI on the pull request, so release approvals remain visible through GitHub and `gh`.
 - Release preparation now passes GitHub authentication and step outputs through Turborepo, so
