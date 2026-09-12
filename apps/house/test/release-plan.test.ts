@@ -83,7 +83,7 @@ describe("release plan", () => {
 		expect(script).toContain("is stale; delete it and prepare the release again")
 		expect(script).toContain('"--reviewer"')
 		expect(ci).toContain("statuses: write")
-		expect(ci.match(/context=release-ci/g)).toHaveLength(2)
+		expect(ci.match(/context=check/g)).toHaveLength(2)
 	})
 
 	test("verifies every published package, the installed binary, and release assets", () => {
