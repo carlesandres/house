@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import { fileURLToPath } from "node:url"
 import { parseArgv, type ParsedArgs } from "../src/cli/argv.ts"
 
 const empty: ParsedArgs = {
@@ -9,6 +10,8 @@ const empty: ParsedArgs = {
 	width: null,
 	wrap: null,
 	wrapConflict: false,
+	autoHideSidebar: null,
+	autoHideSidebarConflict: false,
 	serve: false,
 	port: null,
 	help: false,
@@ -95,6 +98,24 @@ describe("parseArgv — boolean flags", () => {
 		expect(parseArgv(["--no-wrap"])).toEqual(args({ wrap: false }))
 		expect(parseArgv(["--wrap", "--no-wrap"])).toEqual(
 			args({ wrap: true, wrapConflict: true }),
+		)
+	})
+	test("--auto-hide-sidebar and --no-auto-hide-sidebar set the startup behavior", () => {
+		expect(parseArgv(["--auto-hide-sidebar"])).toEqual(args({ autoHideSidebar: true }))
+		expect(parseArgv(["--no-auto-hide-sidebar"])).toEqual(args({ autoHideSidebar: false }))
+		expect(parseArgv(["--auto-hide-sidebar", "--no-auto-hide-sidebar"])).toEqual(
+			args({ autoHideSidebar: true, autoHideSidebarConflict: true }),
+		)
+	})
+	test("conflicting auto-hide sidebar flags exit with a CLI error", async () => {
+		const entry = fileURLToPath(new URL("../src/index.tsx", import.meta.url))
+		const child = Bun.spawn(
+			[process.execPath, entry, "--auto-hide-sidebar", "--no-auto-hide-sidebar"],
+			{ stdout: "pipe", stderr: "pipe" },
+		)
+		expect(await child.exited).toBe(2)
+		expect(await new Response(child.stderr).text()).toContain(
+			"--auto-hide-sidebar and --no-auto-hide-sidebar cannot be used together",
 		)
 	})
 	test("--ext is parsed as a string value", () => {

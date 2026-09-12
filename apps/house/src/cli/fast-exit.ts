@@ -14,6 +14,10 @@ export const parseAndHandleFastExit = (argv: readonly string[]): ParsedArgs => {
 		console.error("house: --wrap and --no-wrap cannot be used together")
 		process.exit(2)
 	}
+	if (args.autoHideSidebarConflict) {
+		console.error("house: --auto-hide-sidebar and --no-auto-hide-sidebar cannot be used together")
+		process.exit(2)
+	}
 	if (argv.includes("--width") && args.width === null) {
 		console.error("house: --width requires a positive integer")
 		process.exit(2)

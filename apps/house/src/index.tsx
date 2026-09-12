@@ -141,6 +141,7 @@ interface DiscoverShellProps {
 	readonly extensions: readonly string[]
 	readonly wrapWidth: number
 	readonly initialWrap: boolean
+	readonly initialAutoHideSidebar: boolean
 	readonly startupFocus: StartupFocus
 	readonly order?: FileNavigatorOrder
 }
@@ -153,6 +154,7 @@ export const DiscoverShell = ({
 	extensions,
 	wrapWidth,
 	initialWrap,
+	initialAutoHideSidebar,
 	startupFocus,
 	order = "recently-modified",
 }: DiscoverShellProps) => {
@@ -166,6 +168,7 @@ export const DiscoverShell = ({
 			initialQuery={initialQuery}
 			wrapWidth={wrapWidth}
 			initialWrap={initialWrap}
+			initialAutoHideSidebar={initialAutoHideSidebar}
 			rootLabel={rootLabel}
 			startupFocus={startupFocus}
 			order={order}
@@ -249,6 +252,7 @@ export async function main(argv: readonly string[] = Bun.argv.slice(2)): Promise
 								return n
 							})(),
 				wrap: args.wrap,
+				autoHideSidebar: args.autoHideSidebar,
 			},
 		}),
 	).catch((err: unknown) => {
@@ -264,6 +268,7 @@ export async function main(argv: readonly string[] = Bun.argv.slice(2)): Promise
 		defaultRoot,
 		width: wrapWidth,
 		wrap: initialWrap,
+		autoHideSidebar: initialAutoHideSidebar,
 		order,
 	} = config
 	const themeDef = getThemeDefinition(themeId)
@@ -323,6 +328,7 @@ export async function main(argv: readonly string[] = Bun.argv.slice(2)): Promise
 			tone,
 			wrapWidth,
 			initialWrap,
+			initialAutoHideSidebar,
 			show,
 			extensions,
 			startupFocus,
@@ -341,6 +347,7 @@ interface TuiBootOptions {
 	readonly tone: "dark" | "light"
 	readonly wrapWidth: number
 	readonly initialWrap: boolean
+	readonly initialAutoHideSidebar: boolean
 	readonly show: readonly ShowCategory[]
 	readonly extensions: readonly string[]
 	readonly startupFocus: StartupFocus
@@ -357,6 +364,7 @@ async function runTui({
 	tone,
 	wrapWidth,
 	initialWrap,
+	initialAutoHideSidebar,
 	show,
 	extensions,
 	startupFocus,
@@ -405,6 +413,7 @@ async function runTui({
 				extensions={extensions}
 				wrapWidth={wrapWidth}
 				initialWrap={initialWrap}
+				initialAutoHideSidebar={initialAutoHideSidebar}
 				startupFocus={startupFocus}
 				order={order}
 			/>

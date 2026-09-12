@@ -68,6 +68,8 @@ house --serve README.md
 | `--width <N>`        | `80`              | Reader wrap width used when wrapping is enabled                                                              |
 | `--wrap`             | off               | Start with reader wrapping enabled                                                                           |
 | `--no-wrap`          | off               | Start with reader wrapping disabled                                                                          |
+| `--auto-hide-sidebar` | on               | Hide the sidebar after explicitly opening a file                                                             |
+| `--no-auto-hide-sidebar` | off           | Keep the sidebar visible after explicitly opening a file                                                     |
 | `--show <list>`      | `""`              | Reveal normally-skipped entries; comma-separated subset of `hidden`, `gitignored`. Use `--show ""` to clear. |
 | `--root <dir>`       | current directory | Discovery root to walk; overrides `defaultRoot` config/env                                                   |
 | `--focus <mode>`     | `sidebar`         | Startup focus: `sidebar`, `reader`, or `filter`. `filter` opens the sidebar filter prompt immediately.       |
@@ -97,26 +99,32 @@ tone  = "dark"
 extensions = []
 width = 80
 wrap = false
+autoHideSidebar = true
 show  = ["hidden", "gitignored"]
 focus = "sidebar"
 defaultRoot = "cwd" # or "git"
 order = "recently-modified" # or "tree"
 ```
 
-Supported keys: `theme`, `tone`, `extensions`, `width`, `wrap`, `show`, `focus`, `defaultRoot`, `order`.
+Supported keys: `theme`, `tone`, `extensions`, `width`, `wrap`, `autoHideSidebar`, `show`, `focus`, `defaultRoot`, `order`.
 
 `show` is a list of normally-skipped categories to opt into. Known categories: `hidden` (dot-prefixed entries), `gitignored` (entries matched by a `.gitignore`). Default is the empty list. Hard skips (`node_modules`, `.git`, `.venv`) always apply.
 
 Precedence, highest to lowest:
 
-1. CLI flags (`--theme`, `--tone`, `--ext`, `--width`, `--wrap`, `--no-wrap`, `--show`, `--focus`, `--order`, `--root`)
-2. Env vars (`HOUSE_THEME`, `HOUSE_TONE`, `HOUSE_EXTENSIONS`, `HOUSE_WIDTH`, `HOUSE_WRAP`, `HOUSE_SHOW`, `HOUSE_FOCUS`, `HOUSE_DEFAULT_ROOT`, `HOUSE_ORDER`)
+1. CLI flags (`--theme`, `--tone`, `--ext`, `--width`, `--wrap`, `--no-wrap`, `--auto-hide-sidebar`, `--no-auto-hide-sidebar`, `--show`, `--focus`, `--order`, `--root`)
+2. Env vars (`HOUSE_THEME`, `HOUSE_TONE`, `HOUSE_EXTENSIONS`, `HOUSE_WIDTH`, `HOUSE_WRAP`, `HOUSE_AUTO_HIDE_SIDEBAR`, `HOUSE_SHOW`, `HOUSE_FOCUS`, `HOUSE_DEFAULT_ROOT`, `HOUSE_ORDER`)
 3. Config file
-4. Built-in defaults (`opencode` / `dark` / `extensions = []` / `width = 80` / `wrap = false` / `show = []` / `focus = "sidebar"` / `defaultRoot = "cwd"` / `order = "recently-modified"`)
+4. Built-in defaults (`opencode` / `dark` / `extensions = []` / `width = 80` / `wrap = false` / `autoHideSidebar = true` / `show = []` / `focus = "sidebar"` / `defaultRoot = "cwd"` / `order = "recently-modified"`)
 
 `HOUSE_SHOW` takes a comma-separated list (`HOUSE_SHOW=hidden,gitignored`). For `show` specifically, each source completely replaces the next — categories don't merge across layers. Press `shift+a` in the TUI to round-trip between the configured set and the full vocabulary without editing config.
 
 `width` is the fixed reader width used when wrapping is enabled. `wrap` controls startup mode; press `w` in the TUI to toggle reader wrapping for the current session without editing config.
+
+`autoHideSidebar` hides the sidebar when you explicitly open a selected file with `↵`, `→`, `l`,
+the command palette, or a matching filter Return. Selection movement still previews files without
+hiding it. Press `s` or `/` to bring the sidebar back. Set the option to `false` to retain the
+two-pane view after Open file.
 
 `order` is the File Navigator browse order when no filter query is active. `recently-modified` (default) lists the most recently updated files first, using filesystem modification time, then tree order for ties. `tree` lists files before directories, alphabetically within each group, so current-directory files appear before nested subtrees. An active filter still ranks by relevance first.
 
@@ -157,7 +165,7 @@ The footer only shows essential app controls (`W`, `q`, `tab`, `s`, `ctrl+p`) to
 | `G`                             | Last file                                                                                 |
 | `/`                             | Filter files (fuzzy match on path)                                                        |
 | `A`                             | Toggle hidden + gitignored entries (session-only; round-trips with the configured `show`) |
-| `↵` / `→` / `l`                 | Open file (focus reader)                                                                  |
+| `↵` / `→` / `l`                 | Open file (focus reader and auto-hide the sidebar when enabled)                           |
 
 ### Reader
 

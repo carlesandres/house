@@ -16,6 +16,10 @@ export interface ParsedArgs {
 	readonly wrap: boolean | null
 	/** True when both `--wrap` and `--no-wrap` were passed. */
 	readonly wrapConflict: boolean
+	/** Startup Open-file sidebar auto-hide override. Null means config/env/default decides. */
+	readonly autoHideSidebar: boolean | null
+	/** True when both auto-hide sidebar flags were passed. */
+	readonly autoHideSidebarConflict: boolean
 	/** True when `--serve` was passed: serve the positional path as HTML, skip TUI. */
 	readonly serve: boolean
 	/** Value of `--port <N>`, or null. Validated by the boot layer. */
@@ -56,6 +60,8 @@ const createProgram = () =>
 		.option("--width [N]")
 		.option("--wrap")
 		.option("--no-wrap")
+		.option("--auto-hide-sidebar")
+		.option("--no-auto-hide-sidebar")
 		.option("--serve")
 		.option("--port [N]")
 		.option("--config-path")
@@ -89,6 +95,8 @@ const BOOLEAN_FLAGS: ReadonlySet<string> = new Set([
 	"--no-update-check",
 	"--wrap",
 	"--no-wrap",
+	"--auto-hide-sidebar",
+	"--no-auto-hide-sidebar",
 	"--help",
 	"-h",
 	"--version",
@@ -125,6 +133,8 @@ export const parseArgv = (argv: readonly string[]): ParsedArgs => {
 	const stringOrNull = (value: unknown): string | null => (typeof value === "string" ? value : null)
 	const hasWrap = argv.includes("--wrap")
 	const hasNoWrap = argv.includes("--no-wrap")
+	const hasAutoHideSidebar = argv.includes("--auto-hide-sidebar")
+	const hasNoAutoHideSidebar = argv.includes("--no-auto-hide-sidebar")
 
 	return {
 		path: typeof pathArg === "string" ? pathArg : null,
@@ -134,6 +144,8 @@ export const parseArgv = (argv: readonly string[]): ParsedArgs => {
 		width: stringOrNull(opts["width"]),
 		wrap: hasWrap ? true : hasNoWrap ? false : null,
 		wrapConflict: hasWrap && hasNoWrap,
+		autoHideSidebar: hasAutoHideSidebar ? true : hasNoAutoHideSidebar ? false : null,
+		autoHideSidebarConflict: hasAutoHideSidebar && hasNoAutoHideSidebar,
 		serve: opts["serve"] === true,
 		port: stringOrNull(opts["port"]),
 		help: opts["help"] === true,
@@ -161,6 +173,8 @@ options:
   --width <N>    reader wrap width used when wrapping is enabled (default: 80)
   --wrap         start with reader wrapping enabled
   --no-wrap      start with reader wrapping disabled
+  --auto-hide-sidebar     hide the sidebar after opening a file (default)
+  --no-auto-hide-sidebar  keep the sidebar visible after opening a file
   --show <list>  reveal normally-skipped entries; comma-separated subset of:
                    hidden, gitignored. Use --show "" to clear.
   --root <dir>   discovery root to walk (overrides defaultRoot config/env)
@@ -181,6 +195,6 @@ examples:
 
 configuration:
   file: $XDG_CONFIG_HOME/house/config.toml  (default ~/.config/house/config.toml)
-	  keys: theme, tone, width, wrap, extensions, show, focus, defaultRoot, order
-	  env:  HOUSE_THEME, HOUSE_TONE, HOUSE_WIDTH, HOUSE_WRAP, HOUSE_EXTENSIONS, HOUSE_SHOW, HOUSE_FOCUS, HOUSE_DEFAULT_ROOT, HOUSE_ORDER
+	  keys: theme, tone, width, wrap, autoHideSidebar, extensions, show, focus, defaultRoot, order
+	  env:  HOUSE_THEME, HOUSE_TONE, HOUSE_WIDTH, HOUSE_WRAP, HOUSE_AUTO_HIDE_SIDEBAR, HOUSE_EXTENSIONS, HOUSE_SHOW, HOUSE_FOCUS, HOUSE_DEFAULT_ROOT, HOUSE_ORDER
   precedence (high → low): flags → env → file → defaults`

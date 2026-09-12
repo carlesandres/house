@@ -614,6 +614,7 @@ describe("Browser — selection", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		expect(readerTitleContains(setup!.captureCharFrame(), "b.md")).toBe(true)
+		expect(sidebarIsVisible(setup!.captureCharFrame(), ["a.md", "b.md"])).toBe(true)
 	})
 
 	test("k moves selection up", async () => {
@@ -960,6 +961,7 @@ describe("Browser — focus", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(true)
+		expect(sidebarIsVisible(setup!.captureCharFrame())).toBe(true)
 	})
 
 	test("tab toggles focus between sidebar and reader", async () => {
@@ -987,6 +989,7 @@ describe("Browser — focus", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(true)
+		expect(sidebarIsVisible(setup!.captureCharFrame())).toBe(true)
 	})
 
 	test("return / l / right focus the reader; escape / h / left focus the sidebar", async () => {
@@ -1008,6 +1011,7 @@ describe("Browser — focus", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(false)
+		expect(sidebarIsVisible(setup!.captureCharFrame())).toBe(false)
 		expect(readerTitleContains(setup!.captureCharFrame(), "a.md")).toBe(true)
 
 		// escape → sidebar (escape needs extra time: \x1b is the lead of
@@ -1018,6 +1022,7 @@ describe("Browser — focus", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(true)
+		expect(sidebarIsVisible(setup!.captureCharFrame())).toBe(true)
 
 		// l → reader
 		await act(async () => {
@@ -1025,6 +1030,7 @@ describe("Browser — focus", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(false)
+		expect(sidebarIsVisible(setup!.captureCharFrame())).toBe(false)
 		expect(readerTitleContains(setup!.captureCharFrame(), "a.md")).toBe(true)
 
 		// h → sidebar
@@ -1033,6 +1039,7 @@ describe("Browser — focus", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(true)
+		expect(sidebarIsVisible(setup!.captureCharFrame())).toBe(true)
 
 		// right → reader
 		await act(async () => {
@@ -1040,6 +1047,7 @@ describe("Browser — focus", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(false)
+		expect(sidebarIsVisible(setup!.captureCharFrame())).toBe(false)
 		expect(readerTitleContains(setup!.captureCharFrame(), "a.md")).toBe(true)
 
 		// left → sidebar
@@ -1048,6 +1056,84 @@ describe("Browser — focus", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(true)
+		expect(sidebarIsVisible(setup!.captureCharFrame())).toBe(true)
+	})
+
+	test("resolved disabled policy keeps the sidebar visible after Open", async () => {
+		const root = makeFiles(["a.md", "b.md"])
+		await act(async () => {
+			setup = await testRender(
+				<RegistryProvider>
+					<DiscoverShell
+						target={root}
+						initialQuery=""
+						initialShow={[]}
+						extensions={[]}
+						wrapWidth={80}
+						initialWrap={false}
+						initialAutoHideSidebar={false}
+						startupFocus="sidebar"
+						order="tree"
+					/>
+				</RegistryProvider>,
+				VIEWPORT,
+			)
+		})
+		await waitForFrame((frame) => sidebarIsVisible(frame, ["a.md", "b.md"]))
+
+		await act(async () => {
+			setup!.mockInput.pressEnter()
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(sidebarIsFocused(setup!.captureSpans(), frame)).toBe(false)
+		expect(sidebarIsVisible(frame, ["a.md", "b.md"])).toBe(true)
+	})
+
+	test("Open with no selected file preserves the visible sidebar", async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser root={makeFiles([])} onQuit={() => {}} />,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		await act(async () => {
+			setup!.mockInput.pressEnter()
+		})
+		await stepFrame(setup!.renderOnce)
+		const frame = setup!.captureCharFrame()
+		expect(sidebarIsFocused(setup!.captureSpans(), frame)).toBe(false)
+		expect(sidebarIsVisible(frame)).toBe(true)
+	})
+
+	test("Open stays hidden when the selected file read fails", async () => {
+		const pendingRead = deferred<string>()
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					root={makeFiles(["a.md"])}
+					readFile={() => pendingRead.promise}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		await act(async () => {
+			setup!.mockInput.pressEnter()
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(sidebarIsVisible(setup!.captureCharFrame())).toBe(false)
+
+		await act(async () => {
+			pendingRead.reject(new Error("unreadable"))
+		})
+		const frame = await waitForFrameContaining("Cannot read")
+		expect(frame).toContain("unreadable")
+		expect(sidebarIsVisible(frame)).toBe(false)
 	})
 
 	test("j/k do not move sidebar selection while reader is focused", async () => {
@@ -1104,7 +1190,7 @@ describe("Browser — sidebar toggle", () => {
 		expect(readerTitleContains(setup!.captureCharFrame(), "a.md")).toBe(true)
 	})
 
-	test("pressing s again restores the sidebar and focuses it", async () => {
+	test("s restores a sidebar hidden by Open and focuses it", async () => {
 		await act(async () => {
 			setup = await renderBrowser(
 				<Browser
@@ -1118,7 +1204,7 @@ describe("Browser — sidebar toggle", () => {
 		await stepFrame(setup!.renderOnce)
 
 		await act(async () => {
-			setup!.mockInput.pressKey("s")
+			setup!.mockInput.pressEnter()
 		})
 		await stepFrame(setup!.renderOnce)
 		await act(async () => {
@@ -1149,6 +1235,33 @@ describe("Browser — #22 layout v2", () => {
 		const frame = setup!.captureCharFrame()
 		expect(sidebarIsVisible(setup!.captureCharFrame(), ["a.md", "b.md"])).toBe(true)
 		expect(frame).toContain("a.md")
+	})
+
+	test("Open switches a narrow viewport to Reader and s restores Sidebar", async () => {
+		const visibleFiles = ["a.md", "b.md"] as const
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					root={makeFiles(visibleFiles)}
+					readFile={makeReader({ "a.md": "x", "b.md": "y" })}
+					onQuit={() => {}}
+				/>,
+				{ width: 60, height: 20 },
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		await act(async () => {
+			setup!.mockInput.pressEnter()
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(sidebarIsVisible(setup!.captureCharFrame(), visibleFiles)).toBe(false)
+
+		await act(async () => {
+			setup!.mockInput.pressKey("s")
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(sidebarIsVisible(setup!.captureCharFrame(), visibleFiles)).toBe(true)
 	})
 
 	test("sidebar is visible at launch", async () => {
@@ -1372,6 +1485,7 @@ describe("Browser — #22 layout v2", () => {
 						extensions={[]}
 						wrapWidth={80}
 						initialWrap={false}
+						initialAutoHideSidebar={true}
 						startupFocus="sidebar"
 					/>
 				</RegistryProvider>,
@@ -2572,13 +2686,18 @@ describe("Browser — sidebar filter row", () => {
 			setup!.mockInput.pressEnter()
 		})
 		await stepFrame(setup!.renderOnce)
+		// Open auto-hides the Sidebar; reveal it to inspect the applied row.
+		await act(async () => {
+			setup!.mockInput.pressKey("h")
+		})
+		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
 		// Applied: prefix + query (native input unmounted, no caret).
 		expect(frame).toContain("> int")
 		// Filtered list stays narrowed — non-matching files remain hidden.
 		expect(frame).not.toContain("README.md")
 		expect(frame).not.toContain("notes.md")
-		// Reader has focus on the picked file.
+		// Reader still shows the picked file after the Sidebar reveal.
 		expect(readerTitleContains(frame, "docs/intro.md")).toBe(true)
 	})
 
@@ -2740,6 +2859,11 @@ describe("Browser — sidebar filter row", () => {
 			await new Promise<void>((resolve) => setTimeout(resolve, 60))
 		})
 		await stepFrame(setup!.renderOnce)
+		// The committed Open left shown=false, so reveal the Sidebar to inspect the applied query.
+		await act(async () => {
+			setup!.mockInput.pressKey("h")
+		})
+		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
 		// Typed query is preserved as the applied filter (no revert). Match
 		// with trailing space to avoid colliding with the "docs/intro.md" file
@@ -2785,6 +2909,7 @@ describe("Browser — filter modal", () => {
 		const frame = setup!.captureCharFrame()
 		expect(readerTitleContains(frame, "docs/intro.md")).toBe(true)
 		expect(sidebarIsFocused(setup!.captureSpans(), frame)).toBe(false)
+		expect(sidebarIsVisible(frame)).toBe(false)
 	})
 
 	test("/ opens the filter; typed chars narrow the visible list", async () => {
@@ -3166,7 +3291,7 @@ describe("Browser — filter modal", () => {
 		expect(sidebarIsFocused(setup!.captureSpans(), setup!.captureCharFrame())).toBe(true)
 	})
 
-	test("/ from hidden sidebar auto-opens the sidebar and focuses the filter", async () => {
+	test("/ restores a sidebar hidden by Open and focuses the filter", async () => {
 		const files = makeFiles(["README.md", "notes.md"])
 		await act(async () => {
 			setup = await renderBrowser(
@@ -3180,9 +3305,9 @@ describe("Browser — filter modal", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 
-		// Hide sidebar.
+		// Open the selected file, which hides the sidebar by default.
 		await act(async () => {
-			setup!.mockInput.pressKey("s")
+			setup!.mockInput.pressEnter()
 		})
 		await stepFrame(setup!.renderOnce)
 		expect(sidebarIsVisible(setup!.captureCharFrame())).toBe(false)
@@ -3348,6 +3473,11 @@ describe("Browser — filter modal", () => {
 			setup!.mockInput.pressBackspace()
 			setup!.mockInput.pressBackspace()
 			setup!.mockInput.pressBackspace()
+		})
+		await stepFrame(setup!.renderOnce)
+		// The earlier matched Open left shown=false; reveal the applied empty query.
+		await act(async () => {
+			setup!.mockInput.pressKey("h")
 		})
 		await stepFrame(setup!.renderOnce)
 		const frame = setup!.captureCharFrame()
@@ -4119,6 +4249,30 @@ describe("Browser — command palette", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		expect(quitCalls).toBe(1)
+	})
+
+	test("Return on Open file applies the sidebar auto-hide policy", async () => {
+		const files = makeFiles(["README.md"])
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser root={files} readFile={makeReader({ "README.md": "x" })} onQuit={() => {}} />,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+
+		await act(async () => {
+			setup!.mockInput.pressKey("p", { ctrl: true })
+			for (const char of "open file") setup!.mockInput.pressKey(char)
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(setup!.captureCharFrame()).toContain("Open file")
+
+		await act(async () => {
+			setup!.mockInput.pressEnter()
+		})
+		await stepFrame(setup!.renderOnce)
+		expect(sidebarIsVisible(setup!.captureCharFrame())).toBe(false)
 	})
 
 	test("Return runs Copy file contents and copies the selected file's raw contents", async () => {

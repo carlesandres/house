@@ -25,6 +25,8 @@ export interface BrowserCtx {
 	readonly paletteOpen: boolean
 	readonly wrapEnabled: boolean
 	readonly setFocus: (next: BrowserFocus | ((prev: BrowserFocus) => BrowserFocus)) => void
+	/** Focus the Reader for the selected file and apply the startup auto-hide policy. */
+	readonly openSelectedFile: () => void
 	readonly moveSelectionBy: (delta: number) => void
 	readonly selectFirst: () => void
 	readonly selectLast: () => void
@@ -269,7 +271,7 @@ export const browserBindings: readonly KeyBinding<BrowserCtx>[] = [
 		description: "Open file (focus reader)",
 		keys: ["return", "right", "l"],
 		when: inSidebar,
-		run: (c) => c.setFocus("reader"),
+		run: (c) => c.openSelectedFile(),
 	},
 
 	// File — actions on the currently-selected file. Gated on `hasSelected`
