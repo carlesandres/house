@@ -66,6 +66,10 @@ const findReleasePullRequest = (branch: string): PullRequest | undefined => {
 
 const validateRemoteReleaseBranch = (branch: string, version: string): void => {
 	run("git", ["fetch", "origin", `${branch}:refs/remotes/origin/${branch}`])
+	const mainSha = run("git", ["rev-parse", "origin/main"])
+	const branchParentSha = run("git", ["rev-parse", `origin/${branch}^`])
+	if (branchParentSha !== mainSha)
+		fail(`${branch} is stale; delete it and prepare the release again from current main`)
 	const manifest = JSON.parse(run("git", ["show", `origin/${branch}:apps/house/package.json`])) as {
 		version: string
 	}
@@ -76,19 +80,23 @@ const validateRemoteReleaseBranch = (branch: string, version: string): void => {
 		fail(`existing ${branch} does not contain the ${version} changelog section`)
 }
 
-const createReleasePullRequest = (branch: string, version: string): string =>
-	run("gh", [
+const createReleasePullRequest = (branch: string, version: string): string => {
+	const reviewer = run("gh", ["repo", "view", "--json", "owner", "--jq", ".owner.login"])
+	return run("gh", [
 		"pr",
 		"create",
 		"--base",
 		"main",
 		"--head",
 		branch,
+		"--reviewer",
+		reviewer,
 		"--title",
 		`chore: release v${version}`,
 		"--body",
 		`Release v${version}. Merging this pull request publishes the release.`,
 	])
+}
 
 const args = Bun.argv.slice(2)
 if (args.includes("--help") || args.includes("-h")) {
