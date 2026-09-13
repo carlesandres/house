@@ -1,10 +1,4 @@
-/**
- * Neutral GitHub-ish CSS for the serve action.
- *
- * Embedded inline by render.ts so each served page is self-contained — no
- * second request, "Save Page As" gives a working file, future --export
- * reuses the same renderer.
- */
+/** Neutral GitHub-like CSS for the local browser preview shell. */
 export const css = `
 :root {
 	color-scheme: light dark;
@@ -47,6 +41,17 @@ main {
 	margin: 0 auto;
 	padding: 2.5rem 1.5rem 6rem;
 }
+.preview-contents {
+	margin: 0 0 2rem;
+	padding: .75rem 1rem;
+	border: 1px solid var(--border);
+	border-radius: 6px;
+}
+.preview-contents > summary { cursor: pointer; font-weight: 600; }
+.preview-contents nav { margin-top: .75rem; }
+.preview-contents ol { margin: .25rem 0; }
+.preview-contents li { overflow-wrap: anywhere; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 h1, h2, h3, h4, h5, h6 {
 	margin-top: 1.75em;
 	margin-bottom: 0.6em;

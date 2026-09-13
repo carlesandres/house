@@ -112,7 +112,7 @@ No commitment to ship. Tracked to remember.
 
 | Item | Issue |
 |---|---|
-| Markdown → HTML rendering investigation | [#18](https://github.com/carlesandres/house/issues/18) |
+| Portable Markdown → HTML output investigation (local preview renderer has landed) | [#18](https://github.com/carlesandres/house/issues/18) |
 | Line numbers toggle | [#28](https://github.com/carlesandres/house/issues/28) |
 | Inline images (iTerm2 / Kitty / Sixel) ★ | [#31](https://github.com/carlesandres/house/issues/31) |
 | OSC 8 hyperlinks for markdown links ★ | [#32](https://github.com/carlesandres/house/issues/32) |

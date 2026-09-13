@@ -27,7 +27,9 @@ These are hard non-goals. We will say no to PRs that pull in this direction.
 - **Not a cloud / sync service.** Glow had a stash feature; it was removed. We will not reintroduce that class of feature.
 - **Not a general-purpose pager.** We will not try to replace `less`. Piping arbitrary text into `house` is out of scope.
 - **Not a custom-stylesheet platform** in v1. No JSON/YAML theme files. Themes are TypeScript objects shipped with the binary.
-- **No custom markdown parser.** v1 uses opentui's built-in `<markdown>` renderer. We reserve the right to swap to a custom remark/mdast pipeline later if and only if a concrete need (theming gap, link-following, search highlighting) forces it.
+- **No custom TUI markdown parser.** v1 uses opentui's built-in `<markdown>` renderer. The separate
+  browser preview uses Marked behind an extractable rendering API. We reserve the right to swap the
+  TUI to a custom remark/mdast pipeline only if a concrete need forces it.
 
 ## 4. Target User & Use Cases
 
@@ -177,7 +179,7 @@ Do not bind these in v1:
 | `B`                 | Bookmarks panel                   |
 | `ctrl+[` / `ctrl+]` | Navigation history back / forward |
 
-`E` (open in `$EDITOR`), `N` (prompt-create-select-edit at the discovery root), `R` (basename rename via the same prompt shell; bare `r` stays reserved for Reload), and `O` (open externally, currently HTML browser) are shipped — see the keymap. The browser preview intentionally stays on the current simple `marked`-based HTML path for now; see [`docs/adr/0001-streamdown-preview-renderer.md`](./docs/adr/0001-streamdown-preview-renderer.md). Reload semantics: `r` remains reserved because `E`'s post-edit reload is automatic; a manual reload is only needed if we ship file-watching as a separate feature. See [`docs/adr/0003-rename-basename-prompt.md`](./docs/adr/0003-rename-basename-prompt.md).
+`E` (open in `$EDITOR`), `N` (prompt-create-select-edit at the discovery root), `R` (basename rename via the same prompt shell; bare `r` stays reserved for Reload), and `O` (open externally, currently HTML browser) are shipped — see the keymap. The browser preview uses an extractable Marked renderer with sanitized HTML, static Shiki highlighting, native document contents, and locally bundled Mermaid enhancement; see [`docs/adr/0001-streamdown-preview-renderer.md`](./docs/adr/0001-streamdown-preview-renderer.md). This does not change the independent OpenTUI renderer. Reload semantics: `r` remains reserved because `E`'s post-edit reload is automatic; a manual reload is only needed if we ship file-watching as a separate feature. See [`docs/adr/0003-rename-basename-prompt.md`](./docs/adr/0003-rename-basename-prompt.md).
 
 ### 7.4 Unified browser model
 
@@ -330,6 +332,8 @@ apps/house/src/
 ├── theme/light.ts         GitHub-Light-leaning palette
 ├── theme/registry.ts      themeDefinitions, getThemeDefinition, isThemeId
 ├── theme/colors.ts        mutable singleton `colors` + setActiveTheme
+├── markdown-html/         extractable safe HTML renderer, styles, Mermaid enhancer
+├── serve/                 browser-preview shell, loopback server, reload, embedded assets
 ├── Browser.tsx            orchestration, focus, immediate filter input, reader, overlays
 ├── HelpOverlay.tsx        renders KeyBinding[] grouped by group field
 └── index.tsx              entry: parseArgv → resolve root/query → <Browser> or `--serve`

@@ -15,6 +15,7 @@ bun install
 bun run dev [path]      # watch + run from source; positional seeds filter, use --root <dir> to browse a directory
 bun test                # House app tests (root bunfig.toml scope)
 bun run test            # all workspace tests through Turbo
+bun run test:preview    # Chromium smoke for static fallback, contents, Mermaid, and responsive layout
 bun run test:pty        # opt-in PTY suite (HOUSE_PTY=1); also run by CI
 bun run --cwd packages/ui test # reusable UI package tests only
 bun run --cwd packages/options test # options catalog / session tests
@@ -25,6 +26,7 @@ bun run format:check    # check (CI uses this)
 
 bun run --cwd apps/house bench:file-navigator
 bun run build:standalone
+bun run --cwd apps/house smoke:preview:artifact standalone
 bun run --cwd apps/house smoke:file-navigator:standalone
 bun run --cwd apps/house smoke:file-navigator:installed
 bun run npm:pack        # stage the app package and show exactly what would ship to npm
@@ -39,6 +41,10 @@ mutation metrics remain unsupported because pre-migration production had no watc
 
 Any PR has to pass `typecheck`, `lint`, `format:check`, `test`, `npm:pack`, and the
 GitHub emulator verification — that's what `.github/workflows/ci.yml` enforces.
+
+`test:preview` requires Playwright Chromium (`bunx playwright install chromium`). It keeps normal
+`bun test` browser-independent. The artifact preview smoke starts the actual compiled executable
+with Bun removed from `PATH`, requests its embedded asset graph, and renders a real Mermaid SVG.
 
 The File Navigator smoke commands invoke the built House artifact's private headless mode; they do not
 compile a workspace-only substitute. Installed mode packs the staged main and host platform packages
@@ -58,6 +64,9 @@ components live in the private `packages/ui` source package:
 - `apps/house/src/io/` — file reads (Effect)
 - `apps/house/src/keymap/` — declarative bindings + dispatch
 - `apps/house/src/theme/` — typed palette + mutable singleton
+- `apps/house/src/markdown-html/` — extractable text-in/safe-fragment-out renderer, content CSS,
+  and optional root-scoped Mermaid enhancer
+- `apps/house/src/serve/` — House preview shell, loopback server, live reload, and embedded assets
 - `apps/house/src/Browser.tsx`, `apps/house/src/index.tsx` — TUI
 - `apps/house/test/` — tests; the root `bunfig.toml` keeps direct `bun test` scoped here
 - `apps/house/dev/` — build, release, smoke, and benchmark scripts
@@ -85,6 +94,11 @@ when the host does not reproduce its recorded result. The normal suite still val
 evidence parsing, core synchronization, and the active release path.
 
 Add tests alongside features. We don't enforce coverage, but every keymap binding should have at least one integration test (see §10.2 of DESIGN.md for the v2 gate).
+
+The `markdown-html` entry must remain usable without House: it accepts Markdown strings, returns
+HTML plus headings, Mermaid presence, and diagnostics, and owns only its lazy highlighter. Keep file
+I/O, URLs, serving, live reload, and asset building in `serve/`. Its content CSS and browser enhancer
+are separate exports; importing the renderer must not initialize Mermaid or require a DOM.
 
 For reader empty-state guidance, test the product contract rather than the exact source shape: the footer should continue to reflect currently actionable controls, while the reader tips should read like short English guidance about features/workflows and usually mention the relevant key inside the sentence. Only one reader tip should appear at a time; tips are ordered by relevance and rotate each time the reader empty state appears. Prefer asserting on representative sentences in the generic empty state and the zero-match filtered state, plus at least one leave/re-enter rotation check.
 

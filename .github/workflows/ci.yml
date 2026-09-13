@@ -42,9 +42,12 @@ jobs:
       - run: bun run lint
       - run: bun run format:check
       - run: bun run test
+      - run: bunx playwright install --with-deps chromium
+      - run: bun run test:preview
       - run: bun run test:pty
       - run: bun run verify:github
       - run: bun run build:standalone
+      - run: bun run --cwd apps/house smoke:preview:artifact standalone
       - run: bun run --cwd apps/house smoke:file-navigator:standalone
       - run: bun run npm:pack
 
@@ -83,6 +86,8 @@ jobs:
           test "$("${RUNNER_TEMP}/npm-global/bin/house" --version)" = "${version}"
           HOUSE_FILE_NAVIGATOR_SMOKE_BINARY="${RUNNER_TEMP}/npm-global/bin/house" \
             bun run --cwd apps/house smoke:file-navigator:installed
+          HOUSE_PREVIEW_SMOKE_BINARY="${RUNNER_TEMP}/npm-global/bin/house" \
+            bun run --cwd apps/house smoke:preview:artifact installed
 
   release-status:
     if: >-

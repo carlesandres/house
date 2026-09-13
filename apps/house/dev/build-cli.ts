@@ -4,6 +4,7 @@ import { chmod, mkdir, readFile, rm, writeFile } from "node:fs/promises"
 import { resolve } from "node:path"
 import pkg from "../package.json" with { type: "json" }
 import { assertHighlighterAssets } from "../src/markdown/highlighter.ts"
+import { buildPreviewAssets, serializePreviewAssets } from "../src/serve/build-assets.ts"
 
 const root = resolve(import.meta.dir, "..")
 const distDir = resolve(root, "dist")
@@ -20,6 +21,12 @@ const runtimeExternals = [
 	"effect",
 	"ignore",
 	"marked",
+	"github-slugger",
+	"sanitize-html",
+	"@shikijs/core",
+	"@shikijs/engine-javascript",
+	"@shikijs/langs",
+	"@shikijs/themes",
 	"react",
 	"scheduler",
 	"string-width",
@@ -33,12 +40,14 @@ const fail = (message: string): never => {
 }
 
 const buildApp = async (): Promise<void> => {
+	const previewAssets = serializePreviewAssets(await buildPreviewAssets({ minify: true }))
 	const result = await Bun.build({
 		entrypoints: [appEntry],
 		external: runtimeExternals,
 		format: "esm",
 		outdir: distDir,
 		target: "bun",
+		define: { HOUSE_PREVIEW_ASSETS: JSON.stringify(previewAssets) },
 	} as any)
 
 	if (!result.success) {

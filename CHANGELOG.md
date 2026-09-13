@@ -6,6 +6,17 @@ The publish workflow (`.github/workflows/publish.yml`) runs for a published rele
 
 ## [Unreleased]
 
+### Added
+
+- Browser previews now include static syntax highlighting, a native collapsible table of contents,
+  and locally bundled Mermaid rendering with readable source fallbacks, so project documentation
+  remains useful offline and when browser enhancement fails.
+
+### Security
+
+- Browser previews now sanitize authored HTML and URLs, apply a restrictive local-page policy, and
+  serve only immutable built-in assets from loopback-validated requests.
+
 ### Changed
 
 - CI now runs the PTY suite (`bun run test:pty`) after workspace tests, so real-terminal regressions

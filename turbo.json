@@ -51,6 +51,9 @@
 			"persistent": true
 		},
 		"test": {},
+		"test:preview": {
+			"cache": false
+		},
 		"test:pty": {
 			"cache": false
 		},
