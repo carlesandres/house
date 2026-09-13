@@ -19,7 +19,7 @@ Install with npm or Bun. Prebuilt binaries cover macOS and Linux (arm64/x64); no
 ## Runtime requirements
 
 - **Run:** a prebuilt binary for your platform (pulled in automatically on install). No Bun needed at runtime on supported platforms.
-- **Install:** Node/npm or Bun both work. Prefer `npm install -g` for the normal end-user path.
+- **Install:** Node/npm (`>=26.4.0`) or Bun both work. Prefer `npm install -g` for the normal end-user path.
 
 Supported on macOS and Linux (arm64/x64, glibc Linux). Windows is unsupported and unvalidated (see [#129](https://github.com/carlesandres/house/issues/129)).
 

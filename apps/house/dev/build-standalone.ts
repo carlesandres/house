@@ -13,6 +13,7 @@ import {
 	type ReleaseTarget,
 } from "./release-targets.ts"
 import { generateStandaloneHost } from "./standalone-host.ts"
+import { assertHighlighterAssets } from "../src/markdown/highlighter.ts"
 
 const root = resolve(import.meta.dir, "..")
 const repoRoot = resolve(root, "../..")
@@ -200,9 +201,7 @@ const buildTarget = async (
 			plugins: [treeSitterDependencyResolver],
 			define: {
 				// Inserted as source; must be a quoted string literal.
-				OTUI_TREE_SITTER_WORKER_PATH: JSON.stringify(
-					bunfsWorkerPath(TREE_SITTER_WORKER_VIRTUAL),
-				),
+				OTUI_TREE_SITTER_WORKER_PATH: JSON.stringify(bunfsWorkerPath(TREE_SITTER_WORKER_VIRTUAL)),
 			},
 			compile: {
 				target: target.bunTarget,
@@ -245,6 +244,12 @@ if (Bun.argv.length > 3 || arg === "--help" || arg === "-h") {
 }
 
 await mkdir(releaseDir, { recursive: true })
+
+try {
+	assertHighlighterAssets()
+} catch (error) {
+	fail(error instanceof Error ? error.message : String(error))
+}
 
 const treeSitterWorker = await resolveTreeSitterWorkerSource()
 console.log(`embedded ${TREE_SITTER_WORKER_VIRTUAL} (${treeSitterWorker.length} bytes)`)

@@ -42,6 +42,7 @@ jobs:
       - run: bun run lint
       - run: bun run format:check
       - run: bun run test
+      - run: bun run test:pty
       - run: bun run verify:github
       - run: bun run build:standalone
       - run: bun run --cwd apps/house smoke:file-navigator:standalone
@@ -52,7 +53,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node-version: [22.22.2, 24]
+        node-version: [26.4.0, 26]
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5

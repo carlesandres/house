@@ -3,6 +3,7 @@
 import { chmod, mkdir, readFile, rm, writeFile } from "node:fs/promises"
 import { resolve } from "node:path"
 import pkg from "../package.json" with { type: "json" }
+import { assertHighlighterAssets } from "../src/markdown/highlighter.ts"
 
 const root = resolve(import.meta.dir, "..")
 const distDir = resolve(root, "dist")
@@ -63,6 +64,12 @@ if (Bun.argv[2] === "--help" || Bun.argv[2] === "-h") {
 }
 
 if (Bun.argv.length > 3) fail(usage)
+
+try {
+	assertHighlighterAssets()
+} catch (error) {
+	fail(error instanceof Error ? error.message : String(error))
+}
 
 // Only replace CLI outputs — leave dist/release and dist/npm alone so local
 // standalone / npm-package builds survive a prepack.

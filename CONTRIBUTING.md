@@ -15,6 +15,7 @@ bun install
 bun run dev [path]      # watch + run from source; positional seeds filter, use --root <dir> to browse a directory
 bun test                # House app tests (root bunfig.toml scope)
 bun run test            # all workspace tests through Turbo
+bun run test:pty        # opt-in PTY suite (HOUSE_PTY=1); also run by CI
 bun run --cwd packages/ui test # reusable UI package tests only
 bun run --cwd packages/options test # options catalog / session tests
 bun run typecheck
@@ -72,7 +73,9 @@ The headless test pattern is documented in `apps/house/test/browser.test.tsx`. U
 
 Direct `bun test` remains intentionally scoped to `apps/house/test` by the root `bunfig.toml`. Use
 `bun run test` for the CI-equivalent all-workspace test gate, or
-`bun run --cwd packages/ui test` while iterating on the reusable package.
+`bun run --cwd packages/ui test` while iterating on the reusable package. PTY coverage under
+`apps/house/test/pty/` stays skipped unless `HOUSE_PTY=1` (or `bun run test:pty`); CI runs that
+suite after the normal workspace tests.
 
 Native backend feasibility probes are intentionally outside the release gate now that their durable
 evidence is recorded and exact House artifacts run the mutation matrix. Use
