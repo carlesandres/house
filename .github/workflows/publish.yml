@@ -31,7 +31,7 @@ jobs:
 
       - uses: actions/setup-node@v5
         with:
-          node-version: 24
+          node-version: 26
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -111,7 +111,7 @@ jobs:
 
       - uses: actions/setup-node@v5
         with:
-          node-version: 24
+          node-version: 26
           registry-url: https://registry.npmjs.org/
 
       - uses: oven-sh/setup-bun@v2
@@ -201,7 +201,7 @@ jobs:
 
       - uses: actions/setup-node@v5
         with:
-          node-version: 24
+          node-version: 26
           registry-url: https://registry.npmjs.org/
 
       - name: Verify all npm packages

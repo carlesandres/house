@@ -10,6 +10,8 @@ The publish workflow (`.github/workflows/publish.yml`) runs for a published rele
 
 - CI now runs the PTY suite (`bun run test:pty`) after workspace tests, so real-terminal regressions
   for editor, new-file, sidebar selection, status popover, and extension allow-list paths are gated.
+- npm install smoke (and publish verification) now use Node `>=26.4.0`, matching OpenTUI 0.5.11’s
+  engine floor so `engine-strict` installs succeed.
 - The Browser TUI now exits at startup if the markdown highlighter cannot initialize, instead of
   rendering raw source. CLI and standalone builds fail the same check.
 

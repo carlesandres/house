@@ -166,7 +166,7 @@ published main package. Do not hand-edit those pins to an unpublished version.
 
 PR CI is the release gate: typecheck, lint, format check, all-workspace tests,
 PTY coverage (`bun run test:pty`), GitHub API emulation, standalone
-build/mutation smoke, npm package staging, and Node 22/24 install smokes. Use
+build/mutation smoke, npm package staging, and Node 26+ install smokes. Use
 `bun run npm:pack`, not root `npm pack`, to inspect the staged public package.
 
 ### 3. Approve and watch publishing
@@ -202,7 +202,7 @@ gh run watch <run-id>
 
 The green `verify-published` job is the release completion signal. It retries npm
 registry reads while the new versions propagate, checks all five packages, installs
-the main package on Node 24, runs `house --version`, and checks the four archives.
+the main package on Node 26, runs `house --version`, and checks the four archives.
 The workflow summary records the verified version.
 
 These commands remain useful for manual diagnosis:
