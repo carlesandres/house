@@ -11,7 +11,8 @@ import { browserBindings, type BrowserCtx, type BrowserFocus } from "../src/keym
 import { dispatch, type KeyMatch } from "../src/keymap/keymap.ts"
 
 const noop = () => {}
-const noopSetFocus = (_: BrowserFocus | ((prev: BrowserFocus) => BrowserFocus)) => {}
+const noopSetFocus: (next: BrowserFocus | ((prev: BrowserFocus) => BrowserFocus)) => void =
+	() => {}
 
 const makeFiles = (n: number): readonly FileRecord[] =>
 	Array.from({ length: n }, (_, i) => ({

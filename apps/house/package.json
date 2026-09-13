@@ -76,20 +76,20 @@
 		"@parcel/watcher": "2.6.0",
 		"commander": "^14.0.3",
 		"effect": "4.0.0-beta.107",
-		"ignore": "^7.0.5",
-		"marked": "^18.0.4",
-		"react": "19.2.8",
+		"ignore": "^7.0.9",
+		"marked": "^18.0.13",
+		"react": "19.3.0",
 		"scheduler": "0.27.0",
 		"string-width": "7.2.0",
 		"web-tree-sitter": "0.25.10"
 	},
 	"devDependencies": {
 		"@effect/language-service": "0.86.2",
-		"@types/bun": "1.3.14",
-		"@types/react": "19.2.18",
+		"@types/bun": "1.4.2",
+		"@types/react": "19.3.0",
 		"emulate": "0.9.0",
 		"oxfmt": "0.51.0",
-		"oxlint": "1.66.0",
+		"oxlint": "1.82.0",
 		"tuistory": "^0.8.0",
 		"typescript": "6.0.3"
 	}
