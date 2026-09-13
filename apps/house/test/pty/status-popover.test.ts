@@ -90,7 +90,11 @@ describe.skipIf(!RUN)("StatusPopover footer trigger (PTY)", () => {
 		const open = await session.waitForText(/scan incomplete: skipped 1 directory: x/, {
 			timeout: 5_000,
 		})
-		expect(open).not.toContain(dir)
+		// Warning text uses the skipped entry basename (`x`), not an absolute
+		// vault path. Do not assert `not.toContain(dir)` on the whole frame —
+		// the header legitimately shows the root when it fits.
+		expect(open).toMatch(/scan incomplete: skipped 1 directory: x/)
+		expect(open).not.toMatch(/scan incomplete: skipped 1 directory: \//)
 
 		await session.clickAt(1, 23)
 		await session.waitIdle({ timeout: 500 }).catch(() => {})

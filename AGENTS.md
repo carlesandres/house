@@ -35,7 +35,7 @@ For deeper output validation (styled spans, async highlight pipelines, intermedi
 
 If `bun dev` and `bun run dev` seem to differ, check for stale watcher processes before changing renderer code. Both resolve to the `dev` script, but orphaned `bun --watch src/index.tsx ...` processes can keep showing old behavior. Use `ps ... | rg 'bun (run )?dev|bun --watch src/index.tsx|src/index.tsx'` and `lsof -a -p <pid> -d cwd` to verify.
 
-For fenced code blocks, rely on opentui's built-in `<markdown>` renderer and keep `apps/house/test/markdown-codeblock.test.tsx` covering tagged fences. Do not replace the markdown renderer or reintroduce a broad `renderNode` override unless DESIGN.md §12's custom-renderer trigger has fired.
+For fenced code blocks, rely on opentui's built-in `<markdown>` renderer and keep `apps/house/test/markdown-codeblock.test.tsx` covering tagged fences. Do not replace the markdown renderer or reintroduce a broad `renderNode` override unless DESIGN.md §12's custom-renderer trigger has fired. TUI boot must call `ensureMarkdownHighlighter()` before creating the renderer; do not start the reader if tree-sitter cannot initialize.
 
 ## termctrl
 
@@ -165,9 +165,9 @@ exist. `createPublicPackageManifest` pins them to the release version in the
 published main package. Do not hand-edit those pins to an unpublished version.
 
 PR CI is the release gate: typecheck, lint, format check, all-workspace tests,
-GitHub API emulation, standalone build/mutation smoke, npm package staging, and
-Node 22/24 install smokes. Use `bun run npm:pack`, not root `npm pack`, to inspect
-the staged public package.
+PTY coverage (`bun run test:pty`), GitHub API emulation, standalone
+build/mutation smoke, npm package staging, and Node 22/24 install smokes. Use
+`bun run npm:pack`, not root `npm pack`, to inspect the staged public package.
 
 ### 3. Approve and watch publishing
 

@@ -17,6 +17,7 @@ import { formatConfigError, loadConfig } from "./config/load.ts"
 import { parseShowList, SHOW_CATEGORIES, type ShowCategory } from "./discovery/show.ts"
 import { formatDiscoveryRootLabel } from "./discovery/rootLabel.ts"
 import type { DiscoveryPolicy } from "@house/ui/file-navigator"
+import { ensureMarkdownHighlighter } from "./markdown/highlighter.ts"
 import { openInBrowser } from "./serve/openBrowser.ts"
 import { startServer } from "./serve/server.ts"
 import { setActiveTheme } from "./theme/colors.ts"
@@ -387,6 +388,13 @@ async function runTui({
 				if (info) process.stderr.write(formatQuitNotice(info))
 			})
 		}
+	}
+
+	try {
+		await ensureMarkdownHighlighter()
+	} catch (err) {
+		console.error(`house: ${err instanceof Error ? err.message : String(err)}`)
+		process.exit(1)
 	}
 
 	const renderer = await createCliRenderer({

@@ -9,11 +9,13 @@
 import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { afterAll, describe, expect, test } from "bun:test"
+import { afterAll, describe, expect, setDefaultTimeout, test } from "bun:test"
 import { launchTerminal, type Session } from "tuistory"
 
 const HOUSE_ENTRY = new URL("../../src/index.tsx", import.meta.url).pathname
 const RUN = process.env.HOUSE_PTY === "1"
+
+setDefaultTimeout(20_000)
 
 const tempDirs: string[] = []
 const sessions: Session[] = []

@@ -42,6 +42,7 @@ jobs:
       - run: bun run lint
       - run: bun run format:check
       - run: bun run test
+      - run: bun run test:pty
       - run: bun run verify:github
       - run: bun run build:standalone
       - run: bun run --cwd apps/house smoke:file-navigator:standalone

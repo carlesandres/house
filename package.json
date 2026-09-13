@@ -28,5 +28,8 @@
 	"devDependencies": {
 		"turbo": "2.10.12"
 	},
+	"overrides": {
+		"web-tree-sitter": "0.25.10"
+	},
 	"packageManager": "bun@1.4.2"
 }
