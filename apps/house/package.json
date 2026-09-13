@@ -71,8 +71,8 @@
 		"@effect/atom-react": "4.0.0-beta.107",
 		"@house/options": "workspace:*",
 		"@house/ui": "workspace:*",
-		"@opentui/core": "0.5.9",
-		"@opentui/react": "0.5.9",
+		"@opentui/core": "0.5.11",
+		"@opentui/react": "0.5.11",
 		"@parcel/watcher": "2.6.0",
 		"commander": "^14.0.3",
 		"effect": "4.0.0-beta.107",
@@ -81,14 +81,14 @@
 		"react": "19.3.0",
 		"scheduler": "0.27.0",
 		"string-width": "7.2.0",
-		"web-tree-sitter": "0.25.10"
+		"web-tree-sitter": "0.27.0"
 	},
 	"devDependencies": {
-		"@effect/language-service": "0.86.2",
+		"@effect/language-service": "0.87.2",
 		"@types/bun": "1.4.2",
 		"@types/react": "19.3.0",
-		"emulate": "0.9.0",
-		"oxfmt": "0.51.0",
+		"emulate": "0.11.1",
+		"oxfmt": "0.67.0",
 		"oxlint": "1.82.0",
 		"tuistory": "^0.8.0",
 		"typescript": "6.0.3"
