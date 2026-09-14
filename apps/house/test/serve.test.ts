@@ -102,6 +102,34 @@ describe("startServer", () => {
 		expect(body).toContain('<h1 id="b">B</h1>')
 	})
 
+	test("accepts Origin for both loopback hosts", async () => {
+		dir = await mkdtemp(join(tmpdir(), "house-serve-"))
+		const file = join(dir, "a.md")
+		await writeFile(file, "# Title\n")
+		handle = startServer({ path: file })
+		const port = new URL(handle.url).port
+		const loopbackOrigin = `http://127.0.0.1:${port}`
+		const localhostOrigin = `http://localhost:${port}`
+
+		const loopback = await fetch(`${loopbackOrigin}/`, {
+			headers: { Origin: loopbackOrigin },
+		})
+		expect(loopback.status).toBe(200)
+		expect(await loopback.text()).toContain(
+			`<meta name="house-preview-origin" content="${loopbackOrigin}">`,
+		)
+
+		const localhost = await fetch(handle.url, {
+			headers: { Origin: localhostOrigin },
+		})
+		expect(localhost.status).toBe(200)
+		expect(await localhost.text()).toContain(
+			`<meta name="house-preview-origin" content="${localhostOrigin}">`,
+		)
+
+		expect((await fetch(handle.url, { headers: { Origin: "http://example.com" } })).status).toBe(403)
+	})
+
 	test("does not mix a stale render with a newer target", async () => {
 		dir = await mkdtemp(join(tmpdir(), "house-serve-"))
 		const a = join(dir, "a.md")
@@ -137,6 +165,61 @@ describe("startServer", () => {
 		expect(body).toContain("<title>b.md</title>")
 		expect(body).toContain('<h1 id="b">B</h1>')
 		expect(body).not.toContain('<h1 id="a">A</h1>')
+	})
+
+	test("returns 503 with Retry-After after a second supersession", async () => {
+		dir = await mkdtemp(join(tmpdir(), "house-serve-"))
+		const a = join(dir, "a.md")
+		const b = join(dir, "b.md")
+		const c = join(dir, "c.md")
+		await writeFile(a, "# A\n")
+		await writeFile(b, "# B\n")
+		await writeFile(c, "# C\n")
+		let releaseFirst!: () => void
+		const firstReleased = new Promise<void>((resolve) => {
+			releaseFirst = resolve
+		})
+		let firstStarted!: () => void
+		const started = new Promise<void>((resolve) => {
+			firstStarted = resolve
+		})
+		let releaseSecond!: () => void
+		const secondReleased = new Promise<void>((resolve) => {
+			releaseSecond = resolve
+		})
+		let secondStarted!: () => void
+		const secondBegan = new Promise<void>((resolve) => {
+			secondStarted = resolve
+		})
+		let calls = 0
+		handle = startServer({
+			path: a,
+			render: async (markdown, title, options) => {
+				calls += 1
+				if (calls === 1) {
+					firstStarted()
+					await firstReleased
+				} else if (calls === 2) {
+					secondStarted()
+					await secondReleased
+				}
+				return renderHtml(markdown, title, options)
+			},
+		})
+		const pending = fetch(handle.url)
+		await started
+		handle.setTarget(b)
+		releaseFirst()
+		await secondBegan
+		handle.setTarget(c)
+		releaseSecond()
+		const response = await pending
+		expect(response.status).toBe(503)
+		expect(response.headers.get("retry-after")).toBe("1")
+		const body = await response.text()
+		expect(body).toContain('href="/"')
+		expect(body).toContain("Reload")
+		expect(calls).toBe(2)
 	})
 
 	test("binds to loopback (URL is localhost-only)", async () => {

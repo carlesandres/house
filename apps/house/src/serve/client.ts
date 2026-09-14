@@ -5,6 +5,7 @@ const metadata = (name: string): string | null =>
 
 let reloadSource: EventSource | null = null
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+let onVisibilityChange: (() => void) | null = null
 let diagramEnhancement: MermaidEnhancement | null = null
 
 const stopReload = () => {
@@ -12,6 +13,10 @@ const stopReload = () => {
 	reloadSource = null
 	if (reconnectTimer !== null) clearTimeout(reconnectTimer)
 	reconnectTimer = null
+	if (onVisibilityChange !== null) {
+		removeEventListener("visibilitychange", onVisibilityChange)
+		onVisibilityChange = null
+	}
 }
 
 const startReload = () => {
@@ -25,16 +30,25 @@ const startReload = () => {
 		return
 	}
 	const connect = () => {
-		if (document.visibilityState === "hidden") return
+		if (reconnectTimer !== null) {
+			clearTimeout(reconnectTimer)
+			reconnectTimer = null
+		}
+		if (document.visibilityState === "hidden" || reloadSource !== null) return
 		const events = new EventSource(new URL("/__reload", expectedOrigin))
 		reloadSource = events
 		events.addEventListener("reload", () => location.reload())
 		events.onerror = () => {
 			events.close()
 			if (reloadSource === events) reloadSource = null
+			if (document.visibilityState === "hidden") return
 			reconnectTimer = setTimeout(connect, 500)
 		}
 	}
+	onVisibilityChange = () => {
+		if (document.visibilityState === "visible") connect()
+	}
+	addEventListener("visibilitychange", onVisibilityChange)
 	connect()
 }
 

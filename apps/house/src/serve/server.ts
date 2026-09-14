@@ -40,6 +40,10 @@ type ReloadController = ReadableStreamDefaultController<Uint8Array>
 const encoder = new TextEncoder()
 const sseEvent = (event: string, data = ""): Uint8Array =>
 	encoder.encode(`event: ${event}\ndata: ${data}\n\n`)
+const supersededHtml =
+	'<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">' +
+	"<title>Preview changed</title></head><body><p>Preview target changed.</p>" +
+	'<p><a href="/">Reload</a></p></body></html>'
 
 export const startServer = ({
 	path,
@@ -110,14 +114,14 @@ export const startServer = ({
 		hostname: "127.0.0.1",
 		async fetch(req, server) {
 			const url = new URL(req.url)
-			const expectedOrigin = `http://localhost:${server.port}`
 			const host = req.headers.get("host")
 			const validHosts = new Set([`localhost:${server.port}`, `127.0.0.1:${server.port}`])
 			if (host === null || !validHosts.has(host)) {
 				return new Response("forbidden", { status: 403, headers: securityHeaders })
 			}
+			const requestOrigin = `http://${host}`
 			const origin = req.headers.get("origin")
-			if (origin !== null && origin !== expectedOrigin) {
+			if (origin !== null && origin !== requestOrigin) {
 				return new Response("forbidden", { status: 403, headers: securityHeaders })
 			}
 			if (req.method !== "GET" && req.method !== "HEAD") {
@@ -195,7 +199,7 @@ export const startServer = ({
 					const html = await renderDocument(md, basename(snapshotTarget), {
 						clientAssetPath: assets.clientPath,
 						mermaidAssetPath: assets.mermaidPath,
-						origin: expectedOrigin,
+						origin: requestOrigin,
 						renderer,
 					})
 					if (snapshotRevision !== revision) continue
@@ -217,9 +221,13 @@ export const startServer = ({
 					})
 				}
 			}
-			return new Response("preview target changed; reload to try again", {
+			return new Response(supersededHtml, {
 				status: 503,
-				headers: securityHeaders,
+				headers: {
+					...securityHeaders,
+					"content-type": "text/html; charset=utf-8",
+					"retry-after": "1",
+				},
 			})
 		},
 	})

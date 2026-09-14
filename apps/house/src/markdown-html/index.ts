@@ -250,7 +250,8 @@ export const createMarkdownRenderer = (): MarkdownRenderer => {
 			renderer.heading = (token) => tokenSlots.get(token) ?? ""
 			renderer.code = (token) => tokenSlots.get(token) ?? ""
 			let html = sanitizeHtml(Parser.parse(tokens, { renderer }), documentOptions)
-			for (const [slot, fragment] of slots) html = html.replace(slot, fragment)
+			// Function replacer: a string replacement would interpret $$, $&, $', $`
+			for (const [slot, fragment] of slots) html = html.replace(slot, () => fragment)
 
 			return { html, headings, hasMermaid, diagnostics }
 		} finally {

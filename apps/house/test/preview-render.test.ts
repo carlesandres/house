@@ -101,6 +101,20 @@ const answer: number = 42
 		}
 	})
 
+	test("preserves dollar sequences in trusted code and mermaid fragments", async () => {
+		const renderer = createMarkdownRenderer()
+		try {
+			const result = await renderer.render(
+				"```bash\necho $$; x.replace(/a/, \"$&\")\n```\n\n```mermaid\nflowchart LR\nA[\"$$ $&\"] --> B\n```",
+			)
+			expect(result.html).toContain("$$")
+			expect(result.html).toContain("$&")
+			expect(result.html).not.toMatch(/HOUSE_RENDER_SLOT_/)
+		} finally {
+			await renderer.dispose()
+		}
+	})
+
 	test("preserves unknown, oversized and Mermaid source", async () => {
 		const renderer = createMarkdownRenderer()
 		try {
