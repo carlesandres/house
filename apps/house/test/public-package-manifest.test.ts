@@ -3,6 +3,12 @@ import pkg from "../package.json" with { type: "json" }
 import { createPublicPackageManifest } from "../dev/public-package-manifest.ts"
 
 describe("createPublicPackageManifest", () => {
+	test("omits browser-only mermaid from published runtime dependencies", () => {
+		const staged = createPublicPackageManifest(pkg)
+		expect("mermaid" in pkg.devDependencies).toBe(true)
+		expect("mermaid" in (staged.dependencies ?? {})).toBe(false)
+	})
+
 	test("removes private @house workspace dependencies", () => {
 		const staged = createPublicPackageManifest(pkg)
 		expect(staged.dependencies["@house/ui"]).toBeUndefined()

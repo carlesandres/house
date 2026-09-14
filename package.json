@@ -19,6 +19,7 @@
 		"repro:pty-codeblocks": "turbo run repro:pty-codeblocks --filter=@carlesandres/house --",
 		"start": "bun run --cwd apps/house start",
 		"test": "turbo run test --concurrency=1",
+		"test:preview": "turbo run test:preview --filter=@carlesandres/house",
 		"test:pty": "turbo run test:pty --filter=@carlesandres/house",
 		"typecheck": "turbo run typecheck",
 		"verify:github": "turbo run verify:github --filter=@carlesandres/house",

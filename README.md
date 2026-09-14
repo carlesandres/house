@@ -11,7 +11,7 @@ A terminal markdown reader and navigator — themable and configurable, with a k
 - **Fuzzy search** across nested folders (`.gitignore`-aware)
 - **Command palette**
 - **Keyboard-driven**
-- **Open in browser**
+- **Open in browser** with syntax highlighting, document contents, and Mermaid diagrams
 - **Open in `$EDITOR`**
 
 Install with npm or Bun. Prebuilt binaries cover macOS and Linux (arm64/x64); no Bun required to *run* on those platforms.
@@ -58,6 +58,13 @@ house --root docs      # browse docs/ as the discovery root
 house --order tree     # files-before-directories instead of recency
 house --serve README.md
 ```
+
+Press `O` in the TUI, choose **Open in browser** from the command palette, or use `--serve` to
+open a live local preview. Code highlighting and a collapsible table of contents are present in
+the HTML itself. Mermaid diagrams enhance in the browser from assets bundled with house; their
+source remains readable if JavaScript is unavailable or a diagram cannot render. Built-in preview
+features work offline while house is running. Relative images and other linked local assets are
+not served yet ([#75](https://github.com/carlesandres/house/issues/75)).
 
 ### Options
 

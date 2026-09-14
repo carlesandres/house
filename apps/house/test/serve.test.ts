@@ -6,23 +6,35 @@ import { renderHtml } from "../src/serve/render.ts"
 import { startServer, type ServerHandle } from "../src/serve/server.ts"
 
 describe("renderHtml", () => {
-	test("renders markdown to an HTML document with embedded CSS and reload script", () => {
-		const html = renderHtml("# Hello\n\nworld", "doc.md")
+	test("renders markdown to an HTML document with embedded CSS and local client", async () => {
+		const html = await renderHtml("# Hello\n\nworld", "doc.md", {
+			clientAssetPath: "/__house/assets/client.js",
+			origin: "http://localhost:1234",
+		})
 		expect(html).toContain("<!DOCTYPE html>")
 		expect(html).toContain("<title>doc.md</title>")
-		expect(html).toContain("<h1>Hello</h1>")
+		expect(html).toContain('<h1 id="hello">Hello</h1>')
 		expect(html).toContain("<p>world</p>")
-		// CSS is embedded, not linked.
 		expect(html).toContain("<style>")
 		expect(html).not.toContain('<link rel="stylesheet"')
-		// Live-reload bootstrap is inline.
-		expect(html).toContain('EventSource("/__reload")')
+		expect(html).toContain('<script type="module" src="/__house/assets/client.js"></script>')
+		expect(html).not.toContain("new EventSource")
 	})
 
-	test("escapes the title", () => {
-		expect(renderHtml("hi", "<script>x</script>")).toContain(
+	test("escapes the title", async () => {
+		expect(await renderHtml("hi", "<script>x</script>")).toContain(
 			"<title>&lt;script&gt;x&lt;/script&gt;</title>",
 		)
+	})
+
+	test("adds collapsed nested contents for two or more headings", async () => {
+		const html = await renderHtml("# Usage\n### Start *here*\n# Usage\n## !", "doc.md")
+		expect(html).toContain('<details class="preview-contents">')
+		expect(html).not.toContain('<details class="preview-contents" open>')
+		expect(html).toContain('<a href="#usage">Usage</a>')
+		expect(html).toContain('<a href="#start-here">Start here</a>')
+		expect(html).toContain('<a href="#usage-1">Usage</a>')
+		expect(html).toContain('<a href="#section">!</a>')
 	})
 })
 
@@ -46,7 +58,34 @@ describe("startServer", () => {
 		expect(res.status).toBe(200)
 		expect(res.headers.get("content-type")).toContain("text/html")
 		const body = await res.text()
-		expect(body).toContain("<h1>Title</h1>")
+		expect(body).toContain('<h1 id="title">Title</h1>')
+		expect(res.headers.get("content-security-policy")).toContain("script-src 'self'")
+	})
+
+	test("serves immutable built-in assets and rejects unsafe requests", async () => {
+		dir = await mkdtemp(join(tmpdir(), "house-serve-"))
+		const file = join(dir, "a.md")
+		await writeFile(file, "```mermaid\nflowchart LR\nA-->B\n```\n")
+		handle = startServer({ path: file })
+		const page = await (await fetch(handle.url)).text()
+		const paths = [...page.matchAll(/(?:src|content)="(\/__house\/assets\/[^"]+)"/g)].map(
+			(match) => match[1]!,
+		)
+		expect(paths.length).toBeGreaterThanOrEqual(2)
+		for (const path of paths) {
+			const response = await fetch(`${handle.url}${path}`)
+			expect(response.status).toBe(200)
+			expect(response.headers.get("content-type")).toContain("javascript")
+			expect(response.headers.get("cache-control")).toContain("immutable")
+		}
+		expect((await fetch(`${handle.url}/`, { method: "POST" })).status).toBe(405)
+		expect(
+			(
+				await fetch(`${handle.url}/`, {
+					headers: { Host: "example.com" },
+				})
+			).status,
+		).toBe(403)
 	})
 
 	test("setTarget swaps the served file", async () => {
@@ -60,7 +99,127 @@ describe("startServer", () => {
 		handle.setTarget(b)
 		expect(handle.currentTarget()).toBe(b)
 		const body = await (await fetch(handle.url)).text()
-		expect(body).toContain("<h1>B</h1>")
+		expect(body).toContain('<h1 id="b">B</h1>')
+	})
+
+	test("accepts Origin for both loopback hosts", async () => {
+		dir = await mkdtemp(join(tmpdir(), "house-serve-"))
+		const file = join(dir, "a.md")
+		await writeFile(file, "# Title\n")
+		handle = startServer({ path: file })
+		const port = new URL(handle.url).port
+		const loopbackOrigin = `http://127.0.0.1:${port}`
+		const localhostOrigin = `http://localhost:${port}`
+
+		const loopback = await fetch(`${loopbackOrigin}/`, {
+			headers: { Origin: loopbackOrigin },
+		})
+		expect(loopback.status).toBe(200)
+		expect(await loopback.text()).toContain(
+			`<meta name="house-preview-origin" content="${loopbackOrigin}">`,
+		)
+
+		const localhost = await fetch(handle.url, {
+			headers: { Origin: localhostOrigin },
+		})
+		expect(localhost.status).toBe(200)
+		expect(await localhost.text()).toContain(
+			`<meta name="house-preview-origin" content="${localhostOrigin}">`,
+		)
+
+		expect((await fetch(handle.url, { headers: { Origin: "http://example.com" } })).status).toBe(403)
+	})
+
+	test("does not mix a stale render with a newer target", async () => {
+		dir = await mkdtemp(join(tmpdir(), "house-serve-"))
+		const a = join(dir, "a.md")
+		const b = join(dir, "b.md")
+		await writeFile(a, "# A\n")
+		await writeFile(b, "# B\n")
+		let releaseFirst!: () => void
+		const firstReleased = new Promise<void>((resolve) => {
+			releaseFirst = resolve
+		})
+		let firstStarted!: () => void
+		const started = new Promise<void>((resolve) => {
+			firstStarted = resolve
+		})
+		let calls = 0
+		handle = startServer({
+			path: a,
+			render: async (markdown, title, options) => {
+				calls += 1
+				if (calls === 1) {
+					firstStarted()
+					await firstReleased
+				}
+				return renderHtml(markdown, title, options)
+			},
+		})
+		const response = fetch(handle.url)
+		await started
+		handle.setTarget(b)
+		releaseFirst()
+		const body = await (await response).text()
+		expect(calls).toBe(2)
+		expect(body).toContain("<title>b.md</title>")
+		expect(body).toContain('<h1 id="b">B</h1>')
+		expect(body).not.toContain('<h1 id="a">A</h1>')
+	})
+
+	test("returns 503 with Retry-After after a second supersession", async () => {
+		dir = await mkdtemp(join(tmpdir(), "house-serve-"))
+		const a = join(dir, "a.md")
+		const b = join(dir, "b.md")
+		const c = join(dir, "c.md")
+		await writeFile(a, "# A\n")
+		await writeFile(b, "# B\n")
+		await writeFile(c, "# C\n")
+		let releaseFirst!: () => void
+		const firstReleased = new Promise<void>((resolve) => {
+			releaseFirst = resolve
+		})
+		let firstStarted!: () => void
+		const started = new Promise<void>((resolve) => {
+			firstStarted = resolve
+		})
+		let releaseSecond!: () => void
+		const secondReleased = new Promise<void>((resolve) => {
+			releaseSecond = resolve
+		})
+		let secondStarted!: () => void
+		const secondBegan = new Promise<void>((resolve) => {
+			secondStarted = resolve
+		})
+		let calls = 0
+		handle = startServer({
+			path: a,
+			render: async (markdown, title, options) => {
+				calls += 1
+				if (calls === 1) {
+					firstStarted()
+					await firstReleased
+				} else if (calls === 2) {
+					secondStarted()
+					await secondReleased
+				}
+				return renderHtml(markdown, title, options)
+			},
+		})
+		const pending = fetch(handle.url)
+		await started
+		handle.setTarget(b)
+		releaseFirst()
+		await secondBegan
+		handle.setTarget(c)
+		releaseSecond()
+		const response = await pending
+		expect(response.status).toBe(503)
+		expect(response.headers.get("retry-after")).toBe("1")
+		const body = await response.text()
+		expect(body).toContain('href="/"')
+		expect(body).toContain("Reload")
+		expect(calls).toBe(2)
 	})
 
 	test("binds to loopback (URL is localhost-only)", async () => {
@@ -91,7 +250,7 @@ describe("startServer", () => {
 		// Give the watcher's debounce + re-watch a beat.
 		await new Promise((r) => setTimeout(r, 60))
 		const body = await (await fetch(handle.url)).text()
-		expect(body).toContain("<h1>v3</h1>")
+		expect(body).toContain('<h1 id="v3">v3</h1>')
 	})
 
 	test("SSE /__reload stays open past Bun's default 10s idleTimeout", async () => {

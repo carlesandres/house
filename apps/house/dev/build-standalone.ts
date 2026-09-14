@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 
-import { mkdir, rm, symlink, writeFile } from "node:fs/promises"
+import { mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises"
 import { createRequire } from "node:module"
 import { basename, dirname, relative, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -14,6 +14,7 @@ import {
 } from "./release-targets.ts"
 import { generateStandaloneHost } from "./standalone-host.ts"
 import { assertHighlighterAssets } from "../src/markdown/highlighter.ts"
+import { buildPreviewAssets, serializePreviewAssets } from "../src/serve/build-assets.ts"
 
 const root = resolve(import.meta.dir, "..")
 const repoRoot = resolve(root, "../..")
@@ -154,9 +155,35 @@ const treeSitterDependencyResolver: BunPlugin = {
 	},
 }
 
+const shikiScannerBundler: BunPlugin = {
+	name: "bundle-shiki-javascript-scanner",
+	setup(build) {
+		build.onResolve({ filter: /^@shikijs\/engine-javascript$/ }, () => ({
+			path: "engine",
+			namespace: "house-shiki-engine",
+		}))
+		build.onLoad({ filter: /^engine$/, namespace: "house-shiki-engine" }, () => {
+			const packageEntry = require.resolve("@shikijs/engine-javascript", { paths: [root] })
+			return {
+				contents: `export { createJavaScriptRegexEngine } from ${JSON.stringify(resolve(dirname(packageEntry), "engine-compile.mjs"))}`,
+				loader: "js",
+			}
+		})
+		build.onResolve({ filter: /^\.\/scanner-[\w-]+\.mjs$/ }, ({ importer, path }) => {
+			if (!importer.includes("@shikijs/engine-javascript")) return
+			return { path: resolve(dirname(importer), path), namespace: "house-shiki-scanner" }
+		})
+		build.onLoad({ filter: /.*/, namespace: "house-shiki-scanner" }, async ({ path }) => ({
+			contents: await readFile(path, "utf8"),
+			loader: "js",
+		}))
+	},
+}
+
 const buildTarget = async (
 	target: ReleaseTarget,
 	treeSitterWorker: string,
+	previewAssets: ReturnType<typeof serializePreviewAssets>,
 ): Promise<{ readonly archive: string; readonly hash: string }> => {
 	assertNativePackagePresent(target)
 
@@ -198,10 +225,11 @@ const buildTarget = async (
 			files: {
 				[TREE_SITTER_WORKER_VIRTUAL]: treeSitterWorker,
 			},
-			plugins: [treeSitterDependencyResolver],
+			plugins: [treeSitterDependencyResolver, shikiScannerBundler],
 			define: {
 				// Inserted as source; must be a quoted string literal.
 				OTUI_TREE_SITTER_WORKER_PATH: JSON.stringify(bunfsWorkerPath(TREE_SITTER_WORKER_VIRTUAL)),
+				HOUSE_PREVIEW_ASSETS: JSON.stringify(previewAssets),
 			},
 			compile: {
 				target: target.bunTarget,
@@ -253,9 +281,12 @@ try {
 
 const treeSitterWorker = await resolveTreeSitterWorkerSource()
 console.log(`embedded ${TREE_SITTER_WORKER_VIRTUAL} (${treeSitterWorker.length} bytes)`)
+const previewAssets = serializePreviewAssets(await buildPreviewAssets({ minify: true }))
+console.log(`embedded ${Object.keys(previewAssets.files).length} browser preview assets`)
 
 const outputs = []
-for (const target of targetsFromArg(arg)) outputs.push(await buildTarget(target, treeSitterWorker))
+for (const target of targetsFromArg(arg))
+	outputs.push(await buildTarget(target, treeSitterWorker, previewAssets))
 
 const checksums = outputs
 	.map(({ archive, hash }) => `${hash}  ${basename(archive)}`)

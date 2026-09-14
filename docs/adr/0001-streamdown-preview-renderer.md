@@ -2,6 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-05-31
+- Reconsidered: 2026-09-13
 
 ## Context
 
@@ -59,3 +60,14 @@ Reconsider this ADR if one of these becomes true:
 - we decide the preview should be rendered through React for other reasons anyway
 - we add concrete requirements for browser-preview syntax highlighting, math, diagrams, or stronger
   sanitization that justify the extra integration cost
+
+## 2026-09-13 reconsideration
+
+The syntax-highlighting, diagram, and sanitization triggers fired. The decision against Streamdown
+still holds: complete local files do not need React or streaming-aware parsing. The Marked path now
+feeds an extractable asynchronous renderer that sanitizes authored HTML, highlights fixed languages
+with Shiki, and returns heading metadata plus Mermaid source markers. House composes that safe
+fragment into its local page shell and loads a root-scoped Mermaid enhancer from embedded assets.
+
+This keeps the TUI renderer independent, gives browser preview the required fidelity, and leaves a
+future library extraction as a move of the rendering boundary rather than another renderer rewrite.
