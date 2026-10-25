@@ -58,7 +58,7 @@ v1 ships when:
    npm installs run without Bun on `PATH`; standalone runners use the matching static Parcel host.
 8. `README.md` covers install + run; `DESIGN.md` reflects shipped behavior.
 
-**v1 status: shipped** (see `LICENSE`, `README.md`, and the commit log up to and including the LICENSE commit). Subsequent work targets the release quality gates in §10 and the deferred items listed in [`ROADMAP.md`](./ROADMAP.md) (overview in §5.3).
+**v1 status: shipped** (see `LICENSE`, `README.md`, and the commit log up to and including the LICENSE commit). Subsequent work targets the release quality gates in §10 and the deferred items in §5.3.
 
 There is no performance gate, no coverage gate, and no public release in v1.
 
@@ -68,7 +68,7 @@ There is no performance gate, no coverage gate, and no public release in v1.
 
 ### 5.3 Deferred / future
 
-Planned work is tracked in [`ROADMAP.md`](./ROADMAP.md), which maps each item to a GitHub issue. Items confirmed as competitive gaps against mdcat / frogmouth / mdr (issue #16) are marked ★ there.
+The deferred list is the set of open feature issues, tracked in the maintainer's Linear House team (which owns priority and status) and mirrored to public GitHub issues where one exists. Imported issues keep their numbers (HOU-n = #n). Confirmed competitive gaps against mdcat / frogmouth / mdr (issue #16) are labelled `competitive-gap` in Linear: #26, #29, #30, #31, #32, #33. Two items still need a design pass before concrete issues: custom per-file actions (HOU-252) and broader mouse polish (HOU-253; the sidebar filter row is #67).
 
 Key reservations for deferred features (search, navigation history, bookmarks, etc.) live in §7.3 — consult that section before binding new keys.
 
@@ -433,7 +433,7 @@ A benchmark script checks these against a fixture corpus checked into `apps/hous
 - Semver from v0.1.0 onward; pre-v0.1 may break.
 - Manual `CHANGELOG.md` (Keep-a-Changelog). Changesets remains an option if/when contributors land.
 - CI: typecheck + lint + format:check + test + `npm pack --dry-run` on every PR (`ci.yml`).
-- Issue & PR templates; communication is GitHub issues only.
+- Issue & PR templates; GitHub issues are the public intake, synced with the maintainer's Linear House team, which owns planning.
 - MIT license, single `LICENSE` file.
 
 ## 11. Open Questions
@@ -468,7 +468,7 @@ Inline `// TODO(revisit: <topic>)` markers in the code point here from the relev
 - **User-configurable sidebar width**
   - What it is: a setting (CLI flag and/or config file) that overrides the sidebar width heuristic. Power users with strong layout preferences want this; the heuristic alone won't satisfy everyone.
   - Why deferred: the in-code heuristic `clamp(28, floor(width * 0.25), 60)` is a sensible default and ships with zero ceremony.
-  - Trigger: when the persistent config file lands (already on the deferred list in §5.3) — wire `sidebarWidth` through it at the same time. A standalone `--sidebar-width` flag is fine sooner if a real user asks.
+  - Trigger: when the persistent config file lands (deferred in #13 and #63) — wire `sidebarWidth` through it at the same time. A standalone `--sidebar-width` flag is fine sooner if a real user asks.
 
 - **Sidebar truncation strategy**
   - What it is: how long file paths are shortened when they exceed the sidebar's width. Today: leading ellipsis, keeping the filename visible (`…l/job_search/cv.md`). Plausible alternatives: middle-truncation (`Personal/…/cv.md`), filename-first with dimmed parent dir, or a two-line entry that shows both.

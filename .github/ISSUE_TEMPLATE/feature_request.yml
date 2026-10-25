@@ -7,11 +7,12 @@ body:
       value: |
         Before filing, please check:
         - `DESIGN.md` §3 (hard non-goals — these are firm No's)
-        - `DESIGN.md` §5.3 (already on the deferred list)
+        - open issues (deferred features are tracked there)
         - `DESIGN.md` §12 (patterns we deliberately did not adopt, with their triggers)
 
-        If your request is one of the deferred items, a 👍 on an existing issue
-        helps prioritize. If it's something else, the form below is the place.
+        If your request is one of the deferred items, a comment on the existing
+        issue with your use case helps prioritize. If it's something else, the form
+        below is the place.
 
   - type: textarea
     id: problem
@@ -42,5 +43,5 @@ body:
       options:
         - label: I've read DESIGN.md §3 and this is not in the non-goals list.
           required: true
-        - label: I've checked DESIGN.md §5.3 and this is not already deferred (or, if it is, I'm offering to help land it).
+        - label: I've searched open issues and this is not already deferred (or, if it is, I'm offering to help land it).
           required: true
