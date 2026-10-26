@@ -67,7 +67,7 @@ Decision 33 and acceptance scenario A25 append the extractability requirement wi
   small browser client its own typecheck boundary.
 - DESIGN.md §§3, 7.3–7.5, 10, 12 and ADR 0001 favor the existing Marked preview and independent TUI
   renderer. Rich-preview requirements trigger reconsideration of ADR 0001, not an automatic rewrite.
-- ROADMAP.md tracks relative user assets separately in #75 and TUI heading navigation in #30.
+- Issues track relative user assets separately in #75 and TUI heading navigation in #30.
   Adding built-in JavaScript routes does not implement either feature. Issue #18's portable-output
   investigation does not override the owner's local-preview-first decision.
 - At inspection, CI uses Bun 1.3.10; root packageManager is Bun 1.4.2; npm smokes use Node 26.4.0/26.
@@ -485,7 +485,7 @@ Update on each shipped slice:
   runtime limitations; keep public-module API/dependency notes alongside the reusable module.
 - CHANGELOG.md: outcome-focused Added/Security notes for implemented behavior only.
 - CONTEXT.md only if Browser preview/Document contents need formal disambiguation; no new glossary
-  or ADR file solely for this feature. ROADMAP links may reference this plan without closing #75,
+  or ADR file solely for this feature. Issue links may reference this plan without closing #75,
   #30 or the portable-output portion of #18.
 
 ## Later iterations: choose from observed need
@@ -504,12 +504,13 @@ Update on each shipped slice:
 These are candidate follow-ups, not preapproved implementation or a fixed sequence. Select one from
 feedback after the first release rather than designing all their state and tests now.
 
-### GitHub handoff: proposed issue set
+### Issue handoff: proposed issue set
 
-Checked existing issues and milestones on 2026-09-13. GitHub issues will own follow-up details;
-ROADMAP.md will link the feature area and priorities, and this plan remains the MVP implementation
-record. The existing `backlog` milestone means no commitment to ship. The following drafts have not
-been published; replace the draft labels with issue links once issue creation is authorized.
+Checked existing issues and milestones on 2026-09-13. Issue tracking has since moved to Linear, so
+publish any of these drafts as Linear House issues, not with `gh issue`. Issues own follow-up
+details and priorities, and this plan remains the MVP implementation record. Linear's Backlog status
+means no commitment to ship. The following drafts have not been published; replace the draft labels
+with issue links once issue creation is authorized.
 
 For every draft, use this plan/decision as context, preserve the stated outcome as acceptance
 criteria, and record the revisit trigger above for optional work. Avoid full implementation plans
@@ -561,7 +562,7 @@ and actual package creation/publication are not release blockers.
 The owner approved local preview first, the MVP direction, mandatory extractability, and
 implementation. The three slices and their non-deferred acceptance scenarios are implemented and
 verified. Feedback can cite the stable decision numbers; deferred candidates remain separate future
-work and the draft GitHub issues above remain unpublished.
+work and the draft issues above remain unpublished.
 
 ## Primary-source references retained from investigation
 

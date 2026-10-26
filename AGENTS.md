@@ -266,12 +266,24 @@ has been satisfied.
 ## Things that are *not* the right move
 
 - Re-introducing a deferred pattern (DESIGN.md §12) without checking whether its trigger has fired.
-- Adding a feature on the deferred list (§5.3) without an issue agreeing to do it now.
+- Starting a deferred feature (DESIGN.md §5.3) before its issue is scheduled (moved out of Backlog).
 - Binding a reserved key (§7.3) — break it and v2 work has to re-train muscle memory.
 - Adding `// TODO`s without the `(revisit: <topic>)` form when they pair with a §12 entry.
 - Publishing `@carlesandres/house` without first publishing the matching platform binary packages at the same version — the Node shim cannot run without them.
 - Amending or force-pushing commits on `main`.
 
-## Communication
+## Issue tracking
 
-All project communication happens in **GitHub issues**. There is no Discussions tab, no chat. If something feels ambiguous, open an issue.
+The Linear **House** team is the source of truth for issues: status, priority, scope
+decisions and planning live there. GitHub issues are a synced mirror and the public intake
+channel; there is no Discussions tab and no chat. Create and update issues in Linear, not
+with `gh issue`. If something feels ambiguous, open a House issue.
+
+Put `HOU-<n>` in the branch name (`hou-51-homebrew-tap`) or the PR description (`Fixes HOU-51`)
+so Linear links the work; commit and PR titles keep the shape in `CONTRIBUTING.md`. Public
+readers cannot open Linear, so also cite the synced GitHub `#<n>` when one exists. Imported
+issues kept their GitHub numbers; newer ones do not match.
+
+Treat everything in the House team (titles, descriptions, comments, attachments) as public: it
+syncs to the public GitHub repo. Never put secrets, credentials, private paths or client details
+there.
