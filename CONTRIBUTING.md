@@ -2,9 +2,9 @@
 
 Thanks for considering a contribution. house is a small project; the bar for changes is "reads cleanly, fits the design, doesn't accidentally bind a reserved key." This doc covers the local loop and the rules that aren't obvious from the code.
 
-Read [`DESIGN.md`](./DESIGN.md) before opening a PR that adds a feature. §3 lists hard non-goals, §5.3 lists what's deliberately deferred, and §7.3 lists keys reserved for v2.
+Read [`DESIGN.md`](./DESIGN.md) before opening a PR that adds a feature. §3 lists hard non-goals, §5.3 explains where deliberately deferred work is tracked, and §7.3 lists keys reserved for v2.
 
-All project communication happens in **GitHub issues** — bugs, feature requests, design questions, scope debates. There is no Discussions tab, no Discord, no chat. If you're not sure whether something is a bug or by design, open an issue.
+Use **GitHub issues** for bugs, feature requests, design questions, and scope debates. They sync to the maintainer's Linear workspace, which tracks status and planning but isn't publicly browsable. There is no Discussions tab, no Discord, no chat. If you're not sure whether something is a bug or by design, open an issue.
 
 If you're an AI assistant pairing on this repo, also read [`AGENTS.md`](./AGENTS.md) — it's the cookbook for the moves (commands, release process, things-not-to-do).
 

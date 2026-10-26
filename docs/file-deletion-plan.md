@@ -103,7 +103,7 @@ When implementation begins, update the following as applicable:
   nearest-row selection.
 - `README.md`: document `d` and confirmation behavior.
 - `CONTRIBUTING.md`: document the modal host contract and key handling.
-- `ROADMAP.md`: update issue #20's status.
+- Linear: update the status of HOU-20 (#20).
 - `CHANGELOG.md`: add the feature under `[Unreleased]`.
 - The dialog package README: document its API, input contract, theming, and
   extraction constraints.
