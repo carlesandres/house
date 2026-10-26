@@ -42,9 +42,11 @@ mutation metrics remain unsupported because pre-migration production had no watc
 Any PR has to pass `typecheck`, `lint`, `format:check`, `test`, `npm:pack`, and the
 GitHub emulator verification — that's what `.github/workflows/ci.yml` enforces.
 
-`test:preview` requires Playwright Chromium (`bunx playwright install chromium`). It keeps normal
-`bun test` browser-independent. The artifact preview smoke starts the actual compiled executable
-with Bun removed from `PATH`, requests its embedded asset graph, and renders a real Mermaid SVG.
+`test:preview` requires Playwright Chromium. Install it from `apps/house` so the browser matches the
+Playwright pinned in its `package.json`: `bunx --no-install playwright install chromium` (add
+`--with-deps` on Linux). It keeps normal `bun test` browser-independent.
+The artifact preview smoke starts the actual compiled executable with Bun removed from `PATH`,
+requests its embedded asset graph, and renders a real Mermaid SVG.
 
 The File Navigator smoke commands invoke the built House artifact's private headless mode; they do not
 compile a workspace-only substitute. Installed mode packs the staged main and host platform packages
