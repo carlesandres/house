@@ -37,6 +37,8 @@ The publish workflow (`.github/workflows/publish.yml`) runs for a published rele
   the TUI starts, instead of exiting silently, so the bad root is obvious.
 - Markdown headings, emphasis, and fenced code now highlight again. `web-tree-sitter` is pinned to
   OpenTUI's `0.25.10` peer so the highlighter can load `tree-sitter.wasm`.
+- npm-installed `house` run from a deleted or inaccessible directory now says so and exits,
+  instead of failing with an unknown error, so the fix (`cd` elsewhere) is clear.
 
 ## [0.9.0] — 2026-09-12
 

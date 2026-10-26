@@ -13,6 +13,8 @@ export declare const resolveBinaryPath: (
 
 export declare const shouldCaptureOutput: (argv: readonly string[]) => boolean
 
+export declare const hasAccessibleCwd: (cwd?: () => string) => boolean
+
 export declare const main: (
 	argv?: readonly string[],
 	platform?: NodeJS.Platform,

@@ -39,6 +39,15 @@ export const resolveBinaryPath = (packageName, resolve = require.resolve) =>
 
 export const shouldCaptureOutput = (argv) => argv.some((arg) => fastExitFlags.has(arg))
 
+export const hasAccessibleCwd = (cwd = process.cwd) => {
+	try {
+		cwd()
+		return true
+	} catch {
+		return false
+	}
+}
+
 export const main = (
 	argv = process.argv.slice(2),
 	platform = process.platform,
@@ -48,6 +57,13 @@ export const main = (
 	if (argv.includes("--version") || argv.includes("-v")) {
 		console.log(pkg.version)
 		process.exit(0)
+	}
+
+	if (!hasAccessibleCwd()) {
+		console.error(
+			"house: the current directory no longer exists or is not accessible; cd to another directory and retry",
+		)
+		process.exit(1)
 	}
 
 	const packageName = binaryPackageNameFor(platform, arch, libc)
