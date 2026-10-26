@@ -72,6 +72,14 @@ The deferred list is the set of open feature issues, tracked in the maintainer's
 
 Key reservations for deferred features (search, navigation history, bookmarks, etc.) live in §7.3 — consult that section before binding new keys.
 
+### 5.4 Current focus
+
+The public launch scope is deliberately narrow: daily-driver essentials only. An item belongs there only if its absence is a clear blocker or papercut for regular use; those issues sit in the Linear "Public launch" project (not public; each is mirrored to a GitHub issue).
+
+The top follow-up is File Navigator startup performance on large trees (#242). Full-text search and fuzzy title/content search (#202, #203) are spikes, labelled `spike`: worth exploring, but not the next work.
+
+Everything else in the backlog is an idea with no commitment to ship. Issues are grouped by `area:*` labels (navigation, rendering, config, and so on).
+
 ## 6. Discovery Rules
 
 | Rule         | v1 behavior                                                                                                                               |
