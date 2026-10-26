@@ -1,5 +1,5 @@
 import { RGBA } from "@opentui/core"
-import { describe, expect, test } from "bun:test"
+import { afterEach, describe, expect, test } from "bun:test"
 import { colors, setActiveTheme } from "../src/theme/colors.ts"
 import { getThemeDefinition, isThemeId, themeDefinitions } from "../src/theme/registry.ts"
 import { isThemeJson, resolveColorValue, resolveTheme } from "../src/theme/resolve.ts"
@@ -160,6 +160,12 @@ describe("registry", () => {
 })
 
 describe("setActiveTheme", () => {
+	// `colors` is a process-wide singleton and bun runs every test file in one process.
+	const initialColors = structuredClone(colors)
+	afterEach(() => {
+		Object.assign(colors, structuredClone(initialColors))
+	})
+
 	test("mutates the singleton in place; reference stays stable", () => {
 		const ref = colors
 		const opencode = getThemeDefinition("opencode")!
