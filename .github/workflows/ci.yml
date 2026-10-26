@@ -42,7 +42,8 @@ jobs:
       - run: bun run lint
       - run: bun run format:check
       - run: bun run test
-      - run: bunx playwright install --with-deps chromium
+      - run: bunx --no-install playwright install --with-deps chromium
+        working-directory: apps/house
       - run: bun run test:preview
       - run: bun run test:pty
       - run: bun run verify:github
