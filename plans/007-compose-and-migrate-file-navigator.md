@@ -319,4 +319,4 @@ running old and new discovery in parallel.
   React commits are 169 versus 158. Current mixed create/rewrite/atomic/delete bursts settle at 123 ms
   p50 and 128 ms p95. Old production had no live mutation support.
 - The owner approved this capability-driven tradeoff on 2026-08-14 with the explicit caveat that another
-  optimization pass is paramount. Follow-up is tracked in issue #242 and at the top of `ROADMAP.md`.
+  optimization pass is paramount. Follow-up is tracked in issue #242.

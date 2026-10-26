@@ -26,8 +26,15 @@ The publish workflow (`.github/workflows/publish.yml`) runs for a published rele
 - The Browser TUI now exits at startup if the markdown highlighter cannot initialize, instead of
   rendering raw source. CLI and standalone builds fail the same check.
 
+### Removed
+
+- `ROADMAP.md` is removed; planned work is now tracked in Linear (House team), with public items
+  mirrored to GitHub issues, so plans no longer drift between a file and the issue tracker.
+
 ### Fixed
 
+- `house --root` pointing at a file, missing path or unreadable directory now prints an error before
+  the TUI starts, instead of exiting silently, so the bad root is obvious.
 - Markdown headings, emphasis, and fenced code now highlight again. `web-tree-sitter` is pinned to
   OpenTUI's `0.25.10` peer so the highlighter can load `tree-sitter.wasm`.
 - npm-installed `house` run from a deleted or inaccessible directory now says so and exits,
