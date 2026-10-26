@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
+import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { fileURLToPath } from "node:url"
 import {
 	formatFatalDiscoveryStatus,
 	formatPartialDiscoveryStatus,
@@ -106,6 +107,40 @@ describe("validateDiscoveryRoot", () => {
 		const file = join(dir, "README.md")
 		await writeFile(file, "x", "utf8")
 		await expect(validateDiscoveryRoot(file)).rejects.toThrow(/discovery root must be a directory/)
+	})
+
+	test.skipIf(process.getuid?.() === 0)("rejects an unreadable directory", async () => {
+		const locked = join(dir, "locked")
+		await mkdir(locked)
+		await chmod(locked, 0o000)
+		try {
+			await expect(validateDiscoveryRoot(locked)).rejects.toThrow(/cannot read discovery root/)
+		} finally {
+			await chmod(locked, 0o700)
+		}
+	})
+})
+
+describe("house --root", () => {
+	test("reports an invalid root on stderr before the TUI starts", async () => {
+		const file = join(dir, "README.md")
+		await writeFile(file, "x", "utf8")
+		const entry = fileURLToPath(new URL("../src/index.tsx", import.meta.url))
+		const env = Object.fromEntries(
+			Object.entries(process.env).filter(([key]) => !key.startsWith("HOUSE_")),
+		)
+		const child = Bun.spawn([process.execPath, entry, "--root", file, "--no-update-check"], {
+			cwd: dir,
+			env: { ...env, XDG_CONFIG_HOME: dir },
+			stdin: "ignore",
+			stdout: "pipe",
+			stderr: "pipe",
+		})
+		expect(await child.exited).toBe(1)
+		expect(await new Response(child.stderr).text()).toContain(
+			`house: discovery root must be a directory, got file ${file}`,
+		)
+		expect(await new Response(child.stdout).text()).toBe("")
 	})
 })
 

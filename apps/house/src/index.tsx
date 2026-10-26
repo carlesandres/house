@@ -1,7 +1,8 @@
 #!/usr/bin/env bun
 /** house — entry point. Boots the browser TUI or `--serve` preview. */
 
-import { stat } from "node:fs/promises"
+import { constants } from "node:fs"
+import { access, stat } from "node:fs/promises"
 import { homedir } from "node:os"
 import { basename, dirname, isAbsolute, relative, resolve } from "node:path"
 import { createCliRenderer } from "@opentui/core"
@@ -82,6 +83,11 @@ export const validateDiscoveryRoot = async (root: string): Promise<void> => {
 	}
 	if (!stats.isDirectory()) {
 		throw new Error(`discovery root must be a directory, got file ${root}`)
+	}
+	try {
+		await access(root, constants.R_OK | constants.X_OK)
+	} catch (err) {
+		throw new Error(`cannot read discovery root ${root}: ${String(err)}`)
 	}
 }
 
@@ -372,6 +378,13 @@ async function runTui({
 	order,
 	updateCheck,
 }: TuiBootOptions): Promise<void> {
+	try {
+		await validateDiscoveryRoot(discoveryRoot)
+	} catch (err) {
+		console.error(`house: ${err instanceof Error ? err.message : String(err)}`)
+		process.exit(1)
+	}
+
 	if (updateCheck) {
 		// Fire the npm-registry probe in the background. Result lands in a
 		// module singleton; the React tree picks it up via `useUpdateNotice`
@@ -405,12 +418,6 @@ async function runTui({
 	})
 	renderer.useMouse = true
 	const initialTheme: ThemeState = { id: themeId, tone }
-	try {
-		await validateDiscoveryRoot(discoveryRoot)
-	} catch (err) {
-		console.error(`house: ${err instanceof Error ? err.message : String(err)}`)
-		process.exit(1)
-	}
 	createRoot(renderer).render(
 		<RegistryProvider initialValues={[[themeAtom, initialTheme]]}>
 			<DiscoverShell
