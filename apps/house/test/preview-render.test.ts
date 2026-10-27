@@ -101,6 +101,18 @@ const answer: number = 42
 		}
 	})
 
+	test("discards noscript content even when an ancestor closes inside it", async () => {
+		const renderer = createMarkdownRenderer()
+		try {
+			const result = await renderer.render(
+				'<div><noscript></div><img src="https://example.com/t.gif"></noscript>\n',
+			)
+			expect(result.html).not.toContain("example.com/t.gif")
+		} finally {
+			await renderer.dispose()
+		}
+	})
+
 	test("preserves dollar sequences in trusted code and mermaid fragments", async () => {
 		const renderer = createMarkdownRenderer()
 		try {
