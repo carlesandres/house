@@ -68,7 +68,7 @@ There is no performance gate, no coverage gate, and no public release in v1.
 
 ### 5.3 Deferred / future
 
-The deferred list is the set of open feature issues, tracked in the maintainer's Linear House team (which owns priority and status) and mirrored to public GitHub issues where one exists. Imported issues keep their numbers (HOU-n = #n). Confirmed competitive gaps against mdcat / frogmouth / mdr (issue #16) are labelled `competitive-gap` in Linear: #26, #29, #30, #31, #32, #33. Two items still need a design pass before concrete issues: custom per-file actions (HOU-252) and broader mouse polish (HOU-253; the sidebar filter row is #67).
+The deferred list is the set of open feature issues, tracked in the maintainer's Linear House team (which owns priority and status) and mirrored to public GitHub issues where one exists. Imported issues keep their numbers (HOU-n = #n). Confirmed competitive gaps against mdcat / frogmouth / mdr (issue #16) are labelled `competitive-gap` in Linear: #26, #29, #30, #31, #32, #33. Two items still need a design pass before concrete issues: custom per-file actions (HOU-257, #281) and broader mouse polish (HOU-258, #283; the sidebar filter row is #67).
 
 Key reservations for deferred features (search, navigation history, bookmarks, etc.) live in §7.3 — consult that section before binding new keys.
 
