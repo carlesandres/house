@@ -1,0 +1,24 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: ci
+    groups:
+      # Only publish.yml uses these and PR CI never runs it, so major bumps move as a pair.
+      artifacts:
+        patterns:
+          - "actions/upload-artifact"
+          - "actions/download-artifact"
+        update-types:
+          - major
+      actions:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
