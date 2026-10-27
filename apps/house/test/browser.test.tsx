@@ -69,8 +69,12 @@ const deferred = <T,>() => {
 	return { promise, reject, resolve }
 }
 
+// `colors` is a process-wide singleton and theme tests mutate it.
+const initialColors = structuredClone(colors)
+
 afterEach(async () => {
 	delete (globalThis as Record<string, unknown>)[WATCHER_FACTORY_KEY]
+	Object.assign(colors, structuredClone(initialColors))
 	navigatorBecameIdle = true
 	await destroyTestRenderer(setup)
 	setup = null

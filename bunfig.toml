@@ -1,2 +1,3 @@
 [test]
 root = "apps/house/test"
+preload = ["./apps/house/test/helpers/isolate-config.ts"]
