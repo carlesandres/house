@@ -86,7 +86,7 @@
 		"ignore": "^7.0.9",
 		"marked": "^18.0.13",
 		"react": "19.3.0",
-		"sanitize-html": "2.17.7",
+		"sanitize-html": "2.18.1",
 		"scheduler": "0.28.0",
 		"string-width": "7.2.0",
 		"web-tree-sitter": "0.25.10"
