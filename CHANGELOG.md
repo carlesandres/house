@@ -16,6 +16,8 @@ The publish workflow (`.github/workflows/publish.yml`) runs for a published rele
 
 - Browser previews now sanitize authored HTML and URLs, apply a restrictive local-page policy, and
   serve only immutable built-in assets from loopback-validated requests.
+- CI and release workflows now pin every action to a commit SHA, kept current by Dependabot, so a
+  moved or compromised tag cannot change what runs.
 
 ### Changed
 
