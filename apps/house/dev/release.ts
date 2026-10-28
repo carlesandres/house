@@ -125,7 +125,7 @@ const createVerifiedReleaseCommit = async (
 
 	try {
 		const additions = await Promise.all(
-			["CHANGELOG.md", "apps/house/package.json", "bun.lock"].map(async (path) => ({
+			["CHANGELOG.md", "apps/house/package.json"].map(async (path) => ({
 				path,
 				contents: Buffer.from(await readFile(resolve(repoRoot, path))).toString("base64"),
 			})),
@@ -226,10 +226,10 @@ try {
 		run("bun", ["run", "version:set", version])
 		if (process.env.GITHUB_ACTIONS === "true") {
 			await createVerifiedReleaseCommit(branch, version, run("git", ["rev-parse", "origin/main"]))
-			run("git", ["restore", "CHANGELOG.md", "apps/house/package.json", "bun.lock"])
+			run("git", ["restore", "CHANGELOG.md", "apps/house/package.json"])
 		} else {
 			run("git", ["switch", "-c", branch])
-			run("git", ["add", "CHANGELOG.md", "apps/house/package.json", "bun.lock"])
+			run("git", ["add", "CHANGELOG.md", "apps/house/package.json"])
 			run("git", ["commit", "-S", "-m", `chore: release v${version}`])
 			run("git", ["push", "--set-upstream", "origin", branch])
 			run("git", ["switch", "main"])

@@ -1,8 +1,11 @@
-FROM oven/bun:1.3.10 AS base
+FROM node:26-bookworm-slim AS base
+
+COPY --from=oven/bun:1.3.10 /usr/local/bin/bun /usr/local/bin/bun
+RUN npm install --global pnpm@12.14.0
 
 WORKDIR /work
 COPY . .
-RUN bun install --frozen-lockfile
+RUN pnpm install --frozen-lockfile
 
 ENTRYPOINT ["bun", "packages/ui/dev/parcel-feasibility.ts"]
 

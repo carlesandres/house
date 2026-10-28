@@ -45,6 +45,7 @@ For fenced code blocks, rely on opentui's built-in `<markdown>` renderer and kee
 ## Local commands
 
 ```bash
+pnpm install            # dependencies; Bun still runs every script below
 bun run dev [path]      # watch + run from source; positional seeds filter, use --root <dir> to browse a directory
 bun test                # house test suite, scoped by the root bunfig.toml
 bun run typecheck
@@ -55,6 +56,15 @@ bun run --cwd apps/house dev/bench-markdown.ts <dir> # microbench
 bun run npm:pack        # show exactly what would land on npm
 bun run verify:github   # release/API checks against vercel-labs/emulate
 ```
+
+Root scripts that go through Turbo (`typecheck`, `lint`, `test`, and the rest), including the
+ones the pre-commit hook runs, start pnpm for each package. pnpm 12 locks its store on every command, even `pnpm run`, so a sandbox that blocks
+writes outside the repo fails them with `ERR_PNPM_STORE_DIR_OPEN_OPERATION_LOCK`. Run them outside
+the sandbox, or run a package's script directly with `bun run --cwd <package> <script>`.
+
+Keep `pnpm-lock.yaml` a single YAML document (`pmOnFail: ignore` in `pnpm-workspace.yaml`):
+GitHub's dependency graph cannot read pnpm 12's separate package-manager document, and Dependabot
+then raises no security alerts.
 
 ## Release runbook
 
@@ -159,10 +169,9 @@ The local command only creates or resumes the release PR; it never merges or
 publishes. Re-running either preparation path reuses a valid existing branch and
 PR for the same version.
 
-`version:set` changes only `apps/house/package.json` and the `apps/house`
-workspace version in `bun.lock`. Platform `optionalDependencies` remain on the
-last-published version so a frozen monorepo install works before the new packages
-exist. `createPublicPackageManifest` pins them to the release version in the
+`version:set` changes only the version in `apps/house/package.json`. Platform
+`optionalDependencies` remain on the last-published version so a frozen monorepo
+install works before the new packages exist. `createPublicPackageManifest` pins them to the release version in the
 published main package. Do not hand-edit those pins to an unpublished version.
 
 PR CI is the release gate: typecheck, lint, format check, all-workspace tests,

@@ -10,8 +10,14 @@ If you're an AI assistant pairing on this repo, also read [`AGENTS.md`](./AGENTS
 
 ## Local loop
 
+Install [pnpm](https://pnpm.io/installation) 12 and Bun. Use the pnpm version in the root
+`package.json` `packageManager` field and the Bun version in `.bun-version`; CI uses exactly those.
+pnpm does not switch to the pinned version for you (`pmOnFail: ignore` in `pnpm-workspace.yaml`
+keeps the lockfile readable by GitHub's dependency graph), so check `pnpm --version` yourself.
+pnpm installs dependencies, and Bun runs the app, scripts and tests.
+
 ```bash
-bun install
+pnpm install
 bun run dev [path]      # watch + run from source; positional seeds filter, use --root <dir> to browse a directory
 bun test                # House app tests (root bunfig.toml scope)
 bun run test            # all workspace tests through Turbo
@@ -43,7 +49,7 @@ Any PR has to pass `typecheck`, `lint`, `format:check`, `test`, `npm:pack`, and 
 GitHub emulator verification — that's what `.github/workflows/ci.yml` enforces.
 
 `test:preview` requires Playwright Chromium. Install it from `apps/house` so the browser matches the
-Playwright pinned in its `package.json`: `bunx --no-install playwright install chromium` (add
+Playwright pinned in its `package.json`: `pnpm exec playwright install chromium` (add
 `--with-deps` on Linux). It keeps normal `bun test` browser-independent.
 The artifact preview smoke starts the actual compiled executable with Bun removed from `PATH`,
 requests its embedded asset graph, and renders a real Mermaid SVG.
@@ -53,11 +59,11 @@ compile a workspace-only substitute. Installed mode packs the staged main and ho
 into a temporary npm prefix unless CI supplies its already-installed `house` path. Artifact execution
 removes Bun from `PATH` and exercises the embedded static Parcel binding through filesystem mutations.
 
-Versioned Git hooks live in `.githooks/`. `bun install` activates them (the `prepare` script in `package.json` sets `core.hooksPath`). The pre-commit hook runs `format:check` and `lint` so the cheap CI gates don't bite you on PR review. The pre-push hook fetches `origin/main` and blocks stale branch pushes; it is only a safeguard and does not merge, rebase, or run tests. If a hook blocks, prefer fixing the underlying issue over bypassing it.
+Versioned Git hooks live in `.githooks/`. `pnpm install` activates them (the `prepare` script in `package.json` sets `core.hooksPath`). The pre-commit hook runs `format:check` and `lint` so the cheap CI gates don't bite you on PR review. The pre-push hook fetches `origin/main` and blocks stale branch pushes; it is only a safeguard and does not merge, rebase, or run tests. If a hook blocks, prefer fixing the underlying issue over bypassing it.
 
 ## Project layout
 
-See `DESIGN.md` §9.1 for the module map. The root is a private Bun workspace and Turborepo
+See `DESIGN.md` §9.1 for the module map. The root is a private pnpm workspace and Turborepo
 orchestrator; the publishable app lives in `apps/house`, while reusable controlled OpenTUI
 components live in the private `packages/ui` source package:
 
@@ -195,7 +201,7 @@ Releases are event-driven. See `AGENTS.md` for the maintainer runbook,
 4. Treat the green `verify-published` job as completion: it checks all five npm
    versions, an installed binary, and the four release assets.
 
-`version:set` updates the app version and its `bun.lock` workspace entry. It
+`version:set` updates the app version in `apps/house/package.json`. It
 deliberately leaves monorepo platform pins on their last-published versions;
 the staged public manifest pins all four platform packages to the release version.
 Publishing uses Trusted Publisher/OIDC, never an `NPM_TOKEN`. The four platform

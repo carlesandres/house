@@ -4,9 +4,7 @@ import { readFile, writeFile } from "node:fs/promises"
 import { resolve } from "node:path"
 
 const appRoot = resolve(import.meta.dir, "..")
-const repoRoot = resolve(appRoot, "../..")
 const packagePath = resolve(appRoot, "package.json")
-const lockfilePath = resolve(repoRoot, "bun.lock")
 const platformPackagePrefix = "@carlesandres/house-"
 const semverPattern =
 	/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/
@@ -38,18 +36,13 @@ if (platformPackages.length === 0) fail("no platform optional dependencies found
 
 // Bump only the main package version. Platform optionalDependencies (and their
 // lockfile resolutions) stay on last-published versions so monorepo
-// `bun install --frozen-lockfile` works before those packages exist on npm.
+// `pnpm install --frozen-lockfile` works before those packages exist on npm.
+// pnpm-lock.yaml does not record a workspace package's own version.
 // createPublicPackageManifest pins published optionalDeps to this version.
 pkg.version = nextVersion
 
-let lockfile = await readFile(lockfilePath, "utf8")
-const workspaceVersionPattern = /("apps\/house": \{[\s\S]*?"version": )"[^"]+"/
-if (!workspaceVersionPattern.test(lockfile)) fail("apps/house version is missing from bun.lock")
-lockfile = lockfile.replace(workspaceVersionPattern, `$1"${nextVersion}"`)
-
 await writeFile(packagePath, `${JSON.stringify(pkg, null, "\t")}\n`)
-await writeFile(lockfilePath, lockfile)
 console.log(
-	`set ${pkg.version} (main package + lockfile workspace entry; ` +
+	`set ${pkg.version} (main package; ` +
 		`${platformPackages.length} platform optionalDependencies left unchanged for installability)`,
 )

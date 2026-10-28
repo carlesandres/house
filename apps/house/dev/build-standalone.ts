@@ -70,11 +70,13 @@ const sha256 = async (path: string): Promise<string> => {
 	return new Bun.CryptoHasher("sha256").update(bytes).digest("hex")
 }
 
+/** Resolve from the depending package's directory so any install layout finds the copy it uses. */
+const packageDirFrom = (name: string, fromDir: string): string =>
+	dirname(require.resolve(name, { paths: [fromDir] }))
+
 const assertNativePackagePresent = (target: ReleaseTarget): void => {
 	try {
-		require.resolve(target.opentuiNativePackage, {
-			paths: [resolve(repoRoot, "node_modules/.bun/node_modules")],
-		})
+		packageDirFrom(target.opentuiNativePackage, packageDirFrom("@opentui/core", root))
 	} catch {
 		fail(
 			`${target.id} requires ${target.opentuiNativePackage}, but it is not installed. ` +
@@ -82,9 +84,7 @@ const assertNativePackagePresent = (target: ReleaseTarget): void => {
 		)
 	}
 	try {
-		require.resolve(target.parcelNativePackage, {
-			paths: [resolve(repoRoot, "node_modules/.bun/node_modules")],
-		})
+		packageDirFrom(target.parcelNativePackage, packageDirFrom("@parcel/watcher", root))
 	} catch {
 		fail(
 			`${target.id} requires ${target.parcelNativePackage}, but it is not installed. ` +
@@ -112,9 +112,7 @@ const resolveTreeSitterWorkerSource = async (): Promise<string> => {
 	}
 
 	try {
-		const coreMain = require.resolve("@opentui/core", {
-			paths: [root, resolve(repoRoot, "node_modules/.bun/node_modules")],
-		})
+		const coreMain = require.resolve("@opentui/core", { paths: [root] })
 		candidates.push(resolve(dirname(coreMain), "parser.worker.js"))
 		candidates.push(resolve(dirname(coreMain), "lib/tree-sitter/parser.worker.js"))
 	} catch {
@@ -140,10 +138,7 @@ const resolveTreeSitterWorkerSource = async (): Promise<string> => {
 const bunfsWorkerPath = (virtualName: string): string => `/$bunfs/root/${virtualName}`
 
 const resolveWebTreeSitterDependency = (specifier: string): string => {
-	const coreMain = require.resolve("@opentui/core", {
-		paths: [root, resolve(repoRoot, "node_modules/.bun/node_modules")],
-	})
-	return require.resolve(specifier, { paths: [dirname(coreMain)] })
+	return require.resolve(specifier, { paths: [packageDirFrom("@opentui/core", root)] })
 }
 
 const treeSitterDependencyResolver: BunPlugin = {
@@ -199,12 +194,10 @@ const buildTarget = async (
 	await mkdir(targetDir, { recursive: true })
 	await mkdir(tempDir, { recursive: true })
 	await mkdir(resolve(tempDir, "node_modules/@parcel"), { recursive: true })
+	const watcherDir = packageDirFrom("@parcel/watcher", root)
+	await symlink(watcherDir, resolve(tempDir, "node_modules/@parcel/watcher"))
 	await symlink(
-		resolve(repoRoot, "node_modules/.bun/node_modules/@parcel/watcher"),
-		resolve(tempDir, "node_modules/@parcel/watcher"),
-	)
-	await symlink(
-		resolve(repoRoot, "node_modules/.bun/node_modules", target.parcelNativePackage),
+		packageDirFrom(target.parcelNativePackage, watcherDir),
 		resolve(tempDir, "node_modules", target.parcelNativePackage),
 	)
 	await writeFile(generatedEntrypoint, generateStandaloneHost(target))
