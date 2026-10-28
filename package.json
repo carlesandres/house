@@ -26,7 +26,7 @@
 		"prepare": "git config core.hooksPath .githooks 2>/dev/null || true"
 	},
 	"devDependencies": {
-		"turbo": "2.10.12"
+		"turbo": "2.11.10"
 	},
 	"packageManager": "pnpm@12.14.0"
 }
