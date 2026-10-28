@@ -8,13 +8,13 @@
 		"build:npm-packages": "turbo run build:npm-packages --filter=@carlesandres/house --",
 		"build:standalone": "turbo run build:standalone --filter=@carlesandres/house --",
 		"build:themes": "turbo run build:themes --filter=@carlesandres/house --",
+		"changeset": "changeset",
 		"dev": "bun run --cwd apps/house dev",
 		"format": "turbo run format",
 		"format:check": "turbo run format:check",
 		"lint": "turbo run lint",
 		"npm:pack": "turbo run npm:pack --filter=@carlesandres/house",
 		"record-demo": "turbo run record-demo --filter=@carlesandres/house",
-		"release": "turbo run release --filter=@carlesandres/house --",
 		"repro:pty-codeblocks": "turbo run repro:pty-codeblocks --filter=@carlesandres/house --",
 		"start": "bun run --cwd apps/house start",
 		"test": "turbo run test --concurrency=1",
@@ -22,10 +22,10 @@
 		"test:pty": "turbo run test:pty --filter=@carlesandres/house",
 		"typecheck": "turbo run typecheck",
 		"verify:github": "turbo run verify:github --filter=@carlesandres/house",
-		"version:set": "turbo run version:set --filter=@carlesandres/house --",
 		"prepare": "git config core.hooksPath .githooks 2>/dev/null || true"
 	},
 	"devDependencies": {
+		"@changesets/cli": "3.0.3",
 		"turbo": "2.10.12"
 	},
 	"packageManager": "pnpm@12.14.0"

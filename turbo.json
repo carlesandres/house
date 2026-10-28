@@ -39,10 +39,6 @@
 		"record-demo": {
 			"cache": false
 		},
-		"release": {
-			"cache": false,
-			"passThroughEnv": ["GH_TOKEN", "GITHUB_OUTPUT"]
-		},
 		"repro:pty-codeblocks": {
 			"cache": false
 		},
@@ -59,9 +55,6 @@
 		},
 		"typecheck": {},
 		"verify:github": {
-			"cache": false
-		},
-		"version:set": {
 			"cache": false
 		}
 	}

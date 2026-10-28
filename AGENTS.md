@@ -6,7 +6,7 @@ Notes for AI assistants (and humans) working in this repo. This file is about *t
 
 - `DESIGN.md` — scope, non-goals (§3), deferred features (§5.3), reserved keys (§7.3), v2 gates (§10), **deferred patterns with triggers (§12)**. Always check §12 before re-introducing a pattern that "feels missing" — there is probably a documented reason it isn't there yet.
 - `CONTRIBUTING.md` — local loop, testing, commit/PR shape, release flow.
-- `CHANGELOG.md` — what's queued under `[Unreleased]`. New work appends here; release time moves it under a dated heading.
+- `.changeset/` — release notes queued for the next version, one file per change. `apps/house/CHANGELOG.md` holds the released history. Older plans and ADRs that say to add notes under `CHANGELOG.md` `[Unreleased]` predate Changesets: add a changeset file instead and never hand-edit the changelog.
 
 ## Docs split
 
@@ -17,7 +17,7 @@ Notes for AI assistants (and humans) working in this repo. This file is about *t
 ## Conventions worth knowing
 
 - Format: **tabs, no semicolons, 100-col, trailing commas** (see `.oxfmtrc.json`). `bun run format` writes; CI gates on `format:check`.
-- Merging: `main` only accepts a PR whose branch is up to date with `main`, whose `check` job passes, and whose commits are all signed. A PR that shows `BEHIND` (`gh pr view <n> --json mergeStateStatus`) is not ready: bring it current by merging `origin/main` into the branch with a signed merge commit (not a rebase, which would need a force-push), then wait for CI to pass again. The pre-push hook blocks pushing a stale branch. Release PRs are the exception: never update a cut release branch; follow the release runbook's recovery rules instead.
+- Merging: `main` only accepts a PR whose branch is up to date with `main`, whose `check` job passes, and whose commits are all signed. A PR that shows `BEHIND` (`gh pr view <n> --json mergeStateStatus`) is not ready: bring it current by merging `origin/main` into the branch with a signed merge commit (not a rebase, which would need a force-push), then wait for CI to pass again. The pre-push hook blocks pushing a stale branch. The version PR (`changeset-release/main`) is the exception: `release.yml` rebuilds it on every push to `main`; never push to it.
 - Test root: the root `bunfig.toml` pins `[test] root = "apps/house/test"` so direct `bun test` stays inside the app. `bun run test` runs each workspace package's tests through Turbo.
 - Scalar options (CLI + env + file initial values) are declared in `apps/house/src/config/options.ts` via `@house/options`. Add the spec there and thread layers through `loadConfig`. Browser holds a session for runtime wrap/theme/tone; file-policy keys persist via `persistHouseOption`. Do not add per-key parse helpers for catalog keys. Lists (`show`, `extensions`) stay on Effect Config. The package itself stays agnostic of TOML, Commander, and Effect ConfigProvider.
 - `TODO(revisit: <topic>)` markers in source point back at `DESIGN.md` §12. `grep -r 'TODO(revisit:' apps/house/src/` lists them.
@@ -68,14 +68,15 @@ then raises no security alerts.
 
 ## Release runbook
 
-Use this when publishing a new version. Releases are event-driven: the release
-workflow prepares a PR, and merging that PR is the human approval that creates
-the GitHub Release and starts publishing. Direct commits to `main` are blocked,
-so even version bumps go through a PR.
+Use this when publishing a new version. Releases use
+[Changesets](https://github.com/changesets/changesets): each PR that users or maintainers will
+notice adds a changeset file, and the release workflow keeps a "chore: version packages" PR open
+on `main`. Merging that PR is the single human approval that creates the GitHub Release and starts
+publishing. Direct commits to `main` are blocked, so even version bumps go through a PR.
 
-Maintainer docs live here first. `CONTRIBUTING.md` has the short contributor
-summary. `apps/house/dev/release.ts`, `.github/workflows/release.yml`, and
-`.github/workflows/publish.yml` are the executable sources of truth.
+Maintainer docs live here first. `CONTRIBUTING.md` has the short contributor summary.
+`.changeset/config.json`, `.github/workflows/release.yml`, and `.github/workflows/publish.yml`
+are the executable sources of truth.
 
 ### What gets published
 
@@ -91,101 +92,67 @@ Each release publishes:
 
 Linux packages target glibc. Windows remains unsupported.
 
-### 1. Prepare release notes
+### 1. Add a changeset to each notable PR
 
-Start from a clean, current `main` and fetch the tags:
-
-```bash
-git checkout main
-git pull --ff-only
-git status --short
-git fetch origin --tags
-```
-
-`git status --short` must print nothing. The latest tag must equal `v` plus the
-version in `apps/house/package.json`; the release command checks both conditions.
-
-Inspect every first-parent commit since the latest tag:
-
-```bash
-previous="$(git tag --sort=-v:refname | head -1)"
-echo "${previous}"
-git log --first-parent --oneline "${previous}..origin/main"
-```
-
-Make sure each user- or maintainer-visible change is represented under
-`[Unreleased]` in `CHANGELOG.md`. Use this filter:
-
-| Commit kind | Include in changelog? | Heading |
-|---|---:|---|
-| New command, install path, workflow, platform, or visible feature | Yes | `### Added` |
-| Behavior/default/output changed for users or maintainers | Yes | `### Changed` |
-| User-visible or release-blocking bug fixed | Yes | `### Fixed` |
-| Supported behavior removed | Yes | `### Removed` |
-| Security fix | Yes | `### Security` |
-| Release commit, typo, formatting, internal refactor, test-only change | No, unless maintainer-visible | — |
-
-For every included commit, write one bullet using this shape:
+Run `bun run changeset`, or write `.changeset/<short-name>.md` by hand:
 
 ```markdown
-- <User or maintainer-visible thing> now <outcome>, so <why it matters>.
+---
+"@carlesandres/house": patch
+---
+
+<User or maintainer-visible thing> now <outcome>, so <why it matters>.
 ```
 
-Examples:
+Use `minor` for a new command, install path, workflow, platform, or visible feature; `major`
+for removing supported behavior once past 1.0; `patch` for everything else that is visible.
+Skip the file for release commits, typos, formatting, internal refactors and test-only
+changes, unless a maintainer would notice. CI warns (without failing) when a PR changes shipped
+source and adds no changeset.
 
-- Good: `- npm installs now use a native binary package, so Bun is no longer required at runtime.`
-- Good: `- Release publishing now uploads standalone binary archives for direct downloads.`
-- Too internal: `- Added src/cli/npm-bin.js.`
-- Too internal: `- Refactored build scripts.`
+Keep the sentence outcome-focused:
 
-Group bullets under Keep a Changelog headings, using only headings that have
-entries: `### Added`, `### Changed`, `### Fixed`, `### Removed`, `### Security`.
-Keep bullets outcome-focused rather than describing file names or implementation
-details. Do not create the dated version section yourself when using the release
-command: it moves the non-empty `[Unreleased]` body and updates compare links.
+- Good: `npm installs now use a native binary package, so Bun is no longer required at runtime.`
+- Too internal: `Added src/cli/npm-bin.js.`
 
-### 2. Prepare the release PR
+Name only `@carlesandres/house`; a test fails otherwise. The private workspace packages
+(`@house/ui`, `@house/options`) are bundled into it and never published, and a changeset naming
+only them would produce an empty release.
 
-Start the release workflow with `patch`, `minor`, `major`, or an explicit stable
-version:
+### 2. Review the version PR
 
-```bash
-gh workflow run release.yml -f version=patch
-```
+Every push to `main` runs `release.yml`. While changeset files are pending, it creates or
+updates the `changeset-release/main` branch and its "chore: version packages" PR. That PR:
 
-The workflow validates `main` and the changelog, creates or resumes
-`release/vX.Y.Z`, moves the changelog notes, bumps the version, opens the release
-PR, and explicitly starts CI for its head commit. The explicit dispatch matters:
-pull requests created by GitHub's built-in token do not trigger another workflow.
+- moves every pending changeset into a new section of `apps/house/CHANGELOG.md`,
+- bumps the version in `apps/house/package.json` to the highest pending bump, and
+- deletes the consumed changeset files.
 
-For local validation or recovery, the same preparation remains available:
+The branch is rebuilt from `main` on every push, so it never goes stale and must not be edited by
+hand: fix wording in the changeset files on `main` instead. Its commits are created through the
+GitHub API, so GitHub signs them. Pull requests created by the built-in token trigger no
+workflows, so `release.yml` dispatches `ci.yml` on the branch, and `ci.yml` reports the required
+`check` status for it.
 
-```bash
-bun run release -- patch --dry-run
-bun run release -- patch --yes
-```
+`changeset version` changes only the version in `apps/house/package.json`. Platform
+`optionalDependencies` remain on the last-published version so a frozen monorepo install works
+before the new packages exist. `createPublicPackageManifest` pins them to the release version in
+the published main package. Do not hand-edit those pins to an unpublished version.
 
-The local command only creates or resumes the release PR; it never merges or
-publishes. Re-running either preparation path reuses a valid existing branch and
-PR for the same version.
-
-`version:set` changes only the version in `apps/house/package.json`. Platform
-`optionalDependencies` remain on the last-published version so a frozen monorepo
-install works before the new packages exist. `createPublicPackageManifest` pins them to the release version in the
-published main package. Do not hand-edit those pins to an unpublished version.
-
-PR CI is the release gate: typecheck, lint, format check, all-workspace tests,
-PTY coverage (`bun run test:pty`), GitHub API emulation, standalone
-build/mutation smoke, npm package staging, and Node 26+ install smokes. Use
-`bun run npm:pack`, not root `npm pack`, to inspect the staged public package.
+CI is the release gate: typecheck, lint, format check, all-workspace tests, PTY coverage
+(`bun run test:pty`), GitHub API emulation, standalone build/mutation smoke, npm package staging,
+and Node 26+ install smokes. Use `bun run npm:pack`, not root `npm pack`, to inspect the staged
+public package.
 
 ### 3. Approve and watch publishing
 
-Review the version and changelog in the release PR, wait for CI, then squash-merge
-it. That merge is the single human approval. `.github/workflows/release.yml`
-validates the release branch, package version, changelog, previous tag, and exact
-merge SHA before creating the GitHub Release and dispatching `publish.yml` at the
-new tag.
+Review the version and changelog in the version PR, wait for CI, then merge it. On that push,
+`release.yml` sees a package version with no tag, extracts its section from
+`apps/house/CHANGELOG.md`, creates the GitHub Release at the commit that set the version, and
+dispatches `publish.yml` at the new tag. No `release.yml` job has `id-token`, so none can publish
+to npm itself. Only the `version` job installs dependencies and runs the Changesets CLI, and it has
+no `actions` permission, so compromised dependency code there cannot dispatch `publish.yml`. Keep
+that split when editing the workflow.
 
 The publish workflow:
 
@@ -200,7 +167,7 @@ The `npm` environment does not require another reviewer click; it allows only
 that environment. Only the final publish job does.
 
 Repository Actions settings must allow GitHub Actions to create pull requests;
-the preparation workflow uses its scoped built-in token and no separate secret.
+the release workflow uses its scoped built-in token and no separate secret.
 
 ```bash
 gh run list --workflow publish.yml --limit 3
@@ -240,15 +207,9 @@ house --version
 
 ### Recovery and retry rules
 
-If preparation stops, dispatch `release.yml` again with the same version. It
-validates and reuses the existing branch and PR instead of creating another
-version. If the post-merge job stops, rerun that job: it reuses an existing
-release only when its tag targets the exact release PR merge SHA.
-
-If `main` advances before approval, do not update the already-cut release branch
-and silently pull new changes past the changelog cutoff. Close the stale PR,
-delete its managed release branch, refresh `[Unreleased]`, and dispatch the same
-version again from current `main`.
+If the release job fails before creating the GitHub Release, rerun it: it skips a version whose
+tag already exists and otherwise creates the release. If the release exists but `publish.yml`
+did not start, dispatch it from the tag.
 
 The publish steps skip package versions that already exist. For a tagged release,
 dispatch from the tag so the four archives are rebuilt and attached:
@@ -260,6 +221,9 @@ gh workflow run publish.yml --ref vX.Y.Z
 A `main` dispatch remains available for npm-only recovery after confirming that
 `apps/house/package.json` is still the intended version. It does not attach
 release archives. Tagged asset uploads use `--clobber`.
+
+If the version PR is missing although changeset files are pending, rerun the latest
+`release.yml` run on `main`.
 
 ### Trusted Publisher and Homebrew status
 

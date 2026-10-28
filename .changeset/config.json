@@ -1,0 +1,8 @@
+{
+	"changelog": "./changelog.mjs",
+	"commit": false,
+	"access": "public",
+	"baseBranch": "main",
+	"format": false,
+	"privatePackages": { "version": true, "tag": false }
+}

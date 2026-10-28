@@ -50,7 +50,6 @@
 		"lint": "oxlint --tsconfig tsconfig.json src/ test/ dev/",
 		"npm:pack": "bun run build:npm-main && npm pack --dry-run dist/npm/main",
 		"record-demo": "bash recordings/record-demo.sh",
-		"release": "bun run dev/release.ts",
 		"repro:pty-codeblocks": "bun run dev/repro-pty-codeblocks.ts",
 		"start": "bun run src/index.tsx",
 		"smoke:file-navigator:standalone": "bun run dev/smoke-file-navigator.ts standalone",
@@ -60,8 +59,7 @@
 		"smoke:preview:artifact": "bun run dev/smoke-preview-artifact.ts",
 		"test:pty": "HOUSE_PTY=1 bun test test/pty/",
 		"typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.browser.json",
-		"verify:github": "bun test test/github-emulation.test.ts",
-		"version:set": "bun run dev/set-version.ts"
+		"verify:github": "bun test test/github-emulation.test.ts"
 	},
 	"optionalDependencies": {
 		"@carlesandres/house-darwin-arm64": "0.5.1",

@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   release-status-pending:
-    if: github.event_name == 'workflow_dispatch' && startsWith(github.ref_name, 'release/v')
+    if: github.event_name == 'workflow_dispatch' && github.ref_name == 'changeset-release/main'
     permissions:
       statuses: write
     runs-on: ubuntu-latest
@@ -29,6 +29,29 @@ jobs:
             -f context=check \
             -f description="Release CI is running" \
             -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+
+  changeset:
+    if: github.event_name == 'pull_request' && github.head_ref != 'changeset-release/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Remind about a missing changeset
+        run: |
+          set -euo pipefail
+          changed="$(git diff --name-only --diff-filter=d HEAD^1 HEAD)"
+          if grep -Ev '^\.changeset/README\.md$' <<< "${changed}" |
+            grep -Eq '^\.changeset/[^/]+\.md$'; then
+            exit 0
+          fi
+          if grep -Eq '^(apps/house|packages/[^/]+)/src/' <<< "${changed}"; then
+            message="This PR changes shipped source but adds no .changeset/*.md file."
+            message="${message} Add one with 'bun run changeset' if users will notice."
+            echo "::warning title=No changeset::${message}"
+            echo "> [!WARNING]"$'\n'"> ${message}" >> "${GITHUB_STEP_SUMMARY}"
+          fi
 
   check:
     runs-on: ubuntu-latest
@@ -96,7 +119,7 @@ jobs:
     if: >-
       always() &&
       github.event_name == 'workflow_dispatch' &&
-      startsWith(github.ref_name, 'release/v')
+      github.ref_name == 'changeset-release/main'
     needs: [check, npm-install-smoke]
     permissions:
       statuses: write

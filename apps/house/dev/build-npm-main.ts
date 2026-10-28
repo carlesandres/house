@@ -25,7 +25,7 @@ await Promise.all([
 	writeFile(resolve(output, "dist/index.js"), publicBundledApp),
 	cp(resolve(repoRoot, "README.md"), resolve(output, "README.md")),
 	cp(resolve(repoRoot, "LICENSE"), resolve(output, "LICENSE")),
-	cp(resolve(repoRoot, "CHANGELOG.md"), resolve(output, "CHANGELOG.md")),
+	cp(resolve(appRoot, "CHANGELOG.md"), resolve(output, "CHANGELOG.md")),
 ])
 
 const publicPackageManifest = createPublicPackageManifest(pkg)
