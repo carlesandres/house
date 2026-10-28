@@ -42,6 +42,17 @@ updates:
       # Overridden in pnpm-workspace.yaml to @opentui/core's exact peer; it moves with OpenTUI.
       - dependency-name: web-tree-sitter
     groups:
+      # All npm security fixes in one PR instead of one per vulnerable package.
+      security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+      # Effect and OpenTUI updates usually need code changes, so they don't block the rest.
+      frameworks:
+        patterns:
+          - "effect"
+          - "@effect/*"
+          - "@opentui/*"
       dependencies:
         patterns:
           - "*"
