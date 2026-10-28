@@ -53,6 +53,33 @@ jobs:
             echo "> [!WARNING]"$'\n'"> ${message}" >> "${GITHUB_STEP_SUMMARY}"
           fi
 
+  version-pr-scope:
+    if: github.event_name == 'workflow_dispatch' && github.ref_name == 'changeset-release/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Limit the version pull request to release files
+        run: |
+          set -euo pipefail
+          base="$(git merge-base origin/main HEAD)"
+          allowed=$'^(D\t\\.changeset/[^/]+\\.md|M\tapps/house/CHANGELOG\\.md|M\tapps/house/package\\.json)$'
+          unexpected="$(git diff --name-status "${base}" HEAD | grep -Ev "${allowed}" || true)"
+          if [ -n "${unexpected}" ]; then
+            echo "::error::The version pull request changes files outside the release:"
+            echo "${unexpected}"
+            exit 1
+          fi
+          changed="$(git diff -U0 "${base}" HEAD -- apps/house/package.json |
+            grep -E '^[-+][^-+]' | grep -Ev '^[-+]\s*"version": "[0-9]+\.[0-9]+\.[0-9]+",$' || true)"
+          if [ -n "${changed}" ]; then
+            echo "::error::apps/house/package.json may change only its version:"
+            echo "${changed}"
+            exit 1
+          fi
+
   check:
     runs-on: ubuntu-latest
     steps:
@@ -120,7 +147,7 @@ jobs:
       always() &&
       github.event_name == 'workflow_dispatch' &&
       github.ref_name == 'changeset-release/main'
-    needs: [check, npm-install-smoke]
+    needs: [version-pr-scope, check, npm-install-smoke]
     permissions:
       statuses: write
     runs-on: ubuntu-latest
@@ -130,10 +157,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           CHECK_RESULT: ${{ needs.check.result }}
           INSTALL_RESULT: ${{ needs.npm-install-smoke.result }}
+          SCOPE_RESULT: ${{ needs.version-pr-scope.result }}
         run: |
           state=failure
           description="Release CI failed"
-          if [ "${CHECK_RESULT}" = "success" ] && [ "${INSTALL_RESULT}" = "success" ]; then
+          if [ "${CHECK_RESULT}" = "success" ] && [ "${INSTALL_RESULT}" = "success" ] &&
+            [ "${SCOPE_RESULT}" = "success" ]; then
             state=success
             description="Release CI passed"
           fi

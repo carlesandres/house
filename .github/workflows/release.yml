@@ -23,10 +23,6 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: 26
-
       - name: Release a new package version
         env:
           GH_TOKEN: ${{ github.token }}
@@ -38,9 +34,29 @@ jobs:
             echo "Only stable versions are released, not ${version}" >&2
             exit 1
           fi
+          version_at() {
+            git show "$1:apps/house/package.json" |
+              node -e "let s='';process.stdin.on('data',c=>s+=c).on('end',()=>console.log(JSON.parse(s).version))"
+          }
+          target="$(git log -1 --format=%H -G'"version":' -- apps/house/package.json)"
+          if [ "$(version_at "${target}")" != "${version}" ]; then
+            echo "Version commit ${target} does not set ${version}" >&2
+            exit 1
+          fi
           if git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
-            echo "${tag} already exists. If it was never published, run:"
-            echo "  gh workflow run publish.yml --ref ${tag}"
+            tag_commit="$(git rev-list -n 1 "${tag}")"
+            if ! git merge-base --is-ancestor "${tag_commit}" "${GITHUB_SHA}" ||
+              [ "$(version_at "${tag_commit}")" != "${version}" ]; then
+              echo "${tag} points at ${tag_commit}, which is not a ${version} commit on main" >&2
+              exit 1
+            fi
+            if [ "${GITHUB_RUN_ATTEMPT}" -gt 1 ] &&
+              ! npm view "@carlesandres/house@${version}" version >/dev/null 2>&1; then
+              gh workflow run publish.yml --ref "${tag}"
+              echo "Dispatched publish.yml again for the unpublished ${tag}."
+            else
+              echo "${tag} already exists."
+            fi
             exit 0
           fi
           latest="$(git tag --list 'v*' --sort=-v:refname | head -n 1)"
@@ -49,11 +65,9 @@ jobs:
             echo "Package version ${version} is older than the latest tag ${latest}" >&2
             exit 1
           fi
-          target="$(git log -1 --format=%H -G'"version":' -- apps/house/package.json)"
-          target_version="$(git show "${target}:apps/house/package.json" |
-            node -e "let s='';process.stdin.on('data',c=>s+=c).on('end',()=>console.log(JSON.parse(s).version))")"
-          if [ "${target_version}" != "${version}" ]; then
-            echo "Version commit ${target} has ${target_version}, expected ${version}" >&2
+          subject="$(git log -1 --format=%s "${target}")"
+          if [[ "${subject}" != "chore: version packages"* ]]; then
+            echo "Version ${version} was set by \"${subject}\", not the version pull request" >&2
             exit 1
           fi
           notes="${RUNNER_TEMP}/release-notes.md"
@@ -134,6 +148,7 @@ jobs:
           PR_NUMBER: ${{ needs.version.outputs.pr-number }}
         run: |
           set -euo pipefail
+          [[ "${PR_NUMBER}" =~ ^[0-9]+$ ]] || { echo "Invalid PR number: ${PR_NUMBER}" >&2; exit 1; }
           involved="$(gh pr view "${PR_NUMBER}" --repo "${GITHUB_REPOSITORY}" \
             --json reviewRequests,reviews \
             --jq "[.reviewRequests[].login, .reviews[].author.login] | index(\"${GITHUB_REPOSITORY_OWNER}\") != null" || true)"

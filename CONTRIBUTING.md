@@ -203,7 +203,8 @@ and `.github/workflows/publish.yml` for publishing and verification.
    ```
 
    Use `minor` for a new feature, command, install path or platform, and `patch` otherwise.
-   Internal refactors, test-only changes and typo fixes need no changeset.
+   Internal refactors, test-only changes and typo fixes need no changeset. A dependency update
+   that fixes a user-visible bug or vulnerability does.
 2. After that PR merges, `release.yml` opens or updates the "chore: version packages" PR. It
    moves pending changesets into `apps/house/CHANGELOG.md` and bumps the version in
    `apps/house/package.json`.

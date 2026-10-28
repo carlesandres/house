@@ -65,7 +65,9 @@ describe("release", () => {
 			"uses: changesets/action/version@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2",
 		)
 		expect(release).not.toContain("id-token")
-		expect(release).toContain("persist-credentials: false")
+		expect(release.match(/persist-credentials: false/g)).toHaveLength(
+			release.match(/actions\/checkout@/g)!.length,
+		)
 		expect(release).toContain('--notes-file "${notes}"')
 		expect(release).toContain('gh workflow run publish.yml --ref "${tag}"')
 		expect(release).toContain("gh workflow run ci.yml")
@@ -83,10 +85,14 @@ describe("release", () => {
 			"version",
 			"start-ci",
 		])
-		for (const job of jobs) {
-			if (job.includes("actions: write")) expect(job).not.toContain("pnpm install")
+		const [releaseJob, versionJob, startCiJob] = jobs as [string, string, string]
+		expect(versionJob).not.toContain("actions: write")
+		expect(versionJob).toContain("pnpm install --frozen-lockfile --ignore-scripts")
+		expect(versionJob).toContain("changesets/action/version@")
+		for (const job of [releaseJob, startCiJob]) {
+			expect(job).toContain("actions: write")
+			expect(job).not.toMatch(/pnpm|npx|node_modules|setup-node|changesets\/action|actions\/cache/)
 		}
-		expect(jobs[1]).toContain("pnpm install --frozen-lockfile --ignore-scripts")
 	})
 
 	test("names only the published package in changesets", () => {
@@ -101,11 +107,30 @@ describe("release", () => {
 		}
 	})
 
+	test("publishes only tags whose commit is on main and sets the package version", () => {
+		const release = repoFile(".github/workflows/release.yml")
+		const publish = repoFile(".github/workflows/publish.yml")
+		expect(release).toContain('git merge-base --is-ancestor "${tag_commit}" "${GITHUB_SHA}"')
+		expect(release).toContain('[ "$(version_at "${tag_commit}")" != "${version}" ]')
+		expect(release).toContain('[[ "${subject}" != "chore: version packages"* ]]')
+		expect(publish).toContain('compare/main...${GITHUB_SHA}" --jq .status')
+		expect(publish.indexOf("Verify the ref is on main")).toBeLessThan(
+			publish.indexOf("build-binary:"),
+		)
+	})
+
+	test("limits the version pull request to release files", () => {
+		const ci = repoFile(".github/workflows/ci.yml")
+		expect(ci).toContain("version-pr-scope:")
+		expect(ci).toContain("needs: [version-pr-scope, check, npm-install-smoke]")
+		expect(ci).toContain('[ "${SCOPE_RESULT}" = "success" ]')
+	})
+
 	test("reports the required check on the workflow-created version pull request", () => {
 		const ci = repoFile(".github/workflows/ci.yml")
 		expect(ci).toContain("statuses: write")
 		expect(ci.match(/context=check/g)).toHaveLength(2)
-		expect(ci.match(/github\.ref_name == 'changeset-release\/main'/g)).toHaveLength(2)
+		expect(ci.match(/github\.ref_name == 'changeset-release\/main'/g)).toHaveLength(3)
 		expect(ci).not.toContain("release/v")
 	})
 
