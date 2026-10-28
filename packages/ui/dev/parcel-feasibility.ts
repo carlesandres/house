@@ -268,7 +268,7 @@ const runStandaloneVariant = async (
 			timeoutMs: 120_000,
 			env: {
 				...process.env,
-				NODE_PATH: resolve(workspaceNodeModules, ".bun/node_modules"),
+				NODE_PATH: resolve(workspaceNodeModules, ".pnpm/node_modules"),
 			},
 		},
 	)

@@ -25,7 +25,7 @@ const assertNoWorkspaceProtocols = (
  *   published main package always requests matching platform binaries
  *
  * Monorepo `package.json` may keep platform pins on the last *published*
- * versions so `bun install` works before a release is on npm. The public
+ * versions so `pnpm install` works before a release is on npm. The public
  * tarball always rewrites those pins to `manifest.version`.
  */
 export const createPublicPackageManifest = <TManifest extends PackageManifest>(

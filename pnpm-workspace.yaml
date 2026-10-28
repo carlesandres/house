@@ -1,0 +1,27 @@
+packages:
+  - apps/*
+  - packages/*
+
+overrides:
+  web-tree-sitter: 0.25.10
+
+# New versions must be a week old before pnpm resolves them. A security update for a newer release
+# fails its install: list that package under minimumReleaseAgeExclude in the same PR.
+minimumReleaseAge: 10080
+
+# OpenTUI's bundle imports both its glibc and musl Linux packages, so `bun build --compile` needs both
+# installed even though the release binaries target glibc.
+supportedArchitectures:
+  os: [current]
+  cpu: [current]
+  libc: [current, musl]
+
+# Both ship prebuilt binaries; their install scripts only fall back to building from source.
+allowBuilds:
+  '@parcel/watcher': false
+  msgpackr-extract: false
+
+# Keeps pnpm-lock.yaml a single YAML document. Otherwise pnpm 12 writes its own version first in a
+# separate document, which GitHub's dependency graph reads instead of the packages, so Dependabot
+# raises no alerts. CI still installs the packageManager version through pnpm/action-setup.
+pmOnFail: ignore

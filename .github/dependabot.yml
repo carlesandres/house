@@ -25,3 +25,26 @@ updates:
         update-types:
           - minor
           - patch
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: fix
+      prefix-development: chore
+    assignees:
+      - carlesandres
+    ignore:
+      # Kept on the last published release so installs work before the next one exists.
+      - dependency-name: "@carlesandres/house-*"
+      # Overridden in pnpm-workspace.yaml to @opentui/core's exact peer; it moves with OpenTUI.
+      - dependency-name: web-tree-sitter
+    groups:
+      dependencies:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch

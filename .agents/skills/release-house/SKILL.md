@@ -115,7 +115,7 @@ Return:
 
 | Symptom | Likely cause | What to do |
 |--------|--------------|------------|
-| CI `bun install` 404 on `@carlesandres/house-*-0.x.y` | Lockfile/package.json retargeted platform optionalDeps to unpublished version | Keep monorepo platform pins on last-published; public manifest pins to release version |
+| CI `pnpm install` 404 on `@carlesandres/house-*-0.x.y` | Lockfile/package.json retargeted platform optionalDeps to unpublished version | Keep monorepo platform pins on last-published; public manifest pins to release version |
 | Release PR has no CI | Built-in token did not emit a PR workflow | Rerun `release.yml`; it explicitly dispatches `ci.yml` |
 | Publish job blocked by the `npm` environment | Run ref is not a `v*` tag or `main` | Dispatch from the release tag, or from `main` for npm-only recovery |
 | Main package on npm without matching platform packages | Partial publish | Do not announce success; inspect publish job logs |

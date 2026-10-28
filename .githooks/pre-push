@@ -1,5 +1,5 @@
 #!/bin/sh
-# Versioned pre-push safeguard. Activated by `bun install` (see the `prepare`
+# Versioned pre-push safeguard. Activated by `pnpm install` (see the `prepare`
 # script in package.json), which runs `git config core.hooksPath .githooks`.
 #
 # This hook only blocks stale PR-branch pushes. It does not merge, rebase, run

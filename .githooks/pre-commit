@@ -1,5 +1,5 @@
 #!/bin/sh
-# Versioned pre-commit hook. Activated by `bun install` (see the `prepare`
+# Versioned pre-commit hook. Activated by `pnpm install` (see the `prepare`
 # script in package.json), which runs `git config core.hooksPath .githooks`.
 #
 # Checks here mirror the cheap half of CI (.github/workflows/ci.yml):

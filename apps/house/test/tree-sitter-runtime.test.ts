@@ -4,6 +4,7 @@
  * checks that refuse to build or start in that state.
  */
 import { afterEach, describe, expect, test } from "bun:test"
+import { readFileSync } from "node:fs"
 import { getTreeSitterClient } from "@opentui/core"
 import {
 	TREE_SITTER_WASM_SPECIFIER,
@@ -12,7 +13,6 @@ import {
 } from "../src/markdown/highlighter.ts"
 import { resetOpenTuiSingletons } from "./helpers/opentui-test-cleanup.ts"
 import housePkg from "../package.json" with { type: "json" }
-import rootPkg from "../../../package.json" with { type: "json" }
 
 afterEach(async () => {
 	const client = getTreeSitterClient()
@@ -25,7 +25,10 @@ describe("highlighter assets", () => {
 		expect(() => assertHighlighterAssets()).not.toThrow()
 		expect(() => import.meta.resolve(TREE_SITTER_WASM_SPECIFIER)).not.toThrow()
 		expect(housePkg.dependencies["web-tree-sitter"]).toBe("0.25.10")
-		expect(rootPkg.overrides["web-tree-sitter"]).toBe(housePkg.dependencies["web-tree-sitter"])
+		const workspace = Bun.YAML.parse(
+			readFileSync(new URL("../../../pnpm-workspace.yaml", import.meta.url), "utf8"),
+		) as { overrides: Record<string, string> }
+		expect(workspace.overrides["web-tree-sitter"]).toBe(housePkg.dependencies["web-tree-sitter"])
 	})
 
 	test("fails when the wasm specifier cannot resolve", () => {

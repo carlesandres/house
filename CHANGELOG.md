@@ -27,6 +27,8 @@ The publish workflow (`.github/workflows/publish.yml`) runs for a published rele
   engine floor so `engine-strict` installs succeed.
 - The Browser TUI now exits at startup if the markdown highlighter cannot initialize, instead of
   rendering raw source. CLI and standalone builds fail the same check.
+- Contributors now install dependencies with pnpm instead of Bun, so Dependabot can raise security
+  alerts and open updates that include the lockfile. Bun still builds and runs house.
 
 ### Removed
 

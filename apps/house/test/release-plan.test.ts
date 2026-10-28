@@ -54,10 +54,29 @@ describe("release plan", () => {
 			new URL("../../../.github/workflows/release.yml", import.meta.url),
 			"utf8",
 		)
-		expect(ci.match(/bun-version: 1\.3\.10/g)).toHaveLength(2)
-		expect(publish.match(/bun-version: 1\.3\.10/g)).toHaveLength(3)
-		expect(release.match(/bun-version: 1\.3\.10/g)).toHaveLength(1)
-		expect(`${ci}\n${publish}\n${release}`).not.toContain("bun-version: latest")
+		const bunVersion = readFileSync(new URL("../../../.bun-version", import.meta.url), "utf8")
+		expect(bunVersion.trim()).toBe("1.3.10")
+		expect(ci.match(/bun-version-file: \.bun-version/g)).toHaveLength(2)
+		expect(publish.match(/bun-version-file: \.bun-version/g)).toHaveLength(3)
+		expect(release.match(/bun-version-file: \.bun-version/g)).toHaveLength(1)
+		expect(`${ci}\n${publish}\n${release}`).not.toMatch(/bun-version:|bun install/)
+	})
+
+	test("installs CI and publish dependencies from the frozen pnpm lockfile", () => {
+		const workflows = ["ci.yml", "publish.yml", "release.yml"].map((name) =>
+			readFileSync(new URL(`../../../.github/workflows/${name}`, import.meta.url), "utf8"),
+		)
+		for (const workflow of workflows) {
+			const setups = workflow.match(/oven-sh\/setup-bun@/g)?.length ?? 0
+			expect(workflow.match(/pnpm\/action-setup@/g)).toHaveLength(setups)
+			expect(workflow.match(/- run: pnpm install --frozen-lockfile$/gm)).toHaveLength(setups)
+		}
+	})
+
+	test("keeps the pnpm lockfile readable by GitHub's dependency graph", () => {
+		const lockfile = readFileSync(new URL("../../../pnpm-lock.yaml", import.meta.url), "utf8")
+		expect(lockfile).not.toMatch(/^---$/m)
+		expect(lockfile).not.toContain("packageManagerDependencies")
 	})
 
 	test("uses the release PR merge as the publication approval", () => {
