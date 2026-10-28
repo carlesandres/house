@@ -54,35 +54,53 @@ jobs:
           fi
 
   version-pr-scope:
-    if: github.event_name == 'workflow_dispatch' && github.ref_name == 'changeset-release/main'
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref_name == 'changeset-release/main') ||
+      (github.event_name == 'pull_request' && github.head_ref == 'changeset-release/main' &&
+        github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           persist-credentials: false
       - name: Limit the version pull request to release files
         run: |
           set -euo pipefail
           base="$(git merge-base origin/main HEAD)"
+          if [ "$(git rev-list --count "${base}..HEAD")" != 1 ]; then
+            echo "::error::The version pull request must be a single commit on main."
+            exit 1
+          fi
           allowed=$'^(D\t\\.changeset/[^/]+\\.md|M\tapps/house/CHANGELOG\\.md|M\tapps/house/package\\.json)$'
-          unexpected="$(git diff --name-status "${base}" HEAD | grep -Ev "${allowed}" || true)"
+          changes="$(git diff --name-status "${base}" HEAD)"
+          unexpected="$(grep -Ev "${allowed}" <<< "${changes}" || true)"
+          readme="$(grep -E $'^D\t\\.changeset/README\\.md$' <<< "${changes}" || true)"
+          unexpected="$(printf '%s\n%s' "${unexpected}" "${readme}" | sed '/^$/d')"
           if [ -n "${unexpected}" ]; then
             echo "::error::The version pull request changes files outside the release:"
             echo "${unexpected}"
             exit 1
           fi
-          changed="$(git diff -U0 "${base}" HEAD -- apps/house/package.json |
-            grep -E '^[-+][^-+]' | grep -Ev '^[-+]\s*"version": "[0-9]+\.[0-9]+\.[0-9]+",$' || true)"
-          if [ -n "${changed}" ]; then
+          lines="$(git diff -U0 "${base}" HEAD -- apps/house/package.json | grep -E '^[-+][^-+]' || true)"
+          version_line='^[-+]\s*"version": "[0-9]+\.[0-9]+\.[0-9]+",$'
+          changed="$(grep -Ev "${version_line}" <<< "${lines}" || true)"
+          if [ -n "${changed}" ] || [ "$(grep -Ec '^-' <<< "${lines}")" != 1 ] ||
+            [ "$(grep -Ec '^\+' <<< "${lines}")" != 1 ]; then
             echo "::error::apps/house/package.json may change only its version:"
-            echo "${changed}"
+            echo "${lines}"
             exit 1
           fi
 
   check:
+    needs: version-pr-scope
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
+      - name: Require the version pull request scope check
+        if: needs.version-pr-scope.result == 'failure'
+        run: exit 1
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:

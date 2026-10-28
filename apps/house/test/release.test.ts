@@ -110,10 +110,13 @@ describe("release", () => {
 	test("publishes only tags whose commit is on main and sets the package version", () => {
 		const release = repoFile(".github/workflows/release.yml")
 		const publish = repoFile(".github/workflows/publish.yml")
-		expect(release).toContain('git merge-base --is-ancestor "${tag_commit}" "${GITHUB_SHA}"')
-		expect(release).toContain('[ "$(version_at "${tag_commit}")" != "${version}" ]')
+		expect(release).toContain("git log -1 --first-parent --diff-merges=first-parent")
+		expect(release).toContain('[ "$(version_at "${target}")" != "${version}" ]')
+		expect(release).toContain('[ "${tag_commit}" != "${target}" ]')
+		expect(release).toContain('if ! gh release view "${tag}" >/dev/null; then')
 		expect(release).toContain('[[ "${subject}" != "chore: version packages"* ]]')
-		expect(publish).toContain('compare/main...${GITHUB_SHA}" --jq .status')
+		expect(publish).toContain('git/ref/heads/main" --jq .object.sha')
+		expect(publish).toContain('compare/${main_sha}...${GITHUB_SHA}"')
 		expect(publish.indexOf("Verify the ref is on main")).toBeLessThan(
 			publish.indexOf("build-binary:"),
 		)
@@ -122,6 +125,10 @@ describe("release", () => {
 	test("limits the version pull request to release files", () => {
 		const ci = repoFile(".github/workflows/ci.yml")
 		expect(ci).toContain("version-pr-scope:")
+		expect(ci).toContain("github.event.pull_request.head.repo.full_name == github.repository)")
+		expect(ci).toContain('[ "$(git rev-list --count "${base}..HEAD")" != 1 ]')
+		expect(ci).toContain("needs: version-pr-scope\n    if: ${{ !cancelled() }}")
+		expect(ci).toContain("if: needs.version-pr-scope.result == 'failure'")
 		expect(ci).toContain("needs: [version-pr-scope, check, npm-install-smoke]")
 		expect(ci).toContain('[ "${SCOPE_RESULT}" = "success" ]')
 	})

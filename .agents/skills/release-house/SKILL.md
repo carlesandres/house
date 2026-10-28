@@ -101,8 +101,8 @@ Return:
 | CI `pnpm install` 404 on `@carlesandres/house-*-0.x.y` | Lockfile/package.json retargeted platform optionalDeps to unpublished version | Keep monorepo platform pins on last-published; public manifest pins to release version |
 | Version PR has no CI | Built-in token did not emit a PR workflow | Rerun `release.yml` on `main`; it dispatches `ci.yml` |
 | Release created but no publish run | Dispatch step failed | Rerun the failed `release.yml` job; it dispatches again while npm lacks the version |
-| Release job: tag "is not a X.Y.Z commit on main" | Tag created outside the flow | Stop and report; do not publish from that tag |
-| Version PR `check` fails in `version-pr-scope` | The version commit touches more than release files | Stop and report; do not merge |
+| Release job: tag "points at …, not the X.Y.Z commit" or "exists without a GitHub Release" | Tag created outside the flow | Stop and report; do not publish from that tag |
+| Version PR `check` fails in `version-pr-scope` | The version PR has more than one commit or touches more than release files | Stop and report; do not merge |
 | Publish job blocked by the `npm` environment | Run ref is not a `v*` tag or `main` | Dispatch from the release tag, or from `main` for npm-only recovery |
 | Main package on npm without matching platform packages | Partial publish | Do not announce success; inspect publish job logs |
 

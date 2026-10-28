@@ -131,9 +131,9 @@ updates the `changeset-release/main` branch and its "chore: version packages" PR
 - deletes the consumed changeset files.
 
 The branch is rebuilt from `main` on every push, so it never goes stale and must not be edited by
-hand: fix wording in the changeset files on `main` instead. CI fails the version PR if it changes anything other
-than deleting changeset files, editing `apps/house/CHANGELOG.md`, and changing the `"version"`
-line of `apps/house/package.json`. Its commits are created through the
+hand: fix wording in the changeset files on `main` instead. CI fails the version PR unless it is a
+single commit that only deletes changeset files, edits `apps/house/CHANGELOG.md`, and changes the
+`"version"` line of `apps/house/package.json`. Its commits are created through the
 GitHub API, so GitHub signs them. Pull requests created by the built-in token trigger no
 workflows, so `release.yml` dispatches `ci.yml` on the branch, and `ci.yml` reports the required
 `check` status for it.
@@ -154,12 +154,13 @@ Review the version and changelog in the version PR, wait for CI, then merge it. 
 `release.yml` sees a package version with no tag, extracts its section from
 `apps/house/CHANGELOG.md`, creates the GitHub Release at the commit that set the version, and
 dispatches `publish.yml` at the new tag. It refuses a version set by any commit other than the
-version PR's ("chore: version packages"), and it fails if an existing tag for the version points
-anywhere but a commit on `main` with that version. `publish.yml` refuses any ref that is not on
-`main`. No `release.yml` job has `id-token`, so none can publish
-to npm itself. Only the `version` job installs dependencies and runs the Changesets CLI, and it has
-no `actions` permission, so compromised dependency code there cannot dispatch `publish.yml`. Keep
-that split when editing the workflow.
+version PR's ("chore: version packages"); that subject check catches accidental bumps, not a
+determined committer. It fails if an existing tag for the version points anywhere but the `main`
+commit that set the version. `publish.yml` refuses a run whose commit is not on `main`. No
+`release.yml` job has `id-token`, so none can publish to npm itself. Only the `version` job
+installs dependencies and runs the Changesets CLI, and its token has no `actions` permission, so
+dependency code there cannot use it to dispatch `publish.yml`. Keep that split when editing the
+workflow.
 
 The publish workflow:
 
@@ -217,7 +218,8 @@ house --version
 If the release job fails, rerun it. Before the GitHub Release exists, a rerun creates it. After
 that, a rerun (attempt 2 or later) dispatches `publish.yml` again when npm does not yet have the
 version, so it also covers a failed dispatch. A release job that fails because a tag is not on
-`main` means someone created that tag outside the flow: investigate before publishing anything.
+`main`, or because a tag has no GitHub Release, means someone created that tag outside the flow:
+investigate before publishing anything, then delete the stray tag and rerun.
 
 The publish steps skip package versions that already exist. For a tagged release,
 dispatch from the tag so the four archives are rebuilt and attached:

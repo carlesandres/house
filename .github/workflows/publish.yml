@@ -32,7 +32,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          status="$(gh api "repos/${GITHUB_REPOSITORY}/compare/main...${GITHUB_SHA}" --jq .status)"
+          main_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq .object.sha)"
+          status="$(gh api "repos/${GITHUB_REPOSITORY}/compare/${main_sha}...${GITHUB_SHA}" \
+            --jq .status)"
           case "${status}" in
             identical|behind) ;;
             *)

@@ -38,16 +38,20 @@ jobs:
             git show "$1:apps/house/package.json" |
               node -e "let s='';process.stdin.on('data',c=>s+=c).on('end',()=>console.log(JSON.parse(s).version))"
           }
-          target="$(git log -1 --format=%H -G'"version":' -- apps/house/package.json)"
+          target="$(git log -1 --first-parent --diff-merges=first-parent --no-patch --format=%H \
+            -G'"version":' -- apps/house/package.json)"
           if [ "$(version_at "${target}")" != "${version}" ]; then
             echo "Version commit ${target} does not set ${version}" >&2
             exit 1
           fi
           if git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
             tag_commit="$(git rev-list -n 1 "${tag}")"
-            if ! git merge-base --is-ancestor "${tag_commit}" "${GITHUB_SHA}" ||
-              [ "$(version_at "${tag_commit}")" != "${version}" ]; then
-              echo "${tag} points at ${tag_commit}, which is not a ${version} commit on main" >&2
+            if [ "${tag_commit}" != "${target}" ]; then
+              echo "${tag} points at ${tag_commit}, not the ${version} commit ${target} on main" >&2
+              exit 1
+            fi
+            if ! gh release view "${tag}" >/dev/null; then
+              echo "${tag} exists without a GitHub Release; it was not created by this workflow" >&2
               exit 1
             fi
             if [ "${GITHUB_RUN_ATTEMPT}" -gt 1 ] &&
@@ -65,7 +69,11 @@ jobs:
             echo "Package version ${version} is older than the latest tag ${latest}" >&2
             exit 1
           fi
-          subject="$(git log -1 --format=%s "${target}")"
+          source="${target}"
+          if git rev-parse -q --verify "${target}^2" >/dev/null; then
+            source="${target}^2"
+          fi
+          subject="$(git log -1 --format=%s "${source}")"
           if [[ "${subject}" != "chore: version packages"* ]]; then
             echo "Version ${version} was set by \"${subject}\", not the version pull request" >&2
             exit 1
