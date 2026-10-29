@@ -21,6 +21,7 @@ Thanks for the contribution. A few quick checks before you submit:
 - [ ] `bun run format:check` passes
 - [ ] If TUI behavior changed: ran the binary against a real directory and looked at it
 - [ ] If keymap changed: every new binding has at least one test
+- [ ] If users or maintainers will notice: added a `.changeset/*.md` note (`bun run changeset`)
 
 ## Notes for the reviewer
 

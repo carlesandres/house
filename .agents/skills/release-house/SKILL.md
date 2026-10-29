@@ -1,10 +1,9 @@
 ---
 name: release-house
 description: >
-  Release @carlesandres/house (version bump, release PR, GitHub release, npm
+  Release @carlesandres/house (changesets, version PR, GitHub release, npm
   publish). Use when the user asks to release house, cut a version, ship a
-  patch/minor/major, run the release script, publish to npm, or runs
-  /release-house.
+  patch/minor/major, publish to npm, or runs /release-house.
 ---
 
 # Release house
@@ -18,87 +17,71 @@ platform packages at the same version.
 
 ## Hard rules
 
-- Prefer the automated path: dispatch `release.yml` with a bump or exact version.
-- Merging the release PR is the human approval. The merge workflow creates the
-  GitHub Release and dispatches publishing; there is no later environment review.
-- Use the local command only for dry-runs or recovery, from a clean `main` that
-  matches `origin/main`.
+- Release notes come from `.changeset/*.md` files; never edit
+  `apps/house/CHANGELOG.md` or the version in `apps/house/package.json` by hand.
+- Merging the "chore: version packages" PR is the human approval. The release
+  workflow then creates the GitHub Release and dispatches publishing; there is
+  no later environment review.
+- Never push to or edit the `changeset-release/main` branch; the workflow
+  rebuilds it from `main` on every push.
 - Repository Actions settings must allow GitHub Actions to create pull requests.
 - Do not amend or force-push `main`.
 - Do not invent `NPM_TOKEN` secrets (OIDC / Trusted Publisher only).
 - Platform optionalDependencies in the monorepo may lag last-published versions
   so CI can install; the published main package pins them via
-  `createPublicPackageManifest`. Do not “fix” CI by retargeting lockfile
+  `createPublicPackageManifest`. Do not "fix" CI by retargeting lockfile
   platform packages to an unpublished version.
 
 ## Procedure
 
-### 1. Prepare release notes
+### 1. Check the pending notes
 
 ```bash
 git fetch origin main --tags
-git checkout main && git pull --ff-only
-git status --porcelain   # must be empty
+git ls-tree --name-only origin/main .changeset/
+git log --first-parent --oneline "$(git tag --sort=-v:refname | head -1)..origin/main"
 ```
 
-Confirm:
+Every user- or maintainer-visible change since the latest tag should have a
+changeset file, including dependency updates that fix a bug or vulnerability. If one is
+missing, add it in a PR to `main` (see `AGENTS.md`,
+"Add a changeset to each notable PR"). A `minor` changeset raises the release to
+minor; the highest pending bump wins.
 
-- Latest tag matches `apps/house/package.json` version: `v` + version.
-- `[Unreleased]` in `CHANGELOG.md` has the user-visible notes for this cut
-  (especially fixes/features landed since the last tag).
-
-Choose bump: default **patch** unless the user asks otherwise. Do not create the
-dated changelog section manually.
-
-### 2. Dispatch release preparation
+### 2. Find the version PR
 
 ```bash
-gh workflow run release.yml -f version=patch
+gh pr list --head changeset-release/main --state open
 ```
 
-Use `minor`, `major`, or an exact stable version when requested. The workflow
-creates or resumes `release/vX.Y.Z`, opens the PR, and explicitly dispatches CI.
-
-For a local dry-run or recovery:
-
-```bash
-bun run release -- patch --dry-run
-bun run release -- patch --yes
-```
-
-The local command stops after creating or resuming the PR.
-
-If `main` advances before merge, close the stale PR, delete its managed release
-branch, refresh `[Unreleased]`, and prepare the same version again; do not merge
-new changes into an already-cut release branch.
+If it is missing while changesets are pending, rerun the latest `release.yml`
+run on `main`. Check its CI (`check` status) and review the version and the new
+`apps/house/CHANGELOG.md` section.
 
 ### 3. Approve by merging
 
-Review the release PR and its CI, then merge it. The merge workflow should:
+Merge only when the user asks. On that push to `main`, `release.yml` should:
 
-1. Validate the version, changelog, previous tag, and exact merge SHA.
-2. Create or reuse the GitHub Release at that SHA.
-3. Dispatch `publish.yml` from the new `vX.Y.Z` tag.
+1. Find the new version untagged.
+2. Create the GitHub Release `vX.Y.Z` with that version's changelog section.
+3. Dispatch `publish.yml` from the new tag.
 
 ### 4. Watch publish and verify
 
 ```bash
 gh run list --workflow publish.yml --limit 3
 gh run watch <id>
+```
 
+The green `verify-published` job checks all five npm versions, an installed
+binary, and the four release assets. For manual diagnosis:
+
+```bash
 npm view @carlesandres/house version
 npm view @carlesandres/house-darwin-arm64 version
 npm view @carlesandres/house-darwin-x64 version
 npm view @carlesandres/house-linux-arm64 version
 npm view @carlesandres/house-linux-x64 version
-# all five must equal X.Y.Z; the workflow also checks this automatically
-```
-
-Optional smoke:
-
-```bash
-npm install -g @carlesandres/house
-house --version
 ```
 
 ### 5. Report
@@ -106,7 +89,7 @@ house --version
 Return:
 
 - Version `vX.Y.Z`
-- Release PR URL (if still useful)
+- Version PR URL
 - GitHub release URL
 - Publish workflow URL + conclusion
 - npm versions for main + four platform packages
@@ -116,7 +99,10 @@ Return:
 | Symptom | Likely cause | What to do |
 |--------|--------------|------------|
 | CI `pnpm install` 404 on `@carlesandres/house-*-0.x.y` | Lockfile/package.json retargeted platform optionalDeps to unpublished version | Keep monorepo platform pins on last-published; public manifest pins to release version |
-| Release PR has no CI | Built-in token did not emit a PR workflow | Rerun `release.yml`; it explicitly dispatches `ci.yml` |
+| Version PR has no CI | Built-in token did not emit a PR workflow | Rerun `release.yml` on `main`; it dispatches `ci.yml` |
+| Release created but no publish run | Dispatch step failed | Rerun the failed `release.yml` job; it dispatches again while npm lacks the version |
+| Release job: tag "points at …, not the X.Y.Z commit" or "exists without a GitHub Release" | Tag created outside the flow | Stop and report; do not publish from that tag |
+| Version PR `check` fails in `version-pr-scope` | The version PR has more than one commit or touches more than release files | Stop and report; do not merge |
 | Publish job blocked by the `npm` environment | Run ref is not a `v*` tag or `main` | Dispatch from the release tag, or from `main` for npm-only recovery |
 | Main package on npm without matching platform packages | Partial publish | Do not announce success; inspect publish job logs |
 

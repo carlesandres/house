@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   release-status-pending:
-    if: github.event_name == 'workflow_dispatch' && startsWith(github.ref_name, 'release/v')
+    if: github.event_name == 'workflow_dispatch' && github.ref_name == 'changeset-release/main'
     permissions:
       statuses: write
     runs-on: ubuntu-latest
@@ -30,9 +30,77 @@ jobs:
             -f description="Release CI is running" \
             -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
 
-  check:
+  changeset:
+    if: github.event_name == 'pull_request' && github.head_ref != 'changeset-release/main'
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Remind about a missing changeset
+        run: |
+          set -euo pipefail
+          changed="$(git diff --name-only --diff-filter=d HEAD^1 HEAD)"
+          if grep -Ev '^\.changeset/README\.md$' <<< "${changed}" |
+            grep -Eq '^\.changeset/[^/]+\.md$'; then
+            exit 0
+          fi
+          if grep -Eq '^(apps/house|packages/[^/]+)/src/' <<< "${changed}"; then
+            message="This PR changes shipped source but adds no .changeset/*.md file."
+            message="${message} Add one with 'bun run changeset' if users will notice."
+            echo "::warning title=No changeset::${message}"
+            echo "> [!WARNING]"$'\n'"> ${message}" >> "${GITHUB_STEP_SUMMARY}"
+          fi
+
+  version-pr-scope:
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref_name == 'changeset-release/main') ||
+      (github.event_name == 'pull_request' && github.head_ref == 'changeset-release/main' &&
+        github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Limit the version pull request to release files
+        run: |
+          set -euo pipefail
+          base="$(git merge-base origin/main HEAD)"
+          if [ "$(git rev-list --count "${base}..HEAD")" != 1 ]; then
+            echo "::error::The version pull request must be a single commit on main."
+            exit 1
+          fi
+          allowed=$'^(D\t\\.changeset/[^/]+\\.md|M\tapps/house/CHANGELOG\\.md|M\tapps/house/package\\.json)$'
+          changes="$(git diff --name-status "${base}" HEAD)"
+          unexpected="$(grep -Ev "${allowed}" <<< "${changes}" || true)"
+          readme="$(grep -E $'^D\t\\.changeset/README\\.md$' <<< "${changes}" || true)"
+          unexpected="$(printf '%s\n%s' "${unexpected}" "${readme}" | sed '/^$/d')"
+          if [ -n "${unexpected}" ]; then
+            echo "::error::The version pull request changes files outside the release:"
+            echo "${unexpected}"
+            exit 1
+          fi
+          lines="$(git diff -U0 "${base}" HEAD -- apps/house/package.json | grep -E '^[-+][^-+]' || true)"
+          version_line='^[-+]\s*"version": "[0-9]+\.[0-9]+\.[0-9]+",$'
+          changed="$(grep -Ev "${version_line}" <<< "${lines}" || true)"
+          if [ -n "${changed}" ] || [ "$(grep -Ec '^-' <<< "${lines}")" != 1 ] ||
+            [ "$(grep -Ec '^\+' <<< "${lines}")" != 1 ]; then
+            echo "::error::apps/house/package.json may change only its version:"
+            echo "${lines}"
+            exit 1
+          fi
+
+  check:
+    needs: version-pr-scope
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require the version pull request scope check
+        if: needs.version-pr-scope.result == 'failure'
+        run: exit 1
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
@@ -96,8 +164,8 @@ jobs:
     if: >-
       always() &&
       github.event_name == 'workflow_dispatch' &&
-      startsWith(github.ref_name, 'release/v')
-    needs: [check, npm-install-smoke]
+      github.ref_name == 'changeset-release/main'
+    needs: [version-pr-scope, check, npm-install-smoke]
     permissions:
       statuses: write
     runs-on: ubuntu-latest
@@ -107,10 +175,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           CHECK_RESULT: ${{ needs.check.result }}
           INSTALL_RESULT: ${{ needs.npm-install-smoke.result }}
+          SCOPE_RESULT: ${{ needs.version-pr-scope.result }}
         run: |
           state=failure
           description="Release CI failed"
-          if [ "${CHECK_RESULT}" = "success" ] && [ "${INSTALL_RESULT}" = "success" ]; then
+          if [ "${CHECK_RESULT}" = "success" ] && [ "${INSTALL_RESULT}" = "success" ] &&
+            [ "${SCOPE_RESULT}" = "success" ]; then
             state=success
             description="Release CI passed"
           fi

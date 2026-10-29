@@ -187,22 +187,33 @@ When a newer published version is available on npm, house prints a one-line noti
 
 ## Release flow
 
-Releases are event-driven. See `AGENTS.md` for the maintainer runbook,
-`.github/workflows/release.yml` for preparation and approval automation, and
-`.github/workflows/publish.yml` for publishing and verification.
+Releases use [Changesets](https://github.com/changesets/changesets). See `AGENTS.md` for the
+maintainer runbook, `.github/workflows/release.yml` for the version PR and release automation,
+and `.github/workflows/publish.yml` for publishing and verification.
 
-1. Compare first-parent commits since the latest tag with `[Unreleased]` in
-   `CHANGELOG.md`. Keep outcome-focused notes for user- and maintainer-visible
-   changes; the release command moves them under the dated version heading.
-2. Dispatch `release.yml` with `patch`, `minor`, `major`, or an explicit stable
-   version; it creates or resumes the release PR and starts CI for it.
-3. Review and merge the release PR as the single human approval; the merge creates
-   the GitHub Release at the exact merge SHA and starts publishing.
+1. In a PR that users or maintainers will notice, run `bun run changeset` or add
+   `.changeset/<short-name>.md` by hand:
+
+   ```markdown
+   ---
+   "@carlesandres/house": patch
+   ---
+
+   <User or maintainer-visible thing> now <outcome>, so <why it matters>.
+   ```
+
+   Use `minor` for a new feature, command, install path or platform, and `patch` otherwise.
+   Internal refactors, test-only changes and typo fixes need no changeset. A dependency update
+   that fixes a user-visible bug or vulnerability does.
+2. After that PR merges, `release.yml` opens or updates the "chore: version packages" PR. It
+   moves pending changesets into `apps/house/CHANGELOG.md` and bumps the version in
+   `apps/house/package.json`.
+3. Review and merge the version PR as the single human approval; the merge creates the GitHub
+   Release with that version's changelog section and starts publishing.
 4. Treat the green `verify-published` job as completion: it checks all five npm
    versions, an installed binary, and the four release assets.
 
-`version:set` updates the app version in `apps/house/package.json`. It
-deliberately leaves monorepo platform pins on their last-published versions;
+The version bump deliberately leaves monorepo platform pins on their last-published versions;
 the staged public manifest pins all four platform packages to the release version.
 Publishing uses Trusted Publisher/OIDC, never an `NPM_TOKEN`. The four platform
 packages provide native executables; the main package provides the Node shim and

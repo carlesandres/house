@@ -1,74 +1,19 @@
 name: release
 
 on:
-  workflow_dispatch:
-    inputs:
-      version:
-        description: patch, minor, major, or an exact stable version
-        required: true
-        default: patch
-        type: string
-  pull_request:
+  push:
     branches: [main]
-    types: [closed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
-  prepare:
-    if: github.event_name == 'workflow_dispatch'
+  release:
     runs-on: ubuntu-latest
-    concurrency:
-      group: release-prepare
-    permissions:
-      actions: write
-      contents: write
-      pull-requests: write
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          ref: main
-
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version-file: .bun-version
-
-      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
-
-      - run: pnpm install --frozen-lockfile
-
-      - name: Create or resume release pull request
-        id: prepare
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REQUESTED_VERSION: ${{ inputs.version }}
-        run: bun run release -- "${REQUESTED_VERSION}" --yes
-
-      - name: Start release pull request CI
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_BRANCH: ${{ steps.prepare.outputs.branch }}
-        run: gh workflow run ci.yml --ref "${RELEASE_BRANCH}"
-
-      - name: Summarize release pull request
-        env:
-          PR_URL: ${{ steps.prepare.outputs.pr_url }}
-          VERSION: ${{ steps.prepare.outputs.version }}
-        run: |
-          {
-            echo "## Release v${VERSION} prepared"
-            echo
-            echo "Review CI and merge ${PR_URL} to publish the release."
-          } >> "${GITHUB_STEP_SUMMARY}"
-
-  publish-release:
-    if: >-
-      github.event_name == 'pull_request' &&
-      github.event.pull_request.merged == true &&
-      github.event.pull_request.head.repo.full_name == github.repository &&
-      startsWith(github.event.pull_request.head.ref, 'release/v')
-    runs-on: ubuntu-latest
-    concurrency:
-      group: release-${{ github.event.pull_request.head.ref }}
     permissions:
       actions: write
       contents: write
@@ -76,76 +21,148 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          persist-credentials: false
 
-      - name: Validate merged release
-        id: release
+      - name: Release a new package version
         env:
-          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
-          PR_HEAD: ${{ github.event.pull_request.head.ref }}
-          PR_TITLE: ${{ github.event.pull_request.title }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          version="${PR_HEAD#release/v}"
+          version="$(node -p "require('./apps/house/package.json').version")"
+          tag="v${version}"
           if ! [[ "${version}" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
-            echo "Invalid stable release version: ${version}" >&2
+            echo "Only stable versions are released, not ${version}" >&2
             exit 1
           fi
-          package_version="$(node -p "require('./apps/house/package.json').version")"
-          if [ "${package_version}" != "${version}" ]; then
-            echo "Release branch version ${version} does not match package ${package_version}" >&2
+          version_at() {
+            git show "$1:apps/house/package.json" |
+              node -e "let s='';process.stdin.on('data',c=>s+=c).on('end',()=>console.log(JSON.parse(s).version))"
+          }
+          target="$(git log -1 --first-parent --diff-merges=first-parent --no-patch --format=%H \
+            -G'"version":' -- apps/house/package.json)"
+          if [ "$(version_at "${target}")" != "${version}" ]; then
+            echo "Version commit ${target} does not set ${version}" >&2
             exit 1
           fi
-          if [ "${PR_TITLE}" != "chore: release v${version}" ]; then
-            echo "Unexpected release PR title: ${PR_TITLE}" >&2
-            exit 1
-          fi
-          grep -Fq "## [${version}]" CHANGELOG.md
-          previous_version="$(git show "${MERGE_SHA}^:apps/house/package.json" | node -e \
-            "let input='';process.stdin.on('data',c=>input+=c).on('end',()=>console.log(JSON.parse(input).version))")"
-          previous_tag="$(git describe --tags --abbrev=0 "${MERGE_SHA}^")"
-          if [ "${previous_tag}" != "v${previous_version}" ]; then
-            echo "Previous tag ${previous_tag} does not match package v${previous_version}" >&2
-            exit 1
-          fi
-          echo "version=${version}" >> "${GITHUB_OUTPUT}"
-          echo "tag=v${version}" >> "${GITHUB_OUTPUT}"
-
-      - name: Create GitHub Release at the merge commit
-        env:
-          GH_TOKEN: ${{ github.token }}
-          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
-          TAG: ${{ steps.release.outputs.tag }}
-        run: |
-          set -euo pipefail
-          if gh release view "${TAG}" >/dev/null 2>&1; then
-            git fetch origin "refs/tags/${TAG}:refs/tags/${TAG}"
-            target="$(git rev-list -n 1 "${TAG}")"
-            if [ "${target}" != "${MERGE_SHA}" ]; then
-              echo "Existing ${TAG} targets ${target}, expected ${MERGE_SHA}" >&2
+          if git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
+            tag_commit="$(git rev-list -n 1 "${tag}")"
+            if [ "${tag_commit}" != "${target}" ]; then
+              echo "${tag} points at ${tag_commit}, not the ${version} commit ${target} on main" >&2
               exit 1
             fi
-            echo "Reusing ${TAG} at ${MERGE_SHA}."
-          else
-            gh release create "${TAG}" \
-              --target "${MERGE_SHA}" \
-              --title "${TAG}" \
-              --generate-notes
+            if ! gh release view "${tag}" >/dev/null; then
+              echo "${tag} exists without a GitHub Release; it was not created by this workflow" >&2
+              exit 1
+            fi
+            if [ "${GITHUB_RUN_ATTEMPT}" -gt 1 ] &&
+              ! npm view "@carlesandres/house@${version}" version >/dev/null 2>&1; then
+              gh workflow run publish.yml --ref "${tag}"
+              echo "Dispatched publish.yml again for the unpublished ${tag}."
+            else
+              echo "${tag} already exists."
+            fi
+            exit 0
           fi
+          latest="$(git tag --list 'v*' --sort=-v:refname | head -n 1)"
+          newest="$(printf '%s\n%s\n' "${latest#v}" "${version}" | sort -V | tail -n 1)"
+          if [ "${newest}" != "${version}" ]; then
+            echo "Package version ${version} is older than the latest tag ${latest}" >&2
+            exit 1
+          fi
+          source="${target}"
+          if git rev-parse -q --verify "${target}^2" >/dev/null; then
+            source="${target}^2"
+          fi
+          subject="$(git log -1 --format=%s "${source}")"
+          if [[ "${subject}" != "chore: version packages"* ]]; then
+            echo "Version ${version} was set by \"${subject}\", not the version pull request" >&2
+            exit 1
+          fi
+          notes="${RUNNER_TEMP}/release-notes.md"
+          awk -v heading="## ${version}" '
+            $0 == heading { found = 1; next }
+            found && /^## / { exit }
+            found { print }
+          ' apps/house/CHANGELOG.md > "${notes}"
+          if ! grep -q '[^[:space:]]' "${notes}"; then
+            echo "apps/house/CHANGELOG.md has no notes under ## ${version}" >&2
+            exit 1
+          fi
+          gh release create "${tag}" --target "${target}" --title "${tag}" --notes-file "${notes}"
+          gh workflow run publish.yml --ref "${tag}"
+          {
+            echo "## ${tag} released"
+            echo
+            echo "The GitHub Release targets ${target}."
+            echo "The publish workflow was dispatched for ${tag}."
+          } >> "${GITHUB_STEP_SUMMARY}"
 
-      - name: Start publish workflow
+  version:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      pr-number: ${{ steps.version.outputs.pr-number }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Find pending changesets
+        id: changesets
+        run: |
+          set -euo pipefail
+          pending="$(find .changeset -maxdepth 1 -name '*.md' ! -name README.md | wc -l | tr -d ' ')"
+          echo "pending=${pending}" >> "${GITHUB_OUTPUT}"
+
+      - if: steps.changesets.outputs.pending != '0'
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 26
+
+      - if: steps.changesets.outputs.pending != '0'
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - if: steps.changesets.outputs.pending != '0'
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Create or update the version pull request
+        id: version
+        if: steps.changesets.outputs.pending != '0'
+        uses: changesets/action/version@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
+        with:
+          github-token: ${{ github.token }}
+          commit-message: "chore: version packages"
+          pr-title: "chore: version packages"
+
+  start-ci:
+    needs: version
+    if: needs.version.outputs.pr-number != ''
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      pull-requests: write
+    steps:
+      - name: Start CI on the version pull request
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ steps.release.outputs.tag }}
-        run: gh workflow run publish.yml --ref "${TAG}"
+        run: gh workflow run ci.yml --repo "${GITHUB_REPOSITORY}" --ref changeset-release/main
 
-      - name: Summarize publication
+      - name: Request review from the owner
         env:
-          TAG: ${{ steps.release.outputs.tag }}
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ needs.version.outputs.pr-number }}
         run: |
-          {
-            echo "## ${TAG} approved"
-            echo
-            echo "The GitHub Release was created at the release PR merge commit."
-            echo "The publish workflow was dispatched for ${TAG}."
-          } >> "${GITHUB_STEP_SUMMARY}"
+          set -euo pipefail
+          [[ "${PR_NUMBER}" =~ ^[0-9]+$ ]] || { echo "Invalid PR number: ${PR_NUMBER}" >&2; exit 1; }
+          involved="$(gh pr view "${PR_NUMBER}" --repo "${GITHUB_REPOSITORY}" \
+            --json reviewRequests,reviews \
+            --jq "[.reviewRequests[].login, .reviews[].author.login] | index(\"${GITHUB_REPOSITORY_OWNER}\") != null" || true)"
+          if [ "${involved}" = "true" ]; then
+            exit 0
+          fi
+          gh pr edit "${PR_NUMBER}" --repo "${GITHUB_REPOSITORY}" \
+            --add-reviewer "${GITHUB_REPOSITORY_OWNER}" ||
+            echo "::warning title=Review request failed::Request review on #${PR_NUMBER} by hand."

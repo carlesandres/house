@@ -430,7 +430,7 @@ A benchmark script checks these against a fixture corpus checked into `apps/hous
 - `README.md` — install, run, screenshots / asciicast, key cheatsheet.
 - `DESIGN.md` — shipped behavior matches doc.
 - `CONTRIBUTING.md` — dev, build, test, release flow.
-- `CHANGELOG.md` — generated via changesets.
+- `apps/house/CHANGELOG.md` — generated from changeset files by Changesets.
 
 ### 10.5 Release / OSS hygiene
 
@@ -439,7 +439,7 @@ A benchmark script checks these against a fixture corpus checked into `apps/hous
 - **Homebrew tap** remains deferred ([#51](https://github.com/carlesandres/house/issues/51)).
 
 - Semver from v0.1.0 onward; pre-v0.1 may break.
-- Manual `CHANGELOG.md` (Keep-a-Changelog). Changesets remains an option if/when contributors land.
+- Changesets: each notable PR adds a `.changeset/*.md` note; `release.yml` keeps a version PR open, and merging it creates the GitHub Release and dispatches `publish.yml`.
 - CI: typecheck + lint + format:check + test + `npm pack --dry-run` on every PR (`ci.yml`).
 - Issue & PR templates; GitHub issues are the public intake, synced with the maintainer's Linear House team, which owns planning.
 - MIT license, single `LICENSE` file.
