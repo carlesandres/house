@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.10.0
+
+### Minor Changes
+
+- Browser previews now include static syntax highlighting, a native collapsible table of contents,
+  and locally bundled Mermaid rendering with readable source fallbacks, so project documentation
+  remains useful offline and when browser enhancement fails.
+
+### Patch Changes
+
+- Browser previews now sanitize authored HTML and URLs, apply a restrictive local-page policy, and
+  serve only immutable built-in assets from loopback-validated requests.
+- Releases now use Changesets: each pull request carries its own release note, and a bot keeps a
+  "chore: version packages" pull request current, so publishing a version is a single merge.
+- CI now runs the PTY suite (`bun run test:pty`) after workspace tests, so real-terminal regressions
+  for editor, new-file, sidebar selection, status popover, and extension allow-list paths are gated.
+- npm-installed `house` run from a deleted or inaccessible directory now says so and exits,
+  instead of failing with an unknown error, so the fix (`cd` elsewhere) is clear.
+- The Browser TUI now exits at startup if the markdown highlighter cannot initialize, instead of
+  rendering raw source. CLI and standalone builds fail the same check.
+- `house --root` pointing at a file, missing path or unreadable directory now prints an error before
+  the TUI starts, instead of exiting silently, so the bad root is obvious.
+- npm install smoke (and publish verification) now use Node `>=26.4.0`, matching OpenTUI 0.5.11’s
+  engine floor so `engine-strict` installs succeed.
+- CI and release workflows now pin every action to a commit SHA, kept current by Dependabot, so a
+  moved or compromised tag cannot change what runs.
+- Contributors now install dependencies with pnpm instead of Bun, so Dependabot can raise security
+  alerts and open updates that include the lockfile. Bun still builds and runs house.
+- `ROADMAP.md` is removed; planned work is now tracked in Linear (House team), with public items
+  mirrored to GitHub issues, so plans no longer drift between a file and the issue tracker.
+- Markdown headings, emphasis, and fenced code now highlight again. `web-tree-sitter` is pinned to
+  OpenTUI's `0.25.10` peer so the highlighter can load `tree-sitter.wasm`.
+
 ## [0.9.0] — 2026-09-12
 
 ### Changed
