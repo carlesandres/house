@@ -154,12 +154,13 @@ const stepFrame = async (renderOnce: () => Promise<void>) => {
 	await act(async () => {
 		await renderOnce()
 		await new Promise<void>((resolve) => setTimeout(resolve, 100))
+		await renderOnce()
 	})
 }
 
 /** Wrap a <Browser> element in RegistryProvider so atom hooks resolve.
  *  Pass initialValues to seed atom state (e.g. active theme). */
-const renderBrowser = (
+const renderBrowser = async (
 	element: React.ReactNode,
 	viewport: { width: number; height: number },
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -188,7 +189,11 @@ const renderBrowser = (
 		{ initialValues } as Parameters<typeof RegistryProvider>[0],
 		normalizedElement,
 	)
-	return testRender(wrapped, { ...viewport, exitOnCtrlC: false })
+	const setup = await testRender(wrapped, { ...viewport, exitOnCtrlC: false })
+	// Test renderers own no terminal, so OpenTUI's suspend/resume throw on them.
+	setup.renderer.suspend = async () => {}
+	setup.renderer.resume = async () => {}
+	return setup
 }
 
 const renderBrowserFast = (element: React.ReactNode) => {
@@ -447,6 +452,14 @@ const sidebarIsVisible = (frame: string, files?: readonly string[]): boolean => 
 	for (const f of files) if (frame.includes(f)) hits++
 	return hits >= 2
 }
+
+/** The inline sidebar's text: each row up to the divider `│`. The reader
+ *  body can lag the sidebar by a frame, so row assertions read only this. */
+const sidebarText = (frame: string): string =>
+	frame
+		.split("\n")
+		.map((line) => line.split("│")[0] ?? "")
+		.join("\n")
 
 const settleBrowser = async (delay = 120) => {
 	await drainNavigatorIdle()
@@ -1853,6 +1866,67 @@ describe("Browser — quit", () => {
 	})
 })
 
+describe("Browser — editor", () => {
+	const withEditor = async (fn: () => Promise<void>) => {
+		const prevEditor = process.env.EDITOR
+		process.env.EDITOR = "true"
+		try {
+			await fn()
+		} finally {
+			if (prevEditor === undefined) delete process.env.EDITOR
+			else process.env.EDITOR = prevEditor
+		}
+	}
+
+	const renderWithFile = async () => {
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					root={makeFiles(["a.md"])}
+					readFile={makeReader({ "a.md": "x" })}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await stepFrame(setup!.renderOnce)
+	}
+
+	test("E while a terminal transition is pending shows a notice and leaves the renderer alone", () =>
+		withEditor(async () => {
+			await renderWithFile()
+			let resumes = 0
+			setup!.renderer.suspend = () => {
+				throw new Error("pending transition")
+			}
+			setup!.renderer.resume = async () => {
+				resumes++
+			}
+			await act(async () => {
+				setup!.mockInput.pressKey("e", { shift: true })
+			})
+			await stepFrame(setup!.renderOnce)
+			expect(setup!.captureCharFrame()).toContain("editor unavailable right now, try again")
+			expect(resumes).toBe(0)
+		}))
+
+	test("E tries to resume the renderer when suspending fails part-way", () =>
+		withEditor(async () => {
+			await renderWithFile()
+			let resumes = 0
+			setup!.renderer.suspend = () => Promise.reject(new Error("boom"))
+			setup!.renderer.resume = async () => {
+				resumes++
+			}
+			await act(async () => {
+				setup!.mockInput.pressKey("e", { shift: true })
+			})
+			await stepFrame(setup!.renderOnce)
+			expect(setup!.captureCharFrame()).toContain("could not open the editor")
+			expect(resumes).toBe(1)
+		}))
+})
+
 describe("Browser — footer", () => {
 	test("keeps the typed query live while applying the filter after debounce", async () => {
 		await act(async () => {
@@ -2429,7 +2503,7 @@ describe("Browser — sidebar virtualization", () => {
 			setup!.mockInput.pressKey("g", { shift: true })
 		})
 		await stepFrame(setup!.renderOnce)
-		const frame = setup!.captureCharFrame()
+		const frame = sidebarText(setup!.captureCharFrame())
 		expect(frame).toContain("f19.md")
 		expect(frame).toContain("f14.md")
 		// First files have scrolled off.
@@ -2512,7 +2586,7 @@ describe("Browser — sidebar virtualization", () => {
 			for (let i = 0; i < 6; i++) setup!.mockInput.pressKey("j")
 		})
 		await stepFrame(setup!.renderOnce)
-		const frame = setup!.captureCharFrame()
+		const frame = sidebarText(setup!.captureCharFrame())
 		expect(frame).toContain("f06.md")
 		expect(frame).toContain("f01.md")
 		// The original top row has scrolled off.

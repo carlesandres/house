@@ -12,9 +12,10 @@
  * still pending.
  */
 import { afterEach, beforeAll, describe, expect, test } from "bun:test"
-import { act } from "react"
+import { act, useMemo } from "react"
 import { SyntaxStyle } from "@opentui/core"
 import { MockTreeSitterClient } from "@opentui/core/testing"
+import { useRenderer, type MarkdownProps } from "@opentui/react"
 import { testRender } from "@opentui/react/test-utils"
 import type { CapturedFrame, CapturedSpan, RGBA } from "@opentui/core"
 import { destroyTestRenderer } from "./helpers/opentui-test-cleanup.ts"
@@ -27,7 +28,14 @@ beforeAll(() => {
 const FG = "#e6e6e6"
 const BG = "#101010"
 
-const syntaxStyle = SyntaxStyle.fromStyles({ default: { fg: FG } })
+const StyledMarkdown = (props: Omit<MarkdownProps, "syntaxStyle">) => {
+	const renderer = useRenderer()
+	const syntaxStyle = useMemo(
+		() => SyntaxStyle.fromStyles({ default: { fg: FG } }, renderer.nativeScene),
+		[renderer],
+	)
+	return <markdown {...props} syntaxStyle={syntaxStyle} />
+}
 
 const PAYLOAD = "FENCE_PAYLOAD_MARKER"
 
@@ -52,9 +60,8 @@ afterEach(() => {
 const mountWithFence = async (lang: string, mock: MockTreeSitterClient) => {
 	await act(async () => {
 		setup = await testRender(
-			<markdown
+			<StyledMarkdown
 				content={"```" + lang + "\n" + PAYLOAD + "\n```"}
-				syntaxStyle={syntaxStyle}
 				fg={FG}
 				bg={BG}
 				treeSitterClient={mock}
@@ -74,9 +81,8 @@ const mountAppLayoutWithContent = async (content: string, mock: MockTreeSitterCl
 					style={{ scrollY: true, scrollX: false, flexGrow: 1, backgroundColor: BG }}
 					focused
 				>
-					<markdown
+					<StyledMarkdown
 						content={content}
-						syntaxStyle={syntaxStyle}
 						fg={FG}
 						bg={BG}
 						conceal
