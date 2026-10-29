@@ -527,21 +527,21 @@ packages:
     peerDependencies:
       react: '>=19.2.0'
       react-devtools-core: ^7.0.1
-      ws: 8.20.1
+      ws: ^8.18.0
 
   '@opentui/react@0.5.11':
     resolution: {integrity: sha512-ACH6Kpl3/O1zdNL0sZtzrnxfw0+auJu4eefIbPTAPuNEessyuhd2xvV4agrdWRJCeogywS7er5k7uS/8YRWnZg==}
     peerDependencies:
       react: '>=19.2.0'
       react-devtools-core: ^7.0.1
-      ws: 8.20.1
+      ws: ^8.18.0
 
   '@opentui/react@0.5.9':
     resolution: {integrity: sha512-MrJ0sIDmBOhF4q85yZABEfpd2mOPfSj3jA8WS/MPtySEOGy/0Aw3XZTh9wgFvivGk/qGVJK0s4YY+iLwudIYQg==}
     peerDependencies:
       react: '>=19.2.0'
       react-devtools-core: ^7.0.1
-      ws: 8.20.1
+      ws: ^8.18.0
 
   '@oxfmt/binding-android-arm-eabi@0.51.0':
     resolution: {integrity: sha512-Ni0sCqg5CIHaLIYFGj+ncbcumylvNC6FE4rfD0KfdmnWHbPJ+zev0qZCXKxy2hFVa0fYRK0yPzf5nzPbkZou7g==}
@@ -1920,10 +1920,6 @@ packages:
 
   shell-quote@1.12.0:
     resolution: {integrity: sha512-PcByqNyT/38F2kDNi006HAMRJaULuBzq/FOsw3qdZvX/GA9W/jamDaRskgHjubHiftXK5sIFxLNkvrXUwcof6Q==}
-    engines: {node: '>= 0.4'}
-
-  shell-quote@1.8.3:
-    resolution: {integrity: sha512-ObmnIF4hXNg1BqhnHmgbDETF8dLPCggZWBjkQfhZpbszZnYur5DUljTcCHii5LC3J5E0yeO/1LIMyH+UvHQgyw==}
     engines: {node: '>= 0.4'}
 
   signal-exit@4.1.0:
@@ -3660,7 +3656,7 @@ snapshots:
 
   react-devtools-core@7.0.1:
     dependencies:
-      shell-quote: 1.8.3
+      shell-quote: 1.12.0
       ws: 7.5.10
     transitivePeerDependencies:
       - bufferutil
@@ -3720,8 +3716,6 @@ snapshots:
   shebang-regex@3.0.0: {}
 
   shell-quote@1.12.0: {}
-
-  shell-quote@1.8.3: {}
 
   signal-exit@4.1.0: {}
 
