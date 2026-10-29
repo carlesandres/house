@@ -144,9 +144,9 @@ before the new packages exist. `createPublicPackageManifest` pins them to the re
 the published main package. Do not hand-edit those pins to an unpublished version.
 
 CI is the release gate: typecheck, lint, format check, all-workspace tests, PTY coverage
-(`bun run test:pty`), GitHub API emulation, standalone build/mutation smoke, npm package staging,
-and Node 26+ install smokes. Use `bun run npm:pack`, not root `npm pack`, to inspect the staged
-public package.
+(`bun run test:pty`), GitHub API emulation, standalone build, TUI startup and mutation smoke, npm
+package staging, and Node 26+ install smokes. Use `bun run npm:pack`, not root `npm pack`, to
+inspect the staged public package.
 
 ### 3. Approve and watch publishing
 
@@ -165,7 +165,7 @@ workflow.
 The publish workflow:
 
 1. runs typecheck, GitHub API emulation, `bun run npm:pack`, and tag/version checks,
-2. builds each native target and runs its File Navigator mutation smoke,
+2. builds each native target and runs its TUI startup and File Navigator mutation smoke,
 3. publishes the platform packages before the main package, and
 4. uploads the four standalone archives to the GitHub Release, then verifies all
    five npm versions, a clean installed binary, and the four release assets.

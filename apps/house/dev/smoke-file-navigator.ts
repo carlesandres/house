@@ -1,8 +1,9 @@
 #!/usr/bin/env bun
 
-import { access, mkdtemp, rm } from "node:fs/promises"
+import { access, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { delimiter, dirname, resolve } from "node:path"
+import { launchTerminal } from "tuistory"
 import pkg from "../package.json" with { type: "json" }
 import { hostReleaseTarget } from "./release-targets.ts"
 
@@ -93,6 +94,32 @@ try {
 		)
 	}
 
+	// The internal smoke below skips the TUI boot path, so start the real reader too.
+	const startupRoot = await mkdtemp(resolve(tmpdir(), "house-startup-smoke-"))
+	try {
+		await writeFile(resolve(startupRoot, "startup-smoke.md"), "# Startup smoke\n")
+		const session = await launchTerminal({
+			command: binary,
+			args: ["--no-update-check", "--root", startupRoot],
+			cwd: startupRoot,
+			cols: 80,
+			rows: 24,
+			env: artifactEnv,
+		})
+		try {
+			await session.waitForText(/Startup smoke/, { timeout: 15_000 })
+		} catch (error) {
+			const screen = await session.text({ immediate: true, trimEnd: true }).catch(() => "")
+			throw new Error(`file-navigator smoke: ${mode} TUI did not start\n${screen}`, {
+				cause: error,
+			})
+		} finally {
+			session.close()
+		}
+	} finally {
+		await rm(startupRoot, { recursive: true, force: true })
+	}
+
 	const smoke = Bun.spawnSync({
 		cmd: [binary],
 		env: { ...artifactEnv, HOUSE_INTERNAL_FILE_NAVIGATOR_SMOKE: "1" },
@@ -109,3 +136,6 @@ try {
 } finally {
 	if (installRoot) await rm(installRoot, { recursive: true, force: true })
 }
+
+// The PTY session keeps the event loop alive on Linux after close().
+process.exit(0)
