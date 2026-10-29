@@ -497,12 +497,10 @@ export const scanTopology = async (
 			compareStrings(left.relativePath, right.relativePath),
 		),
 		watchDirectories: [...topology.watchDirectories.entries()]
-			.map(
-				([physicalPath, lexicalPaths]): WatchDirectory => ({
-					physicalPath,
-					lexicalPaths: sorted(lexicalPaths),
-				}),
-			)
+			.map(([physicalPath, lexicalPaths]): WatchDirectory => ({
+				physicalPath,
+				lexicalPaths: sorted(lexicalPaths),
+			}))
 			.sort((left, right) => compareStrings(left.physicalPath, right.physicalPath)),
 		controlFiles: sorted(topology.controlFiles),
 	}
