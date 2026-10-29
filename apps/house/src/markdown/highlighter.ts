@@ -3,9 +3,9 @@
  *
  * OpenTUI's `<markdown>` silently renders raw source when TreeSitterClient
  * cannot initialize (opentui#1201). House treats that as a broken install:
- * the TUI must not start, and package builds must not succeed, unless the
- * wasm path OpenTUI imports resolves and the bundled markdown/typescript
- * parsers actually highlight.
+ * the TUI must not start unless the bundled markdown/typescript parsers
+ * actually highlight, and package builds must not succeed unless the wasm
+ * path OpenTUI imports also resolves.
  */
 import { createRequire } from "node:module"
 import { getTreeSitterClient } from "@opentui/core"
@@ -77,10 +77,11 @@ const SMOKE_HIGHLIGHTS = [
 /**
  * Initialize OpenTUI's TreeSitterClient and prove bundled parsers work.
  * Call this before creating the CLI renderer so a broken highlighter cannot
- * take over the terminal and render raw markdown.
+ * take over the terminal and render raw markdown. It does not call
+ * `assertHighlighterAssets`: a compiled binary embeds the wasm and has no
+ * node_modules to resolve it from, so that check runs at build time only.
  */
 export const ensureMarkdownHighlighter = async (): Promise<void> => {
-	assertHighlighterAssets()
 	const client = getTreeSitterClient()
 	try {
 		await client.initialize()

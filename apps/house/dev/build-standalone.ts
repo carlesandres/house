@@ -213,8 +213,9 @@ const buildTarget = async (
 			format: "esm",
 			// Keep production defaults that `--compile` implies on the CLI.
 			minify: true,
-			// Bytecode cache: same intent as the previous `--bytecode` CLI flag.
-			bytecode: true,
+			// Bun 1.3.10 bytecode breaks the embedded worker ("Cannot access 'E' before
+			// initialization"), so tree-sitter cannot start in the binary.
+			bytecode: false,
 			files: {
 				[TREE_SITTER_WORKER_VIRTUAL]: treeSitterWorker,
 			},

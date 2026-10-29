@@ -54,7 +54,8 @@ Playwright pinned in its `package.json`: `pnpm exec playwright install chromium`
 The artifact preview smoke starts the actual compiled executable with Bun removed from `PATH`,
 requests its embedded asset graph, and renders a real Mermaid SVG.
 
-The File Navigator smoke commands invoke the built House artifact's private headless mode; they do not
+The File Navigator smoke commands first start the built House artifact's real TUI in a PTY from a
+temporary directory with no `node_modules`, then invoke its private headless mode; they do not
 compile a workspace-only substitute. Installed mode packs the staged main and host platform packages
 into a temporary npm prefix unless CI supplies its already-installed `house` path. Artifact execution
 removes Bun from `PATH` and exercises the embedded static Parcel binding through filesystem mutations.

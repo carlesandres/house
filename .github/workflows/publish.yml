@@ -99,7 +99,7 @@ jobs:
       - name: Build standalone binary
         run: bun run build:standalone ${{ matrix.target }}
 
-      - name: Run File Navigator mutation smoke
+      - name: Run TUI startup and File Navigator mutation smoke
         run: bun run --cwd apps/house smoke:file-navigator:standalone
 
       - name: Package npm binary package
