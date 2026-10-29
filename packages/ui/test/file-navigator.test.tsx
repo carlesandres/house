@@ -601,7 +601,7 @@ describe("public FileNavigator", () => {
 				{ width: 32, height: 8 },
 			)
 		})
-		await act(async () => setup!.renderer.idle())
+		await waitFor(() => selected.length > 0, "initial selection")
 		expect(selected).toEqual([join(directory, "docs", "guide.md")])
 		expect(handle.current!.getSnapshot().selectedFile?.absolutePath).toBe(
 			join(directory, "docs", "guide.md"),

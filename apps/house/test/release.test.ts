@@ -33,7 +33,7 @@ describe("release", () => {
 		const ci = repoFile(".github/workflows/ci.yml")
 		const publish = repoFile(".github/workflows/publish.yml")
 		const release = repoFile(".github/workflows/release.yml")
-		expect(repoFile(".bun-version").trim()).toBe("1.3.10")
+		expect(repoFile(".bun-version").trim()).toBe("1.3.14")
 		expect(ci.match(/bun-version-file: \.bun-version/g)).toHaveLength(2)
 		expect(publish.match(/bun-version-file: \.bun-version/g)).toHaveLength(3)
 		expect(release).not.toContain("oven-sh/setup-bun@")

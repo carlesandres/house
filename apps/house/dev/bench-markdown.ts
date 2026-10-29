@@ -80,7 +80,7 @@ const files = await collectFiles(args)
 console.log(`Benchmarking ${files.length} files at 100×30 viewport...\n`)
 
 const { renderer, renderOnce } = await createTestRenderer({ width: 100, height: 30 })
-const syntaxStyle = SyntaxStyle.fromStyles(styles)
+const syntaxStyle = SyntaxStyle.fromStyles(styles, renderer.nativeScene)
 
 const md = new MarkdownRenderable(renderer, {
 	id: "bench",

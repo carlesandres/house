@@ -12,7 +12,7 @@
 
 import { join } from "node:path"
 import { SyntaxStyle } from "@opentui/core"
-import type { BorderSides } from "@opentui/core"
+import type { BorderSides, CliRenderer } from "@opentui/core"
 import { nextFooterValue } from "@house/options"
 import {
 	type BrowseOrder,
@@ -181,6 +181,14 @@ const NEW_FILE_MEMBERSHIP_POLL_MS = 32
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
 
+/** Exit once OpenTUI has restored the terminal. The timer covers a teardown that never settles. */
+const exitAfterTeardown = (renderer: CliRenderer, code: number) => {
+	process.exitCode = code
+	setTimeout(() => process.exit(code), 2000).unref()
+	renderer.destroy()
+	void renderer.closed.catch(() => {}).finally(() => process.exit(code))
+}
+
 const isSingleCodePoint = (value: string): boolean => Array.from(value).length === 1
 const dropLastCodePoint = (value: string): string => Array.from(value).slice(0, -1).join("")
 
@@ -272,7 +280,10 @@ export const Browser = ({
 	const { width, height } = useTerminalDimensions()
 	const theme = useAtomValue(themeAtom)
 	const setTheme = useAtomSet(themeAtom)
-	const syntaxStyle = useMemo(() => SyntaxStyle.fromStyles(colors.syntax), [theme])
+	const syntaxStyle = useMemo(
+		() => SyntaxStyle.fromStyles(colors.syntax, renderer.nativeScene),
+		[renderer, theme],
+	)
 
 	const optionsSession = useRef<ReturnType<typeof houseOptions.createSession> | null>(null)
 	if (optionsSession.current === null) {
@@ -783,17 +794,37 @@ export const Browser = ({
 		// the user staring at a dead terminal.
 		void (async () => {
 			if (!mountedRef.current) return
-			renderer.suspend()
-			renderer.currentRenderBuffer.clear()
+			// A suspended renderer that can't resume leaves no usable UI, so exit instead.
+			const resumeOrExit = async () => {
+				try {
+					await renderer.resume()
+				} catch (err) {
+					process.stderr.write(`house: could not restore the terminal: ${String(err)}\n`)
+					exitAfterTeardown(renderer, 1)
+				}
+			}
+			// suspend() throws before touching the terminal while another transition is
+			// pending. Its promise rejects only once the session has failed, after it has
+			// halted the renderer, so resuming then usually fails too and House exits.
+			let suspended: Promise<void>
+			try {
+				suspended = renderer.suspend()
+			} catch {
+				pushFooterNotice("editor unavailable right now, try again")
+				return
+			}
+			try {
+				await suspended
+			} catch (err) {
+				await resumeOrExit()
+				pushFooterNotice(`could not open the editor: ${String(err)}`)
+				return
+			}
 			let result
 			try {
 				result = await launchEditor({ editor, filePath: file.absolutePath })
 			} finally {
-				if (mountedRef.current) {
-					renderer.currentRenderBuffer.clear()
-					renderer.resume()
-					renderer.requestRender()
-				}
+				if (mountedRef.current) await resumeOrExit()
 			}
 			// Only reload the in-memory cache when the edited file is the
 			// one currently displayed. Editing a sidebar-selected file that
@@ -1181,8 +1212,7 @@ export const Browser = ({
 				onQuit()
 				return
 			}
-			renderer?.destroy()
-			process.exit(0)
+			exitAfterTeardown(renderer, 0)
 		},
 		editCurrent,
 		openNewFilePrompt,

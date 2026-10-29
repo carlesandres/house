@@ -38,6 +38,7 @@ describe("Spinner", () => {
 		await act(async () => {
 			setup = await testRender(<Spinner />, { width: 10, height: 1 })
 		})
+		await setup!.renderOnce()
 		expect(setup!.captureCharFrame()).toContain("⠋")
 	})
 
@@ -45,6 +46,7 @@ describe("Spinner", () => {
 		await act(async () => {
 			setup = await testRender(<Spinner initialFrameIndex={3} />, { width: 10, height: 1 })
 		})
+		await setup!.renderOnce()
 		expect(setup!.captureCharFrame()).toContain("⠸")
 	})
 

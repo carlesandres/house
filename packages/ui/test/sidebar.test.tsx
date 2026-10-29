@@ -61,6 +61,7 @@ describe("Sidebar", () => {
 		await act(async () => {
 			setup = await testRender(<Harness />, { width: 24, height: 5 })
 		})
+		await act(async () => setup!.renderOnce())
 		expect(setup!.captureCharFrame()).toContain("0:Alpha:true")
 		await act(async () => {
 			select!("c")
@@ -88,6 +89,7 @@ describe("Sidebar", () => {
 					{ width: 24, height: 6 },
 				)
 			})
+			await act(async () => setup!.renderOnce())
 		}
 		await render()
 		expect(setup!.captureCharFrame()).toContain("No results found.")
@@ -116,6 +118,7 @@ describe("Sidebar", () => {
 		await act(async () => {
 			setup = await testRender(<Harness visible />, { width: 20, height: 4 })
 		})
+		await act(async () => setup!.renderOnce())
 		const frame = setup!.captureCharFrame()
 		expect(frame).toContain("one")
 		expect(frame).toContain("┌")

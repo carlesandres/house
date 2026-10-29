@@ -11,7 +11,7 @@ import { createRequire } from "node:module"
 import { getTreeSitterClient } from "@opentui/core"
 import housePkg from "../../package.json" with { type: "json" }
 
-/** Specifier OpenTUI 0.5.x imports from the tree-sitter worker. */
+/** Specifier OpenTUI imports from the tree-sitter worker. */
 export const TREE_SITTER_WASM_SPECIFIER = "web-tree-sitter/tree-sitter.wasm"
 
 const require = createRequire(import.meta.url)

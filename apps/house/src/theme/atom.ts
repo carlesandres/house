@@ -9,7 +9,7 @@
  * atomically and the component sees a single re-render.
  */
 
-import * as Atom from "effect/unstable/reactivity/Atom"
+import * as Atom from "effect/reactivity/Atom"
 import type { Tone } from "./types.ts"
 
 export interface ThemeState {
