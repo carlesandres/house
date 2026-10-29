@@ -136,3 +136,6 @@ try {
 } finally {
 	if (installRoot) await rm(installRoot, { recursive: true, force: true })
 }
+
+// The PTY session keeps the event loop alive on Linux after close().
+process.exit(0)
