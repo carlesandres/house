@@ -420,15 +420,13 @@ try {
 
 const matrixCells = (): readonly ParcelBenchmarkOptions[] =>
 	([1_000, 5_000, 10_000] as const).flatMap((files) =>
-		(["broad", "deep"] as const).map(
-			(shape): ParcelBenchmarkOptions => ({
-				files,
-				dirs: Math.max(120, Math.floor(files / 10)),
-				runs: files === 10_000 && shape === "broad" ? 3 : 1,
-				mutations: files === 10_000 && shape === "broad" ? 100 : 20,
-				shape,
-			}),
-		),
+		(["broad", "deep"] as const).map((shape): ParcelBenchmarkOptions => ({
+			files,
+			dirs: Math.max(120, Math.floor(files / 10)),
+			runs: files === 10_000 && shape === "broad" ? 3 : 1,
+			mutations: files === 10_000 && shape === "broad" ? 100 : 20,
+			shape,
+		})),
 	)
 
 const validateCellReport = (

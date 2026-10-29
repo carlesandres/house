@@ -80,17 +80,15 @@ interface CellSpec {
 const cellSpecs: readonly CellSpec[] = [
 	...(["darwin-arm64", "darwin-x64", "linux-arm64", "linux-x64"] as const).flatMap((target) => {
 		const [platform, arch] = target.split("-") as [string, string]
-		return (["event", "polling"] as const).map(
-			(mode): CellSpec => ({
-				id: `bun-1.3.10-${target}-${mode}`,
-				runtime: "bun",
-				version: "1.3.10",
-				platform,
-				arch,
-				mode,
-				watch: true,
-			}),
-		)
+		return (["event", "polling"] as const).map((mode): CellSpec => ({
+			id: `bun-1.3.10-${target}-${mode}`,
+			runtime: "bun",
+			version: "1.3.10",
+			platform,
+			arch,
+			mode,
+			watch: true,
+		}))
 	}),
 	{
 		id: "bun-1.3.14-linux-x64-event",
@@ -101,28 +99,24 @@ const cellSpecs: readonly CellSpec[] = [
 		mode: "event",
 		watch: true,
 	},
-	...(["22.22.2", "24.18.0"] as const).map(
-		(version): CellSpec => ({
-			id: `node-${version}-linux-x64-imports`,
-			runtime: "node",
-			version,
-			platform: "linux",
-			arch: "x64",
-			mode: "imports",
-			watch: false,
-		}),
-	),
-	...(["event", "polling"] as const).map(
-		(mode): CellSpec => ({
-			id: `node-24.18.0-linux-x64-${mode}-baseline`,
-			runtime: "node",
-			version: "24.18.0",
-			platform: "linux",
-			arch: "x64",
-			mode,
-			watch: true,
-		}),
-	),
+	...(["22.22.2", "24.18.0"] as const).map((version): CellSpec => ({
+		id: `node-${version}-linux-x64-imports`,
+		runtime: "node",
+		version,
+		platform: "linux",
+		arch: "x64",
+		mode: "imports",
+		watch: false,
+	})),
+	...(["event", "polling"] as const).map((mode): CellSpec => ({
+		id: `node-24.18.0-linux-x64-${mode}-baseline`,
+		runtime: "node",
+		version: "24.18.0",
+		platform: "linux",
+		arch: "x64",
+		mode,
+		watch: true,
+	})),
 ]
 
 const artifactCellIdentity = (
