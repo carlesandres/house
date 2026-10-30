@@ -167,8 +167,10 @@ workflow.
 
 The publish workflow:
 
-1. runs typecheck, GitHub API emulation, `bun run npm:pack`, and tag/version checks,
-2. builds each native target and runs its TUI startup and File Navigator mutation smoke,
+1. runs typecheck, GitHub API emulation, `bun run npm:pack`, and tag/version checks, and
+   uploads the staged main package as an artifact,
+2. builds each native target, runs its TUI startup and File Navigator mutation smoke, and
+   uploads its platform package and archive,
 3. publishes the platform packages before the main package,
 4. uploads the four standalone archives to the GitHub Release and checks they are all there, and
 5. in `verify-published`, waits for npm to serve all five packages, installs the main package
@@ -178,6 +180,12 @@ A green `publish` job means npm accepted every package and the archives are atta
 then takes a while to serve them (the main package's tarball has taken up to 23 minutes), so
 `verify-published` waits up to 45 minutes. It fails if a package is still not served then, or
 if the house installed from npm does not start.
+
+Only the `publish` job has `id-token: write`, so only it can get a token npm accepts. It checks
+out no code, installs no dependencies and runs no repo scripts: it downloads the packages the
+earlier jobs built, checks their names and that their version is the one in
+`apps/house/package.json` at the run's commit, and runs `npm publish --ignore-scripts` on them.
+Keep that split when editing the workflow; build steps belong in `verify` or `build-binary`.
 
 The `npm` environment does not require another reviewer click; it allows only
 `v*` tags and `main` (for recovery dispatch). The platform build jobs do not use

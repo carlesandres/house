@@ -71,6 +71,13 @@ jobs:
 
       - run: bun run npm:pack
 
+      - name: Upload main npm package
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: npm-main
+          path: apps/house/dist/npm/main/
+          if-no-files-found: error
+
   build-binary:
     name: build ${{ matrix.target }}
     needs: verify
@@ -123,53 +130,61 @@ jobs:
           path: apps/house/dist/release/house-${{ matrix.target }}.tar.gz
           if-no-files-found: error
 
+  # This job can mint a token npm accepts for publishing, so it checks out no code, installs no
+  # dependencies and runs no package scripts: it only publishes what the jobs above built.
   publish:
-    needs: build-binary
+    needs: [verify, build-binary]
     runs-on: ubuntu-latest
     environment: npm
     permissions:
       contents: write
       id-token: write
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 26
           registry-url: https://registry.npmjs.org/
 
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      - name: Download npm packages
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          bun-version-file: .bun-version
+          pattern: npm-*
+          path: artifacts
 
-      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
-
-      - run: pnpm install --frozen-lockfile
+      - name: Verify package version matches the release commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./artifacts/npm-main/package.json').version")"
+          expected="$(gh api -H "Accept: application/vnd.github.raw+json" \
+            "repos/${GITHUB_REPOSITORY}/contents/apps/house/package.json?ref=${GITHUB_SHA}" \
+            --jq .version)"
+          if [ "${version}" != "${expected}" ]; then
+            echo "Artifact version ${version} does not match ${expected} at ${GITHUB_SHA}" >&2
+            exit 1
+          fi
 
       - name: Verify release tag matches package version
         if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/v')
         run: |
-          version="$(node -p "require('./apps/house/package.json').version")"
+          version="$(node -p "require('./artifacts/npm-main/package.json').version")"
           test "v${version}" = "${GITHUB_REF_NAME}"
 
-      - name: Download npm binary packages
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          pattern: npm-binary-*
-          path: artifacts/npm-binaries
-
       - name: Restore binary permissions
-        run: chmod 755 artifacts/npm-binaries/npm-binary-*/bin/house
+        run: chmod 755 artifacts/npm-binary-*/bin/house
 
       - name: Publish npm binary packages
         run: |
           set -euo pipefail
-          main_version="$(node -p "require('./apps/house/package.json').version")"
-          for package_dir in artifacts/npm-binaries/npm-binary-*; do
+          main_version="$(node -p "require('./artifacts/npm-main/package.json').version")"
+          for package_dir in artifacts/npm-binary-*; do
             name="$(node -p "require('./${package_dir}/package.json').name")"
             version="$(node -p "require('./${package_dir}/package.json').version")"
+            if [ "${name}" != "@carlesandres/house-${package_dir#artifacts/npm-binary-}" ]; then
+              echo "Unexpected package name ${name} in ${package_dir}" >&2
+              exit 1
+            fi
             if [ "${version}" != "${main_version}" ]; then
               echo "Version mismatch: ${name}=${version}, main=${main_version}" >&2
               exit 1
@@ -179,42 +194,43 @@ jobs:
               continue
             fi
             echo "Publishing ${name}@${version} from ${package_dir}"
-            npm publish "${package_dir}"
+            npm publish --ignore-scripts "${package_dir}"
           done
-
-      - run: bun run build:npm-main
-
-      - run: npm pack --dry-run apps/house/dist/npm/main
 
       - name: Publish main npm package
         run: |
           set -euo pipefail
-          name="$(node -p "require('./apps/house/package.json').name")"
-          version="$(node -p "require('./apps/house/package.json').version")"
+          name="$(node -p "require('./artifacts/npm-main/package.json').name")"
+          version="$(node -p "require('./artifacts/npm-main/package.json').version")"
+          if [ "${name}" != "@carlesandres/house" ]; then
+            echo "Unexpected package name ${name} in artifacts/npm-main" >&2
+            exit 1
+          fi
           if npm view "${name}@${version}" version >/dev/null 2>&1; then
             echo "${name}@${version} already published."
             exit 0
           fi
-          npm publish apps/house/dist/npm/main
+          npm publish --ignore-scripts artifacts/npm-main
 
       - name: Download release tarballs
         if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/v')
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: release-tarball-*
-          path: apps/house/dist/release
+          path: release
           merge-multiple: true
 
       - name: Attach standalone binaries to GitHub Release
         if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/v')
         env:
+          GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           shopt -s nullglob
-          assets=(apps/house/dist/release/house-*.tar.gz)
+          assets=(release/house-*.tar.gz)
           if [ "${#assets[@]}" -eq 0 ]; then
-            echo "No release tarballs found under apps/house/dist/release" >&2
+            echo "No release tarballs found under release" >&2
             exit 1
           fi
           gh release upload "${GITHUB_REF_NAME}" "${assets[@]}" --clobber
@@ -222,6 +238,7 @@ jobs:
       - name: Verify GitHub Release assets
         if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/v')
         env:
+          GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
