@@ -1,0 +1,114 @@
+{
+	"advisories": {
+		"1115805": {
+			"findings": [
+				{
+					"version": "4.17.23",
+					"paths": [
+						"apps__house>mermaid>chevrotain>@chevrotain/gast>lodash-es",
+						"apps__house>mermaid>chevrotain>lodash-es",
+						"apps__house>mermaid>chevrotain>@chevrotain/cst-dts-gen>@chevrotain/gast>lodash-es",
+						"apps__house>mermaid>chevrotain>@chevrotain/cst-dts-gen>lodash-es"
+					],
+					"dev": true,
+					"optional": false,
+					"bundled": false
+				}
+			],
+			"id": 1115805,
+			"title": "lodash vulnerable to Code Injection via `_.template` imports key names",
+			"module_name": "lodash-es",
+			"vulnerable_versions": ">=4.0.0 <=4.17.23",
+			"patched_versions": ">=4.18.1",
+			"severity": "high",
+			"cwe": "CWE-94",
+			"github_advisory_id": "GHSA-r5fr-rjxr-66jc",
+			"url": "https://github.com/advisories/GHSA-r5fr-rjxr-66jc"
+		},
+		"1123999": {
+			"findings": [
+				{
+					"version": "4.12.22",
+					"paths": [
+						"apps__house>tuistory>@hono/node-ws>@hono/node-server>hono",
+						"apps__house>tuistory>@hono/node-ws>hono",
+						"apps__house>tuistory>@hono/node-server>hono",
+						"apps__house>tuistory>hono"
+					],
+					"dev": true,
+					"optional": false,
+					"bundled": false
+				}
+			],
+			"id": 1123999,
+			"title": "hono: CORS Middleware reflects any Origin with credentials when `origin` defaults to the wildcard",
+			"module_name": "hono",
+			"vulnerable_versions": "<4.12.25",
+			"patched_versions": ">=4.12.25",
+			"severity": "high",
+			"cwe": "CWE-942",
+			"github_advisory_id": "GHSA-88fw-hqm2-52qc",
+			"url": "https://github.com/advisories/GHSA-88fw-hqm2-52qc"
+		},
+		"1240621": {
+			"findings": [
+				{
+					"version": "3.4.15",
+					"paths": ["apps__house>mermaid>dompurify"],
+					"dev": true,
+					"optional": false,
+					"bundled": false
+				}
+			],
+			"id": 1240621,
+			"title": "DOMPurify: IN_PLACE: node-removing afterSanitize hook leaves detached subtree event handlers armed, causing DOM XSS",
+			"module_name": "dompurify",
+			"vulnerable_versions": ">=3.4.13 <=3.4.15",
+			"patched_versions": ">=3.4.16",
+			"severity": "low",
+			"cwe": "CWE-79",
+			"github_advisory_id": "GHSA-p98j-92pf-mc4p",
+			"url": "https://github.com/advisories/GHSA-p98j-92pf-mc4p"
+		},
+		"1241260": {
+			"findings": [
+				{
+					"version": "2.1.0",
+					"paths": ["packages__ui>oxfmt>tinypool", "packages__options>oxfmt>tinypool"],
+					"dev": true,
+					"optional": false,
+					"bundled": false
+				}
+			],
+			"id": 1241260,
+			"title": "Tinypool: Prototype Pollution gadget in worker options leads to Remote Code Execution",
+			"module_name": "tinypool",
+			"vulnerable_versions": "<=2.1.0",
+			"patched_versions": ">=2.1.1",
+			"severity": "critical",
+			"cwe": "CWE-1321",
+			"github_advisory_id": "GHSA-5gmw-xhrv-c9v3",
+			"url": "https://github.com/advisories/GHSA-5gmw-xhrv-c9v3"
+		},
+		"1242880": {
+			"findings": [
+				{
+					"version": "3.4.15",
+					"paths": ["apps__house>mermaid>dompurify"],
+					"dev": true,
+					"optional": false,
+					"bundled": false
+				}
+			],
+			"id": 1242880,
+			"title": "DOMPurify SAFE_FOR_TEMPLATES bypass: split template expressions survive in attached shadow root content on DOM output modes",
+			"module_name": "dompurify",
+			"vulnerable_versions": ">=3.4.4 <=3.4.16",
+			"patched_versions": ">=3.4.17",
+			"severity": "critical",
+			"cwe": "CWE-79",
+			"github_advisory_id": "GHSA-cg2g-xh64-v4q7",
+			"url": "https://github.com/advisories/GHSA-cg2g-xh64-v4q7"
+		}
+	}
+}

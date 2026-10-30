@@ -133,11 +133,24 @@ describe("release", () => {
 		expect(ci).toContain('[ "${SCOPE_RESULT}" = "success" ]')
 	})
 
+	test("blocks the version pull request on advisories in shipped dependencies", () => {
+		const ci = repoFile(".github/workflows/ci.yml")
+		const check = ci.slice(ci.indexOf("\n  check:\n"), ci.indexOf("\n  npm-install-smoke:\n"))
+		const step = check.slice(check.indexOf("- name: Audit shipped dependencies"))
+		const blocking = step.slice(step.indexOf("HOUSE_AUDIT_BLOCKING:"), step.indexOf("run:"))
+		expect(blocking.replace(/\s+/g, " ")).toBe(
+			"HOUSE_AUDIT_BLOCKING: >- ${{ github.ref_name == 'changeset-release/main' || " +
+				"github.head_ref == 'changeset-release/main' }} ",
+		)
+		expect(step).toContain("run: bun run --cwd apps/house audit:shipped\n")
+		expect(step.slice(0, step.indexOf("run:"))).not.toContain("continue-on-error")
+	})
+
 	test("reports the required check on the workflow-created version pull request", () => {
 		const ci = repoFile(".github/workflows/ci.yml")
 		expect(ci).toContain("statuses: write")
 		expect(ci.match(/context=check/g)).toHaveLength(2)
-		expect(ci.match(/github\.ref_name == 'changeset-release\/main'/g)).toHaveLength(3)
+		expect(ci.match(/github\.ref_name == 'changeset-release\/main'/g)).toHaveLength(4)
 		expect(ci).not.toContain("release/v")
 	})
 

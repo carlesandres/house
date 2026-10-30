@@ -143,7 +143,8 @@ workflows, so `release.yml` dispatches `ci.yml` on the branch, and `ci.yml` repo
 before the new packages exist. `createPublicPackageManifest` pins them to the release version in
 the published main package. Do not hand-edit those pins to an unpublished version.
 
-CI is the release gate: typecheck, lint, format check, all-workspace tests, PTY coverage
+CI is the release gate: typecheck, lint, format check, dependency audit of shipped packages
+(`bun run --cwd apps/house audit:shipped`), all-workspace tests, PTY coverage
 (`bun run test:pty`), GitHub API emulation, standalone build, TUI startup and mutation smoke, npm
 package staging, and Node 26+ install smokes. Use `bun run npm:pack`, not root `npm pack`, to
 inspect the staged public package.

@@ -220,6 +220,18 @@ Publishing uses Trusted Publisher/OIDC, never an `NPM_TOKEN`. The four platform
 packages provide native executables; the main package provides the Node shim and
 bundled application source.
 
+## Dependency audit
+
+`bun run --cwd apps/house audit:shipped` runs `pnpm audit` and fails on high or critical advisories in dependencies that ship in house. A package ships when a workspace package lists it in `dependencies` or `optionalDependencies`, or when its `src/` imports it: the build bundles `src/`, so devDependencies such as `mermaid` ship too. Every workspace package counts as bundled into house. Test-only tooling such as `tuistory` does not count.
+
+CI runs the audit on every pull request and on pushes to `main`, but only the version pull request fails on it; elsewhere it reports warnings. The version pull request's result dates from its last CI run, so rerun that run before merging a version pull request that has waited for days. The audit also reports a problem when it cannot read pnpm's report, so a pnpm upgrade that changes the report format fails the version pull request, and warns on the upgrade's own pull request when the report lists any advisory. Fix an advisory by updating the dependency on `main` (a release newer than a week needs `minimumReleaseAgeExclude` in `pnpm-workspace.yaml`). If no fix exists or the vulnerable code is unreachable, accept it in `apps/house/dev/audit-exceptions.json`, not in pnpm's `auditConfig`, which the audit rejects:
+
+```json
+[{ "advisory": "GHSA-xxxx-xxxx-xxxx", "reason": "Why house is not affected", "expires": "2026-12-31" }]
+```
+
+`expires` is a UTC date at most 90 days away. An expired entry fails the audit, so each accepted advisory is looked at again.
+
 ## License
 
 By contributing, you agree your contribution is licensed under MIT, the same as the rest of the project.
