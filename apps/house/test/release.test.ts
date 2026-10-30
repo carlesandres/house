@@ -65,13 +65,19 @@ describe("release", () => {
 			"uses: changesets/action/version@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2",
 		)
 		expect(release).not.toContain("id-token")
-		expect(release.match(/persist-credentials: false/g)).toHaveLength(
-			release.match(/actions\/checkout@/g)!.length,
-		)
 		expect(release).toContain('--notes-file "${notes}"')
 		expect(release).toContain('gh workflow run publish.yml --ref "${tag}"')
 		expect(release).toContain("gh workflow run ci.yml")
 		expect(release).toContain("--ref changeset-release/main")
+	})
+
+	test("keeps the job token out of every checkout's git config", () => {
+		for (const workflow of ["ci.yml", "publish.yml", "release.yml"]) {
+			const steps = repoFile(`.github/workflows/${workflow}`).split(/\n(?= +- )/)
+			const checkouts = steps.filter((step) => step.includes("uses: actions/checkout@"))
+			expect(checkouts.length).toBeGreaterThan(0)
+			for (const checkout of checkouts) expect(checkout).toContain("persist-credentials: false")
+		}
 	})
 
 	test("keeps installed dependencies away from the token that can dispatch publishing", () => {
