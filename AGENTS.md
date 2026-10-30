@@ -169,9 +169,15 @@ The publish workflow:
 
 1. runs typecheck, GitHub API emulation, `bun run npm:pack`, and tag/version checks,
 2. builds each native target and runs its TUI startup and File Navigator mutation smoke,
-3. publishes the platform packages before the main package, and
-4. uploads the four standalone archives to the GitHub Release, then verifies all
-   five npm versions, a clean installed binary, and the four release assets.
+3. publishes the platform packages before the main package,
+4. uploads the four standalone archives to the GitHub Release and checks they are all there, and
+5. in `verify-published`, waits for npm to serve all five packages, installs the main package
+   from npm, and starts its TUI.
+
+A green `publish` job means npm accepted every package and the archives are attached. npm
+then takes a while to serve them (the main package's tarball has taken up to 23 minutes), so
+`verify-published` waits up to 45 minutes. It fails if a package is still not served then, or
+if the house installed from npm does not start.
 
 The `npm` environment does not require another reviewer click; it allows only
 `v*` tags and `main` (for recovery dispatch). The platform build jobs do not use
@@ -188,10 +194,16 @@ gh run watch <run-id>
 
 ### 4. Confirm the automated verification
 
-The green `verify-published` job is the release completion signal. It retries npm
-registry reads while the new versions propagate, checks all five packages, installs
-the main package on Node 26, runs `house --version`, and checks the four archives.
-The workflow summary records the verified version.
+The green `verify-published` job is the release completion signal. It waits until npm
+serves all five packages at the new version, installs the main package on Node 26, then
+starts the real TUI and runs the File Navigator mutation smoke against it. The workflow
+summary records the verified version.
+
+If it fails because npm still does not serve a package after 45 minutes, the publish itself
+has not failed: check with the commands below and rerun the failed job
+(`gh run rerun <run-id> --failed`) once `npm view` shows the version and its tarball downloads. If the install or start step
+fails after npm serves every package, the release is broken: investigate instead of rerunning,
+and do not announce it.
 
 These commands remain useful for manual diagnosis:
 

@@ -212,8 +212,8 @@ and `.github/workflows/publish.yml` for publishing and verification.
    `apps/house/package.json`.
 3. Review and merge the version PR as the single human approval; the merge creates the GitHub
    Release with that version's changelog section and starts publishing.
-4. Treat the green `verify-published` job as completion: it checks all five npm
-   versions, an installed binary, and the four release assets.
+4. Treat the green `verify-published` job as completion: it waits up to 45 minutes for npm to
+   serve all five packages, then installs house from npm and starts its TUI.
 
 The version bump deliberately leaves monorepo platform pins on their last-published versions;
 the staged public manifest pins all four platform packages to the release version.

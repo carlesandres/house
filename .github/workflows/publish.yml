@@ -213,20 +213,45 @@ jobs:
           fi
           gh release upload "${GITHUB_REF_NAME}" "${assets[@]}" --clobber
 
+      - name: Verify GitHub Release assets
+        if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          assets="$(gh release view "${GITHUB_REF_NAME}" --json assets --jq '.assets[].name')"
+          for target in darwin-arm64 darwin-x64 linux-arm64 linux-x64; do
+            grep -Fxq "house-${target}.tar.gz" <<< "${assets}"
+          done
+          test "$(wc -l <<< "${assets}" | tr -d ' ')" -eq 4
+
+  # npm accepts a publish long before it serves it: the main package's tarball has taken up to 23
+  # minutes to download. A green publish job means npm accepted every package; this job confirms users can
+  # install and start what it serves.
   verify-published:
     needs: publish
     runs-on: ubuntu-latest
+    timeout-minutes: 70
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 26
-          registry-url: https://registry.npmjs.org/
 
-      - name: Verify all npm packages
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: .bun-version
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Wait for npm to serve all packages
         id: npm
         run: |
           set -euo pipefail
@@ -238,49 +263,50 @@ jobs:
             @carlesandres/house-linux-arm64
             @carlesandres/house-linux-x64
           )
-          for attempt in $(seq 1 30); do
+          deadline=$((SECONDS + 45 * 60))
+          delay=15
+          while :; do
             missing=()
             for package in "${packages[@]}"; do
-              published="$(npm view "${package}@${version}" version 2>/dev/null || true)"
-              if [ "${published}" != "${version}" ]; then
+              tarball="$(npm view --fetch-timeout=30000 --fetch-retries=0 \
+                "${package}@${version}" dist.tarball 2>/dev/null || true)"
+              if [ -z "${tarball}" ] || ! curl -fsIL --max-time 30 -o /dev/null "${tarball}"; then
                 missing+=("${package}")
               fi
             done
             if [ "${#missing[@]}" -eq 0 ]; then
-              echo "All npm packages report ${version}."
+              echo "npm serves all packages at ${version} after $((SECONDS / 60)) min."
               break
             fi
-            if [ "${attempt}" -eq 30 ]; then
-              echo "Packages still missing at ${version}: ${missing[*]}" >&2
+            if [ "${SECONDS}" -ge "${deadline}" ]; then
+              echo "npm still does not serve ${version} for: ${missing[*]}" >&2
               exit 1
             fi
-            echo "Waiting for npm: ${missing[*]}"
-            sleep 10
+            echo "Waiting for npm ($((SECONDS / 60)) min): ${missing[*]}"
+            sleep "${delay}"
+            delay=$((delay * 2 > 120 ? 120 : delay * 2))
           done
           echo "version=${version}" >> "${GITHUB_OUTPUT}"
 
-      - name: Smoke-test the published install
+      - name: Install the published package
         env:
           VERSION: ${{ steps.npm.outputs.version }}
         run: |
           set -euo pipefail
-          npm install --global "@carlesandres/house@${VERSION}" \
-            --prefix "${RUNNER_TEMP}/house-release-smoke"
-          actual="$("${RUNNER_TEMP}/house-release-smoke/bin/house" --version)"
-          test "${actual}" = "${VERSION}"
-
-      - name: Verify GitHub Release assets
-        if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/v')
-        env:
-          GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ steps.npm.outputs.version }}
-        run: |
-          set -euo pipefail
-          assets="$(gh release view "v${VERSION}" --json assets --jq '.assets[].name')"
-          for target in darwin-arm64 darwin-x64 linux-arm64 linux-x64; do
-            grep -Fxq "house-${target}.tar.gz" <<< "${assets}"
+          for attempt in 1 2 3 4 5; do
+            if npm install --global "@carlesandres/house@${VERSION}" \
+              --prefix "${RUNNER_TEMP}/house-release-smoke"; then
+              exit 0
+            fi
+            echo "npm install failed (attempt ${attempt})" >&2
+            if [ "${attempt}" -lt 5 ]; then sleep 30; fi
           done
-          test "$(wc -l <<< "${assets}" | tr -d ' ')" -eq 4
+          exit 1
+
+      - name: Start the published install
+        env:
+          HOUSE_FILE_NAVIGATOR_SMOKE_BINARY: ${{ runner.temp }}/house-release-smoke/bin/house
+        run: bun run --cwd apps/house smoke:file-navigator:installed
 
       - name: Summarize verified release
         env:
@@ -289,6 +315,7 @@ jobs:
           {
             echo "## v${VERSION} verified"
             echo
-            echo "All five npm packages report ${VERSION}."
-            echo "The installed house binary reports ${VERSION}."
+            echo "npm serves all five packages at ${VERSION}."
+            echo "The house installed from npm reports ${VERSION}, starts its TUI, and passes the"
+            echo "File Navigator mutation smoke."
           } >> "${GITHUB_STEP_SUMMARY}"

@@ -73,8 +73,9 @@ gh run list --workflow publish.yml --limit 3
 gh run watch <id>
 ```
 
-The green `verify-published` job checks all five npm versions, an installed
-binary, and the four release assets. For manual diagnosis:
+The `publish` job checks the four release assets. The green `verify-published` job
+waits up to 45 minutes for npm to serve all five packages, then installs house from
+npm and starts its TUI. For manual diagnosis:
 
 ```bash
 npm view @carlesandres/house version
@@ -106,6 +107,8 @@ Return:
 | Version PR `check` fails at "Audit shipped dependencies" | A dependency that ships in house has a high or critical advisory; `audit-exceptions.json` is invalid; pnpm's `auditConfig` is set; or the audit could not get or read pnpm's report | Read the annotations. For an advisory, update the dependency on `main` or add a reasoned, dated entry to `apps/house/dev/audit-exceptions.json` on `main`. Otherwise fix the exceptions file, the config, or the script on `main`, or rerun if the registry was down. Never edit the version PR |
 | Publish job blocked by the `npm` environment | Run ref is not a `v*` tag or `main` | Dispatch from the release tag, or from `main` for npm-only recovery |
 | Main package on npm without matching platform packages | Partial publish | Do not announce success; inspect publish job logs |
+| `verify-published` times out waiting for npm while `publish` is green | npm is slow to serve the new versions, not a failed publish | Rerun the failed job once `npm view` shows the version and its tarball downloads |
+| `verify-published` install or start step fails after npm serves every package | The published package is broken | Do not announce; investigate before anything else |
 
 ## Out of scope
 
