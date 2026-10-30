@@ -192,7 +192,7 @@ Releases use [Changesets](https://github.com/changesets/changesets). See `AGENTS
 maintainer runbook, `.github/workflows/release.yml` for the version PR and release automation,
 and `.github/workflows/publish.yml` for publishing and verification.
 
-1. In a PR that users or maintainers will notice, run `bun run changeset` or add
+1. In a PR that changes what users install, run `bun run changeset` or add
    `.changeset/<short-name>.md` by hand:
 
    ```markdown
@@ -204,7 +204,8 @@ and `.github/workflows/publish.yml` for publishing and verification.
    ```
 
    Use `minor` for a new feature, command, install path or platform, and `patch` otherwise.
-   Internal refactors, test-only changes and typo fixes need no changeset. A dependency update
+   Every changeset cuts a new npm release, so CI, workflow, docs, tooling, test-only, refactor
+   and typo changes need no changeset, even when maintainers notice them. A dependency update
    that fixes a user-visible bug or vulnerability does.
 2. After that PR merges, `release.yml` opens or updates the "chore: version packages" PR. It
    moves pending changesets into `apps/house/CHANGELOG.md` and bumps the version in
