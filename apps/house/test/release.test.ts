@@ -35,7 +35,7 @@ describe("release", () => {
 		const release = repoFile(".github/workflows/release.yml")
 		expect(repoFile(".bun-version").trim()).toBe("1.3.14")
 		expect(ci.match(/bun-version-file: \.bun-version/g)).toHaveLength(2)
-		expect(publish.match(/bun-version-file: \.bun-version/g)).toHaveLength(4)
+		expect(publish.match(/bun-version-file: \.bun-version/g)).toHaveLength(3)
 		expect(release).not.toContain("oven-sh/setup-bun@")
 		expect(`${ci}\n${publish}\n${release}`).not.toMatch(/bun-version:|bun install/)
 	})
@@ -99,6 +99,34 @@ describe("release", () => {
 			expect(job).toContain("actions: write")
 			expect(job).not.toMatch(/pnpm|npx|node_modules|setup-node|changesets\/action|actions\/cache/)
 		}
+	})
+
+	test("publishes to npm from a job that runs no repo or dependency code", () => {
+		const publish = repoFile(".github/workflows/publish.yml")
+		const jobsAt = publish.indexOf("\njobs:\n")
+		expect(publish.slice(0, jobsAt)).not.toContain("id-token")
+		const jobs = publish
+			.slice(jobsAt)
+			.split(/^ {2}(?=[a-z-]+:\n)/m)
+			.slice(1)
+		const names = jobs.map((job) => job.slice(0, job.indexOf(":")))
+		expect(names).toEqual(["verify", "build-binary", "publish", "verify-published"])
+		const tokenJobs = jobs.filter((job) => job.includes("id-token: write"))
+		expect(tokenJobs.map((job) => job.slice(0, job.indexOf(":")))).toEqual(["publish"])
+		const publishJob = tokenJobs[0]!
+		expect(publishJob).toContain("needs: [verify, build-binary]")
+		expect(publishJob).not.toMatch(
+			/actions\/checkout|setup-bun|pnpm|\bbunx?\b|node_modules|npx|\bnpm (ci|install|i|run|exec)\b|\bnode (?!-p)/,
+		)
+		expect(publishJob).toContain('contents/apps/house/package.json?ref=${GITHUB_SHA}"')
+		const publishes = publishJob.match(/npm publish.*/g) ?? []
+		expect(publishes).toHaveLength(2)
+		for (const command of publishes) expect(command).toContain("npm publish --ignore-scripts ")
+		const verifyJob = jobs[0]!
+		expect(verifyJob).toContain("name: npm-main\n          path: apps/house/dist/npm/main/")
+		expect(verifyJob.indexOf("run: bun run npm:pack")).toBeLessThan(
+			verifyJob.indexOf("name: npm-main"),
+		)
 	})
 
 	test("names only the published package in changesets", () => {
