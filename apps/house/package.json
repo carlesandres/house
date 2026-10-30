@@ -37,6 +37,7 @@
 		"house": "dist/bin.js"
 	},
 	"scripts": {
+		"audit:shipped": "bun run dev/audit-shipped.ts",
 		"build": "bun run build:cli",
 		"build:cli": "bun run dev/build-cli.ts",
 		"build:npm-main": "bun run dev/build-npm-main.ts",

@@ -192,7 +192,7 @@ Releases use [Changesets](https://github.com/changesets/changesets). See `AGENTS
 maintainer runbook, `.github/workflows/release.yml` for the version PR and release automation,
 and `.github/workflows/publish.yml` for publishing and verification.
 
-1. In a PR that users or maintainers will notice, run `bun run changeset` or add
+1. In a PR that changes what users install, run `bun run changeset` or add
    `.changeset/<short-name>.md` by hand:
 
    ```markdown
@@ -204,7 +204,8 @@ and `.github/workflows/publish.yml` for publishing and verification.
    ```
 
    Use `minor` for a new feature, command, install path or platform, and `patch` otherwise.
-   Internal refactors, test-only changes and typo fixes need no changeset. A dependency update
+   Every changeset cuts a new npm release, so CI, workflow, docs, tooling, test-only, refactor
+   and typo changes need no changeset, even when maintainers notice them. A dependency update
    that fixes a user-visible bug or vulnerability does.
 2. After that PR merges, `release.yml` opens or updates the "chore: version packages" PR. It
    moves pending changesets into `apps/house/CHANGELOG.md` and bumps the version in
@@ -219,6 +220,18 @@ the staged public manifest pins all four platform packages to the release versio
 Publishing uses Trusted Publisher/OIDC, never an `NPM_TOKEN`. The four platform
 packages provide native executables; the main package provides the Node shim and
 bundled application source.
+
+## Dependency audit
+
+`bun run --cwd apps/house audit:shipped` runs `pnpm audit` and fails on high or critical advisories in dependencies that ship in house. A package ships when a workspace package lists it in `dependencies` or `optionalDependencies`, or when its `src/` imports it: the build bundles `src/`, so devDependencies such as `mermaid` ship too. Every workspace package counts as bundled into house. Test-only tooling such as `tuistory` does not count.
+
+CI runs the audit on every pull request and on pushes to `main`, but only the version pull request fails on it; elsewhere it reports warnings. The version pull request's result dates from its last CI run, so rerun that run before merging a version pull request that has waited for days. The audit also reports a problem when it cannot read pnpm's report, so a pnpm upgrade that changes the report format fails the version pull request, and warns on the upgrade's own pull request when the report lists any advisory. Fix an advisory by updating the dependency on `main` (a release newer than a week needs `minimumReleaseAgeExclude` in `pnpm-workspace.yaml`). If no fix exists or the vulnerable code is unreachable, accept it in `apps/house/dev/audit-exceptions.json`, not in pnpm's `auditConfig`, which the audit rejects:
+
+```json
+[{ "advisory": "GHSA-xxxx-xxxx-xxxx", "reason": "Why house is not affected", "expires": "2026-12-31" }]
+```
+
+`expires` is a UTC date at most 90 days away. An expired entry fails the audit, so each accepted advisory is looked at again.
 
 ## License
 

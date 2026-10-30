@@ -103,6 +103,7 @@ Return:
 | Release created but no publish run | Dispatch step failed | Rerun the failed `release.yml` job; it dispatches again while npm lacks the version |
 | Release job: tag "points at …, not the X.Y.Z commit" or "exists without a GitHub Release" | Tag created outside the flow | Stop and report; do not publish from that tag |
 | Version PR `check` fails in `version-pr-scope` | The version PR has more than one commit or touches more than release files | Stop and report; do not merge |
+| Version PR `check` fails at "Audit shipped dependencies" | A dependency that ships in house has a high or critical advisory; `audit-exceptions.json` is invalid; pnpm's `auditConfig` is set; or the audit could not get or read pnpm's report | Read the annotations. For an advisory, update the dependency on `main` or add a reasoned, dated entry to `apps/house/dev/audit-exceptions.json` on `main`. Otherwise fix the exceptions file, the config, or the script on `main`, or rerun if the registry was down. Never edit the version PR |
 | Publish job blocked by the `npm` environment | Run ref is not a `v*` tag or `main` | Dispatch from the release tag, or from `main` for npm-only recovery |
 | Main package on npm without matching platform packages | Partial publish | Do not announce success; inspect publish job logs |
 

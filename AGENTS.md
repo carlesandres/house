@@ -69,8 +69,8 @@ then raises no security alerts.
 ## Release runbook
 
 Use this when publishing a new version. Releases use
-[Changesets](https://github.com/changesets/changesets): each PR that users or maintainers will
-notice adds a changeset file, and the release workflow keeps a "chore: version packages" PR open
+[Changesets](https://github.com/changesets/changesets): each PR that changes what users install
+adds a changeset file, and the release workflow keeps a "chore: version packages" PR open
 on `main`. Merging that PR is the single human approval that creates the GitHub Release and starts
 publishing. Direct commits to `main` are blocked, so even version bumps go through a PR.
 
@@ -106,8 +106,10 @@ Run `bun run changeset`, or write `.changeset/<short-name>.md` by hand:
 
 Use `minor` for a new command, install path, workflow, platform, or visible feature; `major`
 for removing supported behavior once past 1.0; `patch` for everything else that is visible.
-Skip the file for release commits, typos, formatting, internal refactors and test-only
-changes, unless a maintainer would notice. A dependency update that fixes a user-visible bug or a vulnerability
+A changeset always cuts a new npm release, so add one only when the PR changes what users install
+or run: the published code, its dependencies, or how it installs. Skip it for CI, workflows, docs,
+tooling, tests, refactors, formatting and release commits, even when a maintainer would notice
+them. A dependency update that fixes a user-visible bug or a vulnerability
 (including Dependabot PRs) needs a changeset too, or no version PR follows and the fix never
 ships; add it in a small follow-up PR if the update PR has none. CI warns (without failing) when a PR changes shipped
 source and adds no changeset.
@@ -143,7 +145,8 @@ workflows, so `release.yml` dispatches `ci.yml` on the branch, and `ci.yml` repo
 before the new packages exist. `createPublicPackageManifest` pins them to the release version in
 the published main package. Do not hand-edit those pins to an unpublished version.
 
-CI is the release gate: typecheck, lint, format check, all-workspace tests, PTY coverage
+CI is the release gate: typecheck, lint, format check, dependency audit of shipped packages
+(`bun run --cwd apps/house audit:shipped`), all-workspace tests, PTY coverage
 (`bun run test:pty`), GitHub API emulation, standalone build, TUI startup and mutation smoke, npm
 package staging, and Node 26+ install smokes. Use `bun run npm:pack`, not root `npm pack`, to
 inspect the staged public package.
