@@ -112,6 +112,6 @@ Return:
 
 ## Out of scope
 
-- Homebrew tap (still deferred)
+- Homebrew tap (planned in ADR 0004 and #51; not yet part of the release flow)
 - Windows packages
 - Changing Trusted Publisher / OIDC config unless the user asks

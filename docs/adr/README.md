@@ -6,3 +6,4 @@
   `N` with prompt-create-select-edit.
 - [`0003-rename-basename-prompt.md`](./0003-rename-basename-prompt.md) - Basename **Rename** via
   reused `PromptModal` (`shift+r`), independent of Delete.
+- [`0004-homebrew-tap-and-slim-npm-shim.md`](./0004-homebrew-tap-and-slim-npm-shim.md) - Homebrew tap as the main install, npm as a dependency-free shim, verifiable release archives.

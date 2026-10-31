@@ -43,8 +43,7 @@ Out of scope for both: scripts piping markdown through a CLI formatter (glow's o
 
 ### 5.1 v1 — MVP
 
-v1 began as a personal-use MVP to prove the architecture and UX. The current supported distribution is
-the four-target npm binary path and standalone archives; Homebrew remains deferred.
+v1 began as a personal-use MVP to prove the architecture and UX. The current supported distribution is the four-target npm binary path and standalone archives; a Homebrew tap is planned (§10.5, ADR 0004).
 
 v1 ships when:
 
@@ -298,7 +297,7 @@ This component contract intentionally does not expose anchor coordinates or plac
 | Linter             | `oxlint`                                                 | Matches `ghui`.                                                                                                                                                                                                                         |
 | Formatter          | `oxfmt`                                                  | Matches `ghui`.                                                                                                                                                                                                                         |
 | Tests              | `bun test`                                               | Stays in-runtime.                                                                                                                                                                                                                       |
-| Distribution       | Four-target npm platform packages + standalone archives  | Brew tap deferred until the npm binary path is proven in a real release.                                                                                                                                                               |
+| Distribution       | Four-target npm platform packages + standalone archives  | Homebrew tap planned as the main install ([ADR 0004](docs/adr/0004-homebrew-tap-and-slim-npm-shim.md), #51).                                                                                                                            |
 
 **Note on Effect.** The author has not shipped Effect before. Some early code will read like "Effect by way of Promises" until the patterns settle. That is expected and acceptable; refactors-toward-idiomatic-Effect are tracked as work in v1→beta.
 
@@ -434,13 +433,19 @@ A benchmark script checks these against a fixture corpus checked into `apps/hous
 
 ### 10.5 Release / OSS hygiene
 
-- **Distribution path: npm prebuilt binaries.** `@carlesandres/house` exposes a small Node shim; `optionalDependencies` pull the matching platform package (`@carlesandres/house-darwin-arm64`, `house-darwin-x64`, `house-linux-arm64`, `house-linux-x64`). End users on supported platforms do not need Bun on `PATH`. Windows remains out of scope until the Windows support epic is resolved.
-- **Release publish:** `release: published` → `publish.yml` builds each binary on a native runner, publishes the four platform packages, then publishes the main package via Trusted Publisher. GitHub Release also receives `house-*.tar.gz` archives for direct download / future Homebrew.
-- **Homebrew tap** remains deferred ([#51](https://github.com/carlesandres/house/issues/51)).
+- **Distribution model ([ADR 0004](docs/adr/0004-homebrew-tap-and-slim-npm-shim.md)).** One set of native builds (darwin-arm64, darwin-x64, linux-arm64, linux-x64), none needing Bun at runtime. Windows remains out of scope until the Windows support epic is resolved.
+  - **Shipped today:**
+    - **npm.** `@carlesandres/house` is a Node shim; `optionalDependencies` pull the matching platform package (`@carlesandres/house-darwin-arm64`, `house-darwin-x64`, `house-linux-arm64`, `house-linux-x64`). The published main package still declares the app's runtime dependencies and ships a bundle the shim never runs.
+    - **GitHub Release archives.** One `house-*.tar.gz` per target, without published checksums.
+  - **Planned:**
+    - **Homebrew tap ([#51](https://github.com/carlesandres/house/issues/51)).** Will become the main documented install: `brew install carlesandres/tap/house` will install the release archive for the user's platform, pinned by checksum, and a job in `publish.yml` will update the formula after `verify-published` passes. homebrew/core waits for the notability bar ([#342](https://github.com/carlesandres/house/issues/342)).
+    - **Dependency-free npm shim ([#338](https://github.com/carlesandres/house/issues/338)).**
+    - **Checksum manifest and provenance attestations for the archives ([#229](https://github.com/carlesandres/house/issues/229)).**
+- **Release publish:** merging the version PR makes `release.yml` create the GitHub Release and dispatch `publish.yml`, which builds and smoke-tests each binary on a native runner, publishes the four platform packages and then the main package via Trusted Publisher, attaches the archives, and verifies the published install.
 
 - Semver from v0.1.0 onward; pre-v0.1 may break.
 - Changesets: each notable PR adds a `.changeset/*.md` note; `release.yml` keeps a version PR open, and merging it creates the GitHub Release and dispatches `publish.yml`.
-- CI: typecheck + lint + format:check + test + `npm pack --dry-run` on every PR (`ci.yml`).
+- CI (`ci.yml`) on every PR: shipped-dependency audit (blocking on the version PR), typecheck, lint, format:check, unit, preview and PTY tests, GitHub API emulation, a standalone build with preview and File Navigator smokes, npm package staging, and npm install smokes on Node 26.
 - Issue & PR templates; GitHub issues are the public intake, synced with the maintainer's Linear House team, which owns planning.
 - MIT license, single `LICENSE` file.
 
