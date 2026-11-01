@@ -6,8 +6,7 @@
 			"outputs": ["dist/**"]
 		},
 		"build:cli": {
-			"dependsOn": ["^build"],
-			"outputs": ["dist/bin.js", "dist/index.js"]
+			"outputs": ["dist/bin.js"]
 		},
 		"build:npm-main": {
 			"dependsOn": ["build:cli"],

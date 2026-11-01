@@ -25,7 +25,6 @@
 	],
 	"files": [
 		"dist/bin.js",
-		"dist/index.js",
 		"CHANGELOG.md"
 	],
 	"publishConfig": {
@@ -35,6 +34,9 @@
 	},
 	"bin": {
 		"house": "dist/bin.js"
+	},
+	"engines": {
+		"node": ">=22"
 	},
 	"scripts": {
 		"audit:shipped": "bun run dev/audit-shipped.ts",
@@ -49,7 +51,7 @@
 		"format": "oxfmt src/",
 		"format:check": "oxfmt --check src/",
 		"lint": "oxlint --tsconfig tsconfig.json src/ test/ dev/",
-		"npm:pack": "bun run build:npm-main && npm pack --dry-run dist/npm/main",
+		"npm:pack": "bun run build:npm-main && npm pack --dry-run ./dist/npm/main",
 		"record-demo": "bash recordings/record-demo.sh",
 		"repro:pty-codeblocks": "bun run dev/repro-pty-codeblocks.ts",
 		"start": "bun run src/index.tsx",

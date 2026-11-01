@@ -1,56 +1,45 @@
 interface PackageManifest {
 	readonly version?: string
-	readonly dependencies?: Readonly<Record<string, string>>
 	readonly optionalDependencies?: Readonly<Record<string, string>>
 	readonly [key: string]: unknown
 }
 
 const PLATFORM_PACKAGE_PREFIX = "@carlesandres/house-"
 
-const assertNoWorkspaceProtocols = (
-	section: Readonly<Record<string, string>> | undefined,
-): void => {
-	if (!section) return
-	for (const [name, version] of Object.entries(section)) {
-		if (version.startsWith("workspace:")) {
-			throw new Error(`Public package manifest cannot contain workspace dependency ${name}`)
-		}
-	}
-}
-
 /**
- * Clones the app manifest for the published npm package:
- * - drops private workspace-only dependencies (`@house/ui`, `@house/options`)
- * - pins platform optionalDependencies to this package's version so the
- *   published main package always requests matching platform binaries
+ * Clones the app manifest for the published npm package, which ships only the launcher shim
+ * (`dist/bin.js`); the app itself runs from a platform binary package.
+ * - drops `dependencies`, `devDependencies` and `scripts`: the shim imports only Node built-ins,
+ *   so installs fetch nothing but the matching platform binary and run no package scripts
+ * - pins platform optionalDependencies to this package's version so the published main package
+ *   always requests matching platform binaries
  *
- * Monorepo `package.json` may keep platform pins on the last *published*
- * versions so `pnpm install` works before a release is on npm. The public
- * tarball always rewrites those pins to `manifest.version`.
+ * Monorepo `package.json` may keep platform pins on the last *published* versions so
+ * `pnpm install` works before a release is on npm. The public tarball always rewrites those
+ * pins to `manifest.version`.
  */
 export const createPublicPackageManifest = <TManifest extends PackageManifest>(
 	manifest: TManifest,
-): TManifest => {
-	const dependencies = { ...manifest.dependencies }
-	for (const name of Object.keys(dependencies)) {
-		if (name.startsWith("@house/")) delete dependencies[name]
-	}
+): Omit<TManifest, "dependencies" | "devDependencies" | "scripts"> => {
+	const published: Record<string, unknown> = { ...manifest }
+	delete published.dependencies
+	delete published.devDependencies
+	delete published.scripts
 
 	const version = typeof manifest.version === "string" ? manifest.version : undefined
 	const optionalDependencies = { ...manifest.optionalDependencies }
-	if (version !== undefined) {
-		for (const name of Object.keys(optionalDependencies)) {
-			if (name.startsWith(PLATFORM_PACKAGE_PREFIX)) {
-				optionalDependencies[name] = version
-			}
+	for (const name of Object.keys(optionalDependencies)) {
+		if (version !== undefined && name.startsWith(PLATFORM_PACKAGE_PREFIX)) {
+			optionalDependencies[name] = version
+		}
+	}
+	for (const [name, range] of Object.entries(optionalDependencies)) {
+		if (range.startsWith("workspace:")) {
+			throw new Error(`Public package manifest cannot contain workspace dependency ${name}`)
 		}
 	}
 
-	assertNoWorkspaceProtocols(dependencies)
-	assertNoWorkspaceProtocols(optionalDependencies)
-	return {
-		...manifest,
-		...(manifest.dependencies === undefined ? {} : { dependencies }),
-		...(manifest.optionalDependencies === undefined ? {} : { optionalDependencies }),
-	}
+	if (manifest.optionalDependencies !== undefined)
+		published.optionalDependencies = optionalDependencies
+	return published as Omit<TManifest, "dependencies" | "devDependencies" | "scripts">
 }

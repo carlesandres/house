@@ -54,11 +54,6 @@ export const main = (
 	arch = process.arch,
 	libc = detectLinuxLibc(),
 ) => {
-	if (argv.includes("--version") || argv.includes("-v")) {
-		console.log(pkg.version)
-		process.exit(0)
-	}
-
 	if (!hasAccessibleCwd()) {
 		console.error(
 			"house: the current directory no longer exists or is not accessible; cd to another directory and retry",

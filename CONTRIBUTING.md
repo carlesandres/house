@@ -220,8 +220,8 @@ and `.github/workflows/publish.yml` for publishing and verification.
 The version bump deliberately leaves monorepo platform pins on their last-published versions;
 the staged public manifest pins all four platform packages to the release version.
 Publishing uses Trusted Publisher/OIDC, never an `NPM_TOKEN`. The four platform
-packages provide native executables; the main package provides the Node shim and
-bundled application source.
+packages provide native executables; the main package provides only the Node shim, with no
+dependencies.
 
 ## Dependency audit
 
