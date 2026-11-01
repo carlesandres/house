@@ -34,7 +34,7 @@ describe("release", () => {
 		const publish = repoFile(".github/workflows/publish.yml")
 		const release = repoFile(".github/workflows/release.yml")
 		expect(repoFile(".bun-version").trim()).toBe("1.3.14")
-		expect(ci.match(/bun-version-file: \.bun-version/g)).toHaveLength(2)
+		expect(ci.match(/bun-version-file: \.bun-version/g)).toHaveLength(3)
 		expect(publish.match(/bun-version-file: \.bun-version/g)).toHaveLength(3)
 		expect(release).not.toContain("oven-sh/setup-bun@")
 		expect(`${ci}\n${publish}\n${release}`).not.toMatch(/bun-version:|bun install/)
@@ -178,8 +178,46 @@ describe("release", () => {
 		expect(ci).toContain('[ "$(git rev-list --count "${base}..HEAD")" != 1 ]')
 		expect(ci).toContain("needs: version-pr-scope\n    if: ${{ !cancelled() }}")
 		expect(ci).toContain("if: needs.version-pr-scope.result == 'failure'")
-		expect(ci).toContain("needs: [version-pr-scope, check, npm-install-smoke]")
+		expect(ci).toContain("needs: [version-pr-scope, check, npm-install-smoke, target-smoke]")
 		expect(ci).toContain('[ "${SCOPE_RESULT}" = "success" ]')
+	})
+
+	test("smokes the standalone and installed binary on every release target before the version PR merges", () => {
+		type Job = {
+			if?: string
+			"continue-on-error"?: unknown
+			"runs-on": string
+			strategy: { matrix: { include: { target: string; runner: string }[] } }
+			steps: { run?: string; env?: Record<string, string>; "continue-on-error"?: unknown }[]
+		}
+		const ci = Bun.YAML.parse(repoFile(".github/workflows/ci.yml")) as {
+			jobs: Record<string, Job & { needs?: string[] }>
+		}
+		const publish = Bun.YAML.parse(repoFile(".github/workflows/publish.yml")) as {
+			jobs: Record<string, Job>
+		}
+		const smoke = ci.jobs["target-smoke"]!
+		const matrix = smoke.strategy.matrix.include
+		expect(matrix.map((entry) => entry.target)).toEqual(releaseTargets.map((target) => target.id))
+		expect(matrix).toEqual(publish.jobs["build-binary"]!.strategy.matrix.include)
+		expect(smoke["runs-on"]).toBe("${{ matrix.runner }}")
+		expect(smoke.if).toBeUndefined()
+		expect(smoke["continue-on-error"]).toBeUndefined()
+		expect(smoke.steps.filter((step) => "continue-on-error" in step)).toEqual([])
+		expect(smoke.steps.map((step) => step.run).filter(Boolean)).toEqual([
+			"pnpm install --frozen-lockfile",
+			"bun run build:standalone ${{ matrix.target }}",
+			"bun run --cwd apps/house smoke:file-navigator:standalone",
+			"bun run build:npm-packages ${{ matrix.target }}",
+			"bun run build:npm-main",
+			"bun run --cwd apps/house smoke:file-navigator:installed",
+		])
+		const status = ci.jobs["release-status"]!
+		expect(status.needs).toContain("target-smoke")
+		expect(status.steps[0]!.env!.TARGET_RESULT).toBe("${{ needs.target-smoke.result }}")
+		expect(repoFile(".github/workflows/ci.yml")).toContain(
+			'[ "${SCOPE_RESULT}" = "success" ] && [ "${TARGET_RESULT}" = "success" ]',
+		)
 	})
 
 	test("blocks the version pull request on advisories in shipped dependencies", () => {

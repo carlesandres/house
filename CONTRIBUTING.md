@@ -60,6 +60,8 @@ compile a workspace-only substitute. Installed mode packs the staged main and ho
 into a temporary npm prefix unless CI supplies its already-installed `house` path. Artifact execution
 removes Bun from `PATH` and exercises the embedded static Parcel binding through filesystem mutations.
 
+CI runs both File Navigator smokes on every PR on all four release targets (darwin-arm64, darwin-x64, linux-arm64, linux-x64), each on its native runner, and on pushes to `main`. These `smoke <target>` jobs are not required on regular PRs, but keep them green: the version PR cannot merge unless all four pass. The rest of CI, including the preview smokes, runs on linux-x64 only.
+
 Versioned Git hooks live in `.githooks/`. `pnpm install` activates them (the `prepare` script in `package.json` sets `core.hooksPath`). The pre-commit hook runs `format:check` and `lint` so the cheap CI gates don't bite you on PR review. The pre-push hook fetches `origin/main` and blocks stale branch pushes; it is only a safeguard and does not merge, rebase, or run tests. If a hook blocks, prefer fixing the underlying issue over bypassing it.
 
 ## Project layout

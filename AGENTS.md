@@ -151,6 +151,8 @@ CI is the release gate: typecheck, lint, format check, dependency audit of shipp
 package staging, and Node 26+ install smokes. Use `bun run npm:pack`, not root `npm pack`, to
 inspect the staged public package.
 
+Where each target is tested: the suite above, the preview smokes and the Node 26.4.0 and 26 install smokes run on linux-x64. The `target-smoke` jobs build the standalone binary on darwin-arm64, darwin-x64, linux-arm64 and linux-x64, each on its native runner, and run the TUI startup and File Navigator mutation smoke on it and on the installed npm tarballs. They run on every PR, and any failure fails the version PR's `check` status, so it cannot merge. `publish.yml`'s `build-binary` runs the standalone smoke again on the exact binaries it publishes.
+
 ### 3. Approve and watch publishing
 
 Review the version and changelog in the version PR, wait for CI, then merge it. On that push,
