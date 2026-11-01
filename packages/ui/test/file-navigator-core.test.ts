@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, realpath, rm, stat, symlink, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { tmpdir } from "node:os"
 import { FileNavigatorCore } from "../src/file-navigator/core/engine.ts"
@@ -202,6 +202,42 @@ describe("File Navigator core scanner", () => {
 			expect(batches.length).toBeGreaterThan(0)
 		})
 	})
+
+	test("skips a file that disappears before its metadata is read", async () => {
+		await withRoot(async (root) => {
+			await writeFile(join(root, "kept.md"), "kept")
+			await writeFile(join(root, "gone.tmp"), "gone")
+			await writeFile(join(root, "gone-sync.tmp"), "gone")
+			const diagnostics: Error[] = []
+			const result = await scanFiles(root, policy(), {
+				metadata: (path) => {
+					if (path.endsWith("gone-sync.tmp"))
+						throw Object.assign(new Error("ENOENT: gone-sync.tmp"), { code: "ENOENT" })
+					return (async () => {
+						if (path.endsWith("gone.tmp")) await rm(path)
+						const value = await stat(path)
+						return { size: value.size, mtimeMs: value.mtimeMs }
+					})()
+				},
+				onDiagnostic: (error) => diagnostics.push(error),
+			})
+			expect(result.files.map((file) => file.relativePath)).toEqual(["kept.md"])
+			expect(diagnostics).toEqual([])
+			await expect(
+				scanFiles(root, policy(), {
+					metadata: () => {
+						throw Object.assign(new Error("EACCES: denied"), { code: "EACCES" })
+					},
+				}),
+			).rejects.toThrow("EACCES: denied")
+			await expect(
+				scanFiles(root, policy(), {
+					metadata: () =>
+						Promise.reject(Object.assign(new Error("EACCES: denied"), { code: "EACCES" })),
+				}),
+			).rejects.toThrow("EACCES: denied")
+		})
+	})
 })
 
 const record = (relativePath: string, mtimeMs: number): FileRecord =>
@@ -322,6 +358,34 @@ describe("File Navigator synchronization", () => {
 			await expect(core.refresh()).rejects.toThrow()
 			expect(core.files.map((file) => file.relativePath)).toEqual(["valid.md"])
 			expect(diagnostics).toEqual([1])
+			await core.close()
+		})
+	})
+
+	test("removes a known file that vanishes during a refresh without a diagnostic", async () => {
+		await withRoot(async (root) => {
+			await writeFile(join(root, "a.md"), "a")
+			await writeFile(join(root, "b.md"), "b")
+			let vanished = false
+			const diagnostics: string[] = []
+			const core = new FileNavigatorCore({
+				root,
+				policy: policy(),
+				watch: false,
+				metadata: async (path) => {
+					if (vanished && path.endsWith("b.md"))
+						throw Object.assign(new Error("ENOENT: b.md"), { code: "ENOENT" })
+					return { size: 1, mtimeMs: 1 }
+				},
+				onDiagnostic: (entry) => diagnostics.push(entry.error.message),
+			})
+			await core.start()
+			expect(core.files.map((file) => file.relativePath)).toEqual(["a.md", "b.md"])
+			vanished = true
+			await core.refresh()
+			expect(core.files.map((file) => file.relativePath)).toEqual(["a.md"])
+			expect(core.diagnostics).toEqual([])
+			expect(diagnostics).toEqual([])
 			await core.close()
 		})
 	})
