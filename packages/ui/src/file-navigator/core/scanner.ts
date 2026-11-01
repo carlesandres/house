@@ -17,6 +17,9 @@ const slash = (value: string): string => value.split(sep).join("/")
 const compare = (left: string, right: string): number => (left < right ? -1 : left > right ? 1 : 0)
 const missing = (error: unknown): boolean =>
 	typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT"
+const skipMissing = (error: unknown): void => {
+	if (!missing(error)) throw error
+}
 const inside = (root: string, path: string): boolean => {
 	const candidate = relative(root, path)
 	return candidate === "" || (!candidate.startsWith(`..${sep}`) && candidate !== "..")
@@ -154,8 +157,14 @@ export const scanFiles = async (
 				const next = frozenRecord(lexical, root, value)
 				records[index] = inside(root, next.absolutePath) ? next : null
 			}
-			const value = metadata(path)
-			if (thenable(value)) pendingMetadata.push(value.then(apply))
+			let value: FileMetadata | Promise<FileMetadata>
+			try {
+				value = metadata(path)
+			} catch (error) {
+				skipMissing(error)
+				continue
+			}
+			if (thenable(value)) pendingMetadata.push(value.then(apply, skipMissing))
 			else apply(value)
 		}
 		if (pendingMetadata.length) await Promise.all(pendingMetadata)
