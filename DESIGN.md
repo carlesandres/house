@@ -445,7 +445,7 @@ A benchmark script checks these against a fixture corpus checked into `apps/hous
 
 - Semver from v0.1.0 onward; pre-v0.1 may break.
 - Changesets: each notable PR adds a `.changeset/*.md` note; `release.yml` keeps a version PR open, and merging it creates the GitHub Release and dispatches `publish.yml`.
-- CI (`ci.yml`) on every PR: shipped-dependency audit (blocking on the version PR), typecheck, lint, format:check, unit, preview and PTY tests, GitHub API emulation, a standalone build with preview and File Navigator smokes, npm package staging, and npm install smokes on Node 26.
+- CI (`ci.yml`) on every PR: shipped-dependency audit (blocking on the version PR), typecheck, lint, format:check, unit, preview and PTY tests, GitHub API emulation, a standalone build with preview and File Navigator smokes, npm package staging, and npm install smokes on Node 26, all on linux-x64; plus standalone and npm-installed File Navigator smokes on all four targets, each on its native runner, which must pass before the version PR can merge.
 - Issue & PR templates; GitHub issues are the public intake, synced with the maintainer's Linear House team, which owns planning.
 - MIT license, single `LICENSE` file.
 
