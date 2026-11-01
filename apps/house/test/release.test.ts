@@ -80,6 +80,21 @@ describe("release", () => {
 		}
 	})
 
+	test("sets a timeout on every CI, release and publish job", () => {
+		for (const workflow of ["ci.yml", "publish.yml", "release.yml"]) {
+			const { jobs } = Bun.YAML.parse(repoFile(`.github/workflows/${workflow}`)) as {
+				jobs: Record<string, { "timeout-minutes"?: unknown }>
+			}
+			expect(Object.keys(jobs).length).toBeGreaterThan(2)
+			for (const [id, job] of Object.entries(jobs)) {
+				const minutes = job["timeout-minutes"]
+				expect([`${workflow} ${id}`, typeof minutes]).toEqual([`${workflow} ${id}`, "number"])
+				expect(minutes as number).toBeGreaterThan(0)
+				expect(minutes as number).toBeLessThanOrEqual(70)
+			}
+		}
+	})
+
 	test("keeps installed dependencies away from the token that can dispatch publishing", () => {
 		const release = repoFile(".github/workflows/release.yml")
 		const jobs = release
