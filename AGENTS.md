@@ -257,6 +257,8 @@ A `main` dispatch remains available for npm-only recovery after confirming that
 `apps/house/package.json` is still the intended version. It does not attach
 release archives. Tagged asset uploads use `--clobber`.
 
+A tagged publish that fails because of a bug in `publish.yml` itself can't be fixed by a rerun, which reuses the tag's workflow: fix it on `main`, confirm no shipped file changed since the tag, dispatch from `main` to publish npm, and after `verify-published` passes, dispatch from the tag to attach the archives.
+
 If the version PR is missing although changeset files are pending, rerun the latest
 `release.yml` run on `main`.
 
