@@ -197,7 +197,7 @@ jobs:
               continue
             fi
             echo "Publishing ${name}@${version} from ${package_dir}"
-            npm publish --ignore-scripts "${package_dir}"
+            npm publish --ignore-scripts "./${package_dir}"
           done
 
       - name: Publish main npm package
@@ -213,7 +213,7 @@ jobs:
             echo "${name}@${version} already published."
             exit 0
           fi
-          npm publish --ignore-scripts artifacts/npm-main
+          npm publish --ignore-scripts ./artifacts/npm-main
 
       - name: Download release tarballs
         if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/v')

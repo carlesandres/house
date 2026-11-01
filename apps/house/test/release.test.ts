@@ -134,9 +134,11 @@ describe("release", () => {
 			/actions\/checkout|setup-bun|pnpm|\bbunx?\b|node_modules|npx|\bnpm (ci|install|i|run|exec)\b|\bnode (?!-p)/,
 		)
 		expect(publishJob).toContain('contents/apps/house/package.json?ref=${GITHUB_SHA}"')
-		const publishes = publishJob.match(/npm publish.*/g) ?? []
-		expect(publishes).toHaveLength(2)
-		for (const command of publishes) expect(command).toContain("npm publish --ignore-scripts ")
+		// npm reads a path with one slash and no ./ (artifacts/npm-main) as a GitHub owner/repo.
+		expect(publishJob.match(/npm publish.*/g)).toEqual([
+			'npm publish --ignore-scripts "./${package_dir}"',
+			"npm publish --ignore-scripts ./artifacts/npm-main",
+		])
 		const verifyJob = jobs[0]!
 		expect(verifyJob).toContain("name: npm-main\n          path: apps/house/dist/npm/main/")
 		expect(verifyJob.indexOf("run: bun run npm:pack")).toBeLessThan(
