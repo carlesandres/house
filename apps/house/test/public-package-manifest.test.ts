@@ -3,20 +3,32 @@ import pkg from "../package.json" with { type: "json" }
 import { createPublicPackageManifest } from "../dev/public-package-manifest.ts"
 
 describe("createPublicPackageManifest", () => {
-	test("omits browser-only mermaid from published runtime dependencies", () => {
+	test("publishes no runtime dependencies, devDependencies or scripts", () => {
 		const staged = createPublicPackageManifest(pkg)
-		expect("mermaid" in pkg.devDependencies).toBe(true)
-		expect("mermaid" in (staged.dependencies ?? {})).toBe(false)
+		expect(Object.keys(pkg.dependencies)).not.toHaveLength(0)
+		expect("dependencies" in staged).toBe(false)
+		expect("devDependencies" in staged).toBe(false)
+		expect("scripts" in staged).toBe(false)
+		expect(Object.keys(staged.optionalDependencies)).toEqual(Object.keys(pkg.optionalDependencies))
 	})
 
-	test("removes private @house workspace dependencies", () => {
+	test("publishes only the shim and changelog alongside the files npm always includes", () => {
 		const staged = createPublicPackageManifest(pkg)
-		expect(staged.dependencies["@house/ui"]).toBeUndefined()
-		expect(staged.dependencies["@house/options"]).toBeUndefined()
-		for (const [name, version] of Object.entries(pkg.dependencies)) {
-			if (name.startsWith("@house/")) continue
-			expect(Object.entries(staged.dependencies)).toContainEqual([name, version])
-		}
+		expect(staged.files).toEqual(["dist/bin.js", "CHANGELOG.md"])
+		expect(staged.bin).toEqual({ house: "dist/bin.js" })
+		expect(staged.type).toBe("module")
+	})
+
+	test("states the published Node floor in the README and smokes the install on it", async () => {
+		const floor = createPublicPackageManifest(pkg).engines.node
+		const major = /^>=(\d+)$/.exec(floor)?.[1]
+		const readme = await Bun.file(new URL("../../../README.md", import.meta.url)).text()
+		const ci = Bun.YAML.parse(
+			await Bun.file(new URL("../../../.github/workflows/ci.yml", import.meta.url)).text(),
+		) as { jobs: Record<string, { strategy: { matrix: { "node-version": string[] } } }> }
+		expect(major).toBeDefined()
+		expect(readme.includes(`Node/npm (\`${floor}\`)`)).toBe(true)
+		expect(ci.jobs["npm-install-smoke"]!.strategy.matrix["node-version"]).toContain(`${major}.0.0`)
 	})
 
 	test("pins every public optional platform dependency to the package version", () => {
@@ -46,15 +58,6 @@ describe("createPublicPackageManifest", () => {
 			"@carlesandres/house-linux-x64": "1.2.3",
 			"some-other-optional": "2.0.0",
 		})
-	})
-
-	test("rejects unexpected workspace protocols in runtime dependencies", () => {
-		expect(() =>
-			createPublicPackageManifest({
-				name: "example",
-				dependencies: { public: "workspace:^" },
-			}),
-		).toThrow("Public package manifest cannot contain workspace dependency public")
 	})
 
 	test("rejects unexpected workspace protocols in optional dependencies", () => {

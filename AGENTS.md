@@ -84,8 +84,8 @@ Each release publishes:
 
 - `@carlesandres/house-<os>-<arch>` npm packages, each containing one native
   `bin/house` binary.
-- `@carlesandres/house`, the main npm package. This contains the Node shim
-  and bundled application source, but no native executable. Its
+- `@carlesandres/house`, the main npm package. This contains only the Node
+  shim, with no dependencies and no native executable. Its
   `optionalDependencies` select a same-version platform package.
 - GitHub Release assets named `house-*.tar.gz` for the four supported targets.
   npm installs use the optional platform packages.
@@ -148,10 +148,10 @@ the published main package. Do not hand-edit those pins to an unpublished versio
 CI is the release gate: typecheck, lint, format check, dependency audit of shipped packages
 (`bun run --cwd apps/house audit:shipped`), all-workspace tests, PTY coverage
 (`bun run test:pty`), GitHub API emulation, standalone build, TUI startup and mutation smoke, npm
-package staging, and Node 26+ install smokes. Use `bun run npm:pack`, not root `npm pack`, to
+package staging, and Node 22.0.0 and 26 install smokes. Use `bun run npm:pack`, not root `npm pack`, to
 inspect the staged public package.
 
-Where each target is tested: the suite above, the preview smokes and the Node 26.4.0 and 26 install smokes run on linux-x64. The `target-smoke` jobs build the standalone binary on darwin-arm64, darwin-x64, linux-arm64 and linux-x64, each on its native runner, and run the TUI startup and File Navigator mutation smoke on it and on the installed npm tarballs. They run on every PR, and any failure fails the version PR's `check` status, so it cannot merge. `publish.yml`'s `build-binary` runs the standalone smoke again on the exact binaries it publishes.
+Where each target is tested: the suite above, the preview smokes and the Node 22.0.0 and 26 install smokes run on linux-x64. The `target-smoke` jobs build the standalone binary on darwin-arm64, darwin-x64, linux-arm64 and linux-x64, each on its native runner, and run the TUI startup and File Navigator mutation smoke on it and on the installed npm tarballs. They run on every PR, and any failure fails the version PR's `check` status, so it cannot merge. `publish.yml`'s `build-binary` runs the standalone smoke again on the exact binaries it publishes.
 
 ### 3. Approve and watch publishing
 
