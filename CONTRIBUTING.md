@@ -60,7 +60,7 @@ compile a workspace-only substitute. Installed mode packs the staged main and ho
 into a temporary npm prefix unless CI supplies its already-installed `house` path. Artifact execution
 removes Bun from `PATH` and exercises the embedded static Parcel binding through filesystem mutations.
 
-CI runs both File Navigator smokes on every PR on all four release targets (darwin-arm64, darwin-x64, linux-arm64, linux-x64), each on its native runner, and on pushes to `main`. These `smoke <target>` jobs are not required on regular PRs, but keep them green: the version PR cannot merge unless all four pass. The rest of CI, including the preview smokes, runs on linux-x64 only.
+CI runs both File Navigator smokes on every PR on all four release targets (darwin-arm64, darwin-x64, linux-arm64, linux-x64), each on its native runner, and on pushes to `main`. These `smoke <target>` jobs are required on every PR, including the version PR. The rest of CI, including the preview smokes, runs on linux-x64 only.
 
 Versioned Git hooks live in `.githooks/`. `pnpm install` activates them (the `prepare` script in `package.json` sets `core.hooksPath`). The pre-commit hook runs `format:check` and `lint` so the cheap CI gates don't bite you on PR review. The pre-push hook fetches `origin/main` and blocks stale branch pushes; it is only a safeguard and does not merge, rebase, or run tests. If a hook blocks, prefer fixing the underlying issue over bypassing it.
 
@@ -212,9 +212,11 @@ and `.github/workflows/publish.yml` for publishing and verification.
 2. After that PR merges, `release.yml` opens or updates the "chore: version packages" PR. It
    moves pending changesets into `apps/house/CHANGELOG.md` and bumps the version in
    `apps/house/package.json`.
-3. Review and merge the version PR as the single human approval; the merge creates the GitHub
-   Release with that version's changelog section and starts publishing.
-4. Treat the green `verify-published` job as completion: it waits up to 45 minutes for npm to
+3. Review and merge the version PR; the merge creates the GitHub Release with that version's
+   changelog section and starts publishing.
+4. Approve the `npm` environment's deployment when the publish workflow waits for it: its
+   `publish` job can't start until the maintainer does.
+5. Treat the green `verify-published` job as completion: it waits up to 45 minutes for npm to
    serve all five packages, then installs house from npm and starts its TUI.
 
 The version bump deliberately leaves monorepo platform pins on their last-published versions;

@@ -19,9 +19,7 @@ platform packages at the same version.
 
 - Release notes come from `.changeset/*.md` files; never edit
   `apps/house/CHANGELOG.md` or the version in `apps/house/package.json` by hand.
-- Merging the "chore: version packages" PR is the human approval. The release
-  workflow then creates the GitHub Release and dispatches publishing; there is
-  no later environment review.
+- Merging the "chore: version packages" PR starts the release: the release workflow creates the GitHub Release and dispatches publishing. The `publish` job then waits for the maintainer to approve the `npm` environment. Never approve that deployment yourself; ask the user.
 - Never push to or edit the `changeset-release/main` branch; the workflow
   rebuilds it from `main` on every push.
 - Repository Actions settings must allow GitHub Actions to create pull requests.
@@ -55,10 +53,10 @@ gh pr list --head changeset-release/main --state open
 ```
 
 If it is missing while changesets are pending, rerun the latest `release.yml`
-run on `main`. Check its CI (`check` status) and review the version and the new
+run on `main`. Check its CI (all required statuses) and review the version and the new
 `apps/house/CHANGELOG.md` section.
 
-### 3. Approve by merging
+### 3. Merge
 
 Merge only when the user asks. On that push to `main`, `release.yml` should:
 
@@ -72,6 +70,8 @@ Merge only when the user asks. On that push to `main`, `release.yml` should:
 gh run list --workflow publish.yml --limit 3
 gh run watch <id>
 ```
+
+When the run reaches the `publish` job, it waits for approval: tell the user to approve the `npm` deployment.
 
 The `publish` job checks the four release assets. The green `verify-published` job
 waits up to 45 minutes for npm to serve all five packages, then installs house from
@@ -101,12 +101,14 @@ Return:
 |--------|--------------|------------|
 | CI `pnpm install` 404 on `@carlesandres/house-*-0.x.y` | Lockfile/package.json retargeted platform optionalDeps to unpublished version | Keep monorepo platform pins on last-published; public manifest pins to release version |
 | Version PR has no CI | Built-in token did not emit a PR workflow | Rerun `release.yml` on `main`; it dispatches `ci.yml` |
+| Version PR stays `BLOCKED` after CI passes | `RELEASE_REQUIRED_CHECKS` in `ci.yml` no longer matches `main`'s required checks | Fix the list in a PR to `main`; never edit the version PR |
 | Release created but no publish run | Dispatch step failed | Rerun the failed `release.yml` job; it dispatches again while npm lacks the version |
 | Release job: tag "points at …, not the X.Y.Z commit" or "exists without a GitHub Release" | Tag created outside the flow | Stop and report; do not publish from that tag |
 | Version PR `check` fails in `version-pr-scope` | The version PR has more than one commit or touches more than release files | Stop and report; do not merge |
 | Version PR `check` fails at "Audit shipped dependencies" | A dependency that ships in house has a high or critical advisory; `audit-exceptions.json` is invalid; pnpm's `auditConfig` is set; or the audit could not get or read pnpm's report | Read the annotations. For an advisory, update the dependency on `main` or add a reasoned, dated entry to `apps/house/dev/audit-exceptions.json` on `main`. Otherwise fix the exceptions file, the config, or the script on `main`, or rerun if the registry was down. Never edit the version PR |
 | Version PR `check` fails in a `smoke <target>` job | The standalone binary or the installed npm package breaks on that platform | Read that job's log and fix on `main`; never edit the version PR |
-| Publish job blocked by the `npm` environment | Run ref is not a `v*` tag or `main` | Dispatch from the release tag, or from `main` for npm-only recovery |
+| Publish job waiting for review | The maintainer has not approved the `npm` environment yet | Ask the user to approve it; do not dispatch again |
+| Publish job rejected by the `npm` environment | Run ref is not a `v*` tag or `main` | Dispatch from the release tag, or from `main` for npm-only recovery |
 | Main package on npm without matching platform packages | Partial publish | Do not announce success; inspect publish job logs |
 | `verify-published` times out waiting for npm while `publish` is green | npm is slow to serve the new versions, not a failed publish | Rerun the failed job once `npm view` shows the version and its tarball downloads |
 | `verify-published` install or start step fails after npm serves every package | The published package is broken | Do not announce; investigate before anything else |
