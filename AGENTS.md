@@ -17,7 +17,7 @@ Notes for AI assistants (and humans) working in this repo. This file is about *t
 ## Conventions worth knowing
 
 - Format: **tabs, no semicolons, 100-col, trailing commas** (see `.oxfmtrc.json`). `bun run format` writes; CI gates on `format:check`.
-- Merging: `main` only accepts a PR whose branch is up to date with `main`, whose `check` job passes, and whose commits are all signed. A PR that shows `BEHIND` (`gh pr view <n> --json mergeStateStatus`) is not ready: bring it current by merging `origin/main` into the branch with a signed merge commit (not a rebase, which would need a force-push), then wait for CI to pass again. The pre-push hook blocks pushing a stale branch. The version PR (`changeset-release/main`) is the exception: `release.yml` rebuilds it on every push to `main`; never push to it.
+- Merging: `main` only accepts a PR whose branch is up to date with `main`, whose required checks pass (`check`, both `npm-install-smoke` jobs and all four `smoke <target>` jobs), and whose commits are all signed. A PR that shows `BEHIND` (`gh pr view <n> --json mergeStateStatus`) is not ready: bring it current by merging `origin/main` into the branch with a signed merge commit (not a rebase, which would need a force-push), then wait for CI to pass again. The pre-push hook blocks pushing a stale branch. The version PR (`changeset-release/main`) is the exception: `release.yml` rebuilds it on every push to `main`; never push to it.
 - Test root: the root `bunfig.toml` pins `[test] root = "apps/house/test"` so direct `bun test` stays inside the app. `bun run test` runs each workspace package's tests through Turbo.
 - Scalar options (CLI + env + file initial values) are declared in `apps/house/src/config/options.ts` via `@house/options`. Add the spec there and thread layers through `loadConfig`. Browser holds a session for runtime wrap/theme/tone; file-policy keys persist via `persistHouseOption`. Do not add per-key parse helpers for catalog keys. Lists (`show`, `extensions`) stay on Effect Config. The package itself stays agnostic of TOML, Commander, and Effect ConfigProvider.
 - `TODO(revisit: <topic>)` markers in source point back at `DESIGN.md` §12. `grep -r 'TODO(revisit:' apps/house/src/` lists them.
@@ -71,8 +71,8 @@ then raises no security alerts.
 Use this when publishing a new version. Releases use
 [Changesets](https://github.com/changesets/changesets): each PR that changes what users install
 adds a changeset file, and the release workflow keeps a "chore: version packages" PR open
-on `main`. Merging that PR is the single human approval that creates the GitHub Release and starts
-publishing. Direct commits to `main` are blocked, so even version bumps go through a PR.
+on `main`. Merging that PR creates the GitHub Release and starts publishing, and the `publish` job
+then waits for the maintainer to approve the `npm` environment. Direct commits to `main` are blocked, so even version bumps go through a PR.
 
 Maintainer docs live here first. `CONTRIBUTING.md` has the short contributor summary.
 `.changeset/config.json`, `.github/workflows/release.yml`, and `.github/workflows/publish.yml`
@@ -137,8 +137,10 @@ hand: fix wording in the changeset files on `main` instead. CI fails the version
 single commit that only deletes changeset files, edits `apps/house/CHANGELOG.md`, and changes the
 `"version"` line of `apps/house/package.json`. Its commits are created through the
 GitHub API, so GitHub signs them. Pull requests created by the built-in token trigger no
-workflows, so `release.yml` dispatches `ci.yml` on the branch, and `ci.yml` reports the required
-`check` status for it.
+workflows, so `release.yml` dispatches `ci.yml` on the branch, and `ci.yml`'s `release-status` job
+posts a commit status for every required check listed in `RELEASE_REQUIRED_CHECKS`. They pass or
+fail together. If `main`'s required checks change, update that list too, or version PRs stay
+blocked. If a status is red, rerun the failed jobs; closing and reopening the PR won't clear it.
 
 `changeset version` changes only the version in `apps/house/package.json`. Platform
 `optionalDependencies` remain on the last-published version so a frozen monorepo install works
@@ -151,7 +153,7 @@ CI is the release gate: typecheck, lint, format check, dependency audit of shipp
 package staging, and Node 22.0.0 and 26 install smokes. Use `bun run npm:pack`, not root `npm pack`, to
 inspect the staged public package.
 
-Where each target is tested: the suite above, the preview smokes and the Node 22.0.0 and 26 install smokes run on linux-x64. The `target-smoke` jobs build the standalone binary on darwin-arm64, darwin-x64, linux-arm64 and linux-x64, each on its native runner, and run the TUI startup and File Navigator mutation smoke on it and on the installed npm tarballs. They run on every PR, and any failure fails the version PR's `check` status, so it cannot merge. `publish.yml`'s `build-binary` runs the standalone smoke again on the exact binaries it publishes.
+Where each target is tested: the suite above, the preview smokes and the Node 22.0.0 and 26 install smokes run on linux-x64. The `target-smoke` jobs build the standalone binary on darwin-arm64, darwin-x64, linux-arm64 and linux-x64, each on its native runner, and run the TUI startup and File Navigator mutation smoke on it and on the installed npm tarballs. They run on every PR, and any failure fails all of the version PR's required statuses, so it cannot merge. `publish.yml`'s `build-binary` runs the standalone smoke again on the exact binaries it publishes.
 
 ### 3. Approve and watch publishing
 
@@ -189,7 +191,7 @@ earlier jobs built, checks their names and that their version is the one in
 `apps/house/package.json` at the run's commit, and runs `npm publish --ignore-scripts` on them.
 Keep that split when editing the workflow; build steps belong in `verify` or `build-binary`.
 
-The `npm` environment does not require another reviewer click; it allows only
+The `npm` environment requires the maintainer's approval before the publish job starts; it allows only
 `v*` tags and `main` (for recovery dispatch). The platform build jobs do not use
 that environment. Only the final publish job does.
 
@@ -266,7 +268,7 @@ If the version PR is missing although changeset files are pending, rerun the lat
 
 Don't add an `NPM_TOKEN`-style secret. Publish uses Trusted Publisher / OIDC with
 owner `carlesandres`, repo `house`, workflow `publish.yml`, environment `npm`.
-That environment allows only `v*` tags and `main`; it has no required reviewers.
+That environment allows only `v*` tags and `main`; it requires the maintainer's approval.
 All five current package names are configured. Any future package name needs its
 own Trusted Publisher entry before the workflow can publish it.
 

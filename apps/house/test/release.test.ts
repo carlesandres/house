@@ -235,12 +235,55 @@ describe("release", () => {
 		expect(step.slice(0, step.indexOf("run:"))).not.toContain("continue-on-error")
 	})
 
-	test("reports the required check on the workflow-created version pull request", () => {
-		const ci = repoFile(".github/workflows/ci.yml")
-		expect(ci).toContain("statuses: write")
-		expect(ci.match(/context=check/g)).toHaveLength(2)
-		expect(ci.match(/github\.ref_name == 'changeset-release\/main'/g)).toHaveLength(4)
-		expect(ci).not.toContain("release/v")
+	test("reports every required check on the workflow-created version pull request", () => {
+		const source = repoFile(".github/workflows/ci.yml")
+		const ci = Bun.YAML.parse(source) as {
+			env: { RELEASE_REQUIRED_CHECKS: string }
+			jobs: Record<
+				string,
+				{
+					name?: string
+					needs?: string[]
+					permissions?: Record<string, string>
+					steps: { uses?: string; run?: string }[]
+					strategy?: {
+						matrix: { "node-version"?: (string | number)[]; include?: { target: string }[] }
+					}
+				}
+			>
+		}
+		const install = ci.jobs["npm-install-smoke"]!
+		const smoke = ci.jobs["target-smoke"]!
+		expect(ci.jobs.check!.name).toBeUndefined()
+		expect(install.name).toBeUndefined()
+		expect(smoke.name).toBe("smoke ${{ matrix.target }}")
+		expect(ci.env.RELEASE_REQUIRED_CHECKS.split("\n")).toEqual([
+			"check",
+			...install.strategy!.matrix["node-version"]!.map((node) => `npm-install-smoke (${node})`),
+			...smoke.strategy!.matrix.include!.map((entry) => `smoke ${entry.target}`),
+		])
+
+		const statusJobs = ["release-status-pending", "release-status"]
+		for (const name of statusJobs) {
+			const job = ci.jobs[name]!
+			expect(job.permissions).toEqual({ statuses: "write" })
+			expect(job.steps.filter((step) => step.uses)).toEqual([])
+			const run = job.steps.at(-1)!.run!
+			expect(run).toContain('mapfile -t contexts <<< "${RELEASE_REQUIRED_CHECKS}"')
+			expect(run).toContain('-f context="${context}"')
+		}
+		expect(Object.keys(ci.jobs).filter((name) => ci.jobs[name]!.permissions?.statuses)).toEqual(
+			statusJobs,
+		)
+		expect(ci.jobs["release-status"]!.needs).toEqual([
+			"version-pr-scope",
+			"check",
+			"npm-install-smoke",
+			"target-smoke",
+		])
+		expect(source).not.toContain("context=check")
+		expect(source.match(/github\.ref_name == 'changeset-release\/main'/g)).toHaveLength(4)
+		expect(source).not.toContain("release/v")
 	})
 
 	test("writes changelog entries as plain bullets", async () => {
