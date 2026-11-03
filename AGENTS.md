@@ -38,6 +38,8 @@ If `bun dev` and `bun run dev` seem to differ, check for stale watcher processes
 
 For fenced code blocks, rely on opentui's built-in `<markdown>` renderer and keep `apps/house/test/markdown-codeblock.test.tsx` covering tagged fences. Do not replace the markdown renderer or reintroduce a broad `renderNode` override unless DESIGN.md §12's custom-renderer trigger has fired. TUI boot must call `ensureMarkdownHighlighter()` before creating the renderer; do not start the reader if tree-sitter cannot initialize.
 
+Write tests as if the machine is slow. Don't assume a scan, a timer or a render finishes within a set time: wait for the result you're about to assert, with a polling wait such as `waitFor`, and let the wait's limit only decide when to give up. A fixed sleep is allowed only to show that something does *not* happen. `renderer.idle()` covers rendering only, not file-system scans. When reviewing tests, treat a sleep or `idle()` followed by an assertion on scanned or debounced results as a bug, even if the test passes.
+
 ## termctrl
 
 `termctrl` is available locally and is useful for debugging or testing terminal behavior outside the headless render harness. Use it to start persistent PTY sessions, send ordered input, wait for visible text, inspect the current screen, capture logs/screens, and export session videos when reproducing TUI issues or documenting behavior. When you need to explore its capabilities or exact flags, start with `termctrl --help` and then inspect the relevant subcommand help.

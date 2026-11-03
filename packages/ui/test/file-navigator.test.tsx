@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { tmpdir } from "node:os"
 import { testRender } from "@opentui/react/test-utils"
-import { act, createRef, startTransition, Suspense, useState } from "react"
+import { act, createRef, startTransition, Suspense, useLayoutEffect, useState } from "react"
 import { FileNavigator } from "../src/file-navigator/index.ts"
 import type {
 	FileNavigatorHandle,
@@ -72,7 +72,7 @@ const createRoot = async (): Promise<string> => {
 }
 
 const waitFor = async (predicate: () => boolean, label: string): Promise<void> => {
-	for (let i = 0; i < 40; i++) {
+	for (let i = 0; i < 200; i++) {
 		if (predicate()) return
 		await act(async () => {
 			await new Promise<void>((resolve) => setTimeout(resolve, 10))
@@ -101,8 +101,7 @@ describe("public FileNavigator", () => {
 				{ width: 32, height: 8 },
 			)
 		})
-		await act(async () => setup!.renderOnce())
-		await act(async () => new Promise((resolve) => setTimeout(resolve, 25)))
+		await waitFor(() => handle.current!.getSnapshot().files.length === 2, "initial scan")
 		await act(async () => setup!.renderOnce())
 		const snapshot = handle.current!.getSnapshot()
 		expect(snapshot.files.map((file) => file.relativePath)).toEqual(["README.md", "docs/guide.md"])
@@ -138,7 +137,7 @@ describe("public FileNavigator", () => {
 		await act(async () => {
 			setup = await testRender(<Harness />, { width: 32, height: 8 })
 		})
-		await act(async () => setup!.renderer.idle())
+		await waitFor(() => handle.current!.getSnapshot().files.length === 2, "initial scan")
 		expect(handle.current!.getSnapshot().appliedQuery).toBe("guide")
 		await act(async () => setQuery!(""))
 		expect(handle.current!.getSnapshot().appliedQuery).toBe("")
@@ -156,7 +155,8 @@ describe("public FileNavigator", () => {
 	test("keeps debounce deadlines stable and publishes the latest committed callback", async () => {
 		const directory = await createRoot()
 		const handle = createRef<FileNavigatorHandle>()
-		const callbackRevisions: number[] = []
+		const published: { revision: number; committed: number }[] = []
+		let committedRevision = 0
 		let setQuery: ((query: string) => void) | null = null
 		let setRevision: ((revision: number) => void) | null = null
 		const Harness = () => {
@@ -164,6 +164,9 @@ describe("public FileNavigator", () => {
 			const [revision, updateRevision] = useState(0)
 			setQuery = updateQuery
 			setRevision = updateRevision
+			useLayoutEffect(() => {
+				committedRevision = revision
+			})
 			return (
 				<FileNavigator
 					ref={handle}
@@ -171,7 +174,7 @@ describe("public FileNavigator", () => {
 					query={query}
 					watch={false}
 					debounceMs={80}
-					onSelectionChange={() => callbackRevisions.push(revision)}
+					onSelectionChange={() => published.push({ revision, committed: committedRevision })}
 					width={32}
 					height={8}
 					active
@@ -182,25 +185,30 @@ describe("public FileNavigator", () => {
 		await act(async () => {
 			setup = await testRender(<Harness />, { width: 32, height: 8 })
 		})
-		await act(async () => setup!.renderer.idle())
-		callbackRevisions.length = 0
+		await waitFor(() => handle.current!.getSnapshot().files.length === 2, "initial scan")
+		published.length = 0
 		await act(async () => setQuery!("guide"))
-		for (let revision = 1; revision <= 3; revision++) {
+		// Rerenders arrive faster than the debounce, so a deadline that restarted on each one
+		// would never fire. A slow runner can only make this pass more easily, never fail.
+		let latestRevision = 0
+		while (handle.current!.getSnapshot().appliedQuery !== "guide") {
+			if (latestRevision === 200) throw new Error("debounce deadline never fired")
+			const revision = ++latestRevision
 			await act(async () => {
-				await new Promise<void>((resolve) => setTimeout(resolve, 20))
+				await new Promise<void>((resolve) => setTimeout(resolve, 10))
 				setRevision!(revision)
 			})
 		}
-		await act(async () => new Promise<void>((resolve) => setTimeout(resolve, 30)))
-		expect(handle.current!.getSnapshot().appliedQuery).toBe("guide")
-		await waitFor(() => callbackRevisions.at(-1) === 3, "latest committed callback")
+		await waitFor(() => published.length > 0, "selection change")
+		expect(published.at(-1)!.revision).toBe(published.at(-1)!.committed)
 
-		await act(async () => setRevision!(4))
+		const finalRevision = latestRevision + 1
+		await act(async () => setRevision!(finalRevision))
 		await act(async () => {
 			handle.current!.flushQuery("")
 			handle.current!.selectFirst()
 		})
-		expect(callbackRevisions.at(-1)).toBe(4)
+		expect(published.at(-1)!.revision).toBe(finalRevision)
 	})
 
 	test("applies synchronous selection actions against the preceding result", async () => {
@@ -334,7 +342,7 @@ describe("public FileNavigator", () => {
 		await act(async () => {
 			setup = await testRender(<Harness />, { width: 32, height: 8 })
 		})
-		await act(async () => setup!.renderer.idle())
+		await waitFor(() => committedHandle!.getSnapshot().files.length === 2, "committed root files")
 		expect(committedHandle!.getSnapshot().root).toBe(committedRoot)
 
 		act(() => startTransition(() => setCandidate!(true)))
@@ -520,7 +528,7 @@ describe("public FileNavigator", () => {
 				{ width: 32, height: 8 },
 			)
 		})
-		await act(async () => setup!.renderer.idle())
+		await waitFor(() => setup!.captureCharFrame().includes("empty:no-files"), "no-files state")
 		expect(reasons).toContain("scanning")
 		expect(reasons.at(-1)).toBe("no-files")
 		expect(setup!.captureCharFrame()).toContain("empty:no-files")
@@ -547,7 +555,10 @@ describe("public FileNavigator", () => {
 				{ width: 32, height: 8 },
 			)
 		})
-		await act(async () => setup!.renderer.idle())
+		await waitFor(
+			() => setup!.captureCharFrame().includes("empty:no-results:missing"),
+			"no-results state",
+		)
 		expect(contexts.at(-1)).toEqual({ reason: "no-results", query: "missing" })
 		expect(setup!.captureCharFrame()).toContain("empty:no-results:missing")
 	})

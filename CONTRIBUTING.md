@@ -119,7 +119,7 @@ For reader empty-state guidance, test the product contract rather than the exact
 
 Three other primitives from `@opentui/core/testing` are worth knowing:
 
-- `renderer.idle()` — awaits _all_ pending async work (tree-sitter highlights, layout reflow). Prefer this over a loop of `renderOnce()` whenever the component you're testing kicks off async work. `renderOnce()` only flushes one paint; `idle()` waits for the system to actually settle.
+- `renderer.idle()` — awaits the renderer's own pending frames and scheduled work. Prefer this over a loop of `renderOnce()` when you only need rendering to settle. `renderOnce()` only flushes one paint; `idle()` waits for the renderer to stop. It doesn't wait for work the renderer isn't tracking, such as file-system scans, debounce timers or a real tree-sitter highlight: for those, poll for the result you're about to assert.
 - `MockTreeSitterClient` — pass it via the `treeSitterClient` prop on `<markdown>` (or any `<code>`) to take the highlighter out of the loop. `setMockResult({ highlights, warning })` controls what `highlightOnce` returns, and `resolveAllHighlightOnce()` releases pending calls on demand. This is how you simulate "no parser for this language" deterministically. Real wasm loading is flaky in tests; mocking it is not.
 - `TestRecorder` — `new TestRecorder(renderer); recorder.rec(); ... recorder.stop()` captures every intermediate frame. Use it when you suspect a "renders then disappears" race, or when you need to compare frame _N_ vs. frame _N+1_.
 
