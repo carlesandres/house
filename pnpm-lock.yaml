@@ -164,8 +164,8 @@ importers:
         specifier: 5.0.0
         version: 5.0.0
       fuzzysort:
-        specifier: 3.1.0
-        version: 3.1.0
+        specifier: 4.0.2
+        version: 4.0.2
       ignore:
         specifier: 7.0.13
         version: 7.0.13
@@ -1298,8 +1298,8 @@ packages:
     resolution: {integrity: sha512-d+l3qxjSesT4V7v2fh+QnmFnUWv9lSpjarhShNTgBOfA0ttejbQUAlHLitbjkoRiDulW0OPoQPYIGhIC8ohejg==}
     engines: {node: '>=18'}
 
-  fuzzysort@3.1.0:
-    resolution: {integrity: sha512-sR9BNCjBg6LNgwvxlBd0sBABvQitkLzoVY9MYYROQVX/FvfJ4Mai9LsGhDgd8qYdds0bY77VzYd5iuB+v5rwQQ==}
+  fuzzysort@4.0.2:
+    resolution: {integrity: sha512-3c7yD6rK1EXIsqpcu1ZVzXJugODWNMzvUij6yTiziaAHrpNS8kzFOI9mJLE8pmG4K9JOaVgzQRgklfOEk8f4Tg==}
 
   get-east-asian-width@1.6.0:
     resolution: {integrity: sha512-QRbvDIbx6YklUe6RxeTeleMR0yv3cYH6PsPZHcnVn7xv7zO1BHN8r0XETu8n6Ye3Q+ahtSarc3WgtNWmehIBfA==}
@@ -2841,7 +2841,7 @@ snapshots:
     dependencies:
       is-unicode-supported: 2.1.0
 
-  fuzzysort@3.1.0: {}
+  fuzzysort@4.0.2: {}
 
   get-east-asian-width@1.6.0: {}
 
