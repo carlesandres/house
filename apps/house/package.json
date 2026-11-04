@@ -81,7 +81,7 @@
 		"@shikijs/engine-javascript": "4.5.0",
 		"@shikijs/langs": "4.5.0",
 		"@shikijs/themes": "4.5.0",
-		"commander": "^14.0.3",
+		"commander": "^15.0.0",
 		"effect": "4.0.6",
 		"github-slugger": "2.0.0",
 		"ignore": "^7.0.13",
