@@ -374,11 +374,31 @@ describe("checkForUpdate", () => {
 			expect(stats.finished).toBe(true)
 		})
 
-		test("accepts a body exactly at the cap", async () => {
+		/** A valid registry body padded to exactly `bytes` long. */
+		const bodyOfSize = (bytes: number): string => {
 			const padded = validBody.slice(0, -1) + "," + JSON.stringify({ pad: "" }).slice(1)
-			const pad = "x".repeat(MAX_REGISTRY_BODY_BYTES - padded.length)
-			const body = padded.replace('"pad":""', `"pad":"${pad}"`)
-			expect(new TextEncoder().encode(body).byteLength).toBe(MAX_REGISTRY_BODY_BYTES)
+			const body = padded.replace('"pad":""', `"pad":"${"x".repeat(bytes - padded.length)}"`)
+			expect(new TextEncoder().encode(body).byteLength).toBe(bytes)
+			return body
+		}
+
+		test.each([["with"], ["without"]])(
+			"rejects a body one byte over the cap, %s Content-Length",
+			async (mode) => {
+				const body = bodyOfSize(MAX_REGISTRY_BODY_BYTES + 1)
+				const { stream } = trackedStream([body])
+				const headers: Record<string, string> =
+					mode === "with" ? { "content-length": String(body.length) } : {}
+				const { fetch: fakeFetch, calls } = makeFakeFetch({
+					[registryKey]: () => new Response(stream, { status: 200, headers }),
+				})
+				expect(await run(fakeFetch)).toBeNull()
+				expect(calls.map((c) => c.method)).toEqual(["GET"])
+			},
+		)
+
+		test("accepts a body exactly at the cap", async () => {
+			const body = bodyOfSize(MAX_REGISTRY_BODY_BYTES)
 			const { fetch: fakeFetch } = makeFakeFetch({
 				[registryKey]: () =>
 					new Response(body, { status: 200, headers: { "content-length": String(body.length) } }),

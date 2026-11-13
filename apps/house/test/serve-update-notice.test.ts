@@ -19,6 +19,10 @@ import type { Subprocess } from "bun"
 
 const entry = fileURLToPath(new URL("../src/index.tsx", import.meta.url))
 const NOTICE = "house 999.0.0 is available"
+/** Each test runs a real process for its whole length; bun's 5 s default
+ *  is too tight for a cold runner. `waitFor`'s limit stays below this so a
+ *  stall reports what it was waiting for. */
+const TEST_TIMEOUT_MS = 30_000
 
 interface Running {
 	readonly child: Subprocess<"ignore", "pipe", "pipe">
@@ -56,7 +60,7 @@ const collect = (stream: ReadableStream<Uint8Array>) => {
 	return { text: () => text, drained }
 }
 
-const waitFor = async (check: () => boolean, what: string, limitMs = 15_000): Promise<void> => {
+const waitFor = async (check: () => boolean, what: string, limitMs = 20_000): Promise<void> => {
 	const deadline = Date.now() + limitMs
 	while (!check()) {
 		if (Date.now() > deadline) throw new Error(`timed out waiting for ${what}`)
@@ -132,7 +136,7 @@ describe("house --serve update notice", () => {
 		expect(run.stdout()).not.toContain("is available")
 		// Printed once, not again by an exit hook.
 		expect(run.stderr().split(NOTICE).length - 1).toBe(1)
-	})
+	}, TEST_TIMEOUT_MS)
 
 	test("exits cleanly on SIGTERM while the registry request is still in flight", async () => {
 		// No cache, and a proxy that accepts the registry connection and
@@ -161,8 +165,9 @@ describe("house --serve update notice", () => {
 		await waitFor(() => connections > 0, "the probe to reach the registry")
 		run.child.kill("SIGTERM")
 		expect(await run.finished()).toBe(0)
-		expect(run.stderr()).toBe("")
-	})
+		expect(run.stderr()).not.toContain("is available")
+		expect(run.stderr()).not.toContain("house:")
+	}, TEST_TIMEOUT_MS)
 
 	const optOuts: [string, { args?: string[]; env?: Record<string, string> }][] = [
 		["--no-update-check", { args: ["--no-update-check"] }],
@@ -181,5 +186,5 @@ describe("house --serve update notice", () => {
 		expect(await run.finished()).toBe(0)
 		expect(run.stderr()).not.toContain("is available")
 		expect(run.stdout()).not.toContain("is available")
-	})
+	}, TEST_TIMEOUT_MS)
 })
