@@ -186,7 +186,7 @@ DESIGN.md §12 records design choices we deferred and the trigger that should br
 
 ## Update notifier
 
-When a newer published version is available on npm, house prints a one-line notice in the footer at startup and a copy-pasteable upgrade tip on quit. The check is opt-out: set `NO_UPDATE_NOTIFIER=1` (any non-empty, non-`0` value works) or pass `--no-update-check`. The check is also skipped under CI (any non-empty `CI` value).
+When a newer published version is available on npm, house prints a one-line notice in the footer at startup and a copy-pasteable upgrade tip on quit. With `--serve` there is no footer, so the same upgrade tip goes to stderr as soon as the check finishes; stdout only carries the URL lines, and the check never holds up shutdown. The registry response is capped at 64 KB: a larger body is abandoned mid-read and treated as no update. The check is opt-out: set `NO_UPDATE_NOTIFIER=1` (any non-empty, non-`0` value works) or pass `--no-update-check`. The check is also skipped under CI (any non-empty `CI` value).
 
 ## Release flow
 

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { checkForUpdate, TTL_MS } from "../../src/update/check.ts"
+import { checkForUpdate, MAX_REGISTRY_BODY_BYTES, TTL_MS } from "../../src/update/check.ts"
 import type { UpdateCacheRecord } from "../../src/update/cache.ts"
 
 interface FakeFetchCall {
@@ -30,6 +30,46 @@ const makeFakeFetch = (
 	}) as unknown as typeof fetch
 	return { fetch: fakeFetch, calls }
 }
+
+/** A pull-based body that serves `chunks` and then, if `oversized`, 4 MB
+ *  of filler. Tracks how much was pulled and whether the reader cancelled,
+ *  so tests can show a body was abandoned mid-stream. The filler is finite
+ *  so a reader that waits for EOF fails the assertions instead of hanging. */
+const OVERSIZED_FILLER_BYTES = 4 * 1024 * 1024
+const trackedStream = (chunks: readonly string[], { oversized = false } = {}) => {
+	const enc = new TextEncoder()
+	const filler = enc.encode(" ".repeat(16 * 1024))
+	const stats = { pulledBytes: 0, cancelled: false, finished: false }
+	let i = 0
+	let fillerLeft = oversized ? OVERSIZED_FILLER_BYTES : 0
+	const stream = new ReadableStream<Uint8Array>({
+		pull(ctrl) {
+			let next: Uint8Array | null = null
+			if (i < chunks.length) next = enc.encode(chunks[i++]!)
+			else if (fillerLeft > 0) {
+				next = filler
+				fillerLeft -= filler.byteLength
+			}
+			if (next === null) {
+				stats.finished = true
+				ctrl.close()
+				return
+			}
+			stats.pulledBytes += next.byteLength
+			ctrl.enqueue(next)
+		},
+		cancel() {
+			stats.cancelled = true
+		},
+	})
+	return { stream, stats }
+}
+
+const registryKey = "GET https://registry.npmjs.org/@carlesandres/house/latest"
+const validBody = JSON.stringify({
+	version: "0.5.0",
+	dist: { tarball: "https://cdn.example/house-0.5.0.tgz" },
+})
 
 const baseOpts = {
 	pkgName: "@carlesandres/house",
@@ -274,5 +314,77 @@ describe("checkForUpdate", () => {
 		expect(info).toBeNull()
 		// We must not have issued the HEAD against the non-https URL.
 		expect(calls.find((c) => c.method === "HEAD")).toBeUndefined()
+	})
+
+	describe("registry body size cap", () => {
+		const run = (fakeFetch: typeof fetch) =>
+			checkForUpdate({
+				...baseOpts,
+				env: {},
+				fetchImpl: fakeFetch,
+				cacheRead: async () => null,
+				cacheWrite: async () => {},
+			})
+
+		test("rejects an honest oversized Content-Length without reading the body", async () => {
+			const { stream, stats } = trackedStream([], { oversized: true })
+			const { fetch: fakeFetch, calls } = makeFakeFetch({
+				[registryKey]: () =>
+					new Response(stream, {
+						status: 200,
+						headers: { "content-length": String(10 * 1024 * 1024) },
+					}),
+			})
+			expect(await run(fakeFetch)).toBeNull()
+			expect(stats.cancelled).toBe(true)
+			// At most whatever the runtime pre-pulls; never streamed toward the cap.
+			expect(stats.pulledBytes).toBeLessThan(MAX_REGISTRY_BODY_BYTES)
+			expect(calls.map((c) => c.method)).toEqual(["GET"])
+		})
+
+		test("stops reading an oversized body that has no Content-Length", async () => {
+			const { stream, stats } = trackedStream(['{"version":"0.5.0","pad":"'], { oversized: true })
+			const { fetch: fakeFetch, calls } = makeFakeFetch({
+				[registryKey]: () => new Response(stream, { status: 200 }),
+			})
+			expect(await run(fakeFetch)).toBeNull()
+			expect(stats.cancelled).toBe(true)
+			expect(stats.pulledBytes).toBeLessThan(MAX_REGISTRY_BODY_BYTES * 2)
+			expect(calls.map((c) => c.method)).toEqual(["GET"])
+		})
+
+		test("stops reading a body that outgrows an understated Content-Length", async () => {
+			const { stream, stats } = trackedStream(['{"version":"0.5.0","pad":"'], { oversized: true })
+			const { fetch: fakeFetch } = makeFakeFetch({
+				[registryKey]: () =>
+					new Response(stream, { status: 200, headers: { "content-length": "100" } }),
+			})
+			expect(await run(fakeFetch)).toBeNull()
+			expect(stats.cancelled).toBe(true)
+		})
+
+		test("accepts a normal body streamed in chunks without Content-Length", async () => {
+			const half = Math.floor(validBody.length / 2)
+			const { stream, stats } = trackedStream([validBody.slice(0, half), validBody.slice(half)])
+			const { fetch: fakeFetch } = makeFakeFetch({
+				[registryKey]: () => new Response(stream, { status: 200 }),
+				"HEAD https://cdn.example/house-0.5.0.tgz": () => head(200),
+			})
+			expect((await run(fakeFetch))?.latestVersion).toBe("0.5.0")
+			expect(stats.finished).toBe(true)
+		})
+
+		test("accepts a body exactly at the cap", async () => {
+			const padded = validBody.slice(0, -1) + "," + JSON.stringify({ pad: "" }).slice(1)
+			const pad = "x".repeat(MAX_REGISTRY_BODY_BYTES - padded.length)
+			const body = padded.replace('"pad":""', `"pad":"${pad}"`)
+			expect(new TextEncoder().encode(body).byteLength).toBe(MAX_REGISTRY_BODY_BYTES)
+			const { fetch: fakeFetch } = makeFakeFetch({
+				[registryKey]: () =>
+					new Response(body, { status: 200, headers: { "content-length": String(body.length) } }),
+				"HEAD https://cdn.example/house-0.5.0.tgz": () => head(200),
+			})
+			expect((await run(fakeFetch))?.latestVersion).toBe("0.5.0")
+		})
 	})
 })
