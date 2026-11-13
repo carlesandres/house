@@ -25,7 +25,7 @@ import { setActiveTheme } from "./theme/colors.ts"
 import { themeAtom, type ThemeState } from "./theme/atom.ts"
 import { getThemeDefinition } from "./theme/registry.ts"
 import { formatQuitNotice } from "./update/notice.ts"
-import { currentUpdateInfo, startUpdateProbe } from "./update/runtime.ts"
+import { currentUpdateInfo, startUpdateProbe, subscribeUpdateInfo } from "./update/runtime.ts"
 import { useUpdateNotice } from "./update/useUpdateNotice.ts"
 
 /**
@@ -213,6 +213,18 @@ export const resolveInitialQuery = ({
 
 let updateExitHookRegistered = false
 
+/** `--serve` counterpart of the TUI's update notice. There is no footer to
+ *  toast into and the terminal isn't in alternate-screen mode, so print the
+ *  quit-time block to stderr as soon as the probe resolves; it stays in
+ *  scrollback and stdout stays reserved for the URL lines. Fire and forget:
+ *  shutdown calls `process.exit` without waiting on the probe. The
+ *  `NO_UPDATE_NOTIFIER` and `CI` opt-outs apply inside `checkForUpdate`;
+ *  the caller gates on `--no-update-check`. */
+const startServeUpdateNotice = (): void => {
+	subscribeUpdateInfo((info) => process.stderr.write(formatQuitNotice(info)))
+	void startUpdateProbe(pkg.name, pkg.version)
+}
+
 export async function main(argv: readonly string[] = Bun.argv.slice(2)): Promise<void> {
 	const args = parseAndHandleFastExit(argv)
 
@@ -320,6 +332,7 @@ export async function main(argv: readonly string[] = Bun.argv.slice(2)): Promise
 		console.log(`house serving ${target} at ${handle.url}`)
 		console.log("press ctrl+c to stop")
 		openInBrowser(handle.url)
+		if (!args.noUpdateCheck) startServeUpdateNotice()
 		const shutdown = async () => {
 			await handle.stop()
 			process.exit(0)
