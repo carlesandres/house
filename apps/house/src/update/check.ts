@@ -17,6 +17,10 @@ import { readCache, writeCache, type UpdateCacheRecord } from "./cache.ts"
 
 export const TTL_MS = 60 * 60 * 1000
 const FETCH_TIMEOUT_MS = 3000
+/** The npm `/latest` document is single-digit KB in practice. Anything far
+ *  past that is a misbehaving or hostile registry/proxy, and we'd rather
+ *  drop it than buffer and parse it. */
+export const MAX_REGISTRY_BODY_BYTES = 64 * 1024
 const REGISTRY_URL = (pkgName: string) => `https://registry.npmjs.org/${pkgName}/latest`
 
 export interface UpdateInfo {
@@ -76,6 +80,36 @@ const fetchWithTimeout = async <T>(
 	}
 }
 
+/** Read a response body as text, giving up (null) once it passes
+ *  `maxBytes`. An honest `Content-Length` over the cap exits before reading
+ *  anything; otherwise the body is streamed and cancelled as soon as the
+ *  running total passes the cap, so an oversized body is never fully
+ *  buffered. The count is of decoded bytes, so a small compressed body that
+ *  inflates past the cap is rejected too. */
+export const readCappedText = async (res: Response, maxBytes: number): Promise<string | null> => {
+	const declared = Number(res.headers.get("content-length") ?? Number.NaN)
+	if (Number.isFinite(declared) && declared > maxBytes) {
+		await res.body?.cancel().catch(() => {})
+		return null
+	}
+	if (!res.body) return ""
+	const reader = res.body.getReader()
+	const decoder = new TextDecoder()
+	let total = 0
+	let text = ""
+	for (;;) {
+		const { done, value } = await reader.read()
+		if (done) break
+		total += value.byteLength
+		if (total > maxBytes) {
+			await reader.cancel().catch(() => {})
+			return null
+		}
+		text += decoder.decode(value, { stream: true })
+	}
+	return text + decoder.decode()
+}
+
 /**
  * Run the probe and return upgrade info if one applies. `null` covers
  * every "no nag" case: opt-out, recent cache hit on the same version, no
@@ -112,7 +146,9 @@ export const checkForUpdate = async (opts: CheckOptions): Promise<UpdateInfo | n
 			{ headers: { accept: "application/json" } },
 			async (res) => {
 				if (!res.ok) return null
-				const body = (await res.json()) as unknown
+				const text = await readCappedText(res, MAX_REGISTRY_BODY_BYTES)
+				if (text === null) return null
+				const body = JSON.parse(text) as unknown
 				if (typeof body !== "object" || body === null) return null
 				const obj = body as Record<string, unknown>
 				const version = obj.version

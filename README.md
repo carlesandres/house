@@ -84,7 +84,7 @@ not served yet ([#75](https://github.com/carlesandres/house/issues/75)).
 | `--serve`            | off               | Serve the positional path as HTML in the browser (skips TUI)                                                 |
 | `--port <N>`         | OS-assigned       | Port for `--serve`                                                                                           |
 | `--ext <list>`       | none              | Include extra file extensions (comma-separated)                                                               |
-| `--no-update-check`  | off               | Suppress the "newer version available" check (also via `NO_UPDATE_NOTIFIER=1`)                               |
+| `--no-update-check`  | off               | Suppress the "newer version available" check, in the TUI and with `--serve` (also via `NO_UPDATE_NOTIFIER=1`) |
 | `--config-path`      | —                 | Print the resolved config-file path and exit                                                                 |
 | `-h`, `--help`       | —                 | Show help and exit                                                                                           |
 | `-v`, `--version`    | —                 | Print version and exit                                                                                       |

@@ -93,6 +93,12 @@ describe("parseArgv — boolean flags", () => {
 	test("--config-path is parsed as boolean", () => {
 		expect(parseArgv(["--config-path"])).toEqual(args({ configPath: true }))
 	})
+	test("--no-update-check is parsed as noUpdateCheck", () => {
+		expect(parseArgv(["--no-update-check"])).toEqual(args({ noUpdateCheck: true }))
+		expect(parseArgv(["--serve", "a.md", "--no-update-check"])).toEqual(
+			args({ serve: true, path: "a.md", noUpdateCheck: true }),
+		)
+	})
 	test("--wrap and --no-wrap set startup wrap overrides", () => {
 		expect(parseArgv(["--wrap"])).toEqual(args({ wrap: true }))
 		expect(parseArgv(["--no-wrap"])).toEqual(args({ wrap: false }))

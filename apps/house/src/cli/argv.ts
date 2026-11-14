@@ -151,7 +151,8 @@ export const parseArgv = (argv: readonly string[]): ParsedArgs => {
 		help: opts["help"] === true,
 		version: opts["version"] === true,
 		configPath: opts["configPath"] === true,
-		noUpdateCheck: opts["noUpdateCheck"] === true,
+		// Commander stores a `--no-<name>` flag as `<name>: false`.
+		noUpdateCheck: opts["updateCheck"] === false,
 		extensions: stringOrNull(opts["ext"]),
 		show: stringOrNull(opts["show"]),
 		focus: stringOrNull(opts["focus"]),
