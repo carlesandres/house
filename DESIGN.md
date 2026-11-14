@@ -436,10 +436,9 @@ A benchmark script checks these against a fixture corpus checked into `apps/hous
 - **Distribution model ([ADR 0004](docs/adr/0004-homebrew-tap-and-slim-npm-shim.md)).** One set of native builds (darwin-arm64, darwin-x64, linux-arm64, linux-x64), none needing Bun at runtime. Windows remains out of scope until the Windows support epic is resolved.
   - **Shipped today:**
     - **npm.** `@carlesandres/house` is a Node shim; `optionalDependencies` pull the matching platform package (`@carlesandres/house-darwin-arm64`, `house-darwin-x64`, `house-linux-arm64`, `house-linux-x64`). The published main package contains only that shim and has no dependencies.
-    - **GitHub Release archives.** One `house-*.tar.gz` per target, without published checksums.
+    - **GitHub Release archives.** One `house-*.tar.gz` per target, each with a build provenance attestation, plus a `SHA256SUMS` manifest covering all four ([#229](https://github.com/carlesandres/house/issues/229)).
   - **Planned:**
     - **Homebrew tap ([#51](https://github.com/carlesandres/house/issues/51)).** Will become the main documented install: `brew install carlesandres/tap/house` will install the release archive for the user's platform, pinned by checksum, and a job in `publish.yml` will update the formula after `verify-published` passes. homebrew/core waits for the notability bar ([#342](https://github.com/carlesandres/house/issues/342)).
-    - **Checksum manifest and provenance attestations for the archives ([#229](https://github.com/carlesandres/house/issues/229)).**
 - **Release publish:** merging the version PR makes `release.yml` create the GitHub Release and dispatch `publish.yml`, which builds and smoke-tests each binary on a native runner, publishes the four platform packages and then the main package via Trusted Publisher, attaches the archives, and verifies the published install.
 
 - Semver from v0.1.0 onward; pre-v0.1 may break.
