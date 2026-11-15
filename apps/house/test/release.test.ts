@@ -1,10 +1,86 @@
 import { describe, expect, test } from "bun:test"
-import { readdirSync, readFileSync } from "node:fs"
+import { createHash } from "node:crypto"
+import {
+	chmodSync,
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	readdirSync,
+	readFileSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { generateStandaloneHost } from "../dev/standalone-host.ts"
 import { releaseTargets } from "../dev/release-targets.ts"
 
 const repoFile = (path: string) =>
 	readFileSync(new URL(`../../../${path}`, import.meta.url), "utf8")
+
+type WorkflowStep = { name?: string; uses?: string; run?: string; with?: Record<string, string> }
+type WorkflowJob = { permissions?: Record<string, string>; steps: WorkflowStep[] }
+
+const publishJobs = () =>
+	(
+		Bun.YAML.parse(repoFile(".github/workflows/publish.yml")) as {
+			permissions: Record<string, string>
+			jobs: Record<string, WorkflowJob>
+		}
+	).jobs
+
+const stepNamed = (job: WorkflowJob, name: string) => {
+	const step = job.steps.find((candidate) => candidate.name === name)
+	if (!step) throw new Error(`no step named ${name}`)
+	return step
+}
+
+const sha256 = (data: string) => createHash("sha256").update(data).digest("hex")
+
+// The publish job runs the manifest step on GNU coreutils. Elsewhere (macOS), stand in shasum.
+const coreutilsPath = (dir: string) => {
+	const native = Bun.which("sha256sum")
+	if (native && Bun.spawnSync([native, "--version"]).stdout.toString().includes("GNU")) {
+		return process.env.PATH!
+	}
+	const bin = join(dir, "bin")
+	mkdirSync(bin)
+	writeFileSync(join(bin, "sha256sum"), '#!/bin/sh\nexec shasum -a 256 "$@"\n')
+	chmodSync(join(bin, "sha256sum"), 0o755)
+	return `${bin}:${process.env.PATH}`
+}
+
+const runManifestStep = (arrange: (release: string) => void = () => {}) => {
+	const run = stepNamed(publishJobs().publish!, "Build checksum manifest").run!
+	const dir = mkdtempSync(join(tmpdir(), "house-release-manifest-"))
+	try {
+		for (const { id } of releaseTargets) {
+			const artifact = join(dir, "release", `release-tarball-${id}`)
+			mkdirSync(artifact, { recursive: true })
+			writeFileSync(join(artifact, `house-${id}.tar.gz`), `archive ${id}`)
+			writeFileSync(
+				join(artifact, "checksums.txt"),
+				`${sha256(`archive ${id}`)}  house-${id}.tar.gz\n`,
+			)
+		}
+		arrange(join(dir, "release"))
+		const result = Bun.spawnSync(["bash", "-c", run], {
+			cwd: dir,
+			env: { ...process.env, PATH: coreutilsPath(dir) },
+		})
+		const manifest = join(dir, "release-assets", "SHA256SUMS")
+		return {
+			exitCode: result.exitCode,
+			stderr: result.stderr.toString(),
+			manifest: existsSync(manifest) ? readFileSync(manifest, "utf8") : undefined,
+			assets: existsSync(join(dir, "release-assets"))
+				? readdirSync(join(dir, "release-assets")).sort()
+				: [],
+		}
+	} finally {
+		rmSync(dir, { recursive: true, force: true })
+	}
+}
 
 type ChangelogFunctions = {
 	getReleaseLine: (changeset: { summary: string }) => Promise<string>
@@ -128,6 +204,8 @@ describe("release", () => {
 		expect(names).toEqual(["verify", "build-binary", "publish", "verify-published"])
 		const tokenJobs = jobs.filter((job) => job.includes("id-token: write"))
 		expect(tokenJobs.map((job) => job.slice(0, job.indexOf(":")))).toEqual(["publish"])
+		const attestJobs = jobs.filter((job) => job.includes("attestations: write"))
+		expect(attestJobs.map((job) => job.slice(0, job.indexOf(":")))).toEqual(["publish"])
 		const publishJob = tokenJobs[0]!
 		expect(publishJob).toContain("needs: [verify, build-binary]")
 		expect(publishJob).not.toMatch(
@@ -311,5 +389,126 @@ describe("release", () => {
 		const assetsAt = publish.indexOf('gh release view "${GITHUB_REF_NAME}" --json assets')
 		expect(assetsAt).toBeGreaterThan(publish.indexOf("\n  publish:"))
 		expect(assetsAt).toBeLessThan(publish.indexOf("verify-published:"))
+	})
+
+	test("publishes a checksum manifest and provenance for every archive from the publish job", () => {
+		const publish = repoFile(".github/workflows/publish.yml")
+		const jobs = publishJobs()
+		expect(
+			(Bun.YAML.parse(publish) as { permissions: Record<string, string> }).permissions,
+		).toEqual({ contents: "read" })
+		expect(jobs.publish!.permissions).toEqual({
+			attestations: "write",
+			contents: "write",
+			"id-token": "write",
+		})
+		expect(jobs["verify-published"]!.permissions).toEqual({
+			attestations: "read",
+			contents: "read",
+		})
+
+		const upload = stepNamed(jobs["build-binary"]!, "Upload release tarball and its checksum")
+		expect(upload.with!.name).toBe("release-tarball-${{ matrix.target }}")
+		expect(upload.with!.path!.trim().split("\n")).toEqual([
+			"apps/house/dist/release/house-${{ matrix.target }}.tar.gz",
+			"apps/house/dist/release/checksums.txt",
+		])
+
+		const steps = jobs.publish!.steps
+		const at = (predicate: (step: WorkflowStep) => boolean) => {
+			const index = steps.findIndex(predicate)
+			expect(index).toBeGreaterThanOrEqual(0)
+			return index
+		}
+		const download = at((step) => step.with?.pattern === "release-tarball-*")
+		expect(steps[download]!.with!.path).toBe("release")
+		expect(steps[download]!.with).not.toHaveProperty("merge-multiple")
+		const manifest = at((step) => step.name === "Build checksum manifest")
+		const attest = at((step) => step.uses?.startsWith("actions/attest-build-provenance@") ?? false)
+		expect(steps[attest]!.uses).toBe(
+			"actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8",
+		)
+		expect(publish).toContain(
+			"uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2",
+		)
+		expect(steps[attest]!.with).toEqual({ "subject-path": "release-assets/house-*.tar.gz" })
+		const npmPublish = at((step) => step.run?.includes("npm publish") ?? false)
+		const release = at((step) => step.run?.includes("gh release upload") ?? false)
+		expect(download).toBeLessThan(manifest)
+		expect(manifest).toBeLessThan(attest)
+		expect(attest).toBeLessThan(npmPublish)
+		expect(npmPublish).toBeLessThan(release)
+		expect(steps[release]!.run).toContain("release-assets/house-*.tar.gz")
+		expect(steps[release]!.run).toContain("release-assets/SHA256SUMS --clobber")
+		const assets = stepNamed(jobs.publish!, "Verify GitHub Release assets").run!
+		expect(assets).toContain("grep -Fxq SHA256SUMS")
+		expect(assets).toContain("-eq 5")
+		expect(assets).toContain("cmp - release-assets/SHA256SUMS")
+
+		const verify = stepNamed(jobs["verify-published"]!, "Verify release checksums and provenance")
+		expect(verify.run).toContain("sha256sum --check --strict SHA256SUMS")
+		expect(verify.run).toContain('test "$(wc -l < SHA256SUMS)" -eq 4')
+		expect(verify.run).toContain(
+			'gh attestation verify "house-${target}.tar.gz" --repo carlesandres/house \\\n' +
+				"    --signer-workflow carlesandres/house/.github/workflows/publish.yml",
+		)
+		expect(verify.run).toContain(
+			'gh release download "${GITHUB_REF_NAME}" --dir "${dir}" \\\n' +
+				"  --pattern 'house-*.tar.gz' --pattern SHA256SUMS",
+		)
+		// A main recovery dispatch publishes npm only, so every archive step must skip it.
+		const tagOnly = "github.event_name == 'release' || startsWith(github.ref, 'refs/tags/v')"
+		for (const step of [download, manifest, attest, release].map((index) => steps[index]!)) {
+			expect({ step: step.name, if: (step as { if?: string }).if }).toEqual({
+				step: step.name,
+				if: tagOnly,
+			})
+		}
+		expect((verify as { if?: string }).if).toBe(tagOnly)
+		expect(verify.run).toContain("for target in darwin-arm64 darwin-x64 linux-arm64 linux-x64")
+		const wait = stepNamed(jobs["verify-published"]!, "Wait for npm to serve all packages").run!
+		expect(wait).toContain("dist.attestations.provenance.predicateType")
+		expect(wait).toContain('!= "https://slsa.dev/provenance/v1"')
+	})
+
+	test("combines the per-target checksums into one manifest in target order", () => {
+		const result = runManifestStep()
+		expect(result.stderr).not.toContain("must")
+		expect(result.exitCode).toBe(0)
+		expect(result.manifest).toBe(
+			releaseTargets.map(({ id }) => `${sha256(`archive ${id}`)}  house-${id}.tar.gz\n`).join(""),
+		)
+		expect(result.assets).toEqual(
+			[...releaseTargets.map(({ id }) => `house-${id}.tar.gz`), "SHA256SUMS"].sort(),
+		)
+	})
+
+	test("refuses to build the manifest from a missing, duplicated or corrupt archive", () => {
+		const target = (release: string, id: string) => join(release, `release-tarball-${id}`)
+		const cases: Record<string, (release: string) => void> = {
+			"missing artifact": (release) => rmSync(target(release, "linux-arm64"), { recursive: true }),
+			"missing archive": (release) =>
+				rmSync(join(target(release, "darwin-x64"), "house-darwin-x64.tar.gz")),
+			"missing checksum": (release) => rmSync(join(target(release, "darwin-x64"), "checksums.txt")),
+			"extra artifact": (release) => mkdirSync(join(release, "release-tarball-linux-x64-musl")),
+			"extra file": (release) =>
+				writeFileSync(join(target(release, "linux-x64"), "house-darwin-x64.tar.gz"), "x"),
+			"duplicated entry": (release) => {
+				const file = join(target(release, "linux-x64"), "checksums.txt")
+				writeFileSync(file, readFileSync(file, "utf8").repeat(2))
+			},
+			"entry for another archive": (release) =>
+				writeFileSync(
+					join(target(release, "linux-x64"), "checksums.txt"),
+					`${sha256("archive linux-x64")}  house-linux-arm64.tar.gz\n`,
+				),
+			"checksum mismatch": (release) =>
+				writeFileSync(join(target(release, "darwin-arm64"), "house-darwin-arm64.tar.gz"), "evil"),
+		}
+		for (const [name, arrange] of Object.entries(cases)) {
+			const result = runManifestStep(arrange)
+			expect({ name, failed: result.exitCode !== 0 }).toEqual({ name, failed: true })
+			expect({ name, manifest: result.manifest }).toEqual({ name, manifest: undefined })
+		}
 	})
 })

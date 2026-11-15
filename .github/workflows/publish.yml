@@ -125,11 +125,13 @@ jobs:
           path: apps/house/dist/npm/binaries/${{ matrix.target }}/
           if-no-files-found: error
 
-      - name: Upload release tarball
+      - name: Upload release tarball and its checksum
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-tarball-${{ matrix.target }}
-          path: apps/house/dist/release/house-${{ matrix.target }}.tar.gz
+          path: |
+            apps/house/dist/release/house-${{ matrix.target }}.tar.gz
+            apps/house/dist/release/checksums.txt
           if-no-files-found: error
 
   # This job can mint a token npm accepts for publishing, so it checks out no code, installs no
@@ -140,6 +142,7 @@ jobs:
     timeout-minutes: 10
     environment: npm
     permissions:
+      attestations: write
       contents: write
       id-token: write
     steps:
@@ -173,6 +176,63 @@ jobs:
         run: |
           version="$(node -p "require('./artifacts/npm-main/package.json').version")"
           test "v${version}" = "${GITHUB_REF_NAME}"
+
+      # Checks the release archives before anything is published, so a missing, duplicated or
+      # corrupt archive fails the run before npm or the GitHub Release sees it.
+      - name: Download release tarballs
+        if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/v')
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: release-tarball-*
+          path: release
+
+      - name: Build checksum manifest
+        if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/v')
+        run: |
+          set -euo pipefail
+          targets=(darwin-arm64 darwin-x64 linux-arm64 linux-x64)
+          shopt -s nullglob
+          downloaded=(release/release-tarball-*)
+          if [ "${#downloaded[@]}" -ne "${#targets[@]}" ]; then
+            echo "Expected ${#targets[@]} release tarball artifacts, found: ${downloaded[*]}" >&2
+            exit 1
+          fi
+          mkdir release-assets
+          manifest=""
+          for target in "${targets[@]}"; do
+            dir="release/release-tarball-${target}"
+            archive="house-${target}.tar.gz"
+            if [ ! -d "${dir}" ]; then
+              echo "Missing release tarball artifact for ${target}" >&2
+              exit 1
+            fi
+            contents="$(ls -A "${dir}" | LC_ALL=C sort | tr '\n' ' ')"
+            if [ "${contents}" != "checksums.txt ${archive} " ]; then
+              echo "${dir} must hold exactly ${archive} and checksums.txt" >&2
+              exit 1
+            fi
+            entry="$(cat "${dir}/checksums.txt")"
+            if [ "$(wc -l < "${dir}/checksums.txt")" -ne 1 ] ||
+              ! grep -Eqx "[0-9a-f]{64}  ${archive}" <<< "${entry}"; then
+              echo "${dir}/checksums.txt must hold exactly one entry, for ${archive}" >&2
+              exit 1
+            fi
+            actual="$(sha256sum "${dir}/${archive}" | cut -d ' ' -f 1)"
+            if [ "${entry%%  *}" != "${actual}" ]; then
+              echo "${archive} hashes to ${actual}, not its recorded ${entry%%  *}" >&2
+              exit 1
+            fi
+            cp "${dir}/${archive}" release-assets/
+            manifest+="${entry}"$'\n'
+          done
+          printf '%s' "${manifest}" > release-assets/SHA256SUMS
+          (cd release-assets && sha256sum --check --strict SHA256SUMS)
+
+      - name: Attest release archive provenance
+        if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/v')
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: release-assets/house-*.tar.gz
 
       - name: Restore binary permissions
         run: chmod 755 artifacts/npm-binary-*/bin/house
@@ -215,28 +275,15 @@ jobs:
           fi
           npm publish --ignore-scripts ./artifacts/npm-main
 
-      - name: Download release tarballs
-        if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/v')
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          pattern: release-tarball-*
-          path: release
-          merge-multiple: true
-
-      - name: Attach standalone binaries to GitHub Release
+      - name: Attach standalone binaries and checksums to GitHub Release
         if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/v')
         env:
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          shopt -s nullglob
-          assets=(release/house-*.tar.gz)
-          if [ "${#assets[@]}" -eq 0 ]; then
-            echo "No release tarballs found under release" >&2
-            exit 1
-          fi
-          gh release upload "${GITHUB_REF_NAME}" "${assets[@]}" --clobber
+          gh release upload "${GITHUB_REF_NAME}" release-assets/house-*.tar.gz \
+            release-assets/SHA256SUMS --clobber
 
       - name: Verify GitHub Release assets
         if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/v')
@@ -249,7 +296,10 @@ jobs:
           for target in darwin-arm64 darwin-x64 linux-arm64 linux-x64; do
             grep -Fxq "house-${target}.tar.gz" <<< "${assets}"
           done
-          test "$(wc -l <<< "${assets}" | tr -d ' ')" -eq 4
+          grep -Fxq SHA256SUMS <<< "${assets}"
+          test "$(wc -l <<< "${assets}" | tr -d ' ')" -eq 5
+          gh release download "${GITHUB_REF_NAME}" --pattern SHA256SUMS --output - |
+            cmp - release-assets/SHA256SUMS
 
   # npm accepts a publish long before it serves it: the main package's tarball has taken up to 23
   # minutes to download. A green publish job means npm accepted every package; this job confirms users can
@@ -259,6 +309,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 70
     permissions:
+      attestations: read
       contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -312,6 +363,14 @@ jobs:
             sleep "${delay}"
             delay=$((delay * 2 > 120 ? 120 : delay * 2))
           done
+          for package in "${packages[@]}"; do
+            predicate="$(npm view "${package}@${version}" \
+              dist.attestations.provenance.predicateType)"
+            if [ "${predicate}" != "https://slsa.dev/provenance/v1" ]; then
+              echo "npm shows no provenance for ${package}@${version}" >&2
+              exit 1
+            fi
+          done
           echo "version=${version}" >> "${GITHUB_OUTPUT}"
 
       - name: Install the published package
@@ -334,6 +393,24 @@ jobs:
           HOUSE_FILE_NAVIGATOR_SMOKE_BINARY: ${{ runner.temp }}/house-release-smoke/bin/house
         run: bun run --cwd apps/house smoke:file-navigator:installed
 
+      - name: Verify release checksums and provenance
+        if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          dir="${RUNNER_TEMP}/release-assets"
+          gh release download "${GITHUB_REF_NAME}" --dir "${dir}" \
+            --pattern 'house-*.tar.gz' --pattern SHA256SUMS
+          cd "${dir}"
+          test "$(wc -l < SHA256SUMS)" -eq 4
+          sha256sum --check --strict SHA256SUMS
+          for target in darwin-arm64 darwin-x64 linux-arm64 linux-x64; do
+            gh attestation verify "house-${target}.tar.gz" --repo carlesandres/house \
+              --signer-workflow carlesandres/house/.github/workflows/publish.yml
+          done
+
       - name: Summarize verified release
         env:
           VERSION: ${{ steps.npm.outputs.version }}
@@ -341,7 +418,7 @@ jobs:
           {
             echo "## v${VERSION} verified"
             echo
-            echo "npm serves all five packages at ${VERSION}."
+            echo "npm serves all five packages at ${VERSION}, each with provenance."
             echo "The house installed from npm reports ${VERSION}, starts its TUI, and passes the"
             echo "File Navigator mutation smoke."
           } >> "${GITHUB_STEP_SUMMARY}"

@@ -89,8 +89,10 @@ Each release publishes:
 - `@carlesandres/house`, the main npm package. This contains only the Node
   shim, with no dependencies and no native executable. Its
   `optionalDependencies` select a same-version platform package.
-- GitHub Release assets named `house-*.tar.gz` for the four supported targets.
-  npm installs use the optional platform packages.
+- GitHub Release assets named `house-*.tar.gz` for the four supported targets, each with a
+  build provenance attestation, plus a `SHA256SUMS` manifest with one entry per archive. npm
+  installs use the optional platform packages.
+- npm provenance for all five packages, produced by Trusted Publishing.
 
 Linux packages target glibc. Windows remains unsupported.
 
@@ -176,11 +178,17 @@ The publish workflow:
 1. runs typecheck, GitHub API emulation, `bun run npm:pack`, and tag/version checks, and
    uploads the staged main package as an artifact,
 2. builds each native target, runs its TUI startup and File Navigator mutation smoke, and
-   uploads its platform package and archive,
-3. publishes the platform packages before the main package,
-4. uploads the four standalone archives to the GitHub Release and checks they are all there, and
-5. in `verify-published`, waits for npm to serve all five packages, installs the main package
-   from npm, and starts its TUI.
+   uploads its platform package and its archive with the archive's `checksums.txt`,
+3. for a tagged release, checks each target's archive against its `checksums.txt`, combines the
+   four entries into `SHA256SUMS` in target order, and attests each archive's build provenance,
+   failing before anything is published if an archive is missing, duplicated or mismatched,
+4. publishes the platform packages before the main package,
+5. uploads the four standalone archives and `SHA256SUMS` to the GitHub Release and checks they
+   are all there, and
+6. in `verify-published`, waits for npm to serve all five packages and checks each shows
+   provenance, installs the main package from npm, starts its TUI, and for a tagged release
+   downloads the archives, checks them against `SHA256SUMS` and runs `gh attestation verify` on
+   each.
 
 A green `publish` job means npm accepted every package and the archives are attached. npm
 then takes a while to serve them (the main package's tarball has taken up to 23 minutes), so
@@ -191,6 +199,8 @@ Only the `publish` job has `id-token: write`, so only it can get a token npm acc
 out no code, installs no dependencies and runs no repo scripts: it downloads the packages the
 earlier jobs built, checks their names and that their version is the one in
 `apps/house/package.json` at the run's commit, and runs `npm publish --ignore-scripts` on them.
+It builds `SHA256SUMS` with shell and coreutils only, and attests with the official
+`actions/attest-build-provenance`, which is why it alone also has `attestations: write`.
 Keep that split when editing the workflow; build steps belong in `verify` or `build-binary`.
 
 The `npm` environment requires the maintainer's approval before the publish job starts; it allows only
@@ -231,7 +241,16 @@ gh release view vX.Y.Z --json assets
 ```
 
 All npm versions should be `X.Y.Z`. The GitHub Release should list four
-`house-*.tar.gz` assets.
+`house-*.tar.gz` assets and `SHA256SUMS`. To check them by hand:
+
+```bash
+gh release download vX.Y.Z --dir release-check --pattern 'house-*.tar.gz' --pattern SHA256SUMS
+cd release-check
+sha256sum --check --strict SHA256SUMS   # macOS: shasum -a 256 --check --strict SHA256SUMS
+for target in darwin-arm64 darwin-x64 linux-arm64 linux-x64; do
+  gh attestation verify "house-${target}.tar.gz" --repo carlesandres/house
+done
+```
 
 To repeat the install smoke manually:
 

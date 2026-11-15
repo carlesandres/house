@@ -217,7 +217,8 @@ and `.github/workflows/publish.yml` for publishing and verification.
 4. Approve the `npm` environment's deployment when the publish workflow waits for it: its
    `publish` job can't start until the maintainer does.
 5. Treat the green `verify-published` job as completion: it waits up to 45 minutes for npm to
-   serve all five packages, then installs house from npm and starts its TUI.
+   serve all five packages, then installs house from npm and starts its TUI, and checks the
+   release archives against the `SHA256SUMS` asset and their provenance attestations.
 
 The version bump deliberately leaves monorepo platform pins on their last-published versions;
 the staged public manifest pins all four platform packages to the release version.

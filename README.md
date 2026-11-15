@@ -31,6 +31,19 @@ npm install -g @carlesandres/house
 bun add -g @carlesandres/house
 ```
 
+### Standalone archives
+
+Each [GitHub Release](https://github.com/carlesandres/house/releases) also has a
+`house-<os>-<arch>.tar.gz` archive per platform, holding the `house` binary, and a `SHA256SUMS`
+manifest. Download your archive and `SHA256SUMS` into one directory, then check the archive
+against the manifest and, with the [GitHub CLI](https://cli.github.com/) logged in, confirm
+this repository's release workflow built it:
+
+```bash
+sha256sum --check --ignore-missing SHA256SUMS   # macOS: shasum -a 256 --check --ignore-missing SHA256SUMS
+gh attestation verify house-darwin-arm64.tar.gz --repo carlesandres/house
+```
+
 ## Upgrade
 
 ```bash
