@@ -1,5 +1,5 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test"
-import { existsSync, mkdirSync, mkdtempSync, unlinkSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, mkdtempSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs"
 import { rm, stat, utimes, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
@@ -1819,6 +1819,50 @@ describe("Browser — reader [ / ] navigates files", () => {
 		})
 		await stepFrame(setup!.renderOnce)
 		expect(readerTitleContains(setup!.captureCharFrame(), "b.md")).toBe(true)
+	})
+})
+
+describe("Browser — open in browser (shift+o)", () => {
+	test("shift+o retargets the running preview to the selected file", async () => {
+		const root = makeFiles(["a.md", "b.md"])
+		const setTargets: string[] = []
+		let current = join(root, "b.md")
+		const preview = {
+			url: "http://localhost:0",
+			setTarget: (path: string) => {
+				setTargets.push(path)
+				current = path
+			},
+			currentTarget: () => current,
+			stop: async () => {},
+		}
+		await act(async () => {
+			setup = await renderBrowser(
+				<Browser
+					root={root}
+					readFile={makeReader({ "a.md": "# A", "b.md": "# B" })}
+					order="tree"
+					initialPreviewServer={preview}
+					onQuit={() => {}}
+				/>,
+				VIEWPORT,
+			)
+		})
+		await waitForFrame((frame) => readerTitleContains(frame, "a.md"))
+		// No launcher on PATH, so openInBrowser's spawn fails quietly instead of opening a browser.
+		const savedPath = process.env.PATH
+		process.env.PATH = mkdtempSync(join(tmpdir(), "house-no-launcher-"))
+		fixtureRoots.push(process.env.PATH)
+		try {
+			await act(async () => {
+				setup!.mockInput.pressKey("o", { shift: true })
+			})
+		} finally {
+			process.env.PATH = savedPath
+		}
+		const frame = await waitForFrameContaining("serving a.md at http://localhost:0")
+		expect(setTargets).toEqual([join(root, "a.md")])
+		expect(frame).toContain("serving a.md at http://localhost:0")
 	})
 })
 
@@ -4792,6 +4836,76 @@ describe("Browser — updateNotice", () => {
 		const frame = setup!.captureCharFrame()
 		expect(frame).not.toContain(TEXT)
 		expect(frame).toContain("q quit")
+	})
+})
+
+describe("Browser — discovery policy (DESIGN §6)", () => {
+	const renderShell = async (root: string, initialShow: ("hidden" | "gitignored")[]) => {
+		await act(async () => {
+			setup = await testRender(
+				<RegistryProvider>
+					<DiscoverShell
+						target={root}
+						initialQuery=""
+						initialShow={initialShow}
+						extensions={[]}
+						wrapWidth={80}
+						initialWrap={false}
+						initialAutoHideSidebar={false}
+						startupFocus="sidebar"
+						order="tree"
+					/>
+				</RegistryProvider>,
+				VIEWPORT,
+			)
+		})
+	}
+
+	const makePolicyFixture = (): string => {
+		const outside = makeFiles(["outside.md"])
+		const root = makeFiles([
+			"visible.md",
+			".hidden.md",
+			".notes/secret.md",
+			"node_modules/pkg.md",
+			"gitignored.md",
+			"sub/kept.md",
+			"sub/dropped.md",
+		])
+		writeFileSync(join(root, ".gitignore"), "gitignored.md\n")
+		writeFileSync(join(root, "sub", ".gitignore"), "dropped.md\n")
+		symlinkSync(outside, join(root, "linked"), "dir")
+		symlinkSync(join(outside, "outside.md"), join(root, "alias.md"))
+		return root
+	}
+
+	test("skips hidden, gitignored, hard-skipped and symlinked entries by default", async () => {
+		await renderShell(makePolicyFixture(), [])
+		const frame = await waitForFrame((candidate) => candidate.includes("kept.md"))
+		expect(frame).toContain("visible.md")
+		expect(frame).toContain("kept.md")
+		for (const skipped of [
+			".hidden.md",
+			"secret.md",
+			"pkg.md",
+			"gitignored.md",
+			"dropped.md",
+			"outside.md",
+			"alias.md",
+		]) {
+			expect(frame).not.toContain(skipped)
+		}
+	})
+
+	test("--show reveals hidden and gitignored files but never hard skips or symlinks", async () => {
+		await renderShell(makePolicyFixture(), ["hidden", "gitignored"])
+		const frame = await waitForFrame((candidate) => candidate.includes("kept.md"))
+		for (const shown of [".hidden.md", "secret.md", "gitignored.md", "dropped.md"]) {
+			expect(frame).toContain(shown)
+		}
+		for (const skipped of ["pkg.md", "outside.md", "alias.md"]) {
+			expect(frame).not.toContain(skipped)
+		}
 	})
 })
 

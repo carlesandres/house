@@ -26,7 +26,7 @@ These are hard non-goals. We will say no to PRs that pull in this direction.
 - **Not an exporter.** No HTML, PDF, or image output.
 - **Not a cloud / sync service.** Glow had a stash feature; it was removed. We will not reintroduce that class of feature.
 - **Not a general-purpose pager.** We will not try to replace `less`. Piping arbitrary text into `house` is out of scope.
-- **Not a custom-stylesheet platform** in v1. No JSON/YAML theme files. Themes are TypeScript objects shipped with the binary.
+- **Not a custom-stylesheet platform** in v1. No user-supplied JSON/YAML theme files. Themes are bundled opencode-derived definitions shipped with the binary.
 - **No custom TUI markdown parser.** v1 uses opentui's built-in `<markdown>` renderer. The separate
   browser preview uses Marked behind an extractable rendering API. We reserve the right to swap the
   TUI to a custom remark/mdast pipeline only if a concrete need forces it.
@@ -43,7 +43,7 @@ Out of scope for both: scripts piping markdown through a CLI formatter (glow's o
 
 ### 5.1 v1 — MVP
 
-v1 began as a personal-use MVP to prove the architecture and UX. The current supported distribution is the four-target npm binary path and standalone archives; a Homebrew tap is planned (§10.5, ADR 0004).
+v1 began as a personal-use MVP to prove the architecture and UX. The current supported distribution, and the one the public launch ships with, is the four-target npm binary path and the GitHub Release archives; the Homebrew tap follows after launch (§10.5, ADR 0004).
 
 v1 ships when:
 
@@ -73,9 +73,9 @@ Key reservations for deferred features (search, navigation history, bookmarks, e
 
 ### 5.4 Current focus
 
-The public launch scope is deliberately narrow: daily-driver essentials only. An item belongs there only if its absence is a clear blocker or papercut for regular use; those issues sit in the Linear "Public launch" project (not public; each is mirrored to a GitHub issue).
+house is publicly launched. It installs from npm and from the GitHub Release archives (§10.5). The launch scope was deliberately narrow, daily-driver essentials only, and gate gaps that were not fixed before launch are tracked as their own issues or waived here in §10.
 
-The top follow-up is File Navigator startup performance on large trees (#242). Full-text search and fuzzy title/content search (#202, #203) are spikes, labelled `spike`: worth exploring, but not the next work.
+The first post-launch work is the Homebrew tap (#51), then measuring the §10.1 performance targets with a checked-in benchmark (HOU-280) and File Navigator startup performance on large trees (#242). Full-text search and fuzzy title/content search (#202, #203) are spikes, labelled `spike`: worth exploring, but not the next work.
 
 Everything else in the backlog is an idea with no commitment to ship. Issues are grouped by `area:*` labels (navigation, rendering, config, and so on).
 
@@ -171,6 +171,12 @@ Conventions follow `ghui` (escape-to-back, return-to-confirm, vim letters as arr
 | `N`                                                       | Prompt for a name, create an empty `.md` at the discovery root, select it, open in `$EDITOR` |
 | `R`                                                       | Prompt to rename the selected file's basename (same parent; no Move) |
 | `/`                                                       | Open filter input (basename-first fuzzy match on path) |
+| `O`                                                       | Open the selected file as HTML in the browser preview  |
+| `E`                                                       | Open the selected file in `$EDITOR` (`$VISUAL` wins); reload after |
+| `t` / `T`                                                 | Next / previous theme                                  |
+| `L`                                                       | Toggle dark / light tone                               |
+| `A`                                                       | Toggle hidden + gitignored entries for the session     |
+| `ctrl+\`                                                  | Clear the filter and edit a new query                  |
 | `ctrl+p`, `?`                                             | Command palette (`?` only when no text field is focused; while typing in filter / palette / prompts, `?` inserts a literal `?`) |
 | `q`, `ctrl+c`                                             | Quit                                                   |
 
@@ -297,7 +303,7 @@ This component contract intentionally does not expose anchor coordinates or plac
 | Linter             | `oxlint`                                                 | Matches `ghui`.                                                                                                                                                                                                                         |
 | Formatter          | `oxfmt`                                                  | Matches `ghui`.                                                                                                                                                                                                                         |
 | Tests              | `bun test`                                               | Stays in-runtime.                                                                                                                                                                                                                       |
-| Distribution       | Four-target npm platform packages + standalone archives  | Homebrew tap planned as the main install ([ADR 0004](docs/adr/0004-homebrew-tap-and-slim-npm-shim.md), #51).                                                                                                                            |
+| Distribution       | Four-target npm platform packages + standalone archives  | Homebrew tap follows after launch as the main install ([ADR 0004](docs/adr/0004-homebrew-tap-and-slim-npm-shim.md), #51).                                                                                                               |
 
 **Note on Effect.** The author has not shipped Effect before. Some early code will read like "Effect by way of Promises" until the patterns settle. That is expected and acceptable; refactors-toward-idiomatic-Effect are tracked as work in v1→beta.
 
@@ -335,14 +341,16 @@ apps/house/src/
 ├── keymap/keymap.ts       KeyBinding<C> + parseChord/dispatch
 ├── keymap/browser.ts      browserBindings + BrowserCtx (single source for bindings + help)
 ├── theme/types.ts         ColorPalette interface (~12 semantic tokens), ThemeId
-├── theme/dark.ts          Nord-ish dark palette
-├── theme/light.ts         GitHub-Light-leaning palette
+├── theme/themes/*.json    bundled opencode-derived theme definitions (dark + light tones)
+├── theme/loader.ts        generated imports of the bundled themes (`bun run build:themes`)
+├── theme/resolve.ts       theme JSON + tone → resolved tokens
 ├── theme/registry.ts      themeDefinitions, getThemeDefinition, isThemeId
 ├── theme/colors.ts        mutable singleton `colors` + setActiveTheme
 ├── markdown-html/         extractable safe HTML renderer, styles, Mermaid enhancer
 ├── serve/                 browser-preview shell, loopback server, reload, embedded assets
 ├── Browser.tsx            orchestration, focus, immediate filter input, reader, overlays
-├── HelpOverlay.tsx        renders KeyBinding[] grouped by group field
+├── commands/              palette commands: KeyBinding[] plus palette-only commands
+├── CommandPalette.tsx     searchable command palette (replaces the v1 help overlay)
 └── index.tsx              entry: parseArgv → resolve root/query → <Browser> or `--serve`
 ```
 
@@ -434,11 +442,11 @@ A benchmark script checks these against a fixture corpus checked into `apps/hous
 ### 10.5 Release / OSS hygiene
 
 - **Distribution model ([ADR 0004](docs/adr/0004-homebrew-tap-and-slim-npm-shim.md)).** One set of native builds (darwin-arm64, darwin-x64, linux-arm64, linux-x64), none needing Bun at runtime. Windows remains out of scope until the Windows support epic is resolved.
-  - **Shipped today:**
+  - **Shipped today, and what the public launch ships with:**
     - **npm.** `@carlesandres/house` is a Node shim; `optionalDependencies` pull the matching platform package (`@carlesandres/house-darwin-arm64`, `house-darwin-x64`, `house-linux-arm64`, `house-linux-x64`). The published main package contains only that shim and has no dependencies.
     - **GitHub Release archives.** One `house-*.tar.gz` per target, each with a build provenance attestation, plus a `SHA256SUMS` manifest covering all four ([#229](https://github.com/carlesandres/house/issues/229)).
-  - **Planned:**
-    - **Homebrew tap ([#51](https://github.com/carlesandres/house/issues/51)).** Will become the main documented install: `brew install carlesandres/tap/house` will install the release archive for the user's platform, pinned by checksum, and a job in `publish.yml` will update the formula after `verify-published` passes. homebrew/core waits for the notability bar ([#342](https://github.com/carlesandres/house/issues/342)).
+  - **After launch:**
+    - **Homebrew tap ([#51](https://github.com/carlesandres/house/issues/51)).** Not a launch blocker; it follows the launch and will become the main documented install: `brew install carlesandres/tap/house` will install the release archive for the user's platform, pinned by checksum, and a job in `publish.yml` will update the formula after `verify-published` passes. homebrew/core waits for the notability bar ([#342](https://github.com/carlesandres/house/issues/342)).
 - **Release publish:** merging the version PR makes `release.yml` create the GitHub Release and dispatch `publish.yml`, which builds and smoke-tests each binary on a native runner, publishes the four platform packages and then the main package via Trusted Publisher, attaches the archives, and verifies the published install.
 
 - Semver from v0.1.0 onward; pre-v0.1 may break.

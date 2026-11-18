@@ -2,7 +2,7 @@
 
 Thanks for considering a contribution. house is a small project; the bar for changes is "reads cleanly, fits the design, doesn't accidentally bind a reserved key." This doc covers the local loop and the rules that aren't obvious from the code.
 
-Read [`DESIGN.md`](./DESIGN.md) before opening a PR that adds a feature. §3 lists hard non-goals, §5.3 explains where deliberately deferred work is tracked, and §7.3 lists keys reserved for v2.
+Read [`DESIGN.md`](./DESIGN.md) before opening a PR that adds a feature. §3 lists hard non-goals, §5.3 explains where deliberately deferred work is tracked, and §7.3 lists keys reserved for future features.
 
 Use **GitHub issues** for bugs, feature requests, design questions, and scope debates. They sync to the maintainer's Linear workspace, which tracks status and planning but isn't publicly browsable. There is no Discussions tab, no Discord, no chat. If you're not sure whether something is a bug or by design, open an issue.
 
@@ -153,11 +153,11 @@ Tagged fenced-code blocks are covered by `apps/house/test/markdown-codeblock.tes
 
 Bindings are data: `apps/house/src/keymap/browser.ts` is the single source for `useKeyboard` and command-palette derivation. To add a binding, append a `KeyBinding` to `browserBindings` with `id`, `description`, `keys`, an optional `group`, optional `when` predicate, and `run`. Only add `hint` for the small fixed footer set of essential app controls; otherwise rely on the palette for discoverability.
 
-Do not bind these keys — they are reserved for v2 (DESIGN.md §7.3): `/`, `r`.
+Do not bind the keys DESIGN.md §7.3 reserves for future features: `r`, `B`, `ctrl+[` and `ctrl+]`. `/` is taken by the filter.
 
 ## Themes
 
-A theme resolves from opencode-style JSON into the typed token surface in `apps/house/src/theme/types.ts`, then into the `ColorPalette` singleton. The exposed UI tokens keep OpenCode's naming (`background`, `backgroundPanel`, `backgroundElement`, `borderSubtle`, `primary`, `secondary`, etc.). To add one: drop a new JSON file in `apps/house/src/theme/themes/` and register it in `apps/house/src/theme/loader.ts`.
+A theme resolves from opencode-style JSON into the typed token surface in `apps/house/src/theme/types.ts`, then into the `ColorPalette` singleton. The exposed UI tokens keep OpenCode's naming (`background`, `backgroundPanel`, `backgroundElement`, `borderSubtle`, `primary`, `secondary`, etc.). Theme content comes from upstream opencode: `bun run build:themes` fetches every theme into `apps/house/src/theme/themes/` and regenerates `apps/house/src/theme/loader.ts`, which is generated and never edited by hand.
 
 Before using a token in UI code, check DESIGN.md §7.5's semantic token table. Tokens are role-based: choose by intended meaning, not by the color a single bundled theme happens to render. In particular: section/category headers should usually be `textMuted` (optionally bold), while selected interactive rows should use `backgroundElement` plus `primary`/`selectedListItemText`.
 
