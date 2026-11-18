@@ -73,9 +73,9 @@ Key reservations for deferred features (search, navigation history, bookmarks, e
 
 ### 5.4 Current focus
 
-house is publicly launched. It installs from npm and from the GitHub Release archives (§10.5). The launch scope was deliberately narrow, daily-driver essentials only, and gate gaps that were not fixed before launch are tracked as their own issues or waived here in §10.
+house is publicly launched. It installs from npm and from the GitHub Release archives (§10.5). The launch scope was deliberately narrow, daily-driver essentials only. Release gate gaps that were not fixed before launch are tracked as their own issues or, where the maintainer waives them, noted in §10.
 
-The first post-launch work is the Homebrew tap (#51), then measuring the §10.1 performance targets with a checked-in benchmark (HOU-280) and File Navigator startup performance on large trees (#242). Full-text search and fuzzy title/content search (#202, #203) are spikes, labelled `spike`: worth exploring, but not the next work.
+Post-launch follow-ups are the Homebrew tap (#51), measuring the §10.1 performance targets with a checked-in benchmark (#331), and File Navigator startup performance on large trees (#242). Full-text search and fuzzy title/content search (#202, #203) are spikes, labelled `spike`: worth exploring, but not the next work.
 
 Everything else in the backlog is an idea with no commitment to ship. Issues are grouped by `area:*` labels (navigation, rendering, config, and so on).
 
@@ -94,7 +94,7 @@ Everything else in the backlog is an idea with no commitment to ship. Issues are
 
 Discovery is a **non-trivial product decision** — users notice when their mental model of "what shows up" doesn't match. Changing these rules is a versioned change.
 
-**Streaming.** `walk()` returns a `Stream` (Effect), not an eagerly-collected array. Entries arrive in per-directory DFS order as the walk progresses, so the sidebar mounts immediately on `files=[]` and grows live; the footer shows `indexing… N` until the stream completes. Cancellation is best-effort and checks `signal.aborted` between syscalls — Node's `readdir` is not itself abortable, so a single in-flight `readdir` on a slow filesystem still runs to completion. A `walkToArray()` helper exists for callers (and most tests) that don't need streaming. Per-walk traversal caps are tracked in #80/#81.
+**Streaming.** The File Navigator scanner (`scanFiles` in `@house/ui/file-navigator`) publishes files in batches of up to 64 as it walks the tree, files before subdirectories within each directory, so the sidebar mounts immediately and grows live while the footer shows discovery progress. Cancellation is best-effort: the scan checks its `AbortSignal` between entries, but a single in-flight `readdir` on a slow filesystem still runs to completion. Per-walk traversal caps are tracked in #80/#81.
 
 ## 7. UX Architecture
 
@@ -120,7 +120,7 @@ resolveSidebarWidth(viewport, preferred) =
   clamp(preferred, SIDEBAR_MIN, viewport - DIVIDER - READER_MIN)
 ```
 
-Until persistent config (#13) lands, `preferred` is derived from viewport (`floor(width * 0.25)` clamped to `[28, 60]`).
+No option sets the sidebar width yet (§12), so `preferred` is derived from viewport (`floor(width * 0.25)` clamped to `[28, 60]`).
 
 Browser owns responsive visibility and the wide/narrow pane composition. Once it supplies the
 resolved variant, width, height, visibility, and active state, `@house/ui`'s `FileNavigator` owns the
@@ -340,7 +340,7 @@ apps/house/src/
 ├── io/readFile.ts         Effect.tryPromise wrapper around fs/promises.readFile
 ├── keymap/keymap.ts       KeyBinding<C> + parseChord/dispatch
 ├── keymap/browser.ts      browserBindings + BrowserCtx (single source for bindings + help)
-├── theme/types.ts         ColorPalette interface (~12 semantic tokens), ThemeId
+├── theme/types.ts         ColorPalette interface (§7.5 semantic tokens), ThemeId
 ├── theme/themes/*.json    bundled opencode-derived theme definitions (dark + light tones)
 ├── theme/loader.ts        generated imports of the bundled themes (`bun run build:themes`)
 ├── theme/resolve.ts       theme JSON + tone → resolved tokens
@@ -475,9 +475,10 @@ Inline `// TODO(revisit: <topic>)` markers in the code point here from the relev
   - Trigger to revisit: a third interactive overlay/modal lands (search, filter, command palette), OR a real need for chord/count input emerges.
   - **Trigger status:** the third-overlay threshold has started to fire. Browser now owns a small single-`floatingOverlay` state machine (§7.6) so floating surfaces do not stack accidentally, but scoped keymap composition remains deferred until keyboard routing itself becomes hard to follow.
 
-- **Theme as a typed token interface — landed.** Implemented in `apps/house/src/theme/`: `ColorPalette` interface (~12 semantic tokens), a `themeDefinitions` registry, and a mutable singleton `colors` consumers read directly. Modeled on ghui but at our smaller scale.
-  - **Outstanding ghui machinery (still deferred):** large named-theme set (ghui ships 27), `ThemeConfig` distinguishing fixed-vs-system mode, OS appearance auto-detect, persistent config file, runtime theme switcher.
-  - Trigger to revisit (system mode + auto-detect): a user explicitly asks for it, OR when the persistent config file lands. Trigger to revisit (runtime theme switcher / theme version state for re-render): when a "press `t` to cycle themes" UX is on the table.
+- **Theme as a typed token interface — landed.** Implemented in `apps/house/src/theme/`: `ColorPalette` interface (the semantic tokens in §7.5), a `themeDefinitions` registry, and a mutable singleton `colors` consumers read directly. Modeled on ghui but at our smaller scale.
+  - **Since landed:** 33 bundled themes with dark and light tones, `theme` / `tone` keys in the config file, and runtime cycling (`t` / `T`, `L`).
+  - **Outstanding ghui machinery (still deferred):** `ThemeConfig` distinguishing fixed-vs-system mode, OS appearance auto-detect.
+  - Trigger to revisit (system mode + auto-detect): a user explicitly asks for it. The other original trigger, the persistent config file, has fired: the global config file shipped.
 
 - **Keymap composition / scoped contexts**
   - What it is: per-view keymaps that compose via `Keymap.scope(predicate)` so modal bindings stack on top of base bindings without giant if/else routing in one handler.
@@ -487,7 +488,7 @@ Inline `// TODO(revisit: <topic>)` markers in the code point here from the relev
 - **User-configurable sidebar width**
   - What it is: a setting (CLI flag and/or config file) that overrides the sidebar width heuristic. Power users with strong layout preferences want this; the heuristic alone won't satisfy everyone.
   - Why deferred: the in-code heuristic `clamp(28, floor(width * 0.25), 60)` is a sensible default and ships with zero ceremony.
-  - Trigger: when the persistent config file lands (deferred in #13 and #63) — wire `sidebarWidth` through it at the same time. A standalone `--sidebar-width` flag is fine sooner if a real user asks.
+  - Trigger status: the global config file has landed but has no `sidebarWidth` key; add one when the set of config options expands (#63). A standalone `--sidebar-width` flag is fine sooner if a real user asks.
 
 - **Sidebar truncation strategy**
   - What it is: how long file paths are shortened when they exceed the sidebar's width. Today: leading ellipsis, keeping the filename visible (`…l/job_search/cv.md`). Plausible alternatives: middle-truncation (`Personal/…/cv.md`), filename-first with dimmed parent dir, or a two-line entry that shows both.

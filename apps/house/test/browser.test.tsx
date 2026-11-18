@@ -1853,14 +1853,16 @@ describe("Browser — open in browser (shift+o)", () => {
 		const savedPath = process.env.PATH
 		process.env.PATH = mkdtempSync(join(tmpdir(), "house-no-launcher-"))
 		fixtureRoots.push(process.env.PATH)
+		let frame: string
 		try {
 			await act(async () => {
 				setup!.mockInput.pressKey("o", { shift: true })
 			})
+			// Restore PATH only once the command has visibly run, so a late dispatch can't spawn.
+			frame = await waitForFrameContaining("serving a.md at http://localhost:0")
 		} finally {
 			process.env.PATH = savedPath
 		}
-		const frame = await waitForFrameContaining("serving a.md at http://localhost:0")
 		expect(setTargets).toEqual([join(root, "a.md")])
 		expect(frame).toContain("serving a.md at http://localhost:0")
 	})
@@ -4861,6 +4863,9 @@ describe("Browser — discovery policy (DESIGN §6)", () => {
 		})
 	}
 
+	// The absence checks below rely on `sub/kept.md` being the last entry scanned: with
+	// tree order, root files come first and `sub/` sorts after `.notes/`, `linked` and
+	// `node_modules/`. Keep that true if the fixture changes.
 	const makePolicyFixture = (): string => {
 		const outside = makeFiles(["outside.md"])
 		const root = makeFiles([
