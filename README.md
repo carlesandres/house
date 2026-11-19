@@ -4,8 +4,6 @@ A terminal markdown reader and navigator — themable and configurable, with a k
 
 <video src="apps/house/recordings/house-demo.mp4" controls muted loop playsinline></video>
 
-[Watch the demo video](https://github.com/carlesandres/house/blob/main/apps/house/recordings/house-demo.mp4) if it does not play above.
-
 ## Features
 
 - **30+ themes** with dark and light tones
