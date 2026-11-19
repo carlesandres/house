@@ -262,7 +262,7 @@ describe("release", () => {
 		)
 
 		const versionPr =
-			"github.ref_name == 'changeset-release/main' || github.head_ref == 'hou-295-dry-run-npm-publish'"
+			"github.ref_name == 'changeset-release/main' || github.head_ref == 'changeset-release/main'"
 		const oneLine = (expression?: string) => expression?.replace(/\s+/g, " ").trim()
 		expect(oneLine(dryRun.if)).toBe(
 			`\${{ !cancelled() && (${versionPr}) && ` +
