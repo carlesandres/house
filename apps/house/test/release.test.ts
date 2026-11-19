@@ -224,6 +224,62 @@ describe("release", () => {
 		)
 	})
 
+	test("dry-runs publish.yml's exact npm publish steps on the version PR without a publish token", () => {
+		type Job = WorkflowJob & {
+			if?: string
+			needs?: string[]
+			environment?: unknown
+			env?: Record<string, string>
+		}
+		const ci = Bun.YAML.parse(repoFile(".github/workflows/ci.yml")) as {
+			permissions: Record<string, string>
+			jobs: Record<string, Job>
+		}
+		const publish = publishJobs().publish!
+		const dryRun = ci.jobs["publish-dry-run"]!
+		expect(ci.permissions).toEqual({ contents: "read" })
+		expect(dryRun.permissions).toEqual({ contents: "read" })
+		expect(dryRun.environment).toBeUndefined()
+		expect(dryRun.env).toEqual({ npm_config_dry_run: "true" })
+		expect(dryRun.needs).toEqual(["check", "target-smoke"])
+
+		for (const name of [
+			"Restore binary permissions",
+			"Publish npm binary packages",
+			"Publish main npm package",
+		]) {
+			expect([name, stepNamed(dryRun, name)]).toEqual([name, stepNamed(publish, name)])
+		}
+		const setupNode = (job: WorkflowJob) =>
+			job.steps.find((step) => step.uses?.startsWith("actions/setup-node@"))
+		expect(setupNode(dryRun)).toEqual(setupNode(publish))
+		expect(stepNamed(dryRun, "Download npm packages")).toEqual(
+			stepNamed(publish, "Download npm packages"),
+		)
+		const names = dryRun.steps.map((step) => step.name)
+		expect(names.indexOf("Require an unpublished version")).toBeLessThan(
+			names.indexOf("Publish npm binary packages"),
+		)
+
+		const versionPr =
+			"github.ref_name == 'changeset-release/main' || github.head_ref == 'changeset-release/main'"
+		const oneLine = (expression?: string) => expression?.replace(/\s+/g, " ").trim()
+		expect(oneLine(dryRun.if)).toBe(
+			`\${{ !cancelled() && (${versionPr}) && ` +
+				"needs.check.result == 'success' && needs.target-smoke.result == 'success' }}",
+		)
+		const upload = (job: Job, name: string) =>
+			stepNamed(job, name) as WorkflowStep & { if?: string }
+		for (const [job, publishJob, name] of [
+			[ci.jobs.check!, publishJobs().verify!, "Upload main npm package"],
+			[ci.jobs["target-smoke"]!, publishJobs()["build-binary"]!, "Upload npm binary package"],
+		] as const) {
+			expect(upload(job, name).with).toEqual(upload(publishJob, name).with)
+			expect(oneLine(upload(job, name).if)).toBe(versionPr)
+		}
+		expect(ci.jobs["release-status"]!.needs).toContain("publish-dry-run")
+	})
+
 	test("names only the published package in changesets", () => {
 		const dir = new URL("../../../.changeset/", import.meta.url)
 		const files = readdirSync(dir).filter((name) => name.endsWith(".md") && name !== "README.md")
@@ -258,7 +314,9 @@ describe("release", () => {
 		expect(ci).toContain('[ "$(git rev-list --count "${base}..HEAD")" != 1 ]')
 		expect(ci).toContain("needs: version-pr-scope\n    if: ${{ !cancelled() }}")
 		expect(ci).toContain("if: needs.version-pr-scope.result == 'failure'")
-		expect(ci).toContain("needs: [version-pr-scope, check, npm-install-smoke, target-smoke]")
+		expect(ci).toContain(
+			"needs: [version-pr-scope, check, npm-install-smoke, target-smoke, publish-dry-run]",
+		)
 		expect(ci).toContain('[ "${SCOPE_RESULT}" = "success" ]')
 	})
 
@@ -358,9 +416,10 @@ describe("release", () => {
 			"check",
 			"npm-install-smoke",
 			"target-smoke",
+			"publish-dry-run",
 		])
 		expect(source).not.toContain("context=check")
-		expect(source.match(/github\.ref_name == 'changeset-release\/main'/g)).toHaveLength(4)
+		expect(source.match(/github\.ref_name == 'changeset-release\/main'/g)).toHaveLength(7)
 		expect(source).not.toContain("release/v")
 	})
 
