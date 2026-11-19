@@ -154,7 +154,7 @@ the published main package. Do not hand-edit those pins to an unpublished versio
 CI is the release gate: typecheck, lint, format check, dependency audit of shipped packages
 (`bun run --cwd apps/house audit:shipped`), all-workspace tests, PTY coverage
 (`bun run test:pty`), GitHub API emulation, standalone build, TUI startup and mutation smoke, npm
-package staging, and Node 22.0.0 and 26 install smokes. Use `bun run npm:pack`, not root `npm pack`, to
+package staging, Node 22.0.0 and 26 install smokes, and on the version PR only, a dry run of `publish.yml`'s `npm publish` steps (`publish-dry-run`). Use `bun run npm:pack`, not root `npm pack`, to
 inspect the staged public package.
 
 Where each target is tested: the suite above, the preview smokes and the Node 22.0.0 and 26 install smokes run on linux-x64. The `target-smoke` jobs build the standalone binary on darwin-arm64, darwin-x64, linux-arm64 and linux-x64, each on its native runner, and run the TUI startup and File Navigator mutation smoke on it and on the installed npm tarballs. They run on every PR, and any failure fails all of the version PR's required statuses, so it cannot merge. `publish.yml`'s `build-binary` runs the standalone smoke again on the exact binaries it publishes.
