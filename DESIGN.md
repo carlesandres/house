@@ -15,7 +15,7 @@ It is explicitly **not** glow rewritten in TypeScript: glow's center of gravity 
 - Be the most pleasant way to read markdown sitting on your local filesystem.
 - Take full advantage of `opentui`'s layout primitives — typographic, whitespace-rich presentation rather than the dense terminal aesthetic glow inherits from its rendering stack.
 - Provide a foundation that can grow into a documentation explorer (cross-file navigation, search) without architectural rework.
-- Serve as a learning vehicle for [Effect](https://effect.website) — the author has not used it before and wants to build production familiarity with it on a realistic but bounded codebase.
+- Serve as a learning vehicle for [Effect](https://effect.website) — the author has not used it before and wants to build production familiarity with it on a realistic but bounded codebase. In practice Effect ended up in only a few files, and the Effect architecture once planned (§9.3) was not adopted; see §8.
 
 ## 3. Non-Goals
 
@@ -45,13 +45,13 @@ Out of scope for both: scripts piping markdown through a CLI formatter (glow's o
 
 v1 began as a personal-use MVP to prove the architecture and UX. The current supported distribution, and the one the public launch ships with, is the four-target npm binary path and the GitHub Release archives; the Homebrew tap follows after launch (§10.5, ADR 0004).
 
-v1 ships when:
+v1 ships when (the original v1 checklist; items marked _historical_ describe what v1 shipped, not the current app):
 
 1. `house` opens a TUI with a sidebar of `.md` / `.markdown` files discovered recursively from the configured discovery root (default cwd), plus any extra extensions configured by the user. `house <path>` seeds the initial sidebar filter query; all non-serve launches use the Browser model from §7.4.
 2. Discovery respects `.gitignore`, skips `node_modules` / `.git` / `.venv` unconditionally, and does not follow symlinks.
 3. Selecting a file renders it in the reader pane with support for: headings, paragraphs, lists (ordered, unordered, nested), blockquotes, GFM tables, inline emphasis (bold, italic, and strike — strike rendered as dim/muted because opentui's syntax-style API has no strikethrough attribute), inline code, links (rendered, not followed), images-as-alt-text, horizontal rules, fenced code blocks, including language-tagged fences.
-4. The keymap in §7.2 works end-to-end, including the help overlay.
-5. Dark and light themes ship; `--theme dark|light` selects (default `dark`). Terminal-background auto-detect is deferred to beta (§12).
+4. The keymap in §7.2 works end-to-end, including the help overlay. _(Historical: the command palette, `ctrl+p` / `?`, has since replaced the help overlay.)_
+5. Dark and light themes ship; `--theme dark|light` selects (default `dark`). Terminal-background auto-detect is deferred to beta (§12). _(Historical: 33 bundled themes now ship; `--theme <name>` defaults to `opencode` and `--tone dark|light` sets the tone, default `dark`.)_
 6. `width` / `--width N` controls the reader wrap column (default 80), while `wrap` / `--wrap` / `--no-wrap` controls whether the session starts with fixed-width reader wrapping enabled. During a session, `w` toggles between the fixed wrap width and filling the reader pane.
 7. The app ships as Bun standalone archives and through four-target npm platform packages. Supported
    npm installs run without Bun on `PATH`; standalone runners use the matching static Parcel host.
@@ -298,14 +298,14 @@ This component contract intentionally does not expose anchor coordinates or plac
 | Runtime            | Bun                                                      | Matches `ghui`; standalone-binary build pipeline already proven.                                                                                                                                                                        |
 | Language           | TypeScript                                               | Strict mode.                                                                                                                                                                                                                            |
 | TUI framework      | `@opentui/react`                                         | JSX + hooks fit a multi-view app; matches `ghui`.                                                                                                                                                                                       |
-| State / IO         | [Effect](https://effect.website)                         | Author wants to learn it; well-suited to async/IO when beta features land.                                                                                                                                                              |
+| State / IO         | Plain TypeScript + [Effect](https://effect.website)      | Effect is used only for config loading, file reads and the theme atom; the rest of the app and both workspace packages are plain TypeScript. See the note below.                                                                        |
 | Markdown rendering | `opentui`'s built-in `<markdown>` (`MarkdownRenderable`) | opentui ships a production-hardened markdown renderer with tables, tree-sitter syntax highlighting, and theme support via `SyntaxStyle`. Reusing it skips a large class of parsing/layout work and matches the "showcase opentui" goal. |
 | Linter             | `oxlint`                                                 | Matches `ghui`.                                                                                                                                                                                                                         |
 | Formatter          | `oxfmt`                                                  | Matches `ghui`.                                                                                                                                                                                                                         |
 | Tests              | `bun test`                                               | Stays in-runtime.                                                                                                                                                                                                                       |
 | Distribution       | Four-target npm platform packages + standalone archives  | Homebrew tap follows after launch as the main install ([ADR 0004](docs/adr/0004-homebrew-tap-and-slim-npm-shim.md), #51).                                                                                                               |
 
-**Note on Effect.** The author has not shipped Effect before. Some early code will read like "Effect by way of Promises" until the patterns settle. That is expected and acceptable; refactors-toward-idiomatic-Effect are tracked as work in v1→beta.
+**Note on Effect.** Effect was meant to carry the app's state and IO (§9.3), but it ended up in only five files: `config/load.ts` (config loading with Effect `Config`), `io/readFile.ts` (file reads), `theme/atom.ts` (the theme atom, read through `@effect/atom-react`), and `index.tsx` and `Browser.tsx`, which run those effects and use the atom. There are no Effect services or Layers, and most code throws plain errors. A rewrite toward idiomatic Effect is not planned: it would change nothing users see, and the §10.3 gate that asked for it is waived.
 
 ## 9. Architecture Sketch
 
@@ -389,7 +389,9 @@ The package owns scanner membership, live reconciliation, fuzzy projection, sele
 Sidebar presentation. Browser owns the immediate filter input and reader; its reader invalidation epoch
 rejects stale reads after selection, selected-file updates, explicit refresh, or teardown.
 
-### 9.3 Effect layering (sketch)
+### 9.3 Effect layering (historical sketch)
+
+> **Historical.** This was the v1 plan and no longer describes the code. None of these services or Layers exist; Effect appears in only a few files (§8), and errors are mostly thrown. The §10.3 gate that required this design is waived. The sketch is kept as a record of the original intent.
 
 - `File Navigator` service — policy-aware scan and Parcel-backed live reconciliation.
 - `FileReader` service — `read(path) → Effect<string, ReadError>`.
@@ -428,9 +430,9 @@ A benchmark script checks these against a fixture corpus checked into `apps/hous
 
 ### 10.3 Structure
 
-- Module boundaries from §9.1 enforced. No circular imports (lint rule).
-- Effect services exposed as Layers; errors as tagged unions; no `throw` in domain code.
-- Every exported symbol has TSDoc.
+- Module boundaries from §9.1 enforced. No circular imports: oxlint's `import/no-cycle` rule, set in the root `.oxlintrc.json` that every workspace `lint` script loads.
+- ~~Effect services exposed as Layers; errors as tagged unions; no `throw` in domain code.~~ **Waived (2026-11-19).** Effect is used in only a few files, the code relies on plain `throw` and has no Layers, and restructuring it would change nothing users see. §9.3 is kept as a historical sketch.
+- Every symbol exported from the public entry points of the internal packages `@house/ui` and `@house/options` (what their `package.json` `exports` expose) has TSDoc. The app's own modules are not covered, since no other package imports them.
 
 ### 10.4 Documentation
 
@@ -459,7 +461,7 @@ A benchmark script checks these against a fixture corpus checked into `apps/hous
 
 Things we will learn by building, not by debating.
 
-- Does Effect's Layer model fit a single-process TUI cleanly, or does it feel oversized for the amount of IO we actually do? Revisit before beta.
+- ~~Does Effect's Layer model fit a single-process TUI cleanly, or does it feel oversized for the amount of IO we actually do? Revisit before beta.~~ Answered: it was not adopted. The app uses Effect in a few places and no Layers (§8, §10.3).
 - How much does `opentui`'s React reconciler cost on full re-renders of long documents? May need windowing/virtualization for large files; will be measured against §10.1 targets.
 - What's the right boundary between "render plain markdown" (v1) and "follow a link to another file" (post-v1)? Done well, the renderer already produces navigable link nodes; done poorly, we re-architect.
 - Bun's standalone binary size — acceptable, or do we need a slim build path?

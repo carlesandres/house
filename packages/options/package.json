@@ -10,7 +10,7 @@
 		"build": "tsc --noEmit",
 		"format": "oxfmt src/ test/",
 		"format:check": "oxfmt --check src/ test/",
-		"lint": "oxlint --tsconfig tsconfig.json src/ test/",
+		"lint": "oxlint -c ../../.oxlintrc.json --tsconfig tsconfig.json src/ test/",
 		"test": "bun test",
 		"typecheck": "tsc --noEmit"
 	},

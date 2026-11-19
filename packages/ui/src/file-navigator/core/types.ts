@@ -1,5 +1,6 @@
 import type { Event, AsyncSubscription, SubscribeCallback } from "@parcel/watcher"
 
+/** A discovered file: its paths, size and modification time. */
 export interface FileRecord {
 	readonly absolutePath: string
 	readonly relativePath: string
@@ -9,6 +10,10 @@ export interface FileRecord {
 	readonly mtimeMs: number
 }
 
+/**
+ * Which files and directories a scan includes. Change `revision` to make the navigator rescan with
+ * a new policy; a policy with the same `revision` and `recursive` value is ignored.
+ */
 export interface DiscoveryPolicy {
 	readonly revision: string | number
 	readonly recursive?: boolean
@@ -51,14 +56,17 @@ export interface ScanResult {
 	readonly watchRoots: readonly string[]
 }
 
+/** A custom sort order for the unfiltered list. */
 export interface BrowseStrategy {
 	readonly id: string
 	readonly revision?: string | number
 	readonly compare: (left: FileRecord, right: FileRecord) => number
 }
 
+/** Sort order for the unfiltered list: a built-in name or a custom `BrowseStrategy`. */
 export type BrowseOrder = "tree" | "recently-modified" | BrowseStrategy
 
+/** Scores a file against a query: higher is a better match, `null` excludes the file. */
 export interface SearchStrategy {
 	readonly id: string
 	readonly revision?: string | number
@@ -71,6 +79,7 @@ export interface Publication {
 	readonly removed: readonly string[]
 }
 
+/** A non-fatal error from scanning, watching or filtering, numbered in the order it happened. */
 export interface Diagnostic {
 	readonly phase: "scan" | "watch" | "projection"
 	readonly sequence: number
@@ -81,4 +90,5 @@ export interface ParcelSource {
 	subscribe(directory: string, callback: SubscribeCallback): Promise<AsyncSubscription>
 }
 
+/** A filesystem change event from `@parcel/watcher`. */
 export type ParcelEvent = Event

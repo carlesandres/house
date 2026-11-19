@@ -19,6 +19,7 @@ const borderCount = (border: boolean | readonly BorderSides[]): number => {
 	return Number(border.includes("left")) + Number(border.includes("right"))
 }
 
+/** Generic scrolling list pane that keeps the selected item in view. Knows nothing about files. */
 export const Sidebar = <TItem, TId extends string | number>({
 	items,
 	selectedId,

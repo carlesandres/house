@@ -50,7 +50,7 @@
 		"dev": "bun --watch src/index.tsx",
 		"format": "oxfmt src/",
 		"format:check": "oxfmt --check src/",
-		"lint": "oxlint --tsconfig tsconfig.json src/ test/ dev/",
+		"lint": "oxlint -c ../../.oxlintrc.json --tsconfig tsconfig.json src/ test/ dev/",
 		"npm:pack": "bun run build:npm-main && npm pack --dry-run ./dist/npm/main",
 		"record-demo": "bash recordings/record-demo.sh",
 		"repro:pty-codeblocks": "bun run dev/repro-pty-codeblocks.ts",

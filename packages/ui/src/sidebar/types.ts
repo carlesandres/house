@@ -1,6 +1,7 @@
 import type { BorderCharacters, BorderSides } from "@opentui/core"
 import type { ReactNode } from "react"
 
+/** Visual styling of the sidebar frame and rows; unset fields use built-in defaults. */
 export interface SidebarAppearance {
 	readonly border?: boolean | readonly BorderSides[]
 	readonly borderChars?: BorderCharacters
@@ -13,6 +14,7 @@ export interface SidebarAppearance {
 	readonly horizontalPadding?: number
 }
 
+/** Passed to `renderItem` for each visible row. */
 export interface SidebarItemRenderContext<TItem> {
 	readonly item: TItem
 	readonly index: number
@@ -21,6 +23,7 @@ export interface SidebarItemRenderContext<TItem> {
 	readonly appearance: SidebarAppearance
 }
 
+/** Props for `Sidebar`. The caller owns the items, selection and row rendering. */
 export interface SidebarProps<TItem, TId extends string | number> {
 	readonly items: readonly TItem[]
 	readonly selectedId: TId | null

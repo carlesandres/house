@@ -9,6 +9,7 @@ const stringifyReceived = (value: unknown): string => {
 	return typeof value
 }
 
+/** One-line message for a `ResolveError`; `filePath` names the config file in file-layer errors. */
 export const formatResolveError = (error: ResolveError, filePath?: string): string => {
 	if (error.layer === "file") {
 		const where = filePath === undefined ? "" : ` in ${filePath}`
