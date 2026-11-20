@@ -17,6 +17,7 @@ export const footerActivate = (spec: OptionSpec): FooterActivate | undefined => 
 	return undefined
 }
 
+/** Whether a spec opted into footer chrome. */
 export const isFooterOption = (spec: OptionSpec): boolean => spec.footer !== undefined
 
 /** Catalog keys that opted into footer chrome, in declaration order. */
@@ -81,6 +82,10 @@ export const footerControlGlyph = <S extends OptionSpec>(
 	return footer.icon
 }
 
+/**
+ * Check every footer-opted spec has an icon, a valid toggle/cycle strategy and a label per choice.
+ * Throws on the first invalid spec; `defineOptions` calls it.
+ */
 export const validateFooterSpecs = <C extends Catalog>(specs: C): void => {
 	for (const key of Object.keys(specs) as OptionKey<C>[]) {
 		const spec = specs[key]!

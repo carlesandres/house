@@ -30,6 +30,10 @@ const required = [
 	// Lists and blockquotes
 	"markup.list",
 	"markup.quote",
+	// GFM table pipes and delimiter rows, horizontal rules, blockquote markers
+	"punctuation.special",
+	// Language tag on fenced code blocks
+	"label",
 	// Conceal markers (asterisks, backticks) and the catch-all
 	"conceal",
 	"default",

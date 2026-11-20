@@ -30,7 +30,9 @@
 			"cache": false
 		},
 		"format:check": {},
-		"lint": {},
+		"lint": {
+			"inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/.oxlintrc.json"]
+		},
 		"npm:pack": {
 			"dependsOn": ["build:npm-main"],
 			"outputs": []

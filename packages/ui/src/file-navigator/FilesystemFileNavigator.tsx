@@ -32,10 +32,13 @@ export type {
 	FileRecord,
 	ParcelEvent,
 } from "./core/types.ts"
+/** Visual styling of the navigator frame and rows (same shape as `SidebarAppearance`). */
 export type FileNavigatorAppearance = SidebarAppearance
 
+/** Why the navigator has no rows to show. */
 export type FileNavigatorEmptyReason = "scanning" | "no-files" | "no-results" | "error"
 
+/** Navigator state at one moment: all and filtered files, applied query, selection, scan status. */
 export interface FileNavigatorSnapshot {
 	readonly root: string
 	readonly files: readonly FileRecord[]
@@ -49,6 +52,7 @@ export interface FileNavigatorSnapshot {
 	readonly diagnostics: readonly Diagnostic[]
 }
 
+/** Imperative handle (via `ref`): query and selection methods return the new snapshot. */
 export interface FileNavigatorHandle {
 	readonly getSnapshot: () => FileNavigatorSnapshot
 	readonly flushQuery: (query: string) => FileNavigatorSnapshot
@@ -60,6 +64,7 @@ export interface FileNavigatorHandle {
 	readonly refresh: () => Promise<void>
 }
 
+/** Passed to `renderFile` for each visible row. */
 export interface FileNavigatorRowContext {
 	readonly file: FileRecord
 	readonly index: number
@@ -68,12 +73,14 @@ export interface FileNavigatorRowContext {
 	readonly appearance: FileNavigatorAppearance
 }
 
+/** Passed to `renderEmpty` when there are no rows to show. */
 export interface FileNavigatorEmptyContext {
 	readonly reason: FileNavigatorEmptyReason
 	readonly query: string
 	readonly error: Error | null
 }
 
+/** Props for `FileNavigator`. The caller supplies the root, query, size, policy and callbacks. */
 export interface FileNavigatorProps {
 	readonly root: string
 	readonly query: string
@@ -462,6 +469,10 @@ const Component = (props: FileNavigatorProps, ref: Ref<FileNavigatorHandle>) => 
 	)
 }
 
+/**
+ * Sidebar that scans `root` for files, keeps the list in sync with the filesystem, filters it by
+ * `query` and tracks the selected file by path. House-specific policy comes in through props.
+ */
 export const FileNavigator = forwardRef(Component) as unknown as (
 	props: FileNavigatorProps,
 ) => ReactElement | null

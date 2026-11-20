@@ -33,6 +33,7 @@ export const recentlyModifiedOrder: BrowseStrategy = Object.freeze({
 })
 export const resolveBrowse = (order: BrowseOrder = "tree"): BrowseStrategy =>
 	typeof order === "string" ? (order === "tree" ? treeOrder : recentlyModifiedOrder) : order
+/** Default search: case-insensitive fuzzy match of the query against each file's relative path. */
 export const fuzzySearch: SearchStrategy = Object.freeze({
 	id: "fuzzy",
 	score: (query: string, file: FileRecord) => {

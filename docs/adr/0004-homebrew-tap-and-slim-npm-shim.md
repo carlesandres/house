@@ -2,6 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-31
+- Update (2026-11-18): the public launch ships with npm and the GitHub Release archives. The Homebrew tap (#51) follows after launch, so the README leads with npm until it ships.
 
 House ships from one set of native builds through three channels: a formula in our own Homebrew tap (the install the README will lead with once #51 ships), the npm package reduced to a dependency-free shim, and the GitHub Release archives that both of the others rely on, published with a checksum manifest and provenance attestations. homebrew/core waits until house meets Homebrew's notability bar.
 

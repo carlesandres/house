@@ -31,6 +31,9 @@ npm install -g @carlesandres/house
 bun add -g @carlesandres/house
 ```
 
+house installs from npm or from the standalone archives below. A Homebrew tap
+([#51](https://github.com/carlesandres/house/issues/51)) follows after the public launch.
+
 ### Standalone archives
 
 Each [GitHub Release](https://github.com/carlesandres/house/releases) also has a
@@ -184,6 +187,7 @@ The footer only shows essential app controls (`W`, `q`, `tab`, `s`, `ctrl+p`) to
 | `g`                             | First file                                                                                |
 | `G`                             | Last file                                                                                 |
 | `/`                             | Filter files (fuzzy match on path)                                                        |
+| `ctrl+\`                        | Clear the filter and keep typing a new one (works inside the filter too)                  |
 | `A`                             | Toggle hidden + gitignored entries (session-only; round-trips with the configured `show`) |
 | `↵` / `→` / `l`                 | Open file (focus reader and auto-hide the sidebar when enabled)                           |
 

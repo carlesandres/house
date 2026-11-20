@@ -15,7 +15,7 @@ It is explicitly **not** glow rewritten in TypeScript: glow's center of gravity 
 - Be the most pleasant way to read markdown sitting on your local filesystem.
 - Take full advantage of `opentui`'s layout primitives — typographic, whitespace-rich presentation rather than the dense terminal aesthetic glow inherits from its rendering stack.
 - Provide a foundation that can grow into a documentation explorer (cross-file navigation, search) without architectural rework.
-- Serve as a learning vehicle for [Effect](https://effect.website) — the author has not used it before and wants to build production familiarity with it on a realistic but bounded codebase.
+- Serve as a learning vehicle for [Effect](https://effect.website) — the author has not used it before and wants to build production familiarity with it on a realistic but bounded codebase. In practice Effect ended up in only a few files, and the Effect architecture once planned (§9.3) was not adopted; see §8.
 
 ## 3. Non-Goals
 
@@ -26,7 +26,7 @@ These are hard non-goals. We will say no to PRs that pull in this direction.
 - **Not an exporter.** No HTML, PDF, or image output.
 - **Not a cloud / sync service.** Glow had a stash feature; it was removed. We will not reintroduce that class of feature.
 - **Not a general-purpose pager.** We will not try to replace `less`. Piping arbitrary text into `house` is out of scope.
-- **Not a custom-stylesheet platform** in v1. No JSON/YAML theme files. Themes are TypeScript objects shipped with the binary.
+- **Not a custom-stylesheet platform** in v1. No user-supplied JSON/YAML theme files. Themes are bundled opencode-derived definitions shipped with the binary.
 - **No custom TUI markdown parser.** v1 uses opentui's built-in `<markdown>` renderer. The separate
   browser preview uses Marked behind an extractable rendering API. We reserve the right to swap the
   TUI to a custom remark/mdast pipeline only if a concrete need forces it.
@@ -43,15 +43,15 @@ Out of scope for both: scripts piping markdown through a CLI formatter (glow's o
 
 ### 5.1 v1 — MVP
 
-v1 began as a personal-use MVP to prove the architecture and UX. The current supported distribution is the four-target npm binary path and standalone archives; a Homebrew tap is planned (§10.5, ADR 0004).
+v1 began as a personal-use MVP to prove the architecture and UX. The current supported distribution, and the one the public launch ships with, is the four-target npm binary path and the GitHub Release archives; the Homebrew tap follows after launch (§10.5, ADR 0004).
 
-v1 ships when:
+v1 ships when (the original v1 checklist; items marked _historical_ describe what v1 shipped, not the current app):
 
 1. `house` opens a TUI with a sidebar of `.md` / `.markdown` files discovered recursively from the configured discovery root (default cwd), plus any extra extensions configured by the user. `house <path>` seeds the initial sidebar filter query; all non-serve launches use the Browser model from §7.4.
 2. Discovery respects `.gitignore`, skips `node_modules` / `.git` / `.venv` unconditionally, and does not follow symlinks.
 3. Selecting a file renders it in the reader pane with support for: headings, paragraphs, lists (ordered, unordered, nested), blockquotes, GFM tables, inline emphasis (bold, italic, and strike — strike rendered as dim/muted because opentui's syntax-style API has no strikethrough attribute), inline code, links (rendered, not followed), images-as-alt-text, horizontal rules, fenced code blocks, including language-tagged fences.
-4. The keymap in §7.2 works end-to-end, including the help overlay.
-5. Dark and light themes ship; `--theme dark|light` selects (default `dark`). Terminal-background auto-detect is deferred to beta (§12).
+4. The keymap in §7.2 works end-to-end, including the help overlay. _(Historical: the command palette, `ctrl+p` / `?`, has since replaced the help overlay.)_
+5. Dark and light themes ship; `--theme dark|light` selects (default `dark`). Terminal-background auto-detect is deferred to beta (§12). _(Historical: 33 bundled themes now ship; `--theme <name>` defaults to `opencode` and `--tone dark|light` sets the tone, default `dark`.)_
 6. `width` / `--width N` controls the reader wrap column (default 80), while `wrap` / `--wrap` / `--no-wrap` controls whether the session starts with fixed-width reader wrapping enabled. During a session, `w` toggles between the fixed wrap width and filling the reader pane.
 7. The app ships as Bun standalone archives and through four-target npm platform packages. Supported
    npm installs run without Bun on `PATH`; standalone runners use the matching static Parcel host.
@@ -73,9 +73,9 @@ Key reservations for deferred features (search, navigation history, bookmarks, e
 
 ### 5.4 Current focus
 
-The public launch scope is deliberately narrow: daily-driver essentials only. An item belongs there only if its absence is a clear blocker or papercut for regular use; those issues sit in the Linear "Public launch" project (not public; each is mirrored to a GitHub issue).
+house is publicly launched. It installs from npm and from the GitHub Release archives (§10.5). The launch scope was deliberately narrow, daily-driver essentials only. Release gate gaps that were not fixed before launch are tracked as their own issues or, where the maintainer waives them, noted in §10.
 
-The top follow-up is File Navigator startup performance on large trees (#242). Full-text search and fuzzy title/content search (#202, #203) are spikes, labelled `spike`: worth exploring, but not the next work.
+Post-launch follow-ups are the Homebrew tap (#51), measuring the §10.1 performance targets with a checked-in benchmark (#331), and File Navigator startup performance on large trees (#242). Full-text search and fuzzy title/content search (#202, #203) are spikes, labelled `spike`: worth exploring, but not the next work.
 
 Everything else in the backlog is an idea with no commitment to ship. Issues are grouped by `area:*` labels (navigation, rendering, config, and so on).
 
@@ -94,7 +94,7 @@ Everything else in the backlog is an idea with no commitment to ship. Issues are
 
 Discovery is a **non-trivial product decision** — users notice when their mental model of "what shows up" doesn't match. Changing these rules is a versioned change.
 
-**Streaming.** `walk()` returns a `Stream` (Effect), not an eagerly-collected array. Entries arrive in per-directory DFS order as the walk progresses, so the sidebar mounts immediately on `files=[]` and grows live; the footer shows `indexing… N` until the stream completes. Cancellation is best-effort and checks `signal.aborted` between syscalls — Node's `readdir` is not itself abortable, so a single in-flight `readdir` on a slow filesystem still runs to completion. A `walkToArray()` helper exists for callers (and most tests) that don't need streaming. Per-walk traversal caps are tracked in #80/#81.
+**Streaming.** The File Navigator scanner (`scanFiles` in `@house/ui/file-navigator`) publishes files in batches of up to 64 as it walks the tree, files before subdirectories within each directory, so the sidebar mounts immediately and grows live while the footer shows discovery progress. Cancellation is best-effort: the scan checks its `AbortSignal` between entries, but a single in-flight `readdir` on a slow filesystem still runs to completion. Per-walk traversal caps are tracked in #80/#81.
 
 ## 7. UX Architecture
 
@@ -120,7 +120,7 @@ resolveSidebarWidth(viewport, preferred) =
   clamp(preferred, SIDEBAR_MIN, viewport - DIVIDER - READER_MIN)
 ```
 
-Until persistent config (#13) lands, `preferred` is derived from viewport (`floor(width * 0.25)` clamped to `[28, 60]`).
+No option sets the sidebar width yet (§12), so `preferred` is derived from viewport (`floor(width * 0.25)` clamped to `[28, 60]`).
 
 Browser owns responsive visibility and the wide/narrow pane composition. Once it supplies the
 resolved variant, width, height, visibility, and active state, `@house/ui`'s `FileNavigator` owns the
@@ -171,6 +171,12 @@ Conventions follow `ghui` (escape-to-back, return-to-confirm, vim letters as arr
 | `N`                                                       | Prompt for a name, create an empty `.md` at the discovery root, select it, open in `$EDITOR` |
 | `R`                                                       | Prompt to rename the selected file's basename (same parent; no Move) |
 | `/`                                                       | Open filter input (basename-first fuzzy match on path) |
+| `O`                                                       | Open the selected file as HTML in the browser preview  |
+| `E`                                                       | Open the selected file in `$EDITOR` (`$VISUAL` wins); reload after |
+| `t` / `T`                                                 | Next / previous theme                                  |
+| `L`                                                       | Toggle dark / light tone                               |
+| `A`                                                       | Toggle hidden + gitignored entries for the session     |
+| `ctrl+\`                                                  | Clear the filter and edit a new query                  |
 | `ctrl+p`, `?`                                             | Command palette (`?` only when no text field is focused; while typing in filter / palette / prompts, `?` inserts a literal `?`) |
 | `q`, `ctrl+c`                                             | Quit                                                   |
 
@@ -292,14 +298,14 @@ This component contract intentionally does not expose anchor coordinates or plac
 | Runtime            | Bun                                                      | Matches `ghui`; standalone-binary build pipeline already proven.                                                                                                                                                                        |
 | Language           | TypeScript                                               | Strict mode.                                                                                                                                                                                                                            |
 | TUI framework      | `@opentui/react`                                         | JSX + hooks fit a multi-view app; matches `ghui`.                                                                                                                                                                                       |
-| State / IO         | [Effect](https://effect.website)                         | Author wants to learn it; well-suited to async/IO when beta features land.                                                                                                                                                              |
+| State / IO         | Plain TypeScript + [Effect](https://effect.website)      | Effect is used only for config loading, file reads and the theme atom; the rest of the app and both workspace packages are plain TypeScript. See the note below.                                                                        |
 | Markdown rendering | `opentui`'s built-in `<markdown>` (`MarkdownRenderable`) | opentui ships a production-hardened markdown renderer with tables, tree-sitter syntax highlighting, and theme support via `SyntaxStyle`. Reusing it skips a large class of parsing/layout work and matches the "showcase opentui" goal. |
 | Linter             | `oxlint`                                                 | Matches `ghui`.                                                                                                                                                                                                                         |
 | Formatter          | `oxfmt`                                                  | Matches `ghui`.                                                                                                                                                                                                                         |
 | Tests              | `bun test`                                               | Stays in-runtime.                                                                                                                                                                                                                       |
-| Distribution       | Four-target npm platform packages + standalone archives  | Homebrew tap planned as the main install ([ADR 0004](docs/adr/0004-homebrew-tap-and-slim-npm-shim.md), #51).                                                                                                                            |
+| Distribution       | Four-target npm platform packages + standalone archives  | Homebrew tap follows after launch as the main install ([ADR 0004](docs/adr/0004-homebrew-tap-and-slim-npm-shim.md), #51).                                                                                                               |
 
-**Note on Effect.** The author has not shipped Effect before. Some early code will read like "Effect by way of Promises" until the patterns settle. That is expected and acceptable; refactors-toward-idiomatic-Effect are tracked as work in v1→beta.
+**Note on Effect.** Effect was meant to carry the app's state and IO (§9.3), but it ended up in only five files: `config/load.ts` (config loading with Effect `Config`), `io/readFile.ts` (file reads), `theme/atom.ts` (the theme atom, read through `@effect/atom-react`), and `index.tsx` and `Browser.tsx`, which run those effects and use the atom. There are no Effect services or Layers, and most code throws plain errors. A rewrite toward idiomatic Effect is not planned: it would change nothing users see, and the §10.3 gate that asked for it is waived.
 
 ## 9. Architecture Sketch
 
@@ -334,15 +340,17 @@ apps/house/src/
 ├── io/readFile.ts         Effect.tryPromise wrapper around fs/promises.readFile
 ├── keymap/keymap.ts       KeyBinding<C> + parseChord/dispatch
 ├── keymap/browser.ts      browserBindings + BrowserCtx (single source for bindings + help)
-├── theme/types.ts         ColorPalette interface (~12 semantic tokens), ThemeId
-├── theme/dark.ts          Nord-ish dark palette
-├── theme/light.ts         GitHub-Light-leaning palette
+├── theme/types.ts         ColorPalette interface (§7.5 semantic tokens), ThemeId
+├── theme/themes/*.json    bundled opencode-derived theme definitions (dark + light tones)
+├── theme/loader.ts        generated imports of the bundled themes (`bun run build:themes`)
+├── theme/resolve.ts       theme JSON + tone → resolved tokens
 ├── theme/registry.ts      themeDefinitions, getThemeDefinition, isThemeId
 ├── theme/colors.ts        mutable singleton `colors` + setActiveTheme
 ├── markdown-html/         extractable safe HTML renderer, styles, Mermaid enhancer
 ├── serve/                 browser-preview shell, loopback server, reload, embedded assets
 ├── Browser.tsx            orchestration, focus, immediate filter input, reader, overlays
-├── HelpOverlay.tsx        renders KeyBinding[] grouped by group field
+├── commands/              palette commands: KeyBinding[] plus palette-only commands
+├── CommandPalette.tsx     searchable command palette (replaces the v1 help overlay)
 └── index.tsx              entry: parseArgv → resolve root/query → <Browser> or `--serve`
 ```
 
@@ -381,7 +389,9 @@ The package owns scanner membership, live reconciliation, fuzzy projection, sele
 Sidebar presentation. Browser owns the immediate filter input and reader; its reader invalidation epoch
 rejects stale reads after selection, selected-file updates, explicit refresh, or teardown.
 
-### 9.3 Effect layering (sketch)
+### 9.3 Effect layering (historical sketch)
+
+> **Historical.** This was the v1 plan and no longer describes the code. None of these services or Layers exist; Effect appears in only a few files (§8), and errors are mostly thrown. The §10.3 gate that required this design is waived. The sketch is kept as a record of the original intent.
 
 - `File Navigator` service — policy-aware scan and Parcel-backed live reconciliation.
 - `FileReader` service — `read(path) → Effect<string, ReadError>`.
@@ -420,9 +430,9 @@ A benchmark script checks these against a fixture corpus checked into `apps/hous
 
 ### 10.3 Structure
 
-- Module boundaries from §9.1 enforced. No circular imports (lint rule).
-- Effect services exposed as Layers; errors as tagged unions; no `throw` in domain code.
-- Every exported symbol has TSDoc.
+- Module boundaries from §9.1 enforced. No circular imports: oxlint's `import/no-cycle` rule, set in the root `.oxlintrc.json` that every workspace `lint` script loads.
+- ~~Effect services exposed as Layers; errors as tagged unions; no `throw` in domain code.~~ **Waived (2026-11-19).** Effect is used in only a few files, the code relies on plain `throw` and has no Layers, and restructuring it would change nothing users see. §9.3 is kept as a historical sketch.
+- Every symbol exported from the public entry points of the internal packages `@house/ui` and `@house/options` (what their `package.json` `exports` expose) has TSDoc. The app's own modules are not covered, since no other package imports them.
 
 ### 10.4 Documentation
 
@@ -434,11 +444,11 @@ A benchmark script checks these against a fixture corpus checked into `apps/hous
 ### 10.5 Release / OSS hygiene
 
 - **Distribution model ([ADR 0004](docs/adr/0004-homebrew-tap-and-slim-npm-shim.md)).** One set of native builds (darwin-arm64, darwin-x64, linux-arm64, linux-x64), none needing Bun at runtime. Windows remains out of scope until the Windows support epic is resolved.
-  - **Shipped today:**
+  - **Shipped today, and what the public launch ships with:**
     - **npm.** `@carlesandres/house` is a Node shim; `optionalDependencies` pull the matching platform package (`@carlesandres/house-darwin-arm64`, `house-darwin-x64`, `house-linux-arm64`, `house-linux-x64`). The published main package contains only that shim and has no dependencies.
     - **GitHub Release archives.** One `house-*.tar.gz` per target, each with a build provenance attestation, plus a `SHA256SUMS` manifest covering all four ([#229](https://github.com/carlesandres/house/issues/229)).
-  - **Planned:**
-    - **Homebrew tap ([#51](https://github.com/carlesandres/house/issues/51)).** Will become the main documented install: `brew install carlesandres/tap/house` will install the release archive for the user's platform, pinned by checksum, and a job in `publish.yml` will update the formula after `verify-published` passes. homebrew/core waits for the notability bar ([#342](https://github.com/carlesandres/house/issues/342)).
+  - **After launch:**
+    - **Homebrew tap ([#51](https://github.com/carlesandres/house/issues/51)).** Not a launch blocker; it follows the launch and will become the main documented install: `brew install carlesandres/tap/house` will install the release archive for the user's platform, pinned by checksum, and a job in `publish.yml` will update the formula after `verify-published` passes. homebrew/core waits for the notability bar ([#342](https://github.com/carlesandres/house/issues/342)).
 - **Release publish:** merging the version PR makes `release.yml` create the GitHub Release and dispatch `publish.yml`, which builds and smoke-tests each binary on a native runner, publishes the four platform packages and then the main package via Trusted Publisher, attaches the archives, and verifies the published install.
 
 - Semver from v0.1.0 onward; pre-v0.1 may break.
@@ -451,7 +461,7 @@ A benchmark script checks these against a fixture corpus checked into `apps/hous
 
 Things we will learn by building, not by debating.
 
-- Does Effect's Layer model fit a single-process TUI cleanly, or does it feel oversized for the amount of IO we actually do? Revisit before beta.
+- ~~Does Effect's Layer model fit a single-process TUI cleanly, or does it feel oversized for the amount of IO we actually do? Revisit before beta.~~ Answered: it was not adopted. The app uses Effect in a few places and no Layers (§8, §10.3).
 - How much does `opentui`'s React reconciler cost on full re-renders of long documents? May need windowing/virtualization for large files; will be measured against §10.1 targets.
 - What's the right boundary between "render plain markdown" (v1) and "follow a link to another file" (post-v1)? Done well, the renderer already produces navigable link nodes; done poorly, we re-architect.
 - Bun's standalone binary size — acceptable, or do we need a slim build path?
@@ -467,9 +477,10 @@ Inline `// TODO(revisit: <topic>)` markers in the code point here from the relev
   - Trigger to revisit: a third interactive overlay/modal lands (search, filter, command palette), OR a real need for chord/count input emerges.
   - **Trigger status:** the third-overlay threshold has started to fire. Browser now owns a small single-`floatingOverlay` state machine (§7.6) so floating surfaces do not stack accidentally, but scoped keymap composition remains deferred until keyboard routing itself becomes hard to follow.
 
-- **Theme as a typed token interface — landed.** Implemented in `apps/house/src/theme/`: `ColorPalette` interface (~12 semantic tokens), a `themeDefinitions` registry, and a mutable singleton `colors` consumers read directly. Modeled on ghui but at our smaller scale.
-  - **Outstanding ghui machinery (still deferred):** large named-theme set (ghui ships 27), `ThemeConfig` distinguishing fixed-vs-system mode, OS appearance auto-detect, persistent config file, runtime theme switcher.
-  - Trigger to revisit (system mode + auto-detect): a user explicitly asks for it, OR when the persistent config file lands. Trigger to revisit (runtime theme switcher / theme version state for re-render): when a "press `t` to cycle themes" UX is on the table.
+- **Theme as a typed token interface — landed.** Implemented in `apps/house/src/theme/`: `ColorPalette` interface (the semantic tokens in §7.5), a `themeDefinitions` registry, and a mutable singleton `colors` consumers read directly. Modeled on ghui but at our smaller scale.
+  - **Since landed:** 33 bundled themes with dark and light tones, `theme` / `tone` keys in the config file, and runtime cycling (`t` / `T`, `L`).
+  - **Outstanding ghui machinery (still deferred):** `ThemeConfig` distinguishing fixed-vs-system mode, OS appearance auto-detect.
+  - Trigger to revisit (system mode + auto-detect): a user explicitly asks for it. The other original trigger, the persistent config file, has fired: the global config file shipped.
 
 - **Keymap composition / scoped contexts**
   - What it is: per-view keymaps that compose via `Keymap.scope(predicate)` so modal bindings stack on top of base bindings without giant if/else routing in one handler.
@@ -479,7 +490,7 @@ Inline `// TODO(revisit: <topic>)` markers in the code point here from the relev
 - **User-configurable sidebar width**
   - What it is: a setting (CLI flag and/or config file) that overrides the sidebar width heuristic. Power users with strong layout preferences want this; the heuristic alone won't satisfy everyone.
   - Why deferred: the in-code heuristic `clamp(28, floor(width * 0.25), 60)` is a sensible default and ships with zero ceremony.
-  - Trigger: when the persistent config file lands (deferred in #13 and #63) — wire `sidebarWidth` through it at the same time. A standalone `--sidebar-width` flag is fine sooner if a real user asks.
+  - Trigger status: the global config file has landed but has no `sidebarWidth` key; add one when the set of config options expands (#63). A standalone `--sidebar-width` flag is fine sooner if a real user asks.
 
 - **Sidebar truncation strategy**
   - What it is: how long file paths are shortened when they exceed the sidebar's width. Today: leading ellipsis, keeping the filename visible (`…l/job_search/cv.md`). Plausible alternatives: middle-truncation (`Personal/…/cv.md`), filename-first with dimmed parent dir, or a two-line entry that shows both.
