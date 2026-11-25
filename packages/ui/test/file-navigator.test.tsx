@@ -10,6 +10,7 @@ import type {
 	FileNavigatorSnapshot,
 	ParcelEvent,
 } from "../src/file-navigator/index.ts"
+import { holdReaddir } from "./helpers/readdir-gate.ts"
 
 beforeAll(() => {
 	// @ts-expect-error React's act environment flag is intentionally global.
@@ -18,6 +19,7 @@ beforeAll(() => {
 
 let setup: Awaited<ReturnType<typeof testRender>> | null = null
 let root: string | null = null
+let releaseReaddir: (() => void) | null = null
 const WATCHER_FACTORY_KEY = "__house_file_navigator_watcher_factory__"
 
 class FakeWatcher {
@@ -53,6 +55,8 @@ const installFakeWatcher = (): FakeWatcher => {
 
 afterEach(async () => {
 	delete (globalThis as Record<string, unknown>)[WATCHER_FACTORY_KEY]
+	releaseReaddir?.()
+	releaseReaddir = null
 	if (setup) {
 		await act(async () => setup!.renderer.destroy())
 		setup = null
@@ -112,6 +116,51 @@ describe("public FileNavigator", () => {
 		})
 		expect(selected!.selectedFile?.relativePath).toBe("docs/guide.md")
 		expect(setup!.captureCharFrame()).toContain("guide.md")
+	})
+
+	test("reports scanning until a slow first static scan finishes", async () => {
+		const directory = await createRoot()
+		const handle = createRef<FileNavigatorHandle>()
+		const held = holdReaddir(directory)
+		releaseReaddir = held.release
+		await act(async () => {
+			setup = await testRender(
+				<FileNavigator
+					ref={handle}
+					root={directory}
+					query=""
+					watch={false}
+					width={32}
+					height={8}
+					active
+					visible
+				/>,
+				{ width: 32, height: 8 },
+			)
+		})
+		await held.entered
+		// The scan cannot finish while readdir is held, so every pending effect and promise
+		// callback gets a chance to (wrongly) clear the scanning state before the assertions.
+		await act(async () => {
+			await new Promise<void>((resolve) => setTimeout(resolve, 50))
+			await setup!.renderOnce()
+		})
+		expect(handle.current!.getSnapshot().scanning).toBe(true)
+		expect(handle.current!.getSnapshot().files).toEqual([])
+		const during = setup!.captureCharFrame()
+		expect(during).toContain("Scanning…")
+		expect(during).not.toContain("No files found.")
+
+		held.release()
+		await waitFor(() => !handle.current!.getSnapshot().scanning, "first static scan to finish")
+		await act(async () => setup!.renderOnce())
+		expect(handle.current!.getSnapshot().files.map((file) => file.relativePath)).toEqual([
+			"README.md",
+			"docs/guide.md",
+		])
+		const after = setup!.captureCharFrame()
+		expect(after).toContain("README.md")
+		expect(after).not.toContain("Scanning…")
 	})
 
 	test("applies initial and empty queries immediately and flushes a pending query", async () => {

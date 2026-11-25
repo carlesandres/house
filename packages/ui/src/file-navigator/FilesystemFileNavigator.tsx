@@ -179,6 +179,10 @@ const Component = (props: FileNavigatorProps, ref: Ref<FileNavigatorHandle>) => 
 	})
 	const [, render] = useReducer((value: number) => value + 1, 0)
 	const scanningRef = useRef(true)
+	// Engine calls (start, policy, watch, refresh) still in flight. Several can overlap: on mount
+	// the policy and watch effects run while `start()` is scanning and return at once, so one
+	// call settling must not report the scan as finished while another is still running.
+	const pendingRef = useRef(0)
 	const errorRef = useRef<Error | null>(null)
 	const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 	const redrawRef = useRef<() => void>(() => {})
@@ -202,6 +206,15 @@ const Component = (props: FileNavigatorProps, ref: Ref<FileNavigatorHandle>) => 
 	const getSnapshot = (): FileNavigatorSnapshot => getSnapshotForRoot(activeRootRef.current)
 	const redraw = (): void => render()
 	redrawRef.current = redraw
+	const beginWork = (): void => {
+		pendingRef.current++
+		scanningRef.current = true
+	}
+	const settleWork = (): void => {
+		pendingRef.current = Math.max(0, pendingRef.current - 1)
+		if (pendingRef.current === 0) scanningRef.current = false
+		redraw()
+	}
 	const currentEngineForRoot = (snapshotRoot: string): FileNavigatorCore | null => {
 		const engine = engineRef.current
 		const config = configRef.current
@@ -234,16 +247,17 @@ const Component = (props: FileNavigatorProps, ref: Ref<FileNavigatorHandle>) => 
 	const refresh = async (): Promise<void> => {
 		const engine = currentEngine()
 		if (!engine) return
-		scanningRef.current = true
+		beginWork()
 		errorRef.current = null
 		redraw()
 		try {
 			await engine.refresh()
 		} catch (error) {
-			errorRef.current = error instanceof Error ? error : new Error(String(error))
+			if (engineRef.current === engine)
+				errorRef.current = error instanceof Error ? error : new Error(String(error))
 		} finally {
-			scanningRef.current = false
-			redraw()
+			// A root change replaces the engine and resets the count; this call no longer counts.
+			if (engineRef.current === engine) settleWork()
 		}
 	}
 	useImperativeHandle(
@@ -264,7 +278,9 @@ const Component = (props: FileNavigatorProps, ref: Ref<FileNavigatorHandle>) => 
 	useEffect(() => {
 		const token = ++generationRef.current
 		let cancelled = false
-		scanningRef.current = true
+		// Calls made on the previous root's engine are dropped when they settle, so start over.
+		pendingRef.current = 0
+		beginWork()
 		errorRef.current = null
 		const selected = initialSelectedPath
 		const start = async (): Promise<void> => {
@@ -320,13 +336,11 @@ const Component = (props: FileNavigatorProps, ref: Ref<FileNavigatorHandle>) => 
 				if (queryRef.current) engine.setQuery(queryRef.current)
 				await engine.start()
 				if (cancelled || token !== generationRef.current) return
-				scanningRef.current = false
-				redraw()
+				settleWork()
 			} catch (error) {
 				if (cancelled || token !== generationRef.current) return
-				scanningRef.current = false
 				errorRef.current = error instanceof Error ? error : new Error(String(error))
-				redraw()
+				settleWork()
 			}
 		}
 		void start()
@@ -345,7 +359,7 @@ const Component = (props: FileNavigatorProps, ref: Ref<FileNavigatorHandle>) => 
 	useEffect(() => {
 		const engine = engineRef.current
 		if (!engine) return
-		scanningRef.current = true
+		beginWork()
 		redraw()
 		void engine
 			.updatePolicy({ ...policy, recursive: policy.recursive ?? true })
@@ -360,15 +374,14 @@ const Component = (props: FileNavigatorProps, ref: Ref<FileNavigatorHandle>) => 
 					policyRevision: policy.revision,
 					recursive: policy.recursive ?? true,
 				}
-				scanningRef.current = false
-				redraw()
+				settleWork()
 			})
 	}, [policy.revision, policy.recursive])
 
 	useEffect(() => {
 		const engine = engineRef.current
 		if (!engine) return
-		scanningRef.current = true
+		beginWork()
 		redraw()
 		void engine
 			.setWatch(watch, consistencyIntervalMs)
@@ -383,8 +396,7 @@ const Component = (props: FileNavigatorProps, ref: Ref<FileNavigatorHandle>) => 
 					watch,
 					consistencyIntervalMs,
 				}
-				scanningRef.current = false
-				redraw()
+				settleWork()
 			})
 	}, [watch, consistencyIntervalMs])
 
