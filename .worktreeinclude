@@ -1,0 +1,5 @@
+# Git-ignored local files that `wt step copy-ignored` copies into a new worktree (see .config/wt.toml).
+# Everything else that is ignored (node_modules, build output, caches, agent notes) stays behind.
+.env
+.env.*
+.claude/settings.local.json

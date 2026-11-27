@@ -1,0 +1,9 @@
+# Worktrunk hooks: run by `wt switch --create` so a new worktree is ready to use.
+
+# Copy only the git-ignored local files listed in .worktreeinclude; without that file, copy nothing.
+[[pre-start]]
+copy_ignored = "wt step copy-ignored --require-include"
+
+# Install from the lockfile, failing instead of updating it.
+[[pre-start]]
+install = "pnpm install --frozen-lockfile"

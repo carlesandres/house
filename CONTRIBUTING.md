@@ -64,6 +64,8 @@ CI runs both File Navigator smokes on every PR on all four release targets (darw
 
 Versioned Git hooks live in `.githooks/`. `pnpm install` activates them (the `prepare` script in `package.json` sets `core.hooksPath`). The pre-commit hook runs `format:check` and `lint` so the cheap CI gates don't bite you on PR review. The pre-push hook fetches `origin/main` and blocks stale branch pushes; it is only a safeguard and does not merge, rebase, or run tests. If a hook blocks, prefer fixing the underlying issue over bypassing it.
 
+If you use [worktrunk](https://worktrunk.dev), `wt switch --create <branch>` sets up the new worktree through the hooks in `.config/wt.toml`: it copies the git-ignored local files listed in `.worktreeinclude` (such as `.env`) from the main worktree, then runs `pnpm install --frozen-lockfile`.
+
 ## Project layout
 
 See `DESIGN.md` §9.1 for the module map. The root is a private pnpm workspace and Turborepo
